@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------- tokens de design */
+:root {
+  --bg: #E6E9EE;
+  --app: #F5F6F8;
+  --surface: #FFFFFF;
+  --surface-2: #ECEFF3;
+  --line: #D3D9E1;
+  --text: #141A21;
+  --muted: #66717F;
+  --accent: #E39A00;
+  --accent-ink: #1A1300;
+  --good: #1E9E63;
+  --warn: #D97706;
+  --crit: #D93A3A;
+
+  /* conducteurs */
+  --l1: #8B4A2B;
+  --l2: #2B2F36;
+  --l3: #8E979F;
+  --wn: #2C7BE5;
+  --pe: #37B34A;
+  --ctl: #E4312B;
+  --wire-shadow: rgba(0, 0, 0, .28);
+
+  /* platine */
+  --panel: #FFFFFF;
+  --shadow: 0 24px 60px rgba(20, 26, 33, .18);
+
+  --background: var(--app);
+  --foreground: var(--text);
+
+  /* alias : `--font-title` / `--font-sans` / `--font-mono` sont posés par next/font dans le layout */
+  --se-title: var(--font-title, "Barlow Condensed"), "Arial Narrow", system-ui, sans-serif;
+  --se-body: var(--font-sans, "IBM Plex Sans"), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --se-mono: var(--font-mono, "IBM Plex Mono"), ui-monospace, Menlo, monospace;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1015;
+    --app: #141A21;
+    --surface: #1B232C;
+    --surface-2: #222C37;
+    --line: #2E3946;
+    --text: #E8EDF2;
+    --muted: #8A96A6;
+    --accent: #FFB400;
+    --good: #3DD68C;
+    --warn: #F5A524;
+    --crit: #FF5C5C;
+    --panel: #F2F4F6;
+    --shadow: 0 24px 60px rgba(0, 0, 0, .55);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0C1015;
+  --app: #141A21;
+  --surface: #1B232C;
+  --surface-2: #222C37;
+  --line: #2E3946;
+  --text: #E8EDF2;
+  --muted: #8A96A6;
+  --accent: #FFB400;
+  --good: #3DD68C;
+  --warn: #F5A524;
+  --crit: #FF5C5C;
+  --panel: #F2F4F6;
+  --shadow: 0 24px 60px rgba(0, 0, 0, .55);
+  color-scheme: dark;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+
+body {
+  color: var(--text);
+  background: var(--app);
+  font-family: var(--se-body);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { font-family: var(--se-title); line-height: 1.05; }
+
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .font-title { font-family: var(--se-title); }
+  .font-mono-num { font-family: var(--se-mono); font-variant-numeric: tabular-nums; }
+}
+
+/* ---------------------------------------------------------------- platine */
+.se-rail {
+  background: linear-gradient(#B8BFC7, #8F979F 40%, #A5ADB5 60%, #767E86);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+.se-rail::before {
+  content: "";
+  position: absolute;
+  inset: 8px 0;
+  background: repeating-linear-gradient(90deg, transparent 0 18px, rgba(0, 0, 0, .35) 18px 24px);
+  border-radius: 2px;
+}
+.se-dev-img { filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .35)); }
+.se-wire { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3.4; filter: drop-shadow(0 1.5px 1.5px var(--wire-shadow)); }
+.se-wire.dead { opacity: .25; }
+.se-wire.pe { stroke-dasharray: 10 5; }
+.se-blink { animation: se-blink 1s steps(2) infinite; }
+@keyframes se-blink { 50% { opacity: .3 } }
+@keyframes se-spin { to { transform: rotate(360deg) } }
