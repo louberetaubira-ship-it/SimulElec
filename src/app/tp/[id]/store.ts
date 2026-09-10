@@ -11,9 +11,11 @@ import {
   checkExpected, instrumentDef, read, type ClampWire, type ReadOut,
 } from '@/lib/sim/mesures';
 import {
-  buildReport, computeScore, initialState, netOfTerminal, nextLiaison, normalizeState,
-  requiredLiaisons, stageSatisfied, STAGE_COUNT, STAGES,
+  buildEvaluation, buildReport, computeScore, coursForStage, initialState, netOfTerminal,
+  nextLiaison, normalizeState, requiredLiaisons, stageSatisfied, STAGE_COUNT, STAGES,
 } from '@/lib/sim/progress';
+import type { CoursId } from '@/lib/data/cours';
+import { fallbackStudent, type Student } from '@/lib/student';
 import {
   addMeasurement, finishAttempt, getOrCreateAttempt, measurementOf, saveAttemptState,
 } from '@/lib/db/attempts';
@@ -34,10 +36,15 @@ export interface MesState {
 
 const initialMes = (): MesState => ({ inst: null, dial: 0, probes: { r: null, k: null }, clamp: null, pick: null, log: [] });
 
+/** Raison d'une ouverture automatique de l'aide. */
+export type AideReason = 'cablage' | 'materiel' | 'mesure' | 'diagnostic' | null;
+
 interface ParcoursState {
   tp: TpDefinition;
   attemptId: string | null;
   offline: boolean;
+  /** Identité de l'élève (nom, diplôme préparé) : en-tête du parcours et rapports. */
+  student: Student;
   st: AttemptState;
   sim: SimState;
   mes: MesState;
@@ -48,7 +55,24 @@ interface ParcoursState {
   turns: BotTurn[];
   saving: boolean;
 
+  /** Aide « rappel de cours » : panneau ouvert, fiche affichée, ouvertures automatiques. */
+  aideOpen: boolean;
+  aideReason: AideReason;
+  aideFiche: CoursId | null;
+  aideAuto: Record<number, boolean>;
+  badChoices: number;
+  /** Professeur virtuel : panneau mobile ouvert, question envoyée depuis l'aide. */
+  botOpen: boolean;
+  pendingQuestion: string | null;
+
   init: (tp: TpDefinition) => Promise<void>;
+  setStudent: (s: Student) => void;
+  openAide: (reason?: AideReason) => void;
+  closeAide: () => void;
+  setAideFiche: (id: CoursId | null) => void;
+  setBotOpen: (v: boolean) => void;
+  askProf: (question: string) => void;
+  consumeQuestion: () => void;
   say: (m: string) => void;
   goStage: (i: number) => void;
   complete: (i: number) => void;
@@ -234,10 +258,36 @@ export const useParcours = create<ParcoursState>((set, get) => {
     }
   };
 
+  /** Ouvre l'aide (manuellement ou automatiquement) et compte l'ouverture sur l'étape. */
+  const openAide = (reason: AideReason = null) => {
+    const { st, tp, aideOpen } = get();
+    if (aideOpen) return;
+    const fiche = coursForStage(tp?.id ?? '', st.stage)[0] ?? null;
+    set({ aideOpen: true, aideReason: reason, aideFiche: get().aideFiche ?? fiche });
+    patch(s2 => ({ ...s2, helpUsed: { ...s2.helpUsed, [s2.stage]: (s2.helpUsed[s2.stage] ?? 0) + 1 } }));
+  };
+
+  /** Ouverture automatique, une seule fois par étape, quand l'élève accumule les erreurs. */
+  const autoAide = (reason: Exclude<AideReason, null>) => {
+    const { st, aideAuto, aideOpen } = get();
+    if (aideAuto[st.stage] || aideOpen) return;
+    set({ aideAuto: { ...aideAuto, [st.stage]: true } });
+    openAide(reason);
+    say('Un rappel de cours peut t\'aider : regarde la fiche, puis reprends.');
+  };
+
   return {
     tp: null as unknown as TpDefinition,
     attemptId: null,
     offline: false,
+    student: fallbackStudent(),
+    aideOpen: false,
+    aideReason: null,
+    aideFiche: null,
+    aideAuto: {},
+    badChoices: 0,
+    botOpen: false,
+    pendingQuestion: null,
     st: initialState(),
     sim: initialSim(),
     mes: initialMes(),
@@ -265,6 +315,20 @@ export const useParcours = create<ParcoursState>((set, get) => {
       }
     },
 
+    setStudent(student) { set({ student }); },
+
+    openAide(reason = null) { openAide(reason); },
+
+    closeAide() { set({ aideOpen: false, aideReason: null }); },
+
+    setAideFiche(id) { set({ aideFiche: id }); },
+
+    setBotOpen(v) { set({ botOpen: v }); },
+
+    askProf(question) { set({ pendingQuestion: question, botOpen: true, aideOpen: false }); },
+
+    consumeQuestion() { set({ pendingQuestion: null }); },
+
     say,
 
     goStage(i) {
@@ -272,7 +336,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       if (i < 0 || i >= STAGE_COUNT) return;
       if (i > st.stage && !st.done[i - 1]) { say('Termine d\'abord l\'étape précédente.'); return; }
       if (!tp.playable && i > 3) { say('Ce TP est en cours de finalisation : le parcours s\'arrête à la pose.'); return; }
-      set({ selTerminal: null, selSlot: null, selDevice: null });
+      set({ selTerminal: null, selSlot: null, selDevice: null, aideOpen: false, aideFiche: null });
       patch(s => ({ ...s, stage: i }));
     },
 
@@ -283,7 +347,14 @@ export const useParcours = create<ParcoursState>((set, get) => {
     },
 
     choose(posteId, index) {
+      const { tp } = get();
       patch(s => ({ ...s, choices: { ...s.choices, [posteId]: index } }));
+      const ok = tp.postes.find(p => p.id === posteId)?.options[index]?.ok === true;
+      if (!ok) {
+        const n = get().badChoices + 1;
+        set({ badChoices: n });
+        if (n >= 2) autoAide('materiel');
+      }
     },
 
     selectSlot(slotId) {
@@ -333,6 +404,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
         say(`Liaison ${expected.a} → ${expected.b} réalisée.`);
       } else {
         patch(s => ({ ...s, wireErrors: s.wireErrors + 1 }));
+        if (get().st.wireErrors >= 3) autoAide('cablage');
         const na = netOfTerminal(tp, selTerminal);
         const nb = netOfTerminal(tp, id);
         const court = na && nb && na !== nb && na !== 'C' && nb !== 'C' && na !== 'PE' && nb !== 'PE';
@@ -443,6 +515,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       };
       patch(s => ({ ...s, readings: [...s.readings, entry] }));
       mlog(`Relevé : ${dial} = ${entry.display}`);
+      if (out.bad || ((st.stage === 7 || st.stage === 9) && !entry.expectedId)) autoAide('mesure');
       if (attemptId && !offline) {
         void addMeasurement(attemptId, measurementOf(entry)).catch(() => set({ offline: true }));
       }
@@ -508,6 +581,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const exact = faultId === st.fault;
       patch(s => ({ ...s, diagnosis: faultId, diagTries: s.diagTries + 1 }));
       say(exact ? 'Diagnostic exact.' : 'Ce n\'est pas ça : vérifie avec les instruments.');
+      if (!exact) autoAide('diagnostic');
     },
 
     setQuiz(good) {
@@ -523,12 +597,19 @@ export const useParcours = create<ParcoursState>((set, get) => {
     },
 
     async finish() {
-      const { tp, st, attemptId, offline } = get();
+      const { tp, st, attemptId, offline, student } = get();
       if (!stageSatisfied(tp, st, get().sim, 10)) return;
       get().complete(10);
       if (!attemptId || offline) return;
+      const done = get().st;
       try {
-        await finishAttempt(attemptId, buildReport(tp, st), computeScore(tp, st));
+        await finishAttempt(
+          attemptId,
+          buildReport(tp, done, student),
+          computeScore(tp, done),
+          buildEvaluation(tp, done, student.diploma),
+          student.diploma,
+        );
       } catch {
         set({ offline: true });
       }

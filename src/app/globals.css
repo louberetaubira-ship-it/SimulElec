@@ -120,3 +120,24 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .se-blink { animation: se-blink 1s steps(2) infinite; }
 @keyframes se-blink { 50% { opacity: .3 } }
 @keyframes se-spin { to { transform: rotate(360deg) } }
+
+/* ------------------------------------------------- impression de l'évaluation */
+@media print {
+  @page { margin: 12mm; }
+  body { background: #fff; }
+  header:not(.print-sheet header),
+  nav,
+  aside,
+  .no-print { display: none !important; }
+  main { display: block !important; padding: 0 !important; overflow: visible !important; }
+  [data-parcours] { display: block !important; }
+  .print-sheet {
+    border: 0 !important;
+    max-width: none !important;
+    padding: 0 !important;
+    break-inside: auto;
+  }
+  .print-sheet details { break-inside: avoid; border-color: #C9CFD6 !important; }
+  .print-sheet details > div { display: block !important; content-visibility: visible !important; }
+  .print-sheet summary { list-style: none; }
+}

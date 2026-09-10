@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile, joinClass, updateProfile } from '@/lib/db/profiles';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
+import { DIPLOMAS, type DiplomaId } from '@/lib/data/competences';
+import { writeLocalStudent } from '@/lib/student';
 
 const ROLE_LABEL: Record<ProfileRow['role'], string> = {
   eleve: 'Élève',
@@ -16,6 +18,7 @@ export default function ComptePage() {
   const [klass, setKlass] = useState<ClassRow | null>(null);
   const [fullName, setFullName] = useState('');
   const [etab, setEtab] = useState('');
+  const [diploma, setDiploma] = useState<DiplomaId | null>(null);
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -27,6 +30,7 @@ export default function ComptePage() {
       setProfile(p);
       setFullName(p?.full_name ?? '');
       setEtab(p?.etablissement ?? '');
+      setDiploma(p?.diploma ?? null);
       if (p?.class_id) {
         const { data } = await createClient()
           .from('classes')
@@ -52,8 +56,16 @@ export default function ComptePage() {
     setErr(null);
     setMsg(null);
     try {
-      const p = await updateProfile({ full_name: fullName.trim() || null, etablissement: etab.trim() || null });
+      const p = await updateProfile({
+        full_name: fullName.trim() || null,
+        etablissement: etab.trim() || null,
+        diploma,
+        onboarded: !!diploma && fullName.trim().length >= 2,
+      });
       setProfile(p);
+      if (p.diploma && p.full_name) {
+        writeLocalStudent({ name: p.full_name, diploma: p.diploma, etablissement: p.etablissement ?? '' });
+      }
       setMsg('Profil enregistré.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erreur');
@@ -115,9 +127,35 @@ export default function ComptePage() {
             />
           </label>
         </div>
+        <fieldset className="mt-5 border-0 p-0">
+          <legend className="text-sm text-[#66717F]">Diplôme préparé</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {DIPLOMAS.map((d) => {
+              const active = diploma === d.id;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  data-diploma={d.id}
+                  aria-pressed={active}
+                  onClick={() => setDiploma(d.id)}
+                  className={`min-h-[52px] rounded-xl border px-3 py-2 text-left text-sm transition ${
+                    active ? 'border-[#E39A00] bg-[#FEF3E2]' : 'border-[#D3D9E1] bg-white hover:bg-[#F5F6F8]'
+                  }`}
+                >
+                  <b>{d.short}</b>
+                  {active && <span className="ml-2 text-[#1E9E63]">✓</span>}
+                  <span className="block text-xs text-[#66717F]">Niveau {d.level}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
         <button
           onClick={onSave}
-          className="mt-4 min-h-[44px] rounded-lg bg-[#141A21] px-5 text-sm font-semibold text-white"
+          disabled={!diploma || fullName.trim().length < 2}
+          className="mt-4 min-h-[44px] rounded-lg bg-[#141A21] px-5 text-sm font-semibold text-white disabled:opacity-50"
         >
           Enregistrer
         </button>

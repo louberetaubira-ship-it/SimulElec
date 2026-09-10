@@ -6,7 +6,7 @@ import { FAMILY_LABEL, tpSprites } from '@/components/parcours/tpSprites';
 
 export const metadata: Metadata = {
   title: 'Catalogue des TP · SimulElec',
-  description: 'Treize travaux pratiques d\'électrotechnique simulés : du cahier des charges à la mise en service.',
+  description: 'Quatorze travaux pratiques d\'électrotechnique simulés : du cahier des charges à la mise en service.',
 };
 
 const SCENE_LABEL: Record<string, string> = {
@@ -60,6 +60,11 @@ export default function CataloguePage() {
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${tp.playable ? 'bg-good/20 text-good' : 'bg-[var(--surface-2)] text-muted'}`}>
                       {tp.playable ? 'jouable' : 'prévu'}
                     </span>
+                    {tp.kind === 'dimensionnement' && (
+                      <span data-kind="dimensionnement" className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                        dimensionnement
+                      </span>
+                    )}
                   </div>
                   <p className="m-0 text-[13px] text-muted">{tp.summary}</p>
                   <div className="flex flex-wrap gap-1.5">

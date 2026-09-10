@@ -15,6 +15,7 @@ import {
 } from '@/lib/db/classes';
 import { listTps, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
+import { DIPLOMAS, type CompetenceEval, type DiplomaId, type Mastery } from '@/lib/data/competences';
 
 const STAGES = 8;
 
@@ -28,6 +29,38 @@ const STATUS_LABEL: Record<string, string> = {
   termine: 'Terminé',
   abandonne: 'Abandonné',
 };
+
+const MASTERY_STYLE: Record<Mastery, string> = {
+  acquis: 'bg-[#E7F6EE] text-[#1E9E63] border-[#1E9E63]',
+  enCours: 'bg-[#FEF3E2] text-[#D97706] border-[#E39A00]',
+  nonAcquis: 'bg-[#FBE9E9] text-[#D93A3A] border-[#D93A3A]',
+  nonEvalue: 'bg-[#F5F6F8] text-[#66717F] border-[#D3D9E1]',
+};
+const MASTERY_LABEL: Record<Mastery, string> = {
+  acquis: 'acquis',
+  enCours: 'en cours',
+  nonAcquis: 'non acquis',
+  nonEvalue: 'non évalué',
+};
+const DIPLOMA_SHORT: Record<string, string> = Object.fromEntries(DIPLOMAS.map((d) => [d.id, d.short]));
+
+/** Grille compacte : un pastille par compétence, code + niveau. */
+function GrilleCompetences({ evaluation }: { evaluation: CompetenceEval[] }) {
+  return (
+    <ul className="flex flex-wrap gap-1">
+      {evaluation.map((c) => (
+        <li
+          key={c.code}
+          title={`${c.label} — ${MASTERY_LABEL[c.mastery]} (${Math.round(c.score * 100)} %)`}
+          className={`rounded-md border px-1.5 py-0.5 font-[var(--font-mono)] text-[11px] font-semibold ${MASTERY_STYLE[c.mastery]}`}
+        >
+          {c.code}
+          <span className="ml-1 font-normal opacity-80">{Math.round(c.score * 100)}%</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function when(iso: string): string {
   const d = new Date(iso);
@@ -51,6 +84,12 @@ export default function ProfPage() {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [diplomaFilter, setDiplomaFilter] = useState<DiplomaId | 'tous'>('tous');
+
+  const shownAttempts = useMemo(
+    () => (diplomaFilter === 'tous' ? attempts : attempts.filter((a) => a.diploma === diplomaFilter)),
+    [attempts, diplomaFilter],
+  );
 
   const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
 
@@ -239,11 +278,27 @@ export default function ProfPage() {
             )}
           </section>
 
+          <section className="flex flex-wrap items-center gap-2 rounded-xl border border-[#D3D9E1] bg-white p-3">
+            <span className="text-sm text-[#66717F]">Filtrer par diplôme :</span>
+            {(['tous', ...DIPLOMAS.map((d) => d.id)] as (DiplomaId | 'tous')[]).map((id) => (
+              <button
+                key={id}
+                onClick={() => setDiplomaFilter(id)}
+                className={`min-h-[40px] rounded-lg border px-3 text-sm ${
+                  diplomaFilter === id ? 'border-[#141A21] bg-[#141A21] text-white' : 'border-[#D3D9E1] bg-white'
+                }`}
+              >
+                {id === 'tous' ? 'Tous' : DIPLOMA_SHORT[id]}
+              </button>
+            ))}
+          </section>
+
           <section className="overflow-x-auto rounded-xl border border-[#D3D9E1] bg-white">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-[#F5F6F8] text-left text-xs uppercase tracking-wide text-[#66717F]">
                 <tr>
                   <th className="px-4 py-3">Élève</th>
+                  <th className="px-4 py-3">Diplôme</th>
                   <th className="px-4 py-3">TP</th>
                   <th className="px-4 py-3">Étape</th>
                   <th className="px-4 py-3">Score</th>
@@ -253,9 +308,19 @@ export default function ProfPage() {
                 </tr>
               </thead>
               <tbody>
-                {attempts.map((a) => (
-                  <tr key={a.id} className="border-t border-[#D3D9E1]">
-                    <td className="px-4 py-3">{a.student?.full_name ?? a.student?.email ?? '—'}</td>
+                {shownAttempts.map((a) => (
+                  <tr key={a.id} className="border-t border-[#D3D9E1] align-top">
+                    <td className="px-4 py-3">
+                      {a.student?.full_name ?? a.student?.email ?? '—'}
+                      {a.status === 'termine' && a.evaluation && a.evaluation.length > 0 && (
+                        <div className="mt-1.5 max-w-[280px]">
+                          <GrilleCompetences evaluation={a.evaluation} />
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[#66717F]">
+                      {a.diploma ? DIPLOMA_SHORT[a.diploma] ?? a.diploma : '—'}
+                    </td>
                     <td className="px-4 py-3 text-[#66717F]">{a.tp_id}</td>
                     <td className="px-4 py-3 font-[var(--font-mono)]">
                       {a.stage}/{STAGES}
@@ -277,10 +342,12 @@ export default function ProfPage() {
                     </td>
                   </tr>
                 ))}
-                {attempts.length === 0 && (
+                {shownAttempts.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-[#66717F]">
-                      Aucune tentative pour cette classe.
+                    <td colSpan={8} className="px-4 py-6 text-center text-[#66717F]">
+                      {attempts.length === 0
+                        ? 'Aucune tentative pour cette classe.'
+                        : 'Aucune tentative pour ce diplôme.'}
                     </td>
                   </tr>
                 )}

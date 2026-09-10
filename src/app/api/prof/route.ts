@@ -15,7 +15,18 @@ interface Body {
   stage: number;
   context: string;
   turns: Turn[];
+  /** Identité de l'élève : nom et diplôme préparé (adaptation du niveau). */
+  student?: { name?: string; diploma?: string } | null;
+  /** Fiche de rappel que l'élève vient de consulter, mise à plat. */
+  cours?: string | null;
 }
+
+const DIPLOMA_LABEL: Record<string, string> = {
+  cap: 'CAP Électricien',
+  bacpro: 'Bac Pro MELEC',
+  bts: 'BTS Électrotechnique',
+  cster: 'CS Technicien en énergies renouvelables',
+};
 
 const SYSTEM = `Tu es le professeur d'électrotechnique d'un lycée professionnel, en atelier, à côté d'un élève de Bac Pro MELEC qui réalise un TP de câblage sur un simulateur.
 
@@ -40,7 +51,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'bad_json' }, { status: 400 });
   }
 
-  const { attemptId, stage, context, turns } = body;
+  const { attemptId, stage, context, turns, student, cours } = body;
   if (!attemptId || typeof stage !== 'number' || !Array.isArray(turns) || turns.length === 0) {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 });
   }
@@ -64,13 +75,24 @@ export async function POST(request: NextRequest) {
 
   const lastUser = [...turns].reverse().find((t) => t.role === 'user');
 
+  const eleve = student?.name
+    ? `\n\n--- Élève ---\nPrénom / nom : ${student.name}. Diplôme préparé : ${DIPLOMA_LABEL[student.diploma ?? ''] ?? 'Bac Pro MELEC'}.` +
+      "\nAppelle-le par son prénom de temps en temps et cale ton niveau d'exigence sur ce diplôme."
+    : '';
+
+  const fiche = cours
+    ? `\n\n--- Fiche de rappel ouverte par l'élève ---\n${cours}\n` +
+      "CONSIGNE : appuie-toi sur cette fiche. Rappelle la RÈGLE DE CALCUL ou la règle de sécurité, fais-la appliquer par l'élève, " +
+      'et ne donne JAMAIS la valeur numérique finale ni la borne exacte : c\'est à lui de conclure.'
+    : '';
+
   let text: string;
   try {
     const anthropic = new Anthropic({ apiKey });
     const response = await anthropic.messages.create({
       model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5',
       max_tokens: 400,
-      system: `${SYSTEM}\n\n--- Contexte de l'élève (étape ${stage}) ---\n${context ?? ''}`,
+      system: `${SYSTEM}${eleve}\n\n--- Contexte de l'élève (étape ${stage}) ---\n${context ?? ''}${fiche}`,
       messages: turns.map((t) => ({ role: t.role, content: t.content })),
     });
     text = response.content

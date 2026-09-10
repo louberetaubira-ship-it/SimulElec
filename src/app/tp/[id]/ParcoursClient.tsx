@@ -18,15 +18,24 @@ import Deconsignation from '@/components/parcours/Deconsignation';
 import MesuresSousTension from '@/components/parcours/MesuresSousTension';
 import Validation from '@/components/parcours/Validation';
 import ProfBot from '@/components/parcours/ProfBot';
+import AideCours from '@/components/parcours/AideCours';
+import { useStudent } from '@/lib/useStudent';
+import { diplomaShort } from '@/lib/student';
 import { useParcours, panelWires } from './store';
 
 export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
   const router = useRouter();
   const s = useParcours();
   const { init, st, sim, complete, goStage } = s;
-  const [botOpen, setBotOpen] = React.useState(false);
+  const botOpen = s.botOpen;
+  const setBotOpen = s.setBotOpen;
+  const setStudent = s.setStudent;
+  const { student, known } = useStudent(`/tp/${tp.id}`);
 
   React.useEffect(() => { void init(tp); }, [init, tp]);
+
+  // identité de l'élève : en-tête, contexte du professeur virtuel et rapports
+  React.useEffect(() => { if (known) setStudent(student); }, [known, setStudent, student]);
 
   // boucle de simulation : à partir de la déconsignation
   React.useEffect(() => {
@@ -102,8 +111,14 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
   return (
     <div className="flex min-h-screen flex-col bg-[var(--app)]">
       <header className="flex flex-wrap items-center gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-2.5">
-        <div className="text-[12.5px] text-muted">
+        <div className="min-w-0 text-[12.5px] text-muted">
           TP · <b className="font-medium text-ink">{tp.title}</b>
+          <span className="ml-2 hidden sm:inline">
+            · <b className="font-medium text-ink">{s.student.name}</b>
+            <span className="ml-1 rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10.5px] font-semibold">
+              {diplomaShort(s.student.diploma)}
+            </span>
+          </span>
         </div>
         <div className="ml-auto flex items-center gap-2.5 text-[12.5px]">
           <span className="hidden sm:inline">Progression</span>
@@ -124,19 +139,19 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
 
       <Stepper stage={st.stage} done={st.done} onGo={goStage} maxStage={tp.playable ? STAGE_COUNT - 1 : MAX_STAGE_PREVIEW} />
 
-      <div className="grid flex-1 lg:grid-cols-[340px_minmax(0,1fr)_340px]">
+      <div data-parcours className="grid flex-1 lg:grid-cols-[340px_minmax(0,1fr)_340px]">
         {stage}
-        <div className="hidden lg:flex lg:min-h-0 lg:flex-col">
+        <div className="no-print hidden lg:flex lg:min-h-0 lg:flex-col">
           {ready && (
             <ProfBot tp={tp} st={st} sim={sim} attemptId={s.attemptId} turns={s.turns} onTurn={s.pushTurn} />
           )}
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-30 border-t border-[var(--line)] bg-[var(--surface)] lg:hidden">
+      <div className="no-print sticky bottom-0 z-30 border-t border-[var(--line)] bg-[var(--surface)] lg:hidden">
         <button
           type="button"
-          onClick={() => setBotOpen(o => !o)}
+          onClick={() => setBotOpen(!botOpen)}
           aria-expanded={botOpen}
           className="min-h-touch w-full px-4 py-2.5 text-left text-[13px] font-semibold"
         >
@@ -147,6 +162,7 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
         )}
       </div>
 
+      <AideCours />
       <Toast message={s.toast} />
     </div>
   );
