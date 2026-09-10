@@ -41,3 +41,23 @@ export async function removeTeacher(email: string): Promise<void> {
   const response = await fetch(`/api/admin/profs?email=${encodeURIComponent(email)}`, { method: 'DELETE' });
   await readJson<{ ok: boolean }>(response);
 }
+
+/** Identifiants renvoyés une seule fois après création/réinitialisation d'un accès enseignant. */
+export interface TeacherCredential {
+  email: string;
+  password: string;
+  created: boolean;
+}
+
+/**
+ * Crée l'accès e-mail + mot de passe d'un enseignant autorisé (ou réinitialise son mot de passe).
+ * Le mot de passe n'est renvoyé qu'une fois : il faut le transmettre à la personne.
+ */
+export async function resetTeacherPassword(email: string): Promise<TeacherCredential> {
+  const response = await fetch('/api/admin/profs/motdepasse', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return readJson<TeacherCredential>(response);
+}
