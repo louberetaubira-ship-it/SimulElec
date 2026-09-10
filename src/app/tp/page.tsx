@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { TPS } from '@/lib/data/tps';
 import { spriteUrl } from '@/lib/data/catalogue';
 import { FAMILY_LABEL, tpSprites } from '@/components/parcours/tpSprites';
+import TpsProfesseur from './TpsProfesseur';
 
 export const metadata: Metadata = {
   title: 'Catalogue des TP · SimulElec',
@@ -80,6 +81,8 @@ export default function CataloguePage() {
           </section>
         );
       })}
+
+      <TpsProfesseur />
     </div>
   );
 }

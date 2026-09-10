@@ -163,7 +163,12 @@ function Stage() {
       {/* Atelier libre : pas de table `nets`, donc aucune mesure calculable sur un montage quelconque. */}
       <InstrumentTray value={null} onSelect={() => undefined} disabled />
       <div className="at-stage" ref={host} onClick={onStageClick}>
-        <Workspace storageKey="atelier">
+        <Workspace
+          storageKey="atelier"
+          title="Atelier libre"
+          subtitle={`Platine · ${SCENES.find((x) => x.id === scene)?.label ?? ''}`}
+          indicator={`${slots.length} appareil${slots.length > 1 ? 's' : ''} · ${wires.length} fil${wires.length > 1 ? 's' : ''}`}
+        >
           <Panel
             tp={tp}
             items={items}

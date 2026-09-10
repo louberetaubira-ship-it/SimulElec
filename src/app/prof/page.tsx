@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
@@ -152,7 +153,7 @@ export default function ProfPage() {
     setErr(null);
     setMsg(null);
     try {
-      const c = await createClass(newClass.trim(), newLevel.trim() || undefined);
+      const c = await createClass(newClass.trim(), null, newLevel.trim() || undefined);
       setClasses((prev) => [...prev, c]);
       setCurrentId(c.id);
       setNewClass('');
@@ -191,7 +192,15 @@ export default function ProfPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-5 px-4 py-8">
-      <h1 className="font-[var(--font-title)] text-3xl font-bold uppercase tracking-wide">Tableau de bord</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="font-[var(--font-title)] text-3xl font-bold uppercase tracking-wide">Tableau de bord</h1>
+        <Link
+          href="/prof/classes"
+          className="ml-auto grid min-h-[40px] place-items-center rounded-lg border border-[#D3D9E1] bg-white px-4 text-sm font-semibold"
+        >
+          Mes classes
+        </Link>
+      </div>
 
       <section className="rounded-xl border border-[#D3D9E1] bg-white p-5">
         <h2 className="font-[var(--font-title)] text-xl font-semibold uppercase tracking-wide">Mes classes</h2>
