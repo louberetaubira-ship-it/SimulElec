@@ -104,11 +104,36 @@ function EleveForm({ next }: { next: string }) {
 }
 
 function ProfForm({ next, initialError }: { next: string; initialError: string | null }) {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
 
-  async function signIn() {
+  const destination = next && next !== '/tp' ? next : '/prof';
+
+  async function submitPassword(event: React.FormEvent) {
+    event.preventDefault();
     setBusy(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (err) throw new Error('Adresse ou mot de passe incorrect.');
+      router.replace(destination);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Adresse ou mot de passe incorrect.');
+      setBusy(false);
+    }
+  }
+
+  async function signInGoogle() {
+    setGoogleBusy(true);
     setError(null);
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
@@ -118,25 +143,68 @@ function ProfForm({ next, initialError }: { next: string; initialError: string |
     });
     if (err) {
       setError(err.message);
-      setBusy(false);
+      setGoogleBusy(false);
     }
   }
 
   return (
     <div className="mt-5">
       <p className="text-sm leading-relaxed text-[#66717F]">
-        Utilisez votre compte Google professionnel. Seules les adresses inscrites par
-        l&apos;administrateur peuvent se connecter.
+        Seules les adresses inscrites par l&apos;administrateur peuvent se connecter.
       </p>
+
+      <form onSubmit={submitPassword} className="mt-4">
+        <label className="block text-sm font-medium text-[#141A21]">
+          Adresse e-mail
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="prenom.nom@ac-guyane.fr"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+            className={INPUT}
+          />
+        </label>
+
+        <label className="mt-3 block text-sm font-medium text-[#141A21]">
+          Mot de passe
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="celui remis par l'administrateur"
+            autoComplete="current-password"
+            required
+            className={INPUT}
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="mt-5 min-h-[48px] w-full rounded-xl bg-[#141A21] px-4 text-sm font-semibold text-white transition hover:bg-[#000] disabled:opacity-60"
+        >
+          {busy ? 'Connexion…' : 'Se connecter'}
+        </button>
+      </form>
+
+      <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-wide text-[#98A2AF]">
+        <span className="h-px flex-1 bg-[#D3D9E1]" />
+        ou
+        <span className="h-px flex-1 bg-[#D3D9E1]" />
+      </div>
 
       <button
         type="button"
-        onClick={signIn}
-        disabled={busy}
-        className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-[#D3D9E1] bg-white px-4 text-sm font-medium text-[#141A21] transition hover:bg-[#F5F6F8] disabled:opacity-60"
+        onClick={signInGoogle}
+        disabled={googleBusy}
+        className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-[#D3D9E1] bg-white px-4 text-sm font-medium text-[#141A21] transition hover:bg-[#F5F6F8] disabled:opacity-60"
       >
         <GoogleMark />
-        {busy ? 'Redirection…' : 'Continuer avec Google'}
+        {googleBusy ? 'Redirection…' : 'Continuer avec Google'}
       </button>
 
       {error && (
