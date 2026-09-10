@@ -37,14 +37,21 @@ export default function Nav() {
     };
   }, []);
 
-  const isTeacher = profile?.role === 'professeur' || profile?.role === 'admin';
+  // Liens selon le rôle : élève, professeur, administrateur.
+  const role = profile?.role;
   const links: { href: string; label: string }[] = [];
-  if (profile) {
-    links.push({ href: '/tp', label: 'TP' });
+  if (role === 'eleve') {
+    links.push({ href: '/tp', label: 'Mes TP' });
+    links.push({ href: '/moi', label: 'Ma progression' });
     links.push({ href: '/atelier', label: 'Atelier' });
-    if (isTeacher) links.push({ href: '/prof', label: 'Prof' });
-    links.push({ href: '/compte', label: 'Compte' });
+  } else if (role === 'professeur' || role === 'admin') {
+    links.push({ href: '/tp', label: 'Catalogue' });
+    links.push({ href: '/prof/classes', label: 'Mes classes' });
+    links.push({ href: '/prof', label: 'Suivi' });
+    links.push({ href: '/prof/tp/nouveau', label: 'Créer un TP' });
+    if (role === 'admin') links.push({ href: '/admin', label: 'Établissement' });
   }
+  if (profile) links.push({ href: '/compte', label: 'Compte' });
 
   const initials = (profile?.full_name ?? profile?.email ?? '?')
     .split(/[\s.@]+/)
@@ -63,14 +70,20 @@ export default function Nav() {
           </span>
         </Link>
 
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto">
           {links.map((l) => {
-            const active = pathname === l.href || pathname.startsWith(`${l.href}/`);
+            // Le lien actif est le plus précis : /prof/classes ne surligne pas /prof.
+            const candidats = links
+              .filter((x) => pathname === x.href || pathname.startsWith(`${x.href}/`))
+              .map((x) => x.href.length);
+            const active =
+              (pathname === l.href || pathname.startsWith(`${l.href}/`)) &&
+              l.href.length === Math.max(...candidats);
             return (
               <Link
                 key={l.href}
                 href={l.href}
-                className={`grid min-h-[40px] place-items-center rounded-lg px-3 text-sm font-medium transition ${
+                className={`grid min-h-[40px] flex-none place-items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium transition ${
                   active ? 'bg-[#F5F6F8] text-[#141A21]' : 'text-[#66717F] hover:bg-[#F5F6F8]'
                 }`}
               >

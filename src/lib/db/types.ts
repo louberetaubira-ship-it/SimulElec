@@ -41,9 +41,38 @@ export interface ProfileRow {
   diploma: DiplomaId | null;
   /** Écran d'accueil `/bienvenue` complété (migration 0004). */
   onboarded: boolean;
+  /** Identifiant de connexion `nom.prenom` d'un compte élève (migration 0005). */
+  login: string | null;
+  /** Prénom saisi par le professeur à la création du compte (migration 0005). */
+  first_name: string | null;
+  /** Nom saisi par le professeur à la création du compte (migration 0005). */
+  last_name: string | null;
+  /** Professeur ayant créé le compte élève (migration 0005). */
+  created_by: string | null;
+  /** Dernière activité connue de l'élève (migration 0005). */
+  last_seen_at: string | null;
 }
 
-export interface ClassRow { id: string; name: string; level: string | null; teacher_id: string; join_code: string }
+export interface ClassRow {
+  id: string;
+  name: string;
+  level: string | null;
+  teacher_id: string;
+  join_code: string;
+  /** Diplôme préparé par la classe (migration 0005). */
+  diploma: DiplomaId | null;
+  /** Classe archivée : conservée mais retirée des listes actives (migration 0005). */
+  archived: boolean;
+}
+
+/** Liste blanche des adresses autorisées à se connecter avec Google (migration 0005). */
+export interface TeacherAllowRow {
+  email: string;
+  full_name: string | null;
+  role: 'professeur' | 'admin';
+  invited_by: string | null;
+  created_at: string;
+}
 
 /** Contract implemented in src/lib/db/attempts.ts (client-side, uses the browser Supabase client). */
 export interface AttemptsApi {

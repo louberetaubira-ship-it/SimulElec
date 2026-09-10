@@ -72,6 +72,7 @@ export default function Cablage({ tp, st, wires, selTerminal, onTerminalClick, o
       <Center>
         <TpPanel
           tp={tp}
+          indicator={`${doneCount} / ${required.length} liaisons`}
           wires={wires}
           cover={false}
           marks

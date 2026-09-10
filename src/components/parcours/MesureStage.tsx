@@ -16,6 +16,7 @@ import ConsignationSteps from '@/components/mesures/Consignation';
 import DeconsignationSteps from '@/components/mesures/Deconsignation';
 import Instrument from '@/components/mesures/Instrument';
 import MesuresPanel from '@/components/mesures/MesuresPanel';
+import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
 import TpPanel from './TpPanel';
 import { deviceStateOf, lampsOf } from './panelState';
@@ -45,6 +46,15 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
       : variant === 'horsTension' ? horsTensionComplete(tp, st)
         : variant === 'decons' ? deconsComplete(st)
           : sousTensionComplete(tp, st);
+
+  /** Rail du mode atelier : les cinq appareils restent à portée sur ces quatre étapes. */
+  const instruments = React.useMemo(() => INSTRUMENTS.map(i => i.id), []);
+
+  const expected = variant === 'horsTension' || variant === 'sousTension'
+    ? mesuresFor(tp, variant) : [];
+  const indicator = expected.length
+    ? `${expected.filter(m => mesureDone(st, m.id)).length} / ${expected.length} mesures`
+    : undefined;
 
   const nextLabel =
     variant === 'epi' ? 'Installation consignée, passer aux mesures hors tension'
@@ -125,6 +135,8 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
       <Center>
         <TpPanel
           trayEnabled={variant === 'horsTension' || variant === 'sousTension'}
+          instruments={instruments}
+          indicator={indicator}
           tp={tp}
           wires={wires}
           cover={false}

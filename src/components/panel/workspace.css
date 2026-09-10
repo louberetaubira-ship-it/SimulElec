@@ -19,11 +19,184 @@
 }
 
 .se-wswrap {
-  position: relative; width: 100%; height: clamp(340px, 62vh, 760px);
+  position: relative; display: grid; width: 100%; height: clamp(340px, 62vh, 760px);
+  padding: 20px;
   overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y;
   border: 1px solid var(--line, #D3D9E1); border-radius: 14px; background: #DEE2E6;
   cursor: grab;
 }
 .se-wswrap.drag { cursor: grabbing; }
-.se-wszoom { transform-origin: top left; width: max-content; padding: 20px; }
+/* `margin:auto` centre la platine quand elle tient dans la zone, sans rendre le
+   haut ni la gauche inatteignables quand elle déborde (contrairement à `center`). */
+.se-wsbox { position: relative; margin: auto; }
+.se-wszoom { position: absolute; top: 0; left: 0; transform-origin: top left; width: max-content; }
 .se-wsinner { position: relative; }
+
+/* ------------------------------------------------------------------ zoom */
+
+.se-ztool button[data-z="fs"] { margin-left: auto; }
+@media (max-width: 640px) { .se-ztool button[data-z="fs"] { margin-left: 0; } }
+
+/* ------------------------------------------- mode atelier (plein écran) */
+
+.se-ws-fs {
+  --ws-bg: #0E1218;
+  --ws-fg: #EDF1F6;
+  --ws-panel: rgba(14, 18, 24, .82);
+  --ws-line: rgba(255, 255, 255, .16);
+  position: relative;
+  gap: 0;
+  background: var(--ws-bg);
+}
+.se-ws-fs.light {
+  --ws-bg: #E7EAEE;
+  --ws-fg: #141A21;
+  --ws-panel: rgba(255, 255, 255, .9);
+  --ws-line: rgba(20, 26, 33, .16);
+}
+
+/* repli quand `requestFullscreen()` est refusé (iOS Safari, iframe) */
+.se-ws-overlay { position: fixed; inset: 0; z-index: 9999; }
+
+.se-ws-fs .se-wswrap {
+  height: 100%; flex: 1 1 auto; min-height: 0;
+  border: 0; border-radius: 0; background: var(--ws-bg);
+}
+
+/* barre haute */
+.se-fsbar {
+  position: absolute; inset: 0 0 auto 0; z-index: 6;
+  display: flex; align-items: center; gap: 10px;
+  height: 46px; padding: 0 10px; overflow: hidden;
+  background: var(--ws-panel); color: var(--ws-fg);
+  border-bottom: 1px solid var(--ws-line);
+  backdrop-filter: blur(8px);
+  transition: opacity .25s ease;
+}
+.se-fsbar .ttl {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-title), inherit; font-size: 14px; font-weight: 700;
+}
+.se-fsbar .stp {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; opacity: .78;
+}
+.se-fsbar .ind {
+  flex: none; border-radius: 999px; border: 1px solid var(--ws-line); padding: 2px 8px;
+  font-family: var(--font-mono), monospace; font-size: 11.5px; white-space: nowrap;
+}
+.se-fsbar .sp { flex: 1 1 auto; }
+.se-fsbar button {
+  flex: none; min-height: 40px; min-width: 40px; padding: 4px 10px; border-radius: 9px;
+  border: 1px solid var(--ws-line); background: transparent; color: inherit;
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.se-fsbar button:hover { border-color: #E39A00; }
+.se-fsbar button:focus-visible { outline: 2px solid #E39A00; outline-offset: 1px; }
+.se-fsbar .quit { border-color: #E39A00; color: #E39A00; }
+@media (max-width: 640px) {
+  .se-fsbar { gap: 6px; padding: 0 6px; }
+  .se-fsbar .ttl { display: none; }
+  .se-fsbar .stp { font-size: 11px; }
+  .se-fsbar button { padding: 4px 8px; font-size: 11.5px; }
+}
+
+.se-fsprefs {
+  position: absolute; top: 48px; right: 8px;
+  display: flex; flex-direction: column; gap: 6px; width: 232px; padding: 8px;
+  border: 1px solid var(--ws-line); border-radius: 12px;
+  background: var(--ws-panel); backdrop-filter: blur(8px);
+}
+.se-fsprefs .k { font-size: 10.5px; opacity: .7; }
+
+/* rail d'instruments */
+.se-fsrail {
+  position: absolute; left: 8px; top: 56px; z-index: 6;
+  display: flex; flex-direction: column; gap: 6px; padding: 6px;
+  border: 1px solid var(--ws-line); border-radius: 14px;
+  background: var(--ws-panel); backdrop-filter: blur(8px);
+  transition: opacity .25s ease;
+}
+.se-fsrail button {
+  position: relative; display: grid; place-items: center;
+  height: 44px; width: 44px; padding: 3px; cursor: pointer;
+  border: 1px solid transparent; border-radius: 10px;
+  background: rgba(255, 255, 255, .08); color: var(--ws-fg);
+}
+.se-ws-fs.light .se-fsrail button { background: rgba(20, 26, 33, .06); }
+.se-fsrail button:hover { border-color: #E39A00; }
+.se-fsrail button:focus-visible { outline: 2px solid #E39A00; outline-offset: 1px; }
+.se-fsrail button.sel { border-color: #E39A00; background: rgba(227, 154, 0, .22); }
+.se-fsrail img { max-height: 34px; max-width: 34px; object-fit: contain; }
+.se-fsrail .ico { font-size: 18px; }
+.se-fsrail .tip {
+  position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%);
+  padding: 3px 8px; border-radius: 8px; white-space: nowrap; pointer-events: none;
+  border: 1px solid var(--ws-line); background: var(--ws-panel); color: var(--ws-fg);
+  font-size: 11.5px; opacity: 0; transition: opacity .15s ease;
+}
+.se-fsrail button:hover .tip, .se-fsrail button:focus-visible .tip { opacity: 1; }
+
+/* pastille de zoom */
+.se-fszoom {
+  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 6;
+  display: flex; align-items: center; gap: 4px; padding: 5px;
+  border: 1px solid var(--ws-line); border-radius: 999px;
+  background: var(--ws-panel); color: var(--ws-fg); backdrop-filter: blur(8px);
+  transition: opacity .25s ease;
+}
+.se-fszoom button {
+  min-height: 40px; min-width: 40px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid transparent; background: transparent; color: inherit;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.se-fszoom button:hover { border-color: #E39A00; }
+.se-fszoom button:focus-visible { outline: 2px solid #E39A00; outline-offset: 1px; }
+.se-fszoom .zval {
+  min-width: 56px; text-align: center;
+  font-family: var(--font-mono), monospace; font-size: 12.5px;
+}
+
+/* estompage après 4 s sans geste */
+.se-fsbar[data-hidden="on"], .se-fsrail[data-hidden="on"], .se-fszoom[data-hidden="on"] {
+  opacity: 0; pointer-events: none;
+}
+
+/* invitation à tourner l'appareil */
+.se-fsrotate {
+  position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 7;
+  display: flex; align-items: center; gap: 8px; max-width: 92%; padding: 8px 12px;
+  border: 1px solid var(--ws-line); border-radius: 12px;
+  background: var(--ws-panel); color: var(--ws-fg); font-size: 12px;
+  backdrop-filter: blur(8px);
+}
+.se-fsrotate button {
+  min-height: 40px; min-width: 40px; border: 0; background: transparent;
+  color: inherit; font-size: 18px; cursor: pointer;
+}
+
+/* tiroir de droite : énoncé + professeur virtuel */
+.se-fsdrawer {
+  position: absolute; top: 0; right: 0; bottom: 0; z-index: 8;
+  display: flex; flex-direction: column; width: min(420px, 92vw);
+  border-left: 1px solid var(--ws-line);
+  background: var(--surface, #fff); color: var(--text, #141A21);
+  transform: translateX(100%); visibility: hidden;
+  transition: transform .28s ease, visibility .28s;
+  box-shadow: -18px 0 40px rgba(0, 0, 0, .35);
+}
+.se-fsdrawer.open { transform: none; visibility: visible; }
+.se-fsdrawer .hd {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; border-bottom: 1px solid var(--line, #D3D9E1);
+  font-family: var(--font-title), inherit; font-size: 14px;
+}
+.se-fsdrawer .hd button {
+  min-height: 40px; min-width: 40px; border: 0; background: transparent;
+  color: inherit; font-size: 20px; cursor: pointer;
+}
+.se-fsdrawer .bd { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .se-fsbar, .se-fsrail, .se-fszoom, .se-fsdrawer, .se-fsrail .tip { transition: none; }
+}
