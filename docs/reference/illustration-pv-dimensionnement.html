@@ -1,0 +1,298 @@
+<title>SimulElec · Dimensionnement PV</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#F5F6F8;--surface:#fff;--surface-2:#EEF0F3;--line:#D3D9E1;--ink:#141A21;--muted:#66717F;--accent:#E39A00;--accent-ink:#1a1200;--good:#1E9E63;--warn:#D97706;--crit:#D93A3A;--sans:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;--title:"Barlow Condensed","Arial Narrow",sans-serif}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--sans);padding:18px 16px 40px;max-width:1360px;margin:0 auto}
+h1{font:700 34px/1.05 var(--title);margin:0 0 4px}h1 span{color:var(--accent)}
+.kicker{font:600 12px var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:6px}
+.lead{max-width:760px;color:var(--muted);margin-bottom:14px}
+.app{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.chain{display:flex;gap:6px;align-items:stretch;padding:12px 14px;background:linear-gradient(#F9FAFB,#EEF0F3);border-bottom:1px solid var(--line);overflow-x:auto}
+.blk{flex:1;min-width:88px;border:2px solid var(--line);border-radius:12px;padding:6px 8px;background:#fff;text-align:center;font-size:11px;line-height:1.2;position:relative;transition:border-color .2s,background .2s}
+.blk b{display:block;font:700 13px var(--title);letter-spacing:.02em}.blk small{color:var(--muted)}
+.blk.ok{border-color:var(--good);background:#EAF7F0}.blk.ok::after{content:"✓";position:absolute;right:6px;top:4px;color:var(--good);font-weight:700}
+.blk.bad{border-color:var(--crit);background:#FDEDED}.blk.cur{box-shadow:0 0 0 3px rgba(227,154,0,.35);border-color:var(--accent)}
+.arrow{align-self:center;color:#9AA3AD;font-size:16px;flex:none}
+.grid{display:grid;grid-template-columns:250px 1fr 320px;min-height:640px}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}.side,.insp{border:none!important;border-bottom:1px solid var(--line)!important}}
+.side{border-right:1px solid var(--line);padding:12px;background:#FAFBFC}
+.step{display:flex;gap:8px;align-items:flex-start;width:100%;border:1px solid var(--line);border-radius:10px;padding:7px 8px;background:#fff;cursor:pointer;text-align:left;font:inherit;color:var(--ink);margin-bottom:6px}
+.step .n{flex:none;width:22px;height:22px;border-radius:50%;background:#D3D9E1;font-weight:700;font-size:11px;display:grid;place-items:center}
+.step.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(227,154,0,.25)}.step.done .n{background:var(--good);color:#fff}.step.lock{opacity:.5}
+.step b{display:block;font-size:12px}.step small{color:var(--muted);font-size:11px}
+.main{padding:16px 18px}
+.main h2{font:700 24px/1.1 var(--title);margin:0 0 4px}.main .sub{color:var(--muted);margin-bottom:12px}
+.insp{border-left:1px solid var(--line);padding:12px;background:#FAFBFC}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.card h3{font:600 11px var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left}th{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+td input,td select{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:12.5px var(--mono)}
+input[type=number],select,input[type=text]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:13px var(--mono);background:#fff;color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.lbl{font-size:12px;color:var(--muted);min-width:120px}
+.btn{border:none;border-radius:10px;padding:8px 14px;font:600 13px var(--sans);cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:var(--surface-2);color:var(--ink)}.btn.small{padding:5px 10px;font-size:12px}.btn:disabled{opacity:.45;cursor:not-allowed}
+.formula{font:13px var(--mono);background:#20262D;color:#E8ECF0;border-radius:10px;padding:8px 10px;margin:8px 0;white-space:pre-wrap}
+.msg{border-left:4px solid;border-radius:0 10px 10px 0;padding:7px 10px;margin:6px 0;font-size:12.5px;background:#fff}
+.msg.ok{border-color:var(--good);background:#EAF7F0}.msg.warn{border-color:var(--warn);background:#FFF5E6}.msg.bad{border-color:var(--crit);background:#FDEDED}
+.msg b{display:block}
+.kv{display:grid;grid-template-columns:1fr auto;gap:3px 10px;font-size:12.5px}.kv span:nth-child(2n){font-family:var(--mono);text-align:right}
+.chk{display:flex;gap:8px;flex-wrap:wrap}.chk label{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;background:#fff;cursor:pointer}
+.chk label.on{border-color:var(--accent);background:#FFF5E0}
+.ans{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;border:1px dashed var(--accent);border-radius:10px;background:#FFFBF2}
+.ans .q{font-weight:600;font-size:12.5px}
+.opt{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.opt button{border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px;text-align:left;cursor:pointer;font:inherit;color:var(--ink)}
+.opt button.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(227,154,0,.25)}.opt button b{display:block;font-size:13px}.opt button small{color:var(--muted);font-family:var(--mono);font-size:11px;line-height:1.35;display:block}
+.coup{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.coup svg{background:#F3F4F6;border:1px solid var(--line);border-radius:12px;max-width:100%}
+.stepper{display:flex;align-items:center;gap:6px}.stepper button{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:#fff;font:700 16px var(--sans);cursor:pointer}.stepper span{font:700 16px var(--mono);min-width:26px;text-align:center}
+.note{font-size:12px;color:var(--muted)}
+.foot{display:flex;justify-content:space-between;gap:10px;margin-top:14px;padding-top:10px;border-top:1px solid var(--line)}
+.report{font:12.5px var(--mono);background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;white-space:pre-wrap}
+.pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;background:var(--surface-2)}
+.pill.ok{background:#EAF7F0;color:var(--good)}.pill.bad{background:#FDEDED;color:var(--crit)}.pill.warn{background:#FFF5E6;color:var(--warn)}
+</style>
+<div class="kicker">SimulElec · proposition de TP n° 14 · Photovoltaïque</div>
+<h1>Étude et dimensionnement d'une <span>installation PV autonome avec stockage</span></h1>
+<p class="lead">Mission : une habitation isolée doit être alimentée par une installation photovoltaïque avec batteries. Tu dois réaliser le bilan énergétique puis dimensionner l'installation complète, bloc par bloc. Chaque bloc de la chaîne devient vert quand son dimensionnement est correct ; les erreurs bloquantes sont signalées en rouge, les points de vigilance en orange. Certains calculs te sont demandés avant de débloquer la suite.</p>
+<div class="app">
+  <div class="chain" id="chain"></div>
+  <div class="grid">
+    <aside class="side" id="steps"></aside>
+    <main class="main" id="main"></main>
+    <aside class="insp" id="insp"></aside>
+  </div>
+</div>
+<script>
+(()=>{
+const $=(s,el=document)=>el.querySelector(s),$$=(s,el=document)=>[...el.querySelectorAll(s)];
+const fr=(x,d=1)=>Number(x).toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
+// ---------------- données pédagogiques ----------------
+const LOC=[
+ {c:'France · Guyane',v:'Cayenne',hsp:4.6,min:3.9,tilt:10,tmin:20,tmax:34},{c:'France · Guyane',v:'Kourou',hsp:4.7,min:4.0,tilt:10,tmin:20,tmax:34},{c:'France · Guyane',v:'Saint-Laurent-du-Maroni',hsp:4.5,min:3.8,tilt:10,tmin:20,tmax:35},{c:'France · Guyane',v:'Maripasoula',hsp:4.4,min:3.7,tilt:10,tmin:19,tmax:35},
+ {c:'France · Antilles',v:'Fort-de-France',hsp:5.2,min:4.5,tilt:15,tmin:20,tmax:33},{c:'France · Antilles',v:'Pointe-à-Pitre',hsp:5.3,min:4.6,tilt:15,tmin:20,tmax:33},
+ {c:'France · Océan Indien',v:'Saint-Denis (Réunion)',hsp:5.0,min:4.0,tilt:20,tmin:16,tmax:31},{c:'France · Océan Indien',v:'Mamoudzou',hsp:5.1,min:4.4,tilt:15,tmin:20,tmax:33},
+ {c:'France · métropole',v:'Lille',hsp:2.9,min:0.9,tilt:37,tmin:-10,tmax:30},{c:'France · métropole',v:'Paris',hsp:3.2,min:1.0,tilt:35,tmin:-8,tmax:32},{c:'France · métropole',v:'Strasbourg',hsp:3.2,min:1.0,tilt:35,tmin:-12,tmax:33},{c:'France · métropole',v:'Nantes',hsp:3.5,min:1.2,tilt:35,tmin:-6,tmax:31},{c:'France · métropole',v:'Lyon',hsp:3.6,min:1.2,tilt:34,tmin:-8,tmax:34},{c:'France · métropole',v:'Bordeaux',hsp:3.7,min:1.4,tilt:34,tmin:-5,tmax:34},{c:'France · métropole',v:'Toulouse',hsp:3.9,min:1.5,tilt:33,tmin:-5,tmax:35},{c:'France · métropole',v:'Marseille',hsp:4.6,min:2.0,tilt:33,tmin:-4,tmax:34},
+ {c:'France · Pacifique',v:'Nouméa',hsp:5.0,min:3.6,tilt:20,tmin:14,tmax:31},{c:'France · Pacifique',v:'Papeete',hsp:5.2,min:4.4,tilt:15,tmin:20,tmax:32},
+];
+const PANELS=[
+ {id:'p450',n:'Module mono 450 Wc · 144 demi-cellules',P:450,Vmp:34,Imp:13.24,Voc:41,Isc:14,k:-0.27,S:2.1},
+ {id:'p400',n:'Module mono 400 Wc',P:400,Vmp:31.5,Imp:12.7,Voc:37.5,Isc:13.5,k:-0.28,S:1.9},
+ {id:'p250',n:'Module poly 250 Wc',P:250,Vmp:30.5,Imp:8.2,Voc:38,Isc:8.8,k:-0.32,S:1.65},
+ {id:'p180',n:'Module « 12 V » 180 Wc',P:180,Vmp:19.8,Imp:9.1,Voc:23.5,Isc:9.8,k:-0.30,S:1.0},
+];
+const BATS=[
+ {id:'agm100',n:'Plomb AGM 12 V · 100 Ah',U:12,Ah:100,dod:.5,eta:.85,cyc:800,tech:'Plomb',imax:100,bms:false},
+ {id:'agm200',n:'Plomb AGM 12 V · 200 Ah',U:12,Ah:200,dod:.5,eta:.85,cyc:800,tech:'Plomb',imax:200,bms:false},
+ {id:'lfp100',n:'LiFePO₄ 12,8 V · 100 Ah (BMS 100 A)',U:12.8,Ah:100,dod:.8,eta:.95,cyc:4000,tech:'LiFePO₄',imax:100,bms:true},
+ {id:'lfp200',n:'LiFePO₄ 12,8 V · 200 Ah (BMS 200 A)',U:12.8,Ah:200,dod:.8,eta:.95,cyc:4000,tech:'LiFePO₄',imax:200,bms:true},
+ {id:'lfp48',n:'LiFePO₄ 51,2 V · 100 Ah (BMS 100 A)',U:51.2,Ah:100,dod:.8,eta:.95,cyc:4000,tech:'LiFePO₄',imax:100,bms:true},
+];
+const MPPTS=[
+ {id:'pwm30',n:'Régulateur PWM 30 A',type:'PWM',vocmax:50,ich:30,ubat:[12,24],pmax:{12:400,24:800}},
+ {id:'m7515',n:'MPPT 75/15',type:'MPPT',vocmax:75,ich:15,ubat:[12,24],pmax:{12:220,24:440}},
+ {id:'m10030',n:'MPPT 100/30',type:'MPPT',vocmax:100,ich:30,ubat:[12,24],pmax:{12:440,24:880}},
+ {id:'m15045',n:'MPPT 150/45',type:'MPPT',vocmax:150,ich:45,ubat:[12,24,48],pmax:{12:650,24:1300,48:2600}},
+ {id:'m15070',n:'MPPT 150/70',type:'MPPT',vocmax:150,ich:70,ubat:[12,24,48],pmax:{12:1000,24:2000,48:4000}},
+ {id:'m25070',n:'MPPT 250/70',type:'MPPT',vocmax:250,ich:70,ubat:[12,24,48],pmax:{12:1000,24:2000,48:4000}},
+ {id:'m250100',n:'MPPT 250/100',type:'MPPT',vocmax:250,ich:100,ubat:[12,24,48],pmax:{12:1450,24:2900,48:5800}},
+];
+const INVS=[
+ {id:'i12_1200',n:'Onduleur 12 V · 1200 VA',U:12,S:1200,P:1000,peak:2200,eta:.90},
+ {id:'i24_2000',n:'Onduleur 24 V · 2000 VA',U:24,S:2000,P:1600,peak:3500,eta:.92},
+ {id:'i24_3000',n:'Onduleur 24 V · 3000 VA',U:24,S:3000,P:2400,peak:6000,eta:.93},
+ {id:'i48_3000',n:'Onduleur 48 V · 3000 VA',U:48,S:3000,P:2400,peak:6000,eta:.94},
+ {id:'i48_5000',n:'Onduleur 48 V · 5000 VA',U:48,S:5000,P:4000,peak:10000,eta:.95},
+];
+const SECT=[[1.5,18],[2.5,25],[4,34],[6,44],[10,61],[16,82],[25,108],[35,135],[50,168],[70,213],[95,258]];
+const FUSES=[10,15,20,25,32,40,50,63,80,100,125,160,200,250];
+const RECV0=[{n:'Lampes LED',P:10,q:6,t:5},{n:'Télévision',P:100,q:1,t:4},{n:'Réfrigérateur',P:120,q:1,t:8,start:true},{n:'Ventilateur',P:60,q:2,t:6,start:true},{n:'Ordinateur',P:80,q:1,t:5},{n:'Pompe',P:750,q:1,t:1,start:true}];
+// ---------------- état ----------------
+const S={step:0,done:{},recv:RECV0.map(r=>({...r,sim:true})),ans:{},loc:LOC[0],eta:.75,worst:true,ubat:48,
+  panel:PANELS[0],ns:3,np:2,bat:BATS[4],bns:1,bnp:2,auto:2,mppt:MPPTS[5],inv:INVS[3],
+  cab:{Lpv:15,Lbat:2,Lond:2,dupv:.03,dubat:.02,Spv:6,Sbat:35,Sond:35},prot:{fpv:20,fbat:100,qac:16,ddr:true,dcspd:true},errors:{}};
+const STEPS=[
+ ['Bilan de puissance','récepteurs, E = P × t, Wh/j'],['Puissance simultanée','charges en même temps, démarrages'],['Localisation · ressource solaire','pays → région → ville, HSP'],['Tension du système','12 / 24 / 48 V, I = P / U'],['Panneaux et couplage','fiche technique, série / parallèle'],['Batteries','capacité, technologie, couplage'],['Régulateur MPPT','Voc corrigé, courant, puissance'],['Onduleur','puissance simultanée, pointe'],['Câbles','courant, chute de tension, section'],['Protections','fusibles, disjoncteurs, DC ≠ AC'],['Note de calcul','synthèse, schéma unifilaire']];
+const CHAIN=[['PV','champ'],['Coffret DC','fusibles · parafoudre · sectionneur'],['MPPT','régulateur'],['Batteries','parc'],['Prot. DC','fusible principal'],['Onduleur','DC → AC'],['Prot. AC','disj. · DDR'],['Récepteurs','tableau']];
+// ---------------- calculs ----------------
+const C={};
+function calc(){const r=S.recv;C.Ejour=r.reduce((a,x)=>a+x.P*x.q*x.t,0);C.Psim=r.filter(x=>x.sim).reduce((a,x)=>a+x.P*x.q,0);C.Pstart=r.filter(x=>x.sim&&x.start).reduce((a,x)=>a+x.P*x.q*2,0)+r.filter(x=>x.sim&&!x.start).reduce((a,x)=>a+x.P*x.q,0);
+  C.hsp=S.worst?S.loc.min:S.loc.hsp;C.Ppv=C.Ejour/(C.hsp*S.eta);
+  const p=S.panel;C.Ppv_real=p.P*S.ns*S.np;C.Vmp=p.Vmp*S.ns;C.Imp=p.Imp*S.np;C.Voc=p.Voc*S.ns;C.Isc=p.Isc*S.np;C.VocCold=C.Voc*(1+p.k/100*(S.loc.tmin-25));C.Npan=Math.ceil(C.Ppv/p.P);
+  C.Cbat=C.Ejour*S.auto/(S.bat.dod*S.bat.eta);C.Cah=C.Cbat/S.ubat;C.Ubat=S.bat.U*S.bns;C.Ah=S.bat.Ah*S.bnp;C.Ewh=C.Ubat*C.Ah;
+  C.Ich=C.Ppv_real/S.ubat;C.Iinv=S.inv.P/(S.ubat*S.inv.eta);C.Ipvmax=C.Isc*1.25;
+  const rho=0.0175;C.Spv=2*rho*S.cab.Lpv*C.Imp/(S.cab.dupv*C.Vmp);C.Sbat=2*rho*S.cab.Lbat*C.Iinv/(S.cab.dubat*S.ubat);C.Sond=C.Sbat;
+  C.Iz=s=>(SECT.find(x=>x[0]===s)||[0,0])[1];C.Iac=S.inv.P/230;
+}
+function checks(step){calc();const E=[];const bad=(t,d)=>E.push({k:'bad',t,d}),warn=(t,d)=>E.push({k:'warn',t,d}),ok=(t,d)=>E.push({k:'ok',t,d});
+  const a=S.ans;const near=(v,ref,tol=.03)=>v!=null&&Math.abs(v-ref)<=Math.max(tol*ref,1);
+  if(step===0){if(S.recv.length<3)bad('Bilan incomplet','Renseigne au moins trois récepteurs.');if(near(a.ej,C.Ejour))ok('Énergie journalière correcte',`Ejour = Σ(P × n × t) = ${fr(C.Ejour,0)} Wh/j = ${fr(C.Ejour/1000,2)} kWh/j`);else bad('Calcule Ejour','Somme des P × quantité × durée, en Wh/j (tolérance 3 %).');}
+  if(step===1){if(near(a.ps,C.Psim))ok('Puissance simultanée correcte',`Σ des puissances des récepteurs cochés = ${fr(C.Psim,0)} W`);else bad('Calcule la puissance simultanée','Additionne les puissances des récepteurs susceptibles de fonctionner en même temps (cochés).');if(S.recv.some(x=>x.sim&&x.start))warn('Charges à courant de démarrage',`Pompe, réfrigérateur, ventilateurs… : pointe estimée ≈ ${fr(C.Pstart,0)} W (×2 sur les moteurs). À vérifier avec la puissance de pointe de l'onduleur.`);}
+  if(step===2){ok('Ressource solaire',`${S.loc.v} : ${fr(S.loc.hsp,1)} h/j en moyenne annuelle, ${fr(S.loc.min,1)} h/j au mois le plus défavorable, inclinaison conseillée ${S.loc.tilt}°.`);if(near(a.ppv,C.Ppv,.05))ok('Puissance PV nécessaire correcte',`Ppv = Ejour / (HSP × η) = ${fr(C.Ejour,0)} / (${fr(C.hsp,1)} × ${S.eta}) = ${fr(C.Ppv,0)} Wc`);else bad('Calcule Ppv','Ppv ≈ Ejour / (HSP × ηglobal), avec HSP du mois retenu et η = '+S.eta+' (tolérance 5 %).');}
+  if(step===3){const I=C.Psim/S.ubat;if(near(a.i,I,.05))ok('Courant batterie correct',`I = P / U = ${fr(C.Psim,0)} / ${S.ubat} = ${fr(I,1)} A`);else bad('Calcule le courant côté batterie','I = Psimultanée / Ubat (tolérance 5 %).');
+    const rec=C.Psim<800?12:C.Psim<2000?24:48;if(S.ubat<rec)warn('Tension basse pour cette puissance',`${fr(C.Psim,0)} W en ${S.ubat} V → ${fr(C.Psim/S.ubat,0)} A : câbles et protections lourds. Règle indicative : ${rec} V.`);else ok('Tension cohérente',`${S.ubat} V pour ${fr(C.Psim,0)} W simultanés → ${fr(C.Psim/S.ubat,0)} A.`);}
+  if(step===4){const p=S.panel;ok('Champ PV',`${S.ns}S${S.np}P · ${S.ns*S.np} × ${p.P} Wc = ${fr(C.Ppv_real,0)} Wc · Vmp ${fr(C.Vmp,1)} V · Imp ${fr(C.Imp,1)} A · Voc ${fr(C.Voc,1)} V · Isc ${fr(C.Isc,1)} A`);
+    if(C.Ppv_real<C.Ppv*0.95)bad('Puissance PV insuffisante',`${fr(C.Ppv_real,0)} Wc installés pour ${fr(C.Ppv,0)} Wc nécessaires. Ajoute des modules (série ou parallèle).`);
+    if(C.Ppv_real>C.Ppv*1.6)warn('Champ très surdimensionné',`${fr(C.Ppv_real,0)} Wc pour ${fr(C.Ppv,0)} Wc nécessaires : coût et MPPT à revoir.`);
+    if(C.VocCold>S.mppt.vocmax)bad('Tension PV excessive',`Voc corrigée à ${S.loc.tmin} °C : ${fr(C.VocCold,0)} V > ${S.mppt.vocmax} V admissibles par le ${S.mppt.n}. Réduis le nombre de modules en série ou change de régulateur.`);
+    if(C.Vmp<S.ubat*1.2&&S.mppt.type==='MPPT')bad('Vmp trop basse pour charger',`Vmp champ ${fr(C.Vmp,0)} V < Ubat + 20 % (${fr(S.ubat*1.2,0)} V) : le MPPT ne pourra pas charger le parc. Mets plus de modules en série.`);
+    if(near(a.vmp,C.Vmp,.02)&&near(a.imp,C.Imp,.02))ok('Vmp et Imp du champ corrects','Série : les tensions s\'additionnent. Parallèle : les courants s\'additionnent.');else bad('Calcule Vmp et Imp du champ',`Vmp = ${p.Vmp} × Ns ; Imp = ${p.Imp} × Np.`);}
+  if(step===5){const nom=[12,24,48].reduce((a,u)=>Math.abs(u-C.Ubat)<Math.abs(a-C.Ubat)?u:a,12);if(nom!==S.ubat)bad('Tension du parc incohérente',`${S.bns} × ${S.bat.U} V = ${fr(C.Ubat,1)} V (nominal ${nom} V) ≠ ${S.ubat} V retenus au §4.`);
+    if(near(a.cb,C.Cah,.05))ok('Capacité calculée correcte',`Cbat = Ejour × autonomie / (DoD × η) = ${fr(C.Cbat,0)} Wh → ${fr(C.Cah,0)} Ah sous ${S.ubat} V`);else bad('Calcule la capacité du parc','Cbat(Wh) = Ejour × jours / (DoD × η), puis Cbat(Ah) = Cbat / Ubat (tolérance 5 %).');
+    if(C.Ah<C.Cah*0.95)bad('Parc insuffisant',`${fr(C.Ah,0)} Ah installés pour ${fr(C.Cah,0)} Ah nécessaires. Ajoute des batteries en parallèle.`);else ok('Parc batterie',`${S.bns}S${S.bnp}P × ${S.bat.n} → ${fr(C.Ubat,1)} V / ${fr(C.Ah,0)} Ah = ${fr(C.Ewh/1000,1)} kWh`);
+    if(S.bnp>3)warn('Beaucoup de branches en parallèle',`${S.bnp} branches : câblage équilibré obligatoire (longueurs et sections identiques), sinon mauvaise répartition des courants.`);
+    if(S.bat.tech==='LiFePO₄'&&C.Iinv>S.bat.imax*S.bnp)bad('Courant de décharge supérieur au BMS',`Onduleur : ${fr(C.Iinv,0)} A > ${S.bat.imax*S.bnp} A (BMS ${S.bat.imax} A × ${S.bnp}).`);
+    if(S.bat.tech==='Plomb')warn('Plomb : DoD 50 %','Le parc est calculé avec 50 % d\'énergie utilisable et un rendement de 85 % : deux fois plus de capacité installée qu\'en LiFePO₄.');}
+  if(step===6){const m=S.mppt;if(!m.ubat.includes(S.ubat))bad('Régulateur incompatible avec la tension batterie',`${m.n} : ${m.ubat.join(' / ')} V.`);
+    if(C.VocCold>m.vocmax)bad('Voc corrigée > tension maxi MPPT',`${fr(C.VocCold,0)} V > ${m.vocmax} V — risque de destruction du régulateur.`);else ok('Voc au froid admissible',`${fr(C.VocCold,0)} V ≤ ${m.vocmax} V (Voc ${fr(C.Voc,0)} V × (1 + ${S.panel.k} %/°C × (${S.loc.tmin} − 25)))`);
+    if(near(a.ich,C.Ich,.05))ok('Courant de charge correct',`I ≈ Ppv / Ubat = ${fr(C.Ppv_real,0)} / ${S.ubat} = ${fr(C.Ich,0)} A`);else bad('Calcule le courant de charge','I ≈ Ppv / Ubat (tolérance 5 %).');
+    if(m.pmax[S.ubat]&&C.Ppv_real>m.pmax[S.ubat])bad('Puissance PV > puissance admissible',`${fr(C.Ppv_real,0)} Wc > ${m.pmax[S.ubat]} W pour ${S.ubat} V.`);else if(m.pmax[S.ubat])ok('Puissance admissible',`${fr(C.Ppv_real,0)} Wc ≤ ${m.pmax[S.ubat]} W (${S.ubat} V)`);
+    if(C.Ich>m.ich)bad('Courant de charge > calibre',`${fr(C.Ich,0)} A > ${m.ich} A.`);
+    if(m.type==='PWM'&&C.Vmp>S.ubat*1.5)warn('PWM avec Vmp élevée','Un PWM ne convertit pas : la puissance excédentaire est perdue. Préfère un MPPT.');}
+  if(step===7){const i=S.inv;if(i.U!==S.ubat)bad('Onduleur incompatible',`${i.n} : entrée ${i.U} V ≠ ${S.ubat} V.`);
+    const need=C.Psim*1.25;if(near(a.pinv,need,.05))ok('Puissance onduleur calculée',`Psim × 1,25 = ${fr(C.Psim,0)} × 1,25 = ${fr(need,0)} W`);else bad('Calcule la puissance onduleur','Puissance simultanée × 1,25 (marge 25 %).');
+    if(i.P<C.Psim)bad('Onduleur sous-dimensionné',`Puissance simultanée ${fr(C.Psim,0)} W > ${i.P} W continus.`);else if(i.P<need)warn('Marge faible',`${i.P} W pour ${fr(need,0)} W conseillés.`);else ok('Puissance continue',`${i.P} W (${i.S} VA) ≥ ${fr(need,0)} W`);
+    if(i.peak<C.Pstart)bad('Pointe de démarrage non couverte',`Pointe estimée ${fr(C.Pstart,0)} W > ${i.peak} W de pointe onduleur.`);else ok('Pointe',`${i.peak} W ≥ ${fr(C.Pstart,0)} W estimés au démarrage`);
+    warn('VA ≠ W','La puissance apparente (VA) n\'est pas la puissance active (W) : vérifie les deux sur la fiche.');}
+  if(step===8){const c=S.cab;if(near(a.iinv,C.Iinv,.05))ok('Courant onduleur correct',`I = P / (U × η) = ${S.inv.P} / (${S.ubat} × ${S.inv.eta}) = ${fr(C.Iinv,1)} A`);else bad('Calcule le courant onduleur → batterie','I = Ponduleur / (Ubat × ηonduleur).');
+    const chk=(lab,I,Sc,Smin)=>{const iz=C.Iz(Sc);if(iz<I)bad(`${lab} : section insuffisante pour le courant`,`I = ${fr(I,0)} A > Iz = ${iz} A pour ${Sc} mm². Prends la section normalisée supérieure.`);else if(Sc<Smin)bad(`${lab} : chute de tension trop forte`,`S mini = 2 × ρ × L × I / ΔU = ${fr(Smin,1)} mm² > ${Sc} mm².`);else ok(`${lab} : ${Sc} mm²`,`I ${fr(I,0)} A ≤ Iz ${iz} A · S ≥ ${fr(Smin,1)} mm² (chute ${fr(2*0.0175*(lab.startsWith('PV')?c.Lpv:c.Lbat)*I/Sc,2)} V)`);};
+    chk('PV → MPPT',C.Ipvmax,c.Spv,C.Spv);chk('Batterie → onduleur',C.Iinv,c.Sbat,C.Sbat);}
+  if(step===9){const p=S.prot;const izpv=C.Iz(S.cab.Spv),izb=C.Iz(S.cab.Sbat);
+    const isc1=S.panel.Isc;if(p.fpv<isc1*1.25||p.fpv>Math.min(izpv,isc1*2.4))bad('Fusible de string mal calibré',`Par string : 1,25 × Isc module (${fr(isc1*1.25,0)} A) ≤ calibre ≤ 2,4 × Isc (${fr(isc1*2.4,0)} A, tenue inverse du module) et ≤ Iz câble (${izpv} A). Choisi : ${p.fpv} A.`);else ok('Fusibles de string gPV',`${p.fpv} A · 1000 V DC par string (${S.np} strings) — entre ${fr(isc1*1.25,0)} et ${fr(Math.min(izpv,isc1*2.4),0)} A.`);
+    if(p.fbat<C.Iinv||p.fbat>izb)bad('Protection batterie mal calibrée',`Iutilisation ${fr(C.Iinv,0)} A ≤ calibre ≤ Iz ${izb} A. Choisi : ${p.fbat} A.`);else ok('Fusible principal batterie',`${p.fbat} A · pouvoir de coupure élevé (courant de court-circuit ${S.bat.tech==='LiFePO₄'?'très important sur lithium':'important'}).`);
+    if(p.qac<C.Iac||p.qac>25)bad('Disjoncteur AC',`I = P / 230 = ${fr(C.Iac,1)} A : calibre ${p.qac} A inadapté.`);else ok('Disjoncteur AC sortie onduleur',`${p.qac} A courbe C pour ${fr(C.Iac,1)} A.`);
+    if(!p.ddr)bad('DDR manquant','Un DDR 30 mA est requis pour la protection des personnes côté AC (selon régime de neutre de l\'onduleur).');
+    if(!p.dcspd)warn('Parafoudre DC','Recommandé selon l\'analyse de risque foudre (longueur des câbles PV, site exposé).');
+    ok('DC ≠ AC','Les appareils DC portent une tension assignée DC, un pouvoir de coupure DC et parfois une polarité : un disjoncteur 230 V AC ne convient pas sur le parc batterie.');}
+  return E;}
+const stepOk=i=>!checks(i).some(e=>e.k==='bad');
+// ---------------- rendu ----------------
+function chainState(){calc();const st=[stepOk(4),stepOk(9)&&stepOk(4),stepOk(6),stepOk(5),stepOk(9),stepOk(7),stepOk(9),stepOk(0)&&stepOk(1)];const cur=[4,9,6,5,9,7,9,0];
+  $('#chain').innerHTML=CHAIN.map((c,i)=>`<div class="blk ${S.done[cur[i]]?(st[i]?'ok':'bad'):''} ${S.step===cur[i]?'cur':''}"><b>${c[0]}</b><small>${c[1]}</small></div>${i<CHAIN.length-1?'<span class="arrow">→</span>':''}`).join('');}
+function renderSteps(){$('#steps').innerHTML=STEPS.map((s,i)=>`<button class="step ${S.step===i?'sel':''} ${S.done[i]?'done':''} ${i>0&&!S.done[i-1]&&!S.done[i]&&S.step!==i?'lock':''}" data-i="${i}"><span class="n">${S.done[i]?'✓':i+1}</span><span><b>${s[0]}</b><small>${s[1]}</small></span></button>`).join('');
+  $$('#steps .step').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.i;if(i===0||S.done[i-1]||S.done[i]){S.step=i;render();}}));}
+function msgs(E){return E.map(e=>`<div class="msg ${e.k}"><b>${e.k==='bad'?'🔴 ERREUR — ':e.k==='warn'?'🟠 ATTENTION — ':'🟢 '}${e.t}</b>${e.d}</div>`).join('');}
+function ansBox(key,q,unit){return `<div class="ans"><span class="q">${q}</span><input type="number" step="any" id="ans_${key}" value="${S.ans[key]??''}" style="width:130px"> <span class="note">${unit}</span></div>`;}
+function bindAns(){$$('[id^=ans_]').forEach(i=>i.addEventListener('input',()=>{S.ans[i.id.slice(4)]=i.value===''?null:+i.value;}));}
+function panelSvg(){const p=S.panel,ns=S.ns,np=S.np;const W=Math.max(420,ns*84+150),H=np*118+90;let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+  const pan=(x,y,i)=>`<g transform="translate(${x} ${y})"><rect width="62" height="88" rx="3" fill="#0E1A3C" stroke="#8E969E"/><g stroke="#9FB3D9" stroke-width=".7" opacity=".8">${[1,2,3,4,5].map(k=>`<path d="M0 ${k*14.6}h62"/>`).join('')}${[1,2,3].map(k=>`<path d="M${k*15.5} 0v88"/>`).join('')}</g><circle cx="16" cy="94" r="5" fill="#fff" stroke="#20262D"/><text x="16" y="97" text-anchor="middle" font-size="8" font-weight="700">−</text><circle cx="46" cy="94" r="5" fill="#fff" stroke="#D93A3A"/><text x="46" y="97" text-anchor="middle" font-size="8" font-weight="700" fill="#D93A3A">+</text><text x="31" y="50" text-anchor="middle" font-size="7" fill="#fff">${p.P} Wc</text><text x="31" y="60" text-anchor="middle" font-size="6.5" fill="#BFD0F0">${p.Vmp} V · ${p.Imp} A</text></g>`;
+  const bx=W-60,by=H-48;
+  for(let r=0;r<np;r++){const y=14+r*118;for(let c=0;c<ns;c++){const x=20+c*84;s+=pan(x,y,r*ns+c);if(c<ns-1)s+=`<path d="M${x+46} ${y+99} v10 h38 v-10" fill="none" stroke="#20262D" stroke-width="2"/><path d="M${x+46} ${y+99} v10 h38 v-10" fill="none" stroke="#D93A3A" stroke-width="2" stroke-dasharray="0 0" opacity="0"/>`;}
+    const xm=20+16,xp=20+(ns-1)*84+46;const xl=8-r*0+4*r,xr=20+ns*84-20+6+r*5;s+=`<path d="M${xm} ${y+99} v6 H${xl} V${by+4+r*4} H${bx-8}" fill="none" stroke="#20262D" stroke-width="2.2"/><path d="M${xp} ${y+99} v6 H${xr} V${by-16-r*4} H${bx+8}" fill="none" stroke="#D93A3A" stroke-width="2.2"/>`;}
+  s+=`<rect x="${bx-22}" y="${by-8}" width="44" height="34" rx="4" fill="#3A4047"/><circle cx="${bx-8}" cy="${by-4}" r="4" fill="#20262D" stroke="#fff"/><circle cx="${bx+8}" cy="${by-16}" r="4" fill="#D93A3A" stroke="#fff"/><text x="${bx}" y="${by+14}" text-anchor="middle" font-size="6.5" fill="#fff" font-weight="700">BOÎTE DC</text><text x="${bx-8}" y="${by+30}" text-anchor="middle" font-size="7" font-weight="700">PV−</text><text x="${bx+8}" y="${by-22}" text-anchor="middle" font-size="7" fill="#D93A3A" font-weight="700">PV+</text>`;
+  s+=`<text x="20" y="${H-8}" font-size="10" font-family="IBM Plex Mono" font-weight="700">${ns}S${np}P · ${fr(C.Ppv_real,0)} Wc · Vmp ${fr(C.Vmp,0)} V · Imp ${fr(C.Imp,1)} A · Voc ${fr(C.Voc,0)} V · Isc ${fr(C.Isc,1)} A</text></svg>`;return s;}
+function batSvg(){const b=S.bat,ns=S.bns,np=S.bnp;const W=Math.max(380,ns*96+120),H=np*74+70;let s=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+  const bat=(x,y)=>`<g transform="translate(${x} ${y})"><rect width="74" height="46" rx="5" fill="${b.tech==='Plomb'?'#3A4047':'#F4F5F7'}" stroke="#4E555C"/><rect x="10" y="-6" width="12" height="8" rx="2" fill="#D93A3A"/><rect x="52" y="-6" width="12" height="8" rx="2" fill="#20262D"/><text x="37" y="20" text-anchor="middle" font-size="8" font-weight="700" fill="${b.tech==='Plomb'?'#fff':'#141A21'}">${b.U} V</text><text x="37" y="32" text-anchor="middle" font-size="7" fill="${b.tech==='Plomb'?'#DDE1E5':'#66717F'}">${b.Ah} Ah ${b.tech}</text></g>`;
+  const bx=W-60;
+  for(let r=0;r<np;r++){const y=20+r*74;for(let c=0;c<ns;c++){const x=16+c*96;s+=bat(x,y);if(c<ns-1)s+=`<path d="M${x+58} ${y-6} v-8 h34 v8" fill="none" stroke="#20262D" stroke-width="2.2"/>`;}
+    s+=`<path d="M${16+16} ${y-6} v-12 H${bx-10} V${H-40}" fill="none" stroke="#D93A3A" stroke-width="2.4"/><path d="M${16+(ns-1)*96+58} ${y+40} v14 H${bx+10} V${H-40}" fill="none" stroke="#20262D" stroke-width="2.4"/>`;}
+  s+=`<circle cx="${bx-10}" cy="${H-40}" r="5" fill="#D93A3A" stroke="#fff"/><circle cx="${bx+10}" cy="${H-40}" r="5" fill="#20262D" stroke="#fff"/><text x="${bx}" y="${H-24}" text-anchor="middle" font-size="7" font-weight="700">vers fusible principal · onduleur</text>`;
+  s+=`<text x="16" y="${H-8}" font-size="10" font-family="IBM Plex Mono" font-weight="700">${ns}S${np}P · ${fr(C.Ubat,1)} V / ${fr(C.Ah,0)} Ah = ${fr(C.Ewh/1000,1)} kWh</text></svg>`;return s;}
+function opts(list,sel,key,f){return `<div class="opt">${list.map(o=>`<button data-${key}="${o.id}" class="${sel.id===o.id?'sel':''}">${f(o)}</button>`).join('')}</div>`;}
+function stepper(key,val,min,max){return `<div class="stepper"><button data-st="${key}" data-d="-1">−</button><span>${val}</span><button data-st="${key}" data-d="1">+</button></div>`;}
+function renderMain(){calc();const M=$('#main');const i=S.step;const t=STEPS[i];let h=`<h2>${i+1} · ${t[0]}</h2><div class="sub">${t[1]}</div>`;
+  if(i===0){h+=`<table><tr><th>Récepteur</th><th>P (W)</th><th>Qté</th><th>h/jour</th><th>Simultané</th><th>Démarrage</th><th>Wh/j</th><th></th></tr>${S.recv.map((r,k)=>`<tr><td><input data-r="${k}" data-f="n" value="${r.n}"></td><td><input type="number" data-r="${k}" data-f="P" value="${r.P}"></td><td><input type="number" data-r="${k}" data-f="q" value="${r.q}"></td><td><input type="number" step="0.5" data-r="${k}" data-f="t" value="${r.t}"></td><td><input type="checkbox" data-r="${k}" data-f="sim" ${r.sim?'checked':''}></td><td><input type="checkbox" data-r="${k}" data-f="start" ${r.start?'checked':''}></td><td class="mono">${fr(r.P*r.q*r.t,0)}</td><td><button class="btn sec small" data-del="${k}">✕</button></td></tr>`).join('')}</table><div class="row"><button class="btn sec small" id="addR">+ récepteur</button><span class="note">Le total est masqué : c'est à toi de le calculer.</span></div>
+    <div class="formula">E = P × t          Ejour = Σ (P × n × t)   [Wh/j]</div>${ansBox('ej','Ejour = ?','Wh/j')}`;}
+  if(i===1){h+=`<p>Énergie quotidienne et puissance instantanée sont deux choses différentes. Coche au §1 les récepteurs qui peuvent fonctionner en même temps, puis calcule la puissance simultanée. Les moteurs, pompes, réfrigérateurs et climatiseurs appellent plusieurs fois leur courant nominal au démarrage.</p><div class="kv">${S.recv.filter(r=>r.sim).map(r=>`<span>${r.n} × ${r.q}${r.start?' ⚡ démarrage':''}</span><span>${r.P*r.q} W</span>`).join('')}</div><div class="formula">Psim = Σ P × n   (récepteurs simultanés)</div>${ansBox('ps','Psimultanée = ?','W')}`;}
+  if(i===2){const cs=[...new Set(LOC.map(l=>l.c))];h+=`<div class="row"><span class="lbl">Pays → région</span><select id="selC">${cs.map(c=>`<option ${S.loc.c===c?'selected':''}>${c}</option>`).join('')}</select><span class="lbl">Ville</span><select id="selV">${LOC.filter(l=>l.c===S.loc.c).map(l=>`<option ${S.loc.v===l.v?'selected':''}>${l.v}</option>`).join('')}</select></div>
+    <div class="kv"><span>Irradiation moyenne annuelle (HSP)</span><span>${fr(S.loc.hsp,1)} h/j</span><span>Mois le plus défavorable</span><span>${fr(S.loc.min,1)} h/j</span><span>Inclinaison optimale</span><span>${S.loc.tilt}°</span><span>Température mini / maxi</span><span>${S.loc.tmin} / ${S.loc.tmax} °C</span></div>
+    <div class="row"><span class="lbl">Dimensionner sur</span><label><input type="radio" name="w" ${S.worst?'checked':''} value="1"> le mois le plus défavorable</label><label><input type="radio" name="w" ${!S.worst?'checked':''} value="0"> la moyenne annuelle</label><span class="lbl">η global</span><input type="number" step="0.01" id="eta" value="${S.eta}" style="width:80px"></div>
+    <p class="note">Valeurs indicatives type PVGIS pour l'exercice ; l'application interrogera une base d'irradiation réelle (PVGIS) pour la ville choisie. Une installation de 3 kWc à Cayenne ne produit pas comme 3 kWc à Lille.</p>
+    <div class="formula">Ppv ≈ Ejour / (HSP × ηglobal)   [Wc]</div>${ansBox('ppv','Ppv nécessaire = ?','Wc')}`;}
+  if(i===3){h+=`<p>À puissance égale, plus la tension du parc est élevée, plus le courant est faible : câbles, fusibles et chutes de tension plus raisonnables.</p><div class="formula">I = P / U</div><div class="kv"><span>2 400 W en 12 V</span><span>200 A</span><span>2 400 W en 24 V</span><span>100 A</span><span>2 400 W en 48 V</span><span>50 A</span></div>
+    <div class="row"><span class="lbl">Tension du parc batterie</span>${[12,24,48].map(u=>`<button class="btn ${S.ubat===u?'':'sec'}" data-u="${u}">${u} V</button>`).join('')}</div>
+    <table><tr><th>Puissance installation</th><th>Tension à envisager (règle indicative)</th></tr><tr><td>Petite (&lt; 800 W)</td><td>12 V</td></tr><tr><td>Petite / moyenne (&lt; 2 kW)</td><td>24 V</td></tr><tr><td>Moyenne / forte</td><td>48 V</td></tr></table>
+    ${ansBox('i','Courant côté batterie pour ta puissance simultanée = ?','A')}`;}
+  if(i===4){h+=opts(PANELS,S.panel,'p',o=>`<b>${o.n}</b><small>Pmax ${o.P} Wc · Vmp ${o.Vmp} V · Imp ${o.Imp} A<br>Voc ${o.Voc} V · Isc ${o.Isc} A · ${o.k} %/°C · ${o.S} m²</small>`)+`
+    <div class="row"><span class="lbl">Modules en série (Ns)</span>${stepper('ns',S.ns,1,8)}<span class="lbl">Chaînes en parallèle (Np)</span>${stepper('np',S.np,1,6)}<span class="note">besoin ≈ ${fr(C.Ppv,0)} Wc → ${C.Npan} modules mini</span></div>
+    <div class="coup">${panelSvg()}</div>
+    <div class="formula">Série   : V s'additionnent, I identique   → Vmp = ${S.panel.Vmp} × Ns
+Parallèle : V identique, I s'additionnent → Imp = ${S.panel.Imp} × Np
+Voc froid = Voc × (1 + k × (Tmin − 25))   → doit rester &lt; Voc max du MPPT</div>
+    <div class="ans"><span class="q">Vmp champ = ?</span><input type="number" step="any" id="ans_vmp" value="${S.ans.vmp??''}" style="width:100px"> V <span class="q">Imp champ = ?</span><input type="number" step="any" id="ans_imp" value="${S.ans.imp??''}" style="width:100px"> A</div>`;}
+  if(i===5){h+=opts(BATS,S.bat,'b',o=>`<b>${o.n}</b><small>DoD ${o.dod*100} % · η ${o.eta} · ${o.cyc} cycles · ${o.imax} A max${o.bms?' · BMS':''}</small>`)+`
+    <div class="row"><span class="lbl">Autonomie souhaitée</span><input type="number" id="auto" value="${S.auto}" style="width:70px"> jours <span class="lbl">Batteries en série</span>${stepper('bns',S.bns,1,4)}<span class="lbl">Branches en parallèle</span>${stepper('bnp',S.bnp,1,6)}</div>
+    <div class="coup">${batSvg()}</div>
+    <div class="formula">Cbat(Wh) = Ejour × autonomie / (DoD × η)        Cbat(Ah) = Cbat(Wh) / Ubat
+Série : tensions s'additionnent · Parallèle : capacités s'additionnent</div>
+    <table><tr><th>Critère</th><th>Plomb</th><th>LiFePO₄</th></tr><tr><td>Prix initial</td><td>faible</td><td>plus élevé</td></tr><tr><td>Énergie utilisable</td><td>≈ 50 %</td><td>≈ 80 %</td></tr><tr><td>Cycles</td><td>≈ 800</td><td>≈ 4 000</td></tr><tr><td>BMS</td><td>non</td><td>indispensable</td></tr><tr><td>Rendement</td><td>≈ 85 %</td><td>≈ 95 %</td></tr></table>
+    ${ansBox('cb','Capacité du parc nécessaire = ?','Ah sous '+S.ubat+' V')}`;}
+  if(i===6){h+=opts(MPPTS,S.mppt,'m',o=>`<b>${o.n}</b><small>${o.type} · Voc max ${o.vocmax} V · ${o.ich} A · ${o.ubat.join('/')} V<br>Pmax ${Object.entries(o.pmax).map(([u,p])=>u+' V : '+p+' W').join(' · ')}</small>`)+`
+    <div class="formula">Contrôles bloquants : Voc froid champ &lt; Voc max MPPT · Ich ≈ Ppv / Ubat ≤ calibre · Ppv ≤ Pmax(Ubat)
+PWM : simple mais sans conversion (pertes si Vmp ≫ Ubat) · MPPT : recherche du point de puissance maximale</div>
+    <div class="kv"><span>Champ : Voc à 25 °C / au froid (${S.loc.tmin} °C)</span><span>${fr(C.Voc,0)} / ${fr(C.VocCold,0)} V</span><span>Puissance PV</span><span>${fr(C.Ppv_real,0)} Wc</span></div>
+    ${ansBox('ich','Courant de charge ≈ ?','A')}`;}
+  if(i===7){h+=opts(INVS,S.inv,'i',o=>`<b>${o.n}</b><small>${o.U} V → 230 V / 50 Hz · ${o.P} W continus · pointe ${o.peak} W · η ${o.eta}</small>`)+`
+    <div class="kv"><span>Puissance simultanée</span><span>${fr(C.Psim,0)} W</span><span>Pointe estimée au démarrage (moteurs × 2)</span><span>${fr(C.Pstart,0)} W</span></div>
+    <div class="formula">Ponduleur ≥ Psim × 1,25   ·   Ppointe onduleur ≥ pointe de démarrage   ·   VA ≠ W</div>
+    <div class="chk">${S.recv.filter(r=>r.sim).map(r=>`<label class="${r.start?'on':''}" data-startr="${S.recv.indexOf(r)}">${r.start?'☑':'☐'} ${r.n} : courant de démarrage</label>`).join('')}</div>
+    ${ansBox('pinv','Puissance onduleur avec marge 25 % = ?','W')}`;}
+  if(i===8){const c=S.cab;h+=`<div class="formula">ΔU = 2 × ρ × L × I / S   →   S = 2 × ρ × L × I / ΔU      ρcuivre ≈ 0,0175 Ω·mm²/m
+Deux vérifications : échauffement (I ≤ Iz du câble) ET chute de tension (ΔU ≤ ΔU maxi)</div>
+    <table><tr><th>Liaison</th><th>Courant retenu</th><th>Longueur aller (m)</th><th>ΔU maxi</th><th>Section choisie</th><th>Iz</th></tr>
+    <tr><td>PV → MPPT</td><td class="mono">1,25 × Isc = ${fr(C.Ipvmax,1)} A</td><td><input type="number" data-c="Lpv" value="${c.Lpv}"></td><td><select data-c="dupv">${[.01,.02,.03].map(v=>`<option value="${v}" ${c.dupv===v?'selected':''}>${v*100} %</option>`).join('')}</select></td><td><select data-c="Spv">${SECT.map(s=>`<option value="${s[0]}" ${c.Spv===s[0]?'selected':''}>${s[0]} mm²</option>`).join('')}</select></td><td class="mono">${C.Iz(c.Spv)} A</td></tr>
+    <tr><td>Batterie → onduleur</td><td class="mono">P/(U×η) = ${fr(C.Iinv,1)} A</td><td><input type="number" data-c="Lbat" value="${c.Lbat}"></td><td><select data-c="dubat">${[.01,.02,.03].map(v=>`<option value="${v}" ${c.dubat===v?'selected':''}>${v*100} %</option>`).join('')}</select></td><td><select data-c="Sbat">${SECT.map(s=>`<option value="${s[0]}" ${c.Sbat===s[0]?'selected':''}>${s[0]} mm²</option>`).join('')}</select></td><td class="mono">${C.Iz(c.Sbat)} A</td></tr></table>
+    <p class="note">Iz indicatifs (cuivre, PVC, pose libre) pour l'exercice ; un dimensionnement professionnel tient compte du mode de pose, de la température et du groupement.</p>
+    ${ansBox('iinv','Courant onduleur → batterie = ?','A')}`;}
+  if(i===9){const p=S.prot;h+=`<div class="formula">courant d'utilisation ≤ calibre de la protection ≤ courant admissible du câble (Iz)
+DC ≠ AC : tension assignée DC, pouvoir de coupure DC, polarité, nombre de pôles</div>
+    <table><tr><th>Protection</th><th>Contrainte</th><th>Choix</th></tr>
+    <tr><td>Fusibles de string gPV (coffret DC)</td><td class="mono">par string : ≥ 1,25 × Isc module = ${fr(S.panel.Isc*1.25,0)} A · ≤ 2,4 × Isc = ${fr(S.panel.Isc*2.4,0)} A · 1000 V DC</td><td><select data-p="fpv">${FUSES.map(f=>`<option ${p.fpv===f?'selected':''}>${f}</option>`).join('')}</select> A</td></tr>
+    <tr><td>Fusible principal batterie + sectionnement</td><td class="mono">≥ ${fr(C.Iinv,0)} A · ≤ Iz ${C.Iz(S.cab.Sbat)} A · PdC élevé</td><td><select data-p="fbat">${FUSES.map(f=>`<option ${p.fbat===f?'selected':''}>${f}</option>`).join('')}</select> A</td></tr>
+    <tr><td>Disjoncteur AC sortie onduleur</td><td class="mono">I = P / 230 = ${fr(C.Iac,1)} A</td><td><select data-p="qac">${[10,16,20,25,32].map(f=>`<option ${p.qac===f?'selected':''}>${f}</option>`).join('')}</select> A courbe C</td></tr>
+    <tr><td>DDR 30 mA</td><td>protection des personnes côté AC</td><td><label><input type="checkbox" data-p="ddr" ${p.ddr?'checked':''}> prévu</label></td></tr>
+    <tr><td>Parafoudre DC</td><td>selon analyse de risque</td><td><label><input type="checkbox" data-p="dcspd" ${p.dcspd?'checked':''}> prévu</label></td></tr></table>
+    <div class="formula">Champ PV → fusibles de strings → coffret DC (parafoudre, sectionneur DC) → MPPT → fusible DC → BATTERIES → fusible principal + sectionnement → ONDULEUR → disjoncteur AC → DDR → tableau → récepteurs
++ mise à la terre, liaisons équipotentielles, relation neutre-terre selon l'onduleur</div>`;}
+  if(i===10){const all=[...Array(10).keys()].every(k=>S.done[k]);h+=all?`<div class="report" id="rep">${report()}</div><div class="row"><button class="btn" id="print">Imprimer / PDF</button><span class="note">Dans l'application, la note de calcul est enregistrée dans la tentative et envoyée au professeur.</span></div>`:`<div class="msg warn"><b>Note de calcul verrouillée</b>Valide d'abord les dix étapes précédentes.</div>`;}
+  const E=checks(i);h+=`<div id="res">${msgs(E)}</div><div class="foot"><button class="btn sec" id="prev" ${i===0?'disabled':''}>← Précédent</button><span>${E.some(e=>e.k==='bad')?'<span class="pill bad">bloqué</span>':'<span class="pill ok">étape valide</span>'}</span><button class="btn" id="next">${i<10?'Valider et continuer →':'Terminer'}</button></div>`;
+  M.innerHTML=h;bindAns();bindMain();}
+function bindMain(){
+  $$('#main [data-r]').forEach(el=>el.addEventListener('input',()=>{const r=S.recv[+el.dataset.r],f=el.dataset.f;r[f]=el.type==='checkbox'?el.checked:f==='n'?el.value:+el.value;if(f!=='n')renderMain();}));
+  $$('#main [data-del]').forEach(b=>b.addEventListener('click',()=>{S.recv.splice(+b.dataset.del,1);renderMain();}));
+  const a=$('#addR');if(a)a.addEventListener('click',()=>{S.recv.push({n:'Nouveau récepteur',P:100,q:1,t:1,sim:true,start:false});renderMain();});
+  const sc=$('#selC');if(sc)sc.addEventListener('change',()=>{S.loc=LOC.find(l=>l.c===sc.value);renderMain();});const sv=$('#selV');if(sv)sv.addEventListener('change',()=>{S.loc=LOC.find(l=>l.c===S.loc.c&&l.v===sv.value);renderMain();});
+  $$('input[name=w]').forEach(r=>r.addEventListener('change',()=>{S.worst=r.value==='1';renderMain();}));const et=$('#eta');if(et)et.addEventListener('change',()=>{S.eta=+et.value;renderMain();});
+  $$('#main [data-u]').forEach(b=>b.addEventListener('click',()=>{S.ubat=+b.dataset.u;S.inv=INVS.find(i=>i.U===S.ubat)||S.inv;S.bat=S.ubat===48?BATS[4]:BATS[2];S.bns=S.ubat===48?1:S.ubat/12;renderMain();}));
+  $$('#main [data-p]').forEach(b=>b.addEventListener('click',()=>{S.panel=PANELS.find(p=>p.id===b.dataset.p);renderMain();}));
+  $$('#main [data-b]').forEach(b=>b.addEventListener('click',()=>{S.bat=BATS.find(p=>p.id===b.dataset.b);S.bns=Math.max(1,Math.round(S.ubat/S.bat.U));renderMain();}));
+  $$('#main [data-m]').forEach(b=>b.addEventListener('click',()=>{S.mppt=MPPTS.find(p=>p.id===b.dataset.m);renderMain();}));
+  $$('#main [data-i]').forEach(b=>b.addEventListener('click',()=>{S.inv=INVS.find(p=>p.id===b.dataset.i);renderMain();}));
+  $$('#main [data-st]').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.st,d=+b.dataset.d;const lim={ns:[1,8],np:[1,6],bns:[1,4],bnp:[1,6]}[k];S[k]=Math.min(lim[1],Math.max(lim[0],S[k]+d));renderMain();}));
+  const au=$('#auto');if(au)au.addEventListener('change',()=>{S.auto=+au.value;renderMain();});
+  $$('#main [data-startr]').forEach(l=>l.addEventListener('click',()=>{const r=S.recv[+l.dataset.startr];r.start=!r.start;renderMain();}));
+  $$('#main [data-c]').forEach(el=>el.addEventListener('change',()=>{S.cab[el.dataset.c]=+el.value;renderMain();}));
+  $$('#main [data-p]').forEach(()=>{});$$('#main select[data-p],#main input[data-p]').forEach(el=>el.addEventListener('change',()=>{S.prot[el.dataset.p]=el.type==='checkbox'?el.checked:+el.value;renderMain();}));
+  $('#prev').addEventListener('click',()=>{S.step=Math.max(0,S.step-1);render();});
+  $('#next').addEventListener('click',()=>{const E=checks(S.step);if(E.some(e=>e.k==='bad')){$('#res').innerHTML=msgs(E);$('#res').scrollIntoView({behavior:'smooth',block:'center'});return;}S.done[S.step]=true;if(S.step<10)S.step++;render();});
+  const pr=$('#print');if(pr)pr.addEventListener('click',()=>window.print());
+  $$('[id^=ans_]').forEach(i=>i.addEventListener('change',()=>{$('#res').innerHTML=msgs(checks(S.step));}));}
+function report(){calc();return `NOTE DE CALCUL PHOTOVOLTAÏQUE — installation autonome avec stockage
+Site : ${S.loc.v} (${S.loc.c}) · HSP retenue ${fr(C.hsp,1)} h/j (${S.worst?'mois le plus défavorable':'moyenne annuelle'}) · Tmin ${S.loc.tmin} °C
+
+BESOINS
+  Consommation journalière      ${fr(C.Ejour/1000,2)} kWh/j
+  Puissance simultanée          ${fr(C.Psim/1000,2)} kW · pointe démarrage ≈ ${fr(C.Pstart/1000,2)} kW
+ARCHITECTURE                    ${S.ubat} V
+CHAMP PV                        ${S.ns*S.np} × ${S.panel.P} Wc = ${fr(C.Ppv_real/1000,2)} kWc (besoin ${fr(C.Ppv/1000,2)} kWc, η ${S.eta})
+  Configuration                 ${S.ns}S${S.np}P · Vmp ${fr(C.Vmp,0)} V · Imp ${fr(C.Imp,1)} A · Voc ${fr(C.Voc,0)} V (${fr(C.VocCold,0)} V au froid) · Isc ${fr(C.Isc,1)} A
+BATTERIES                       ${S.bns}S${S.bnp}P × ${S.bat.n}
+  Parc                          ${fr(C.Ubat,1)} V / ${fr(C.Ah,0)} Ah = ${fr(C.Ewh/1000,1)} kWh (besoin ${fr(C.Cah,0)} Ah, autonomie ${S.auto} j, DoD ${S.bat.dod*100} %, η ${S.bat.eta})
+RÉGULATEUR                      ${S.mppt.n} · Voc max ${S.mppt.vocmax} V ≥ ${fr(C.VocCold,0)} V · Ich ≈ ${fr(C.Ich,0)} A ≤ ${S.mppt.ich} A
+ONDULEUR                        ${S.inv.n} · ${S.inv.P} W / pointe ${S.inv.peak} W (besoin ${fr(C.Psim*1.25,0)} W)
+CÂBLES
+  PV → MPPT                     ${S.cab.Spv} mm² · ${S.cab.Lpv} m · I ${fr(C.Ipvmax,1)} A · ΔU ${fr(2*0.0175*S.cab.Lpv*C.Ipvmax/S.cab.Spv,2)} V
+  Batterie → onduleur           ${S.cab.Sbat} mm² · ${S.cab.Lbat} m · I ${fr(C.Iinv,1)} A · ΔU ${fr(2*0.0175*S.cab.Lbat*C.Iinv/S.cab.Sbat,2)} V
+PROTECTIONS
+  Fusibles de string gPV        ${S.prot.fpv} A · 1000 V DC${S.prot.dcspd?' · parafoudre DC':''} · sectionneur DC
+  Fusible principal batterie    ${S.prot.fbat} A · sectionnement · pouvoir de coupure adapté (${S.bat.tech})
+  Sortie AC                     disjoncteur ${S.prot.qac} A courbe C${S.prot.ddr?' · DDR 30 mA type A':''}
+Chaîne : PV → coffret DC → MPPT → batteries → fusible → onduleur → protection AC → tableau → récepteurs`;}
+function renderInsp(){calc();$('#insp').innerHTML=`<div class="card"><h3>Résumé en direct</h3><div class="kv"><span>Ejour</span><span>${fr(C.Ejour,0)} Wh/j</span><span>P simultanée</span><span>${fr(C.Psim,0)} W</span><span>HSP · η</span><span>${fr(C.hsp,1)} h · ${S.eta}</span><span>Ppv nécessaire</span><span>${fr(C.Ppv,0)} Wc</span><span>Champ</span><span>${S.ns}S${S.np}P · ${fr(C.Ppv_real,0)} Wc</span><span>Voc froid</span><span>${fr(C.VocCold,0)} V</span><span>Parc</span><span>${fr(C.Ubat,0)} V / ${fr(C.Ah,0)} Ah</span><span>MPPT</span><span>${S.mppt.n.replace('Régulateur ','')}</span><span>Onduleur</span><span>${S.inv.P} W</span><span>I batterie → onduleur</span><span>${fr(C.Iinv,0)} A</span></div></div>
+  <div class="card"><h3>Professeur virtuel</h3><div class="note">Répond à tes questions sans donner la solution : « pourquoi 48 V ? », « série ou parallèle ? », « pourquoi mon MPPT est-il refusé ? ». Chaque erreur bloquante est expliquée et le bot reçoit ton état de dimensionnement.</div><div class="row" style="margin-top:8px"><input type="text" placeholder="Pose ta question…" style="flex:1"><button class="btn small">Envoyer</button></div></div>
+  <div class="card"><h3>Ce que l'application ajoutera</h3><div class="note">Base d'irradiation réelle (PVGIS) par ville · fiches techniques constructeur en PDF · schéma unifilaire généré · note de calcul enregistrée dans la tentative · bibliothèque PV de l'atelier (modules, coffrets DC, MPPT, batteries) posée sur la platine PV pour le câblage.</div></div>`;}
+function render(){renderSteps();renderMain();renderInsp();chainState();}
+render();
+})();
+</script>

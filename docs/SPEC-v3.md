@@ -157,3 +157,157 @@ liste « mes montages », réouverture. Les boutons/voyants/prises/modules PV vo
 - Mobile-first (Android) : colonnes empilées < 900 px, panneau scalé, boutons ≥ 40 px.
 - Français, tutoiement, vocabulaire NF C 18-510 / NF C 15-100.
 - Ne pas casser : auth Google, `attempts`, `/api/prof`, dashboard prof.
+
+## 9. Élève, aide et évaluation (v3.1)
+
+### 9.1 Identité de l'élève et diplôme préparé
+
+- `src/lib/data/competences.ts` (architecte) : `DIPLOMAS` (`cap` | `bacpro` | `bts` | `cster`),
+  `COMPETENCES`, `DOMAIN_TO_COMPETENCES`, `PLATINE_STAGE_DOMAINS`, `evaluate()`.
+- Migration `0004_diploma_evaluation.sql` : `profiles.diploma`, `profiles.onboarded`,
+  `attempts.evaluation` (jsonb), `attempts.diploma`.
+- `ProfileRow` / `ProfilePatch` (`src/lib/db/types.ts`, `src/lib/db/profiles.ts`) portent
+  `diploma` et `onboarded`.
+- **`/bienvenue`** (`src/app/bienvenue/page.tsx`) : nom et prénom pré-remplis depuis Google,
+  une carte par diplôme, établissement facultatif. Enregistrement via `updateProfile`
+  (`onboarded: true`) puis retour sur `?next=`.
+- `src/lib/supabase/middleware.ts` : `/bienvenue` rejoint les routes protégées ; tout utilisateur
+  connecté dont le profil n'a pas `onboarded` **et** `diploma` est redirigé vers `/bienvenue`
+  (sauf `/login`, `/auth`, `/compte`, `/bienvenue`).
+- **Mode démonstration** (`NEXT_PUBLIC_DEMO_MODE=1`) : pas de Supabase, le même formulaire écrit
+  `{ name, diploma, etablissement }` dans `localStorage` sous **`simulelec.eleve`**
+  (`src/lib/student.ts`) ; `useStudent()` (`src/lib/useStudent.ts`) relit cette clé et redirige
+  vers `/bienvenue` si elle manque.
+- `/compte` permet de modifier nom, diplôme et établissement.
+- Le store du parcours porte `student: { name, diploma, etablissement }` ; le nom et le diplôme
+  s'affichent dans l'en-tête de `ParcoursClient`, dans le contexte du professeur virtuel et sur
+  tous les rapports (`buildReport(tp, st, student)`).
+
+### 9.2 Aide « rappel de cours » (élève bloqué)
+
+- **`src/lib/data/cours.ts`** : 25 fiches (`CoursId`) — plaque moteur et calibre GV2/LRD,
+  contacteur et auto-maintien, transformateur 400/24 V et F2/F3, borniers X1/X2, règles de
+  câblage, tests hors tension (VAT, PE, 500 V), EPI et habilitation, consignation en 5 étapes,
+  déconsignation et essais, mesure de tension, mesure de courant à la pince, vitesse et
+  glissement, couplage, diagnostic, automate M221, loi d'Ohm et puissance, énergie,
+  série/parallèle, tension du système PV, Voc corrigée en température, capacité batterie, chute
+  de tension et section, calibre des protections, DC ≠ AC, tableau de logement NF C 15-100.
+  Chaque fiche : `title`, `summary` (2 à 4 phrases), `rules[]` (rendues en `--font-mono`),
+  `example`, `pieges[]`, `levels` (une phrase de cadrage par diplôme).
+- Mapping étape → fiches : `STAGE_COURS` (valeur par défaut, 11 étapes) et `TP_COURS`
+  (précisions par TP) dans `src/lib/sim/progress.ts`, lus par `coursForStage(tpId, stage)`.
+- **`src/components/parcours/AideCours.tsx`** : bouton « J'ai besoin d'aide » rendu par
+  `StageLayout` (`Side`, en tête de colonne, `sticky`) donc présent à toutes les étapes ; panneau
+  modal avec onglets de thèmes, règles, exemple, pièges, cadrage par diplôme, puis
+  « Demander au professeur ».
+- **Ouverture automatique, une fois par étape** (store `autoAide`) : 3 erreurs de câblage,
+  2 mauvais choix de matériel, une mesure erronée (hors cible ou ERR) ou un diagnostic faux.
+- « Demander au professeur » envoie une question pré-remplie au `ProfBot` (`store.askProf`) ;
+  `POST /api/prof` reçoit `student` (nom, diplôme) et `cours` (fiche mise à plat) en plus du
+  `context`, avec la consigne : rappeler la règle de calcul, jamais la valeur.
+- Compteur d'ouvertures : `AttemptState.helpUsed: Record<number, number>` (ajout compatible,
+  complété par `normalizeState`).
+
+### 9.3 Évaluation par compétences
+
+- `stageScores(tp, st)` (`progress.ts`) : score 0..1 par étape — matériel = bonnes références /
+  postes ; pose = 1 − erreurs / appareils ; câblage = liaisons justes / total − 0,05 par refus ;
+  tests = tests faits ; EPI/consignation = étapes dans l'ordre + EPI, pénalité par manœuvre ERR ;
+  mesures = mesures attendues validées, −0,15 par ERR ; mise en service = essai concluant ;
+  validation = diagnostic (1er / 2e essai) et quiz. **Chaque ouverture d'aide sur l'étape retire
+  0,1, plancher 0,3 si l'étape est réussie.**
+- `buildEvaluation(tp, st, diploma)` appelle `evaluate(diploma, PLATINE_STAGE_DOMAINS, stageScores)`
+  et renvoie `null` pour un TP non jouable (aucune évaluation produite).
+- **`src/components/parcours/Evaluation.tsx`** : en-tête élève (nom, diplôme, établissement, TP,
+  date), grille des compétences (code, intitulé, domaines, barre, niveau *acquis / en cours
+  d'acquisition / non acquis / non évalué*), critères du référentiel dépliables, détail par étape,
+  bouton « Imprimer / PDF » (feuille de style `@media print` dans `globals.css`, les critères sont
+  dépliés le temps de l'impression) et « Envoyer au professeur ».
+- Persistance : `finishAttempt(id, report, score, evaluation?, diploma?)` écrit `attempts.evaluation`
+  et `attempts.diploma` ; le rapport contient `student`, `evaluation`, `stageScores`, `helpUsed`.
+- **`/prof`** : filtre par diplôme et grille compacte (code + score + couleur du niveau) sous le nom
+  de l'élève pour chaque tentative terminée.
+
+## 10. TP 14 dimensionnement (v3.2)
+
+Référence validée par le client : **`docs/reference/illustration-pv-dimensionnement.html`** (page HTML
+autonome ; son JS — `LOC`, `PANELS`, `BATS`, `MPPTS`, `INVS`, `SECT`, `FUSES`, `RECV0`, `calc`, `checks`,
+`panelSvg`, `batSvg`, `report`, chaîne `CHAIN`, 11 étapes — est LA logique portée en TypeScript).
+
+### 10.1 Un nouveau type de parcours
+
+- `TpDefinition.kind?: 'platine' | 'dimensionnement'` (`src/lib/types.ts`), **défaut `'platine'`** :
+  les 13 TP existants ne changent pas.
+- `src/app/tp/[id]/page.tsx` rend `DimensionnementClient` quand `tp.kind === 'dimensionnement'`,
+  `ParcoursClient` sinon.
+- Le catalogue `/tp` affiche un badge **« dimensionnement »** (`[data-kind]`) à côté de « jouable ».
+- TP 14 : `id: 'pv-dimensionnement'`, famille `pv`, `scene: 'pv'`, `annex: 'roof'`, `playable: true`,
+  niveaux « Tle Bac Pro MELEC · BTS Électrotechnique · CS TER ». Définition minimale compatible
+  (`slots: []`, `liaisons: []`, `nets: {}`, `mesures: []`, `postes: []`, `motor: null`) : énoncé,
+  situation, cahier des charges, quiz de 3 questions et `competences`.
+  Fichier `src/lib/data/tps/pv-dimensionnement.ts`, ajouté à `TPS` (donc au seed `scripts/seed-tps.ts`,
+  qui reste générique).
+
+### 10.2 Données — `src/lib/data/pv/catalogue.ts`
+
+`LOCALITES` (18 villes : Guyane, Antilles, océan Indien, métropole, Pacifique — HSP annuelle, mois le
+plus défavorable, inclinaison, Tmin/Tmax **et `lat`/`lon`**), `PANELS` (4 modules), `BATTERIES` (5, plomb
+AGM et LiFePO₄ avec DoD, rendement, cycles, BMS), `MPPTS` (1 PWM + 6 MPPT, `vocmax`, `ich`, `ubat`,
+`pmax` par tension), `INVERTERS` (5 onduleurs), `SECTIONS` (mm² → Iz), `FUSES`, `AC_CALIBRES`, `RHO_CU`,
+`RECEPTEURS_DEFAUT`. Helpers : `localityById`, `nearestLocality`, `izOf`, `panelById`…
+
+### 10.3 Moteur pur — `src/lib/pv/dimensionnement.ts`
+
+- `PvState` : récepteurs éditables, réponses de l'élève (`ans`), localité, η, mois retenu, `ubat`,
+  module + Ns/Np, batterie + Bns/Bnp, autonomie, MPPT, onduleur, câbles, protections, étapes validées,
+  `solar` (PVGIS), `badTries`, `helpUsed`, `wrongAns`. `initialPvState()` / `normalizePvState()`.
+- `calc(state)` → `PvCalc` (Ejour, Psim, Pstart, HSP, Ppv, Ppv réel, Vmp/Imp/Voc/Isc, **Voc corrigée au
+  froid**, Cbat/Cah, parc, Ich, Iinv, Ipvmax, sections mini, Iac).
+- `checks(state, step)` → `PvMessage[] {kind:'bad'|'warn'|'ok', title, detail}` — **messages identiques à
+  la référence** : tolérances des réponses (3 % / 5 % / 2 %), Voc froid > Voc max MPPT, Vmp < Ubat + 20 %,
+  PWM sans conversion, BMS et parc en parallèle, plomb DoD 50 %, fusibles de string entre 1,25 × Isc et
+  2,4 × Isc (et ≤ Iz), Iu ≤ In ≤ Iz, VA ≠ W, DDR obligatoire, parafoudre DC, DC ≠ AC.
+- `stepOk`, `chainState` (8 blocs de la chaîne énergétique), `expectedAnswer` / `answerOk`,
+  `report(state)` (note de calcul texte) et `unifilaire(state)` (**SVG**, deux rangées de quatre blocs :
+  PV → coffret DC → MPPT → batteries → protection DC → onduleur → protection AC → tableau, valeurs clés
+  sous chaque bloc, DC en rouge / AC en bleu / terre en vert).
+- Pédagogie : `PV_STEPS` (11 étapes), `PV_STEP_SHORT`, `PV_CHAIN`, `PV_STAGE_COURS` (mapping étape →
+  fiches de `cours.ts` : `energie`, `serie-parallele`, `pv-tension-systeme`, `pv-voc-temperature`,
+  `pv-batterie`, `chute-tension`, `calibre-protection`, `dc-ac`, `loi-ohm-puissance`).
+- Évaluation : `pvStageScores` = **1 − 0,15 × mauvaise tentative − 0,1 × ouverture d'aide**, plancher 0,3
+  si l'étape est validée ; `buildPvEvaluation(state, diploma)` appelle
+  `evaluate(diploma, PV_STAGE_DOMAINS, pvStageScores)` ; `pvScore` (note / 100).
+- `src/lib/pv/context.ts` : `buildPvContext` (état complet du dimensionnement + fiche ouverte +
+  consigne « rappelle la règle, jamais la valeur »), `PV_QUICK`, `PV_HELLO`, `pvFallbackAnswer`.
+
+### 10.4 Ressource solaire réelle — `src/app/api/pvgis/route.ts`
+
+`GET /api/pvgis?lat=&lon=` interroge PVGIS
+(`https://re.jrc.ec.europa.eu/api/v5_2/PVcalc?…&peakpower=1&loss=14&outputformat=json`) **côté serveur**,
+cache mémoire 24 h (les replis ne sont pas mis en cache), délai de garde 6 s. Réponse :
+`{ source:'pvgis'|'table', hsp, min, worstMonth, monthly[{month,em,ed,hsp}], loss, locality }` avec
+**HSP ≈ E_d / (1 − pertes)**. Si l'API est injoignable, **repli silencieux** sur la localité la plus proche
+du catalogue (`source: 'table'`). L'étape « Localisation » affiche la production mensuelle (E_m et HSP par
+mois, mois le plus faible en rouge), la source, et bascule sur la mention « valeurs indicatives » en repli.
+
+### 10.5 Interface — `src/app/tp/[id]/DimensionnementClient.tsx` et `src/components/pv/`
+
+- Store dédié `src/app/tp/[id]/pvStore.ts` (zustand, distinct de `store.ts`) : persistance de `PvState`
+  dans `attempts.state` par `saveAttemptState` (signature élargie : `AttemptState | PvState`),
+  `finishAttempt(report, score, evaluation, diploma)` avec la note de calcul et le schéma unifilaire.
+- Mise en page : en-tête élève, **stepper commun** (`Stepper` accepte `labels` / `shortLabels`),
+  **chaîne énergétique** (`ChainBar`, blocs verts / rouges / en cours), colonne des étapes verrouillées
+  (masquée < 1024 px : le stepper suffit), contenu de l'étape, colonne « Résumé en direct » + bot.
+- Contenu par étape (`src/components/pv/steps.tsx`) : tableau des récepteurs éditable **total masqué**,
+  cases « simultané » / « démarrage », champs « réponse élève » (`[data-ans]`) vérifiés à la sortie du
+  champ, sélection région → ville, boutons 12 / 24 / 48 V, cartes de fiches techniques, **couplage
+  série/parallèle dessiné en SVG** (`PanelCoupling`, `BatCoupling` — ports React de `panelSvg` / `batSvg`,
+  avec Ns/Np ±), tableaux câbles et protections, note de calcul + schéma unifilaire + impression.
+- Aide : `AidePv` réutilise `AideModal` (extrait de `AideCours.tsx`, désormais partagé) ;
+  **ouverture automatique après deux réponses fausses à la même question** (`wrongAns`) ou deux
+  tentatives de validation refusées ; chaque ouverture est comptée dans `helpUsed`.
+- Bot : `ProfBotPv` (même contrat `POST /api/prof`, contexte de dimensionnement + fiche de l'étape).
+- Évaluation finale : le composant `Evaluation` accepte désormais une grille déjà calculée
+  (`evaluation`, `scores`, `stageLabels`, `helpUsed`, `score`) — le parcours platine est inchangé.
+- Mobile-first vérifié à 400 px : aucun débordement horizontal, tableaux dans des conteneurs défilants,
+  SVG `max-width: 100%`, cibles ≥ 40 px.
