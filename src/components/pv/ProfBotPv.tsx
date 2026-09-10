@@ -1,30 +1,29 @@
 'use client';
 
+/**
+ * Professeur virtuel du parcours de dimensionnement.
+ * Même contrat que le bot de la platine (`POST /api/prof`), avec un contexte de dimensionnement
+ * et la consigne « rappelle la règle, pas la valeur ».
+ */
+
 import React from 'react';
-import type { AttemptState, TpDefinition } from '@/lib/types';
-import type { SimState } from '@/lib/sim/engine';
-import { buildContext, fallbackAnswer, HELLO, QUICK_QUESTIONS } from '@/lib/sim/context';
+import type { TpDefinition } from '@/lib/types';
 import { COURS, coursPrompt } from '@/lib/data/cours';
-import { useParcours } from '@/app/tp/[id]/store';
+import { coursForPvStep, PV_STEPS } from '@/lib/pv/dimensionnement';
+import { buildPvContext, PV_HELLO, PV_QUICK, pvFallbackAnswer } from '@/lib/pv/context';
+import { usePvParcours } from '@/app/tp/[id]/pvStore';
 
-export interface Turn { role: 'user' | 'assistant'; content: string }
+interface Msg { role: 'user' | 'assistant'; content: string; pending?: boolean }
 
-interface Props {
-  tp: TpDefinition;
-  st: AttemptState;
-  sim: SimState;
-  attemptId: string | null;
-  turns: Turn[];
-  onTurn: (t: Turn) => void;
-}
-
-interface Msg extends Turn { pending?: boolean }
-
-export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props) {
-  const student = useParcours(s => s.student);
-  const aideFiche = useParcours(s => s.aideFiche);
-  const pendingQuestion = useParcours(s => s.pendingQuestion);
-  const consumeQuestion = useParcours(s => s.consumeQuestion);
+export default function ProfBotPv({ tp }: { tp: TpDefinition }) {
+  const s = usePvParcours(x => x.s);
+  const student = usePvParcours(x => x.student);
+  const attemptId = usePvParcours(x => x.attemptId);
+  const turns = usePvParcours(x => x.turns);
+  const aideFiche = usePvParcours(x => x.aideFiche);
+  const pushTurn = usePvParcours(x => x.pushTurn);
+  const pendingQuestion = usePvParcours(x => x.pendingQuestion);
+  const consumeQuestion = usePvParcours(x => x.consumeQuestion);
   const [msgs, setMsgs] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -32,13 +31,12 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
   const helloRef = React.useRef<number | null>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
-  // mot d'accueil à chaque changement d'étape
   React.useEffect(() => {
-    if (helloRef.current === st.stage) return;
-    helloRef.current = st.stage;
-    const hello = HELLO[st.stage];
+    if (helloRef.current === s.step) return;
+    helloRef.current = s.step;
+    const hello = PV_HELLO[s.step];
     if (hello) setMsgs(m => [...m, { role: 'assistant', content: hello }]);
-  }, [st.stage]);
+  }, [s.step]);
 
   React.useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -50,7 +48,7 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
     setInput('');
     setBusy(true);
     setMsgs(m => [...m, { role: 'user', content: q }, { role: 'assistant', content: '…', pending: true }]);
-    onTurn({ role: 'user', content: q });
+    pushTurn({ role: 'user', content: q });
 
     const settle = (answer: string) => {
       setMsgs(m => {
@@ -60,13 +58,13 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
         else copy.push({ role: 'assistant', content: answer });
         return copy;
       });
-      onTurn({ role: 'assistant', content: answer });
+      pushTurn({ role: 'assistant', content: answer });
       setBusy(false);
     };
 
-    const fiche = aideFiche ? COURS[aideFiche] : null;
+    const fiche = (aideFiche && COURS[aideFiche]) || COURS[coursForPvStep(s.step)[0]] || null;
 
-    if (!attemptId) { settle(fallbackAnswer(q)); setOnline(false); return; }
+    if (!attemptId) { settle(pvFallbackAnswer(q)); setOnline(false); return; }
 
     try {
       const res = await fetch('/api/prof', {
@@ -74,25 +72,25 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           attemptId,
-          stage: st.stage,
-          context: buildContext(tp, st, sim, { student, fiche }),
+          stage: s.step,
+          context: buildPvContext(tp, s, { student, fiche }),
           student: { name: student.name, diploma: student.diploma },
           cours: fiche ? coursPrompt(fiche, student.diploma) : null,
           turns: [...turns, { role: 'user', content: q }].slice(-8),
         }),
       });
-      if (!res.ok) { setOnline(false); settle(fallbackAnswer(q)); return; }
+      if (!res.ok) { setOnline(false); settle(pvFallbackAnswer(q)); return; }
       const data = (await res.json()) as { text?: string; error?: string };
-      if (!data.text || data.error) { setOnline(false); settle(fallbackAnswer(q)); return; }
+      if (!data.text || data.error) { setOnline(false); settle(pvFallbackAnswer(q)); return; }
       setOnline(true);
       settle(data.text);
     } catch {
       setOnline(false);
-      settle(fallbackAnswer(q));
+      settle(pvFallbackAnswer(q));
     }
-  }, [aideFiche, attemptId, busy, onTurn, sim, st, student, tp, turns]);
+  }, [aideFiche, attemptId, busy, pushTurn, s, student, tp, turns]);
 
-  // question envoyée depuis le panneau d'aide (« Demander au professeur »)
+  // question envoyée depuis le panneau d'aide
   React.useEffect(() => {
     if (!pendingQuestion || busy) return;
     const q = pendingQuestion;
@@ -100,21 +98,21 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
     void ask(q);
   }, [ask, busy, consumeQuestion, pendingQuestion]);
 
-  const quick = QUICK_QUESTIONS[st.stage] ?? [];
+  const quick = PV_QUICK[s.step] ?? [];
 
   return (
     <div className="flex min-h-0 flex-col bg-[var(--surface)] lg:border-l lg:border-[var(--line)]">
       <header className="flex items-center gap-2.5 border-b border-[var(--line)] px-3.5 py-3">
         <div className="grid h-[34px] w-[34px] place-items-center rounded-full font-title font-bold text-white" style={{ background: 'linear-gradient(135deg,#1E9E63,#0E5C3A)' }}>Pr</div>
         <div>
-          <b className="block text-[13px]">Professeur virtuel · électrotechnique</b>
+          <b className="block text-[13px]">Professeur virtuel · dimensionnement</b>
           <small className="text-[11px] text-muted">
-            {online ? 'Répond à tes questions sans donner la solution' : 'Mode hors-ligne : réponses préparées'}
+            {online ? 'Rappelle la règle de calcul, jamais la valeur' : 'Mode hors-ligne : réponses préparées'}
           </small>
         </div>
       </header>
 
-      <div ref={listRef} className="flex max-h-[46vh] min-h-[220px] flex-1 flex-col gap-2 overflow-y-auto p-3 lg:max-h-none">
+      <div ref={listRef} className="flex max-h-[46vh] min-h-[200px] flex-1 flex-col gap-2 overflow-y-auto p-3 lg:max-h-none">
         {msgs.map((m, i) => (
           <div
             key={i}
@@ -162,6 +160,7 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
           Envoyer
         </button>
       </form>
+      <p className="sr-only">Étape : {PV_STEPS[s.step].title}</p>
     </div>
   );
 }

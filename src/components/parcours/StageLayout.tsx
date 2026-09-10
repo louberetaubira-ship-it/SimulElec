@@ -1,10 +1,14 @@
 'use client';
 
 import React from 'react';
+import { AideButton } from './AideCours';
 
 export function Side({ children }: { children: React.ReactNode }) {
   return (
     <aside className="flex flex-col gap-2.5 overflow-y-auto border-b border-[var(--line)] bg-[var(--surface)] p-3.5 lg:border-b-0 lg:border-r">
+      <div className="sticky top-0 z-20 -mx-3.5 -mt-3.5 border-b border-[var(--line)] bg-[var(--surface)] px-3.5 py-2">
+        <AideButton />
+      </div>
       {children}
     </aside>
   );

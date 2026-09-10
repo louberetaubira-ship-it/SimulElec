@@ -9,17 +9,24 @@ interface Props {
   onGo: (i: number) => void;
   /** Dernière étape accessible (TP non jouable). */
   maxStage?: number;
+  /** Libellés des étapes ; par défaut le parcours platine (`STAGES`). */
+  labels?: readonly string[];
+  /** Libellés courts (mobile) ; par défaut `STAGES_SHORT`. */
+  shortLabels?: readonly string[];
 }
 
-export default function Stepper({ stage, done, onGo, maxStage = STAGES.length - 1 }: Props) {
+export default function Stepper({
+  stage, done, onGo, maxStage, labels = STAGES, shortLabels = STAGES_SHORT,
+}: Props) {
+  const last = maxStage ?? labels.length - 1;
   return (
     <nav
       className="flex gap-1 overflow-x-auto border-b border-[var(--line)] bg-[var(--surface)] px-2 py-2"
       aria-label="Étapes du TP"
     >
-      {STAGES.map((label, i) => {
+      {labels.map((label, i) => {
         const isDone = !!done[i];
-        const locked = i > maxStage || (i > stage && !done[i - 1]);
+        const locked = i > last || (i > stage && !done[i - 1]);
         return (
           <button
             key={label}
@@ -34,7 +41,7 @@ export default function Stepper({ stage, done, onGo, maxStage = STAGES.length - 
             <span className={`grid h-[20px] w-[20px] flex-none place-items-center rounded-full font-title text-[12px] font-bold ${isDone ? 'bg-good text-white' : stage === i ? 'bg-accent text-[var(--accent-ink)]' : 'bg-[var(--line)] text-ink'}`}>
               {isDone ? '✓' : i + 1}
             </span>
-            <span className="hidden text-[11.5px] leading-tight sm:inline">{STAGES_SHORT[i]}</span>
+            <span className="hidden text-[11.5px] leading-tight sm:inline">{shortLabels[i] ?? label}</span>
           </button>
         );
       })}

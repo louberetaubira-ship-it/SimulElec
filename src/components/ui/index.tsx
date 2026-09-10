@@ -99,7 +99,7 @@ export function Toast({ message }: { message: string | null }) {
   return (
     <div
       aria-live="polite"
-      className={`pointer-events-none fixed bottom-4 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-[12.5px] text-[var(--app)] transition-opacity ${message ? 'opacity-100' : 'opacity-0'}`}
+      className={`no-print pointer-events-none fixed bottom-4 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-[12.5px] text-[var(--app)] transition-opacity ${message ? 'opacity-100' : 'opacity-0'}`}
     >
       {message ?? ''}
     </div>

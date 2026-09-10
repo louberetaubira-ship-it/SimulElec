@@ -14,6 +14,7 @@ export function tpSprites(tpId: string): string[] {
     case 'eclairage-baes': return ['mcb1p', 'lampR', 'termgrey'];
     case 'pv-reseau': return ['mcb2p', 'meter', 'smart'];
     case 'pv-batterie': return ['mcb2p', 'smart', 'rcd2p'];
+    case 'pv-dimensionnement': return ['smart', 'meter', 'v230'];
     default: return ['mcb1p', 'kontakt', 'earth'];
   }
 }

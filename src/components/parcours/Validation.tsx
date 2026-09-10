@@ -6,6 +6,7 @@ import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { buildReport, scoreLines } from '@/lib/sim/progress';
 import { readingLabel } from '@/lib/sim/mesures';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
+import Evaluation from './Evaluation';
 import TpPanel from './TpPanel';
 import { deviceStateOf, lampsOf } from './panelState';
 import { Center, Hint, Side } from './StageLayout';
@@ -146,8 +147,10 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
 }
 
 function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
+  const s = useParcours();
   const lines = scoreLines(tp, st);
-  const report = buildReport(tp, st);
+  const report = buildReport(tp, st, s.student);
+  const [sent, setSent] = React.useState(false);
 
   return (
     <>
@@ -163,7 +166,15 @@ function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
       </Side>
 
       <Center>
-        <article className="flex w-full max-w-[760px] flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5">
+        <Evaluation
+          tp={tp}
+          st={st}
+          student={s.student}
+          sent={sent}
+          offline={s.offline || !s.attemptId}
+          onSend={() => { void s.finish(); setSent(true); }}
+        />
+        <article className="no-print flex w-full max-w-[760px] flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5">
           <div className="font-title text-[12px] font-semibold uppercase tracking-[.14em] text-accent">
             Rapport de mise en service
           </div>
@@ -191,7 +202,9 @@ function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
           <div className="flex flex-col gap-1 font-mono-num text-[11.5px]">
             {st.readings.map((r, i) => <div key={i}>{readingLabel(r)}</div>)}
           </div>
-          <Note>Compétences évaluées : {tp.competences.join(', ')}.</Note>
+          <Note>
+            {s.student.name} · {tp.competences.join(', ')}.
+          </Note>
         </article>
       </Center>
     </>
