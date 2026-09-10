@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { TPS } from '@/lib/data/tp-demarrage-direct';
+import { TPS, tpById } from '@/lib/data/tps';
 import ParcoursClient from './ParcoursClient';
 
 export function generateStaticParams() {
@@ -8,7 +8,7 @@ export function generateStaticParams() {
 }
 
 export function generateMetadata({ params }: { params: { id: string } }): Metadata {
-  const tp = TPS.find(t => t.id === params.id);
+  const tp = tpById(params.id);
   return {
     title: tp ? `${tp.title} · SimulElec` : 'TP · SimulElec',
     description: tp?.summary,
@@ -16,7 +16,7 @@ export function generateMetadata({ params }: { params: { id: string } }): Metada
 }
 
 export default function TpPage({ params }: { params: { id: string } }) {
-  const tp = TPS.find(t => t.id === params.id);
+  const tp = tpById(params.id);
   if (!tp) notFound();
   return <ParcoursClient tp={tp} />;
 }

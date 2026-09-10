@@ -16,7 +16,9 @@ export interface AttemptRow {
 
 export interface MeasurementInput {
   stage: number;
+  /** Appareil utilisé : mm, clamp, ctrl, vat, tach. */
   instrument: string;
+  /** Point de mesure : « a→b » pour deux pointes, « a>b » pour la pince. */
   point: string;
   value: number | null;
   display: string;

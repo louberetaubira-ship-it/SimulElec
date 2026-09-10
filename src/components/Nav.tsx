@@ -41,6 +41,7 @@ export default function Nav() {
   const links: { href: string; label: string }[] = [];
   if (profile) {
     links.push({ href: '/tp', label: 'TP' });
+    links.push({ href: '/atelier', label: 'Atelier' });
     if (isTeacher) links.push({ href: '/prof', label: 'Prof' });
     links.push({ href: '/compte', label: 'Compte' });
   }

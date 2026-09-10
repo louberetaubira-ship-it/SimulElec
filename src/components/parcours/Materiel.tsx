@@ -24,7 +24,7 @@ export default function Materiel({ tp, st, onChoose, onNext }: Props) {
         <SideTitle>Choix du matériel</SideTitle>
         <Note>
           Pour chaque poste, choisis la référence qui répond au cahier des charges.
-          Tout part de In = {tp.motor.In} A et de la tension de commande 230 V.
+          {tp.motor ? `Tout part de In = ${String(tp.motor.In).replace('.', ',')} A et de la tension de commande 24 V.` : 'Appuie-toi sur le cahier des charges et les sections imposées.'}
         </Note>
         <Card title="Avancement">
           <div className="font-mono-num text-[20px]">{nOk} / {tp.postes.length}</div>

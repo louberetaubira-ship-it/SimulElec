@@ -3,40 +3,39 @@
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import { Button, Note, SideTitle } from '@/components/ui';
-import { isWired, requiredLiaisons, terminalDone, wiringComplete } from '@/lib/sim/progress';
+import { isWired, requiredLiaisons, wiringComplete } from '@/lib/sim/progress';
 import { terminalLabel } from '@/lib/sim/layout';
-import type { SimState } from '@/lib/sim/engine';
-import Panel from '@/components/panel/Panel';
-import { NET_COLOR } from '@/components/panel/Wires';
+import { NET_COLOR } from '@/lib/scene/geometry';
+import type { PanelWire } from '@/components/panel/Panel';
+import TpPanel from './TpPanel';
 import { Center, Hint, Side } from './StageLayout';
 
 interface Props {
   tp: TpDefinition;
   st: AttemptState;
-  sim: SimState;
+  wires: PanelWire[];
   selTerminal: string | null;
   onTerminalClick: (id: string) => void;
   onAssist: () => void;
   onNext: () => void;
-  wires: { a: string; b: string; net: TpDefinition['liaisons'][number]['net'] }[];
 }
 
 const ASSIST = process.env.NEXT_PUBLIC_ASSIST === '1';
 
-export default function Cablage({ tp, st, sim, selTerminal, onTerminalClick, onAssist, onNext, wires }: Props) {
+export default function Cablage({ tp, st, wires, selTerminal, onTerminalClick, onAssist, onNext }: Props) {
   const required = requiredLiaisons(tp);
   const doneCount = required.filter(l => isWired(st, l)).length;
   const complete = wiringComplete(tp, st);
-  let nextShown = false;
+  const next = required.find(l => !isWired(st, l));
 
   return (
     <>
       <Side>
         <SideTitle>Tableau de câblage</SideTitle>
         <Note>
-          Clique une borne, puis l&apos;autre : le fil prend la couleur du conducteur. Une liaison hors
-          tableau est refusée et comptée en erreur. Les liaisons de l&apos;installateur (réseau → X1,
-          X1 → moteur) sont déjà faites.
+          Clique une borne puis l&apos;autre : le fil prend la couleur du conducteur et chemine dans les
+          goulottes. Une liaison hors tableau est refusée et comptée en erreur. Le réseau → X1 et le câble
+          moteur sont déjà posés par l&apos;installateur.
         </Note>
         <div className="flex items-center justify-between gap-2">
           <span className="font-mono-num text-[12px]">
@@ -44,12 +43,16 @@ export default function Cablage({ tp, st, sim, selTerminal, onTerminalClick, onA
           </span>
           {ASSIST && <Button size="sm" onClick={onAssist}>Câblage assisté</Button>}
         </div>
+        {next && (
+          <div className="rounded-[10px] border border-accent bg-accent/10 px-2 py-1.5 font-mono-num text-[12px]">
+            Fil suivant : {next.a.replace('.', ' ')} → {next.b.replace('.', ' ')} <span className="text-muted">({next.net})</span>
+          </div>
+        )}
 
         <div className="flex max-h-[46vh] flex-col gap-1 overflow-y-auto lg:max-h-[420px]">
           {required.map(l => {
             const d = isWired(st, l);
-            const isNext = !d && !nextShown;
-            if (!d) nextShown = true;
+            const isNext = next === l;
             return (
               <div
                 key={`${l.a}~${l.b}`}
@@ -57,6 +60,7 @@ export default function Cablage({ tp, st, sim, selTerminal, onTerminalClick, onA
               >
                 <i className="h-1 w-3 flex-none rounded-sm" style={{ background: NET_COLOR[l.net] }} />
                 {l.a.replace('.', ' ')} → {l.b.replace('.', ' ')}
+                {l.door && <span className="ml-auto text-[10px] text-muted">porte</span>}
               </div>
             );
           })}
@@ -66,15 +70,14 @@ export default function Cablage({ tp, st, sim, selTerminal, onTerminalClick, onA
       </Side>
 
       <Center>
-        <Panel
+        <TpPanel
           tp={tp}
-          state={sim}
-          mode="cablage"
-          placed={st.placed}
           wires={wires}
-          selectedTerminal={selTerminal}
-          doneTerminals={id => terminalDone(tp, st, id)}
-          onTerminalClick={onTerminalClick}
+          cover={false}
+          marks
+          pickTerminals
+          onTerminal={onTerminalClick}
+          highlight={null}
         />
         <Hint>
           {selTerminal

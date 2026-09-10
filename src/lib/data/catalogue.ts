@@ -1,4 +1,5 @@
 import type { CatalogueItem, TerminalDef } from '../types';
+import { PLC, PLC_TERMINALS } from '../scene/geometry';
 import sprites from './sprites.json';
 
 type SpriteMeta = Record<string, { w: number; h: number; states: boolean }>;
@@ -11,6 +12,13 @@ const one = (): TerminalDef[] => [{ id: '1', fx: 0.5, fy: 0.05 }, { id: '2', fx:
 function item(p: Omit<CatalogueItem, 'w' | 'h' | 'switchable'>): CatalogueItem {
   const m = S[p.key];
   return { ...p, w: m.w, h: m.h, switchable: m.states };
+}
+
+/** Appareil dessiné en SVG (photovoltaïque, automate, AGCP) : pas de sprite photo. */
+function vector(
+  p: Omit<CatalogueItem, 'switchable' | 'svg' | 'modules'> & { modules?: number },
+): CatalogueItem {
+  return { modules: Math.max(1, Math.round(p.w / 18)), ...p, switchable: false, svg: true };
 }
 
 /** Appareillages disponibles (photos du pack, détourées). */
@@ -48,11 +56,11 @@ export const CATALOGUE: CatalogueItem[] = [
   item({ key: 'volt3', name: 'Voltmètre 3 phases', ref: 'DIN 1 module', kind: 'misc', family: 'Mesure', modules: 1, poles: 1, terminals: one() }),
   item({ key: 'smart', name: 'Compteur d\'énergie WiFi', ref: 'Tuya', kind: 'misc', family: 'Mesure', modules: 3, poles: 2, terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
   // ---- Borniers (X1 puissance, X2 commande…) ----
-  item({ key: 'termred', name: 'Borne de passage phase', ref: 'UT 2,5 rouge', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] }),
-  item({ key: 'termgrey', name: 'Borne de passage', ref: 'UT 2,5 grise', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] }),
-  item({ key: 'termblue', name: 'Borne de passage neutre', ref: 'UT 2,5 bleue', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] }),
-  item({ key: 'termyellow', name: 'Borne de passage jaune', ref: 'UT 2,5 jaune', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] }),
-  item({ key: 'earth', name: 'Borne de terre', ref: 'UT 2,5-PE', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] }),
+  item({ key: 'termred', name: 'Borne de passage phase', ref: 'UT 2,5 rouge', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] , small: true }),
+  item({ key: 'termgrey', name: 'Borne de passage', ref: 'UT 2,5 grise', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] , small: true }),
+  item({ key: 'termblue', name: 'Borne de passage neutre', ref: 'UT 2,5 bleue', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] , small: true }),
+  item({ key: 'termyellow', name: 'Borne de passage jaune', ref: 'UT 2,5 jaune', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] , small: true }),
+  item({ key: 'earth', name: 'Borne de terre', ref: 'UT 2,5-PE', brand: 'Phoenix', kind: 'terminal', family: 'Borniers', modules: 0.3, poles: 1, terminals: [{ id: 'a', fx: 0.5, fy: 0.08 }, { id: 'b', fx: 0.5, fy: 0.92 }] , small: true }),
   item({ key: 'bus4', name: 'Bornier de répartition 4 pôles', ref: 'CNC 4P', kind: 'bus', family: 'Borniers', modules: 6, poles: 2, terminals: [{ id: 'N', fx: 0.15, fy: 0.05 }, { id: 'L', fx: 0.28, fy: 0.05 }] }),
   item({ key: 'bus6', name: 'Bornier de répartition long', ref: 'CNC 4P long', kind: 'bus', family: 'Borniers', modules: 7.5, poles: 2, terminals: [{ id: 'N', fx: 0.12, fy: 0.05 }, { id: 'L', fx: 0.22, fy: 0.05 }] }),
   // ---- Voyants ----
@@ -65,6 +73,68 @@ export const CATALOGUE: CatalogueItem[] = [
   item({ key: 'danger', name: 'Risque électrique', ref: 'signalétique', kind: 'sign', family: 'Signalétique', modules: 0, poles: 0, terminals: [] }),
   item({ key: 'v230', name: 'Pictogramme 230 V', ref: 'signalétique', kind: 'sign', family: 'Signalétique', modules: 0, poles: 0, terminals: [] }),
   item({ key: 'pe', name: 'Pictogramme terre', ref: 'signalétique', kind: 'sign', family: 'Signalétique', modules: 0, poles: 0, terminals: [] }),
+  // ---- Transformateur de commande (photo /sprites/trafo.png) ----
+  {
+    key: 'trafo', name: 'Transformateur de commande 400/24 V · 63 VA', ref: 'ABL6TS06U', brand: 'Schneider',
+    kind: 'trafo', family: 'Industriel', modules: 4, poles: 0, switchable: false, w: 74, h: 100,
+    terminals: [
+      { id: '0', fx: 0.31, fy: 0.28 }, { id: '230', fx: 0.59, fy: 0.28 }, { id: '400', fx: 0.85, fy: 0.28 },
+      { id: '0V', fx: 0.41, fy: 0.72 }, { id: '24', fx: 0.70, fy: 0.72 }, { id: '48', fx: 0.85, fy: 0.72 },
+    ],
+  },
+  // ---- Automate programmable (dessin SVG) ----
+  vector({
+    key: 'plc', name: 'Automate Modicon M221 · 16 E/S relais', ref: 'TM221CE16R', brand: 'Schneider',
+    kind: 'plc', family: 'Automatisme', modules: 11, poles: 0, w: PLC.w, h: PLC.h, terminals: PLC_TERMINALS,
+  }),
+  // ---- Photovoltaïque et branchement (dessins SVG) ----
+  vector({
+    key: 'pvpanel', name: 'Module photovoltaïque 375 Wc monocristallin', ref: 'PV-375M', kind: 'pv',
+    family: 'Photovoltaïque', poles: 2, w: 48, h: 80,
+    terminals: [{ id: '+', fx: 0.25, fy: 0.97 }, { id: '−', fx: 0.75, fy: 0.97 }],
+  }),
+  vector({
+    key: 'onduleur', name: 'Onduleur string 3 kVA · 2 MPPT', ref: 'ONDU-3000-2M', kind: 'inverter',
+    family: 'Photovoltaïque', poles: 2, w: 110, h: 130,
+    terminals: [
+      { id: 'DC+', fx: 0.16, fy: 0.95 }, { id: 'DC−', fx: 0.34, fy: 0.95 },
+      { id: 'L', fx: 0.58, fy: 0.95 }, { id: 'N', fx: 0.73, fy: 0.95 }, { id: 'PE', fx: 0.87, fy: 0.95 },
+    ],
+  }),
+  vector({
+    key: 'dcswitch', name: 'Sectionneur DC 1000 V · 2P 32 A', ref: 'SECT-DC-32', kind: 'dc',
+    family: 'Photovoltaïque', poles: 2, w: 52, h: 120,
+    terminals: [
+      { id: '1+', fx: 0.3, fy: 0.07 }, { id: '3−', fx: 0.7, fy: 0.07 },
+      { id: '2+', fx: 0.3, fy: 0.93 }, { id: '4−', fx: 0.7, fy: 0.93 },
+    ],
+  }),
+  vector({
+    key: 'dcfuse', name: 'Porte-fusible DC gPV 15 A · 10 × 38', ref: 'PF-gPV-15', kind: 'dc',
+    family: 'Photovoltaïque', poles: 2, w: 52, h: 120,
+    terminals: [
+      { id: '1+', fx: 0.3, fy: 0.07 }, { id: '3−', fx: 0.7, fy: 0.07 },
+      { id: '2+', fx: 0.3, fy: 0.93 }, { id: '4−', fx: 0.7, fy: 0.93 },
+    ],
+  }),
+  vector({
+    key: 'dcspd', name: 'Parafoudre DC type 2 · 1000 V', ref: 'SPD-DC-T2', kind: 'dc',
+    family: 'Photovoltaïque', poles: 2, w: 52, h: 120,
+    terminals: [{ id: '+', fx: 0.3, fy: 0.07 }, { id: '−', fx: 0.7, fy: 0.07 }, { id: 'PE', fx: 0.5, fy: 0.93 }],
+  }),
+  vector({
+    key: 'battery', name: 'Batterie LiFePO₄ 48 V · 5 kWh', ref: 'BAT-48-5K', kind: 'battery',
+    family: 'Photovoltaïque', poles: 2, w: 100, h: 130,
+    terminals: [{ id: '+', fx: 0.33, fy: 0.96 }, { id: '−', fx: 0.67, fy: 0.96 }],
+  }),
+  vector({
+    key: 'agcp', name: 'Disjoncteur de branchement 15/45 A · 500 mA sélectif', ref: 'AGCP-500', kind: 'main',
+    family: 'Branchement', poles: 2, w: 70, h: 120,
+    terminals: [
+      { id: '1', fx: 0.26, fy: 0.07 }, { id: '3', fx: 0.74, fy: 0.07 },
+      { id: '2', fx: 0.26, fy: 0.93 }, { id: '4', fx: 0.74, fy: 0.93 },
+    ],
+  }),
 ];
 
 export const CATALOGUE_BY_KEY: Record<string, CatalogueItem> = Object.fromEntries(CATALOGUE.map(c => [c.key, c]));

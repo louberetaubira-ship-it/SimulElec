@@ -4,35 +4,13 @@ import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { buildReport, scoreLines } from '@/lib/sim/progress';
-import type { SimState } from '@/lib/sim/engine';
-import type { InstrumentId } from '@/lib/sim/instruments';
-import Panel from '@/components/panel/Panel';
-import InstrumentsPanel from './InstrumentsPanel';
+import { readingLabel } from '@/lib/sim/mesures';
+import { useParcours, panelWires } from '@/app/tp/[id]/store';
+import TpPanel from './TpPanel';
+import { deviceStateOf, lampsOf } from './panelState';
 import { Center, Hint, Side } from './StageLayout';
 
-interface Props {
-  tp: TpDefinition;
-  st: AttemptState;
-  sim: SimState;
-  wires: { a: string; b: string; net: TpDefinition['liaisons'][number]['net'] }[];
-  instrument: InstrumentId;
-  point: string | null;
-  onLoad: (v: number) => void;
-  onInstrument: (i: InstrumentId) => void;
-  onPoint: (p: string) => void;
-  onRead: () => void;
-  onDeviceClick: (id: string) => void;
-  onButton: (b: 's1' | 's2') => void;
-  onDiagnose: (id: string) => void;
-  onRepair: () => void;
-  onQuiz: (good: number) => void;
-  onFinish: () => void;
-}
-
-/**
- * Quiz de validation : une bonne réponse par question, correction immédiate.
- * Le nombre de bonnes réponses est remonté dans `AttemptState.quiz` et compte dans le score.
- */
+/** Quiz de validation : une bonne réponse par question, correction immédiate. */
 function Quiz({ tp, st, onQuiz }: { tp: TpDefinition; st: AttemptState; onQuiz: (n: number) => void }) {
   const [answers, setAnswers] = React.useState<Record<number, number>>({});
   const answered = Object.keys(answers).length;
@@ -40,7 +18,7 @@ function Quiz({ tp, st, onQuiz }: { tp: TpDefinition; st: AttemptState; onQuiz: 
   const locked = st.quiz != null;
 
   React.useEffect(() => {
-    if (!locked && answered === tp.quiz.length) onQuiz(good);
+    if (!locked && answered === tp.quiz.length && tp.quiz.length > 0) onQuiz(good);
   }, [answered, good, locked, onQuiz, tp.quiz.length]);
 
   return (
@@ -82,17 +60,17 @@ function Quiz({ tp, st, onQuiz }: { tp: TpDefinition; st: AttemptState; onQuiz: 
           );
         })}
       </div>
-      {st.quiz != null && (
-        <Note className="mt-2"><b>{st.quiz} / {tp.quiz.length}</b> bonnes réponses.</Note>
-      )}
+      {st.quiz != null && <Note className="mt-2"><b>{st.quiz} / {tp.quiz.length}</b> bonnes réponses.</Note>}
     </Card>
   );
 }
 
-export default function Validation(p: Props) {
-  const { tp, st } = p;
+export default function Validation({ onFinish }: { onFinish: () => void }) {
+  const s = useParcours();
+  const { tp, st, sim } = s;
   const injected = tp.faults.find(f => f.id === st.fault);
-  const finished = !!st.done[7];
+  const finished = !!st.done[10];
+  const wires = React.useMemo(() => panelWires(tp, st, sim), [tp, st, sim]);
 
   if (finished) return <Rapport tp={tp} st={st} />;
 
@@ -105,7 +83,7 @@ export default function Validation(p: Props) {
           <Card title="Ordre de maintenance">
             <Note>
               Le professeur a injecté une panne. Symptôme signalé : <b>{injected?.symptom}</b>
-              <br />Diagnostique à l&apos;instrument, puis choisis la cause.
+              <br />Diagnostique à l&apos;instrument (étapes de mesure accessibles par le stepper), puis choisis la cause.
             </Note>
             <div className="mt-2 flex flex-col gap-1.5">
               {tp.faults.map(f => {
@@ -115,7 +93,8 @@ export default function Validation(p: Props) {
                   <button
                     key={f.id}
                     type="button"
-                    onClick={() => p.onDiagnose(f.id)}
+                    data-fault={f.id}
+                    onClick={() => s.diagnose(f.id)}
                     className={`min-h-touch rounded-lg border bg-[var(--surface)] px-2.5 py-2 text-left text-[12px] ${tone}`}
                   >
                     {f.title}
@@ -124,7 +103,7 @@ export default function Validation(p: Props) {
               })}
             </div>
             {st.diagnosis === st.fault && (
-              <Button variant="primary" className="mt-2" onClick={p.onRepair}>Réparer</Button>
+              <Button variant="primary" className="mt-2" onClick={s.repair}>Réparer</Button>
             )}
           </Card>
         )}
@@ -134,32 +113,31 @@ export default function Validation(p: Props) {
             <Card title="Panne traitée">
               <Note><b>{injected?.title}</b><br />{injected?.fix}</Note>
             </Card>
-            <Quiz tp={tp} st={st} onQuiz={p.onQuiz} />
-            <Button variant="primary" disabled={st.quiz == null} onClick={p.onFinish}>
-              {st.quiz == null ? 'Réponds aux questions pour finir' : 'Remise en service et rapport'}
+            <Quiz tp={tp} st={st} onQuiz={s.setQuiz} />
+            <Button variant="primary" disabled={st.quiz == null} onClick={onFinish}>
+              {st.quiz == null ? 'Réponds aux questions pour finir' : 'Envoyer le rapport'}
             </Button>
           </>
         )}
-
-        <InstrumentsPanel
-          tp={tp} sim={p.sim} instrument={p.instrument} point={p.point}
-          onLoad={p.onLoad} onInstrument={p.onInstrument} onPoint={p.onPoint} onRead={p.onRead}
-        />
       </Side>
 
       <Center>
-        <Panel
+        <TpPanel
           tp={tp}
-          state={p.sim}
-          mode="service"
-          placed={st.placed}
-          wires={p.wires}
-          onDeviceClick={p.onDeviceClick}
-          onButton={p.onButton}
+          wires={wires}
+          cover={false}
+          marks
+          deviceState={deviceStateOf(sim)}
+          lamps={lampsOf(sim)}
+          motorRpm={sim.n}
+          coupling={sim.coupling}
+          onDevice={s.deviceClick}
+          onButton={(b, down) => s.button(b, down)}
+          onCoupling={() => s.coupling(sim.coupling === 'Y' ? 'D' : 'Y')}
         />
         <Hint>
           {st.fixed
-            ? 'Réparation faite. Relance le moteur pour confirmer, puis génère le rapport.'
+            ? 'Réparation faite. Relance le moteur pour confirmer, puis envoie le rapport.'
             : 'Remets sous tension et essaie de démarrer : observe, mesure, conclus.'}
         </Hint>
       </Center>
@@ -170,15 +148,14 @@ export default function Validation(p: Props) {
 function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
   const lines = scoreLines(tp, st);
   const report = buildReport(tp, st);
-  const relevés = st.readings.filter(r => r.stage >= 6);
 
   return (
     <>
       <Side>
         <SideTitle>Rapport envoyé</SideTitle>
         <Note>
-          Étapes, relevés, diagnostic et échanges avec le professeur virtuel sont enregistrés dans ta
-          tentative. Le professeur voit le résultat dans le tableau de bord de la classe.
+          Étapes, EPI, consignation, relevés, diagnostic et échanges avec le professeur virtuel sont
+          enregistrés dans ta tentative.
         </Note>
         <Card title="Score">
           <div className="font-mono-num text-[32px] font-semibold">{report.score} / 100</div>
@@ -211,10 +188,10 @@ function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
               </tbody>
             </table>
           </div>
-          <Note>
-            Relevés en service : {relevés.map(r => r.display).join(' · ') || 'aucun'}.
-            Compétences évaluées : {tp.competences.join(', ')}.
-          </Note>
+          <div className="flex flex-col gap-1 font-mono-num text-[11.5px]">
+            {st.readings.map((r, i) => <div key={i}>{readingLabel(r)}</div>)}
+          </div>
+          <Note>Compétences évaluées : {tp.competences.join(', ')}.</Note>
         </article>
       </Center>
     </>

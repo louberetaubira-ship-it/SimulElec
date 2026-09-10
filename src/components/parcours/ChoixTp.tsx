@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { TPS } from '@/lib/data/tp-demarrage-direct';
+import { TPS } from '@/lib/data/tps';
 import { spriteUrl } from '@/lib/data/catalogue';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { Center, Side } from './StageLayout';
@@ -37,10 +37,13 @@ export default function ChoixTp({ tpId, onSelect }: Props) {
               <div className="flex h-[90px] items-center justify-center gap-1.5 rounded-xl bg-[var(--surface-2)]">
                 {tpSprites(tp.id).map((k, i) => (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={i} src={spriteUrl(k)} alt="" className="max-h-[76px]" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
+                  <img key={i} src={spriteUrl(k)} alt="" className="max-h-[76px] max-w-[110px] object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
                 ))}
               </div>
-              <h4 className="text-[19px] font-bold">{tp.title}</h4>
+              <h4 className="text-[19px] font-bold">
+                {tp.title}
+                {!tp.playable && <span className="ml-2 rounded-full bg-[var(--surface-2)] px-2 py-0.5 align-middle text-[10px] font-semibold text-muted">prévu</span>}
+              </h4>
               <p className="m-0 text-[12.5px] text-muted">{tp.summary}</p>
               <div className="flex flex-wrap gap-1.5">
                 <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">{tp.level}</span>

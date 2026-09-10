@@ -1,69 +1,80 @@
 'use client';
 
+/**
+ * Fils : une couche sous les couvercles (cheminement complet) et une couche au-dessus
+ * (brins de raccordement + parties extérieures : porte, moteur, réseau).
+ */
 import React from 'react';
-import type { NetKind, TpDefinition } from '@/lib/types';
-import { netLive, type SimState } from '@/lib/sim/engine';
-import { PANEL_H, PANEL_W, terminalPos, wirePath } from '@/lib/sim/layout';
+import type { NetKind } from '@/lib/types';
+import { NET_COLOR, PANEL_H, PANEL_W, type Point } from '@/lib/scene/geometry';
+import { externalPart, pathD, stubs } from '@/lib/scene/route';
 
-export const NET_COLOR: Record<NetKind, string> = {
-  L1: 'var(--l1)', L2: 'var(--l2)', L3: 'var(--l3)', N: 'var(--wn)', PE: 'var(--pe)', C: 'var(--ctl)',
-};
+export { NET_COLOR };
 
-export interface DrawnWire { a: string; b: string; net: NetKind }
-
-interface Props {
-  tp: TpDefinition;
-  wires: DrawnWire[];
-  sim: SimState | null;
-  /** affiche l'étiquette de courant sur L1 */
-  showCurrent: boolean;
+export interface RoutedWire {
+  index: number;
+  pts: Point[];
+  net: NetKind;
+  /** Liaison en porte ou pré-câblée : sa partie extérieure reste visible couvercles fermés. */
+  external: boolean;
+  dead?: boolean;
 }
 
-const fr = (v: number, d = 1) => v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+export interface WiresProps {
+  wires: RoutedWire[];
+  highlight?: number | null;
+  pick?: boolean;
+  onWire?: (index: number) => void;
+}
 
-export default function Wires({ tp, wires, sim, showCurrent }: Props) {
-  const currentTag = React.useMemo(() => {
-    if (!sim || !showCurrent || sim.I <= 0.05) return null;
-    const a = terminalPos(tp, 'f1.2');
-    const b = terminalPos(tp, 'x1_6.a');
-    if (!a || !b) return null;
-    return { x: (a.x + b.x) / 2 - 4, y: (a.y + b.y) / 2, text: `${fr(sim.I, 1)} A` };
-  }, [tp, sim, showCurrent]);
+const cls = (w: RoutedWire, highlight?: number | null): string =>
+  [w.net === 'PE' ? 'pe' : '', highlight === w.index ? 'hl' : '', w.dead ? 'dead' : ''].filter(Boolean).join(' ');
 
+/** Couche sous les couvercles : tout le cheminement. */
+export function WiresUnder({ wires, highlight, pick, onWire }: WiresProps) {
   return (
-    <svg
-      className="pointer-events-none absolute inset-0 z-[2]"
-      width={PANEL_W}
-      height={PANEL_H}
-      viewBox={`0 0 ${PANEL_W} ${PANEL_H}`}
-      aria-hidden
-    >
-      {wires.map((w, i) => {
-        const a = terminalPos(tp, w.a);
-        const b = terminalPos(tp, w.b);
-        if (!a || !b) return null;
-        // hors mise en service (`sim === null`) rien n'est sous tension : on dessine
-        // tous les fils à pleine opacité, `dead` ne sert qu'à distinguer les circuits
-        // hors tension quand la platine est alimentée.
-        const dead = sim ? !netLive(w, sim) : false;
-        return (
-          <path
-            key={`${w.a}~${w.b}~${i}`}
-            className={`se-wire${w.net === 'PE' ? ' pe' : ''}${dead ? ' dead' : ''}`}
-            stroke={NET_COLOR[w.net]}
-            d={wirePath(a, b)}
-          />
-        );
-      })}
+    <svg className={`se-wires${pick ? ' pick' : ''}`} viewBox={`0 0 ${PANEL_W} ${PANEL_H}`}>
+      {wires.map((w) => (
+        <path
+          key={w.index}
+          d={pathD(w.pts)}
+          data-w={w.index}
+          stroke={NET_COLOR[w.net]}
+          className={cls(w, highlight)}
+          onClick={onWire ? () => onWire(w.index) : undefined}
+        />
+      ))}
+    </svg>
+  );
+}
 
-      {currentTag && (
-        <g>
-          <rect x={currentTag.x} y={currentTag.y - 10} width={currentTag.text.length * 6 + 10} height={14} rx={3} fill="#141A21" />
-          <text x={currentTag.x + 5} y={currentTag.y} className="font-mono-num" fontSize={9} fontWeight={600} fill="#fff">
-            {currentTag.text}
-          </text>
-        </g>
-      )}
+/** Couche au-dessus des couvercles : brins visibles + parties hors platine. */
+export function WiresOver({ wires, highlight, pick, onWire }: WiresProps) {
+  return (
+    <svg className={`se-wires over${pick ? ' pick' : ''}`} viewBox={`0 0 ${PANEL_W} ${PANEL_H}`}>
+      {wires.map((w) => (
+        <React.Fragment key={w.index}>
+          {stubs(w.pts).map(([a, b], k) => (
+            <path
+              key={`s${k}`}
+              d={`M${a.x} ${a.y} L${b.x} ${b.y}`}
+              data-w={w.index}
+              stroke={NET_COLOR[w.net]}
+              className={cls(w, highlight)}
+              onClick={onWire ? () => onWire(w.index) : undefined}
+            />
+          ))}
+          {w.external && externalPart(w.pts).length > 1 ? (
+            <path
+              d={pathD(externalPart(w.pts))}
+              data-w={w.index}
+              stroke={NET_COLOR[w.net]}
+              className={cls(w, highlight)}
+              onClick={onWire ? () => onWire(w.index) : undefined}
+            />
+          ) : null}
+        </React.Fragment>
+      ))}
     </svg>
   );
 }

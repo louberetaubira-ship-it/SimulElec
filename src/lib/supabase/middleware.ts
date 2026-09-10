@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './env';
 
 /** Routes requiring an authenticated user. */
-const PROTECTED = ['/tp', '/prof', '/compte'];
+const PROTECTED = ['/tp', '/atelier', '/prof', '/compte'];
 
 /** Refreshes the Supabase session cookie and guards the protected routes. */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {

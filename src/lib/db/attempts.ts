@@ -1,26 +1,23 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import type { AttemptState } from '@/lib/types';
+import type { AttemptState, ReadingRecord } from '@/lib/types';
+import { initialState } from '@/lib/sim/progress';
 import type { AttemptRow, AttemptsApi, MeasurementInput } from './types';
 
 /** Empty progress used when a fresh attempt is created. */
 export function emptyAttemptState(): AttemptState {
+  return initialState();
+}
+
+/** Convertit une lecture d'instrument en ligne de la table `measurements`. */
+export function measurementOf(r: ReadingRecord): MeasurementInput {
   return {
-    stage: 0,
-    done: {},
-    choices: {},
-    placed: {},
-    wires: [],
-    wireErrors: 0,
-    poseErrors: 0,
-    tests: {},
-    readings: [],
-    fault: null,
-    diagnosis: null,
-    diagTries: 0,
-    fixed: false,
-    quiz: null,
+    stage: r.stage,
+    instrument: r.instrument,
+    point: r.wire ?? `${r.a ?? '?'}→${r.b ?? '?'}`,
+    value: r.value != null && Number.isFinite(r.value) ? r.value : null,
+    display: `${r.dial} · ${r.display}`.trim(),
   };
 }
 

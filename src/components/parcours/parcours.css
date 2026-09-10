@@ -1,0 +1,12 @@
+/*
+ * Correctif de saisie du parcours élève.
+ * Les bornes de bornier sont au pas de 18 px et les bornes du coffret de porte à 14 px :
+ * le halo tactile de 40 px de `panel.css` recouvre alors le centre de ses voisines et
+ * rend certaines bornes inatteignables. On le ramène à 18 px dans le parcours (le point
+ * jaune fait 8 px) ; la platine reste zoomable et les appareils gardent des cibles larges.
+ */
+.se-panelwrap .se-hit {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}

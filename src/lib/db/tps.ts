@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { TPS } from '@/lib/data/tp-demarrage-direct';
+import { TPS } from '@/lib/data/tps';
 import type { TpDefinition } from '@/lib/types';
 
 export interface TpSummary {
