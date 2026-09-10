@@ -18,7 +18,7 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 ## Contrat entre les modules
 - Le parcours (client) persiste via `src/lib/db/attempts.ts` : `getOrCreateAttempt(tpId)`, `saveAttemptState(id, state, stage, status?)`, `addMeasurement(id, m)`, `addMessage(id, stage, role, content)`, `finishAttempt(id, report, score)`.
 - Le bot : `POST /api/prof` body `{ attemptId, stage, context, turns:[{role,content}] }` → `{ text }`. Le client construit `context` (cahier des charges + état du montage, panne secrète incluse) ; le serveur ajoute les règles pédagogiques et archive les deux messages.
-- Panneau : coordonnées logiques `PANEL_W × PANEL_H` (540 × 700), mis à l'échelle par CSS `transform: scale()` selon la largeur disponible ; les positions des bornes viennent de `CatalogueItem.terminals` (fractions) + `Slot`.
+- Panneau : coordonnées logiques `PANEL_W × PANEL_H` (560 × 920 : armoire 0..720 + bloc récepteurs 734..920), mis à l'échelle par le `<Workspace>` zoomable (`src/components/panel/Workspace.tsx`) ou, à défaut, par le `<Panel>` lui-même ; les positions des bornes viennent de `CatalogueItem.terminals` (fractions) + `Slot`.
 
 ## Design
 - Palette : fond `#F5F6F8` / surface `#FFFFFF` / ligne `#D3D9E1` / texte `#141A21` / muted `#66717F` / accent `#E39A00` / good `#1E9E63` / warn `#D97706` / crit `#D93A3A`. Fils : L1 `#8B4A2B`, L2 `#2B2F36`, L3 `#8E979F`, N `#2C7BE5`, PE `#37B34A` (pointillé), commande `#E4312B`.
