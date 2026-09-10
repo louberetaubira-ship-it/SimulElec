@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { AttemptState, ReadingRecord } from '@/lib/types';
+import type { PvState } from '@/lib/pv/dimensionnement';
+import type { CompetenceEval, DiplomaId } from '@/lib/data/competences';
 import { initialState } from '@/lib/sim/progress';
 import type { AttemptRow, AttemptsApi, MeasurementInput } from './types';
 
@@ -48,9 +50,12 @@ export async function getOrCreateAttempt(tpId: string): Promise<AttemptRow> {
   return created as AttemptRow;
 }
 
+/** Progression persistée : parcours platine (`AttemptState`) ou dimensionnement (`PvState`). */
+export type PersistedState = AttemptState | PvState;
+
 export async function saveAttemptState(
   id: string,
-  state: AttemptState,
+  state: PersistedState,
   stage: number,
   status?: AttemptRow['status'],
 ): Promise<void> {
@@ -82,13 +87,17 @@ export async function finishAttempt(
   id: string,
   report: Record<string, unknown>,
   score: number,
+  evaluation?: CompetenceEval[] | null,
+  diploma?: DiplomaId | null,
 ): Promise<void> {
   const supabase = createClient();
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from('attempts')
-    .update({ status: 'termine', report, score, finished_at: now, updated_at: now })
-    .eq('id', id);
+  const patch: Record<string, unknown> = {
+    status: 'termine', report, score, finished_at: now, updated_at: now,
+  };
+  if (evaluation !== undefined) patch.evaluation = evaluation;
+  if (diploma !== undefined) patch.diploma = diploma;
+  const { error } = await supabase.from('attempts').update(patch).eq('id', id);
   if (error) throw new Error(error.message);
 }
 

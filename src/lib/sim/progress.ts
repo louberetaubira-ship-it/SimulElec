@@ -2,6 +2,10 @@ import type { AttemptState, Liaison, TpDefinition } from '../types';
 import { isRunning, type SimState } from './engine';
 import { linkKey } from './layout';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
+import type { CoursId } from '../data/cours';
+import {
+  evaluate, PLATINE_STAGE_DOMAINS, type CompetenceEval, type DiplomaId,
+} from '../data/competences';
 
 export const STAGES = [
   'Choix du TP', 'Énoncé', 'Matériel', 'Pose', 'Câblage', 'Tests hors tension',
@@ -44,6 +48,7 @@ export function initialState(): AttemptState {
     diagTries: 0,
     fixed: false,
     quiz: null,
+    helpUsed: {},
   };
 }
 
@@ -63,7 +68,68 @@ export function normalizeState(raw: Partial<AttemptState> | null | undefined): A
     cons: { ...base.cons, ...(raw.cons ?? {}) },
     decons: { ...base.decons, ...(raw.decons ?? {}) },
     readings: raw.readings ?? base.readings,
+    helpUsed: raw.helpUsed ?? base.helpUsed,
   };
+}
+
+// ---------------------------------------------------------------- rappels de cours
+
+/**
+ * Fiche(s) de rappel proposées par défaut à chaque étape du parcours platine.
+ * Un TP peut préciser cette liste dans `TP_COURS`.
+ */
+export const STAGE_COURS: CoursId[][] = [
+  ['diagnostic'],                                             // 0 choix du TP
+  ['plaque-moteur', 'loi-ohm-puissance'],                     // 1 énoncé
+  ['plaque-moteur', 'contacteur', 'calibre-protection'],      // 2 matériel
+  ['borniers', 'regles-cablage'],                             // 3 pose
+  ['contacteur', 'borniers', 'regles-cablage'],               // 4 câblage
+  ['tests-hors-tension', 'transfo-commande'],                 // 5 tests hors tension
+  ['epi-habilitation', 'consignation'],                       // 6 EPI & consignation
+  ['tests-hors-tension', 'mesure-tension'],                   // 7 mesures hors tension
+  ['deconsignation', 'contacteur'],                           // 8 déconsignation & mise en service
+  ['mesure-tension', 'mesure-courant', 'vitesse-glissement'], // 9 mesures sous tension
+  ['diagnostic', 'contacteur'],                               // 10 validation / maintenance
+];
+
+/** Précisions par TP : étape → fiches (remplace la valeur par défaut). */
+export const TP_COURS: Record<string, Partial<Record<number, CoursId[]>>> = {
+  'demarrage-direct': {
+    1: ['plaque-moteur', 'couplage'],
+    2: ['plaque-moteur', 'contacteur', 'transfo-commande'],
+    4: ['contacteur', 'borniers', 'regles-cablage'],
+    9: ['mesure-tension', 'mesure-courant', 'vitesse-glissement', 'couplage'],
+  },
+  'etoile-triangle': { 1: ['couplage', 'plaque-moteur'], 4: ['couplage', 'contacteur'], 9: ['mesure-courant', 'couplage'] },
+  inversion: { 4: ['contacteur', 'regles-cablage'], 10: ['diagnostic', 'contacteur'] },
+  'automate-m221': { 2: ['automate-m221'], 4: ['automate-m221', 'borniers'], 8: ['automate-m221', 'deconsignation'] },
+  'tableau-logement': { 1: ['tableau-logement'], 2: ['tableau-logement', 'calibre-protection'], 4: ['tableau-logement', 'borniers'], 5: ['tests-hors-tension'] },
+  'tableau-repartition': { 2: ['calibre-protection', 'tableau-logement'], 4: ['borniers', 'chute-tension'] },
+  'va-et-vient': { 1: ['serie-parallele'], 4: ['regles-cablage', 'borniers'] },
+  'chauffe-eau': { 2: ['calibre-protection'], 9: ['loi-ohm-puissance', 'energie'] },
+  'eclairage-tertiaire': { 2: ['calibre-protection'], 9: ['energie', 'loi-ohm-puissance'] },
+  'eclairage-baes': { 1: ['tableau-logement'], 5: ['tests-hors-tension'] },
+  'pompe-relevage': { 2: ['plaque-moteur', 'calibre-protection'], 9: ['mesure-courant', 'loi-ohm-puissance'] },
+  'pv-reseau': {
+    1: ['pv-tension-systeme', 'serie-parallele'],
+    2: ['pv-voc-temperature', 'dc-ac'],
+    4: ['dc-ac', 'chute-tension'],
+    5: ['dc-ac', 'tests-hors-tension'],
+    9: ['mesure-tension', 'dc-ac'],
+  },
+  'pv-batterie': {
+    1: ['energie', 'pv-tension-systeme'],
+    2: ['pv-batterie', 'pv-voc-temperature'],
+    4: ['dc-ac', 'chute-tension'],
+    9: ['mesure-tension', 'dc-ac'],
+  },
+};
+
+/** Fiches de rappel proposées à l'élève pour l'étape en cours de ce TP. */
+export function coursForStage(tpId: string, stage: number): CoursId[] {
+  const perTp = TP_COURS[tpId]?.[stage];
+  if (perTp && perTp.length) return perTp;
+  return STAGE_COURS[stage] ?? [];
 }
 
 // ---------------------------------------------------------------- matériel
@@ -200,6 +266,109 @@ export function computeScore(tp: TpDefinition, st: AttemptState): number {
   return scoreLines(tp, st).reduce((a, l) => a + l.points, 0);
 }
 
+// ------------------------------------------------ évaluation par compétences
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+/** Nombre d'ouvertures de l'aide « rappel de cours » sur une étape. */
+export const helpCount = (st: AttemptState, stage: number): number => st.helpUsed?.[stage] ?? 0;
+
+/** Lectures d'instrument fautives (ERR) faites pendant une étape. */
+function errReadings(st: AttemptState, stage: number): number {
+  return st.readings.filter(r => r.stage === stage && r.display.startsWith('ERR')).length;
+}
+
+/** L'étape a-t-elle été atteinte (donc évaluable) ? */
+function stageReached(st: AttemptState, stage: number): boolean {
+  return st.done[stage] === true || st.stage > stage;
+}
+
+/**
+ * Score brut 0..1 d'une étape, avant pénalité d'aide.
+ * `undefined` si l'étape n'a pas été faite : elle restera « non évaluée ».
+ */
+function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number): number | undefined {
+  if (!stageReached(st, stage)) return undefined;
+  switch (stage) {
+    case 0:
+    case 1:
+      return 1;
+    case 2: {
+      const n = tp.postes.length;
+      return n === 0 ? 1 : clamp01(goodChoices(tp, st) / n);
+    }
+    case 3: {
+      const n = Math.max(1, tp.slots.length);
+      return clamp01(1 - st.poseErrors / n);
+    }
+    case 4: {
+      const req = requiredLiaisons(tp).length;
+      if (req === 0) return 1;
+      const done = requiredLiaisons(tp).filter(l => isWired(st, l)).length;
+      return clamp01(done / req - st.wireErrors * 0.05);
+    }
+    case 5: {
+      const n = tp.tests.length;
+      if (n === 0) return 1;
+      return clamp01(tp.tests.filter(t => st.tests[t.id] != null).length / n);
+    }
+    case 6: {
+      const c = st.cons;
+      const steps = [c.sep, c.lock, c.ident, c.vatRef, c.vat.length >= 3, c.vatRef2];
+      const ordered = steps.filter(Boolean).length / steps.length;
+      const epiPart = epiOk(st) ? 1 : Object.values(st.epi).filter(Boolean).length / 6;
+      return clamp01(0.65 * ordered + 0.35 * clamp01(epiPart) - errReadings(st, 6) * 0.1);
+    }
+    case 7: {
+      const list = mesuresFor(tp, 'horsTension');
+      if (list.length === 0) return 1;
+      const ok = list.filter(m => mesureDone(st, m.id)).length;
+      return clamp01(ok / list.length - errReadings(st, 7) * 0.15);
+    }
+    case 8:
+      return st.decons.essai ? 1 : st.decons.close ? 0.5 : 0.2;
+    case 9: {
+      const list = mesuresFor(tp, 'sousTension');
+      if (list.length === 0) return 1;
+      const ok = list.filter(m => mesureDone(st, m.id)).length;
+      return clamp01(ok / list.length - errReadings(st, 9) * 0.15);
+    }
+    case 10: {
+      const tries = Math.max(1, st.diagTries);
+      const diag = !st.fixed ? 0 : tries === 1 ? 1 : tries === 2 ? 0.7 : 0.4;
+      const nQuiz = tp.quiz.length;
+      const quiz = nQuiz === 0 ? 1 : clamp01((st.quiz ?? 0) / nQuiz);
+      return clamp01(0.6 * diag + 0.4 * quiz);
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Score 0..1 par étape du parcours, pénalisé par les ouvertures de l'aide
+ * (−0,1 par ouverture, plancher 0,3 quand l'étape est réussie malgré tout).
+ */
+export function stageScores(tp: TpDefinition, st: AttemptState): (number | undefined)[] {
+  return PLATINE_STAGE_DOMAINS.map((_, i) => {
+    const raw = rawStageScore(tp, st, i);
+    if (raw == null) return undefined;
+    const penalty = helpCount(st, i) * 0.1;
+    const floor = raw >= 0.5 ? 0.3 : 0;
+    return Math.max(floor, clamp01(raw - penalty));
+  });
+}
+
+/** Grille de compétences du diplôme, ou `null` pour un TP non jouable. */
+export function buildEvaluation(
+  tp: TpDefinition,
+  st: AttemptState,
+  diploma: DiplomaId,
+): CompetenceEval[] | null {
+  if (!tp.playable) return null;
+  return evaluate(diploma, PLATINE_STAGE_DOMAINS, stageScores(tp, st));
+}
+
 export interface Report extends Record<string, unknown> {
   tpId: string;
   title: string;
@@ -213,11 +382,26 @@ export interface Report extends Record<string, unknown> {
   cons: AttemptState['cons'];
   competences: string[];
   at: string;
+  /** Identité de l'élève au moment du TP. */
+  student: { name: string; diploma: DiplomaId | null; etablissement: string } | null;
+  /** Grille de compétences (null pour un TP non jouable). */
+  evaluation: CompetenceEval[] | null;
+  /** Score 0..1 par étape, base de la grille. */
+  stageScores: (number | undefined)[];
+  /** Ouvertures de l'aide « rappel de cours », par étape. */
+  helpUsed: Record<number, number>;
 }
 
-export function buildReport(tp: TpDefinition, st: AttemptState): Report {
+export interface ReportStudent { name: string; diploma: DiplomaId | null; etablissement: string }
+
+export function buildReport(tp: TpDefinition, st: AttemptState, student?: ReportStudent | null): Report {
   const lines = scoreLines(tp, st);
+  const diploma = student?.diploma ?? null;
   return {
+    student: student ?? null,
+    evaluation: diploma ? buildEvaluation(tp, st, diploma) : null,
+    stageScores: stageScores(tp, st),
+    helpUsed: st.helpUsed ?? {},
     tpId: tp.id,
     title: tp.title,
     score: lines.reduce((a, l) => a + l.points, 0),

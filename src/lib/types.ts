@@ -136,11 +136,20 @@ export interface AnnexItem {
   recv?: boolean;
 }
 
+/**
+ * Nature du parcours :
+ * - `platine` (défaut) : les 11 étapes de câblage / mesures sur la platine ;
+ * - `dimensionnement` : étude et dimensionnement (aucune platine, aucun câblage).
+ */
+export type TpKind = 'platine' | 'dimensionnement';
+
 export interface TpDefinition {
   id: string;
   title: string;
   level: string;
   family: 'ind' | 'hab' | 'ter' | 'pv';
+  /** Type de parcours ; absent = `'platine'`. */
+  kind?: TpKind;
   scene: SceneKind;
   annex: AnnexKind;
   /** Jouable de bout en bout (liaisons + mesures définies). Sinon affiché « prévu ». */
@@ -207,6 +216,8 @@ export interface AttemptState {
   diagTries: number;
   fixed: boolean;
   quiz: number | null;
+  /** Nombre d'ouvertures de l'aide « rappel de cours », par étape (pèse sur l'évaluation). */
+  helpUsed: Record<number, number>;
 }
 
 /** Montage de l'atelier libre (table projects.data). */

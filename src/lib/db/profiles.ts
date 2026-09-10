@@ -12,7 +12,9 @@ export async function getMyProfile(): Promise<ProfileRow | null> {
   return (data as ProfileRow | null) ?? null;
 }
 
-export type ProfilePatch = Partial<Pick<ProfileRow, 'full_name' | 'etablissement' | 'avatar_url'>>;
+export type ProfilePatch = Partial<
+  Pick<ProfileRow, 'full_name' | 'etablissement' | 'avatar_url' | 'diploma' | 'onboarded'>
+>;
 
 export async function updateProfile(patch: ProfilePatch): Promise<ProfileRow> {
   const supabase = createClient();

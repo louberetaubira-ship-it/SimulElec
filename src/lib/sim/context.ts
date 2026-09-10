@@ -1,4 +1,7 @@
 import type { AttemptState, TpDefinition } from '../types';
+import type { CoursFiche } from '../data/cours';
+import { coursPrompt } from '../data/cours';
+import { diplomaName, type Student } from '../student';
 import { isControlLive, isRunning, type SimState } from './engine';
 import { nextLiaison, requiredLiaisons, STAGES } from './progress';
 import { EPI, mesureDone, mesuresFor, readingLabel } from './mesures';
@@ -9,8 +12,25 @@ const fr = (v: number, d = 1) => v.toLocaleString('fr-FR', { minimumFractionDigi
  * Contexte envoyé au professeur virtuel : cahier des charges + état réel du montage,
  * EPI, consignation, lectures d'instruments et panne (secrète).
  */
-export function buildContext(tp: TpDefinition, st: AttemptState, sim: SimState): string {
+export interface ContextExtra {
+  /** Identité de l'élève (nom, diplôme préparé). */
+  student?: Student | null;
+  /** Fiche de rappel ouverte par l'élève : le professeur doit s'appuyer dessus. */
+  fiche?: CoursFiche | null;
+}
+
+export function buildContext(
+  tp: TpDefinition,
+  st: AttemptState,
+  sim: SimState,
+  extra?: ContextExtra,
+): string {
   const lines: string[] = [];
+  const student = extra?.student ?? null;
+  if (student) {
+    lines.push(`Élève : ${student.name}, prépare le ${diplomaName(student.diploma)}${student.etablissement ? ` (${student.etablissement})` : ''}.`);
+    lines.push('Adapte le niveau d\'exigence et le vocabulaire à ce diplôme.');
+  }
   lines.push(`Étape en cours : ${st.stage + 1}/${STAGES.length} — ${STAGES[st.stage]}.`);
   lines.push(`TP : ${tp.title} (${tp.level}). ${tp.summary}`);
   if (tp.motor) lines.push(`Moteur : ${Object.entries(tp.plaque).map(([k, v]) => `${k} ${v}`).join(', ')}.`);
@@ -81,6 +101,12 @@ export function buildContext(tp: TpDefinition, st: AttemptState, sim: SimState):
     const f = tp.faults.find(x => x.id === st.fault);
     if (f) lines.push(`PANNE INJECTÉE — SECRÈTE, ne jamais la nommer, guider vers la mesure qui la révèle : ${f.title}. Symptôme signalé : ${f.symptom}.`);
     if (st.diagnosis) lines.push(`Hypothèse de l'élève : ${tp.faults.find(x => x.id === st.diagnosis)?.title ?? st.diagnosis} (${st.diagTries} essai(s)).`);
+  }
+
+  if (extra?.fiche) {
+    lines.push('--- Fiche de rappel que l\'élève vient d\'ouvrir ---');
+    lines.push(coursPrompt(extra.fiche, student?.diploma ?? 'bacpro'));
+    lines.push('Appuie-toi sur cette fiche : rappelle la RÈGLE ou la FORMULE et fais-la appliquer par l\'élève. Ne donne jamais le résultat chiffré à sa place.');
   }
 
   return lines.join('\n');
