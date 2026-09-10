@@ -147,6 +147,7 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     ...X2(238, 6),
   ],
   annexItems: [],
+  recvItems: [],
   liaisons: [
     // ---- puissance ----
     L('x1_1.a', 'q1.1', 'L1'), L('x1_2.a', 'q1.3', 'L2'), L('x1_3.a', 'q1.5', 'L3'),

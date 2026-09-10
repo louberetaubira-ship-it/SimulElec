@@ -61,26 +61,53 @@ export function L(a: string, b: string, net: NetKind, flag?: 'door' | 'pre'): Li
 
 /* --------------------------------------------------------------- annexes */
 
-/** Pièce d'habitation (scène `hab`). */
+/**
+ * Pièce d'habitation (scène `hab`) : colonne de droite.
+ * Les récepteurs (hublot, chauffe-eau, VMC) sont descendus dans `ROOM_RECV`.
+ */
 export const ROOM_ITEMS: AnnexItem[] = [
   { key: 'l_commande_interrupteur_va_et_vient', rep: 'S1', name: 'interrupteur va-et-vient', x: 452, y: 60, w: 44, h: 44 },
   { key: 'l_commande_interrupteur_va_et_vient', rep: 'S2', name: 'interrupteur va-et-vient', x: 502, y: 60, w: 44, h: 44 },
-  { key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'point lumineux DCL', x: 466, y: 130, w: 52, h: 52 },
   { key: 'l_commande_prise_de_courant', rep: 'PC1', name: 'prise 16 A 2P+T', x: 452, y: 210, w: 44, h: 44 },
   { key: 'l_commande_prise_de_courant', rep: 'PC2', name: 'prise 16 A 2P+T', x: 502, y: 210, w: 44, h: 44 },
-  { key: 'l_recepteu_chauffe_eau', rep: 'CE', name: 'chauffe-eau 2000 W', x: 470, y: 290, w: 46, h: 96 },
-  { key: 'l_recepteu_vmc2', rep: 'VMC', name: 'VMC simple flux', x: 456, y: 420, w: 60, h: 74 },
   { key: 'l_commande_interrupteur', rep: 'BP', name: 'bouton poussoir télérupteur', x: 502, y: 520, w: 40, h: 40 },
 ];
 
-/** Local tertiaire (scène `ter`). */
+/**
+ * Local tertiaire (scène `ter`) : colonne de droite.
+ * Les récepteurs (réglettes, BAES) sont descendus dans `LOCAL_RECV`.
+ */
 export const LOCAL_ITEMS: AnnexItem[] = [
-  { key: 'l_architec_tube_fluorescent_x2', rep: 'E1', name: 'réglette LED 2×36 W', x: 440, y: 60, w: 100, h: 30 },
-  { key: 'l_architec_tube_fluorescent_x2', rep: 'E2', name: 'réglette LED 2×36 W', x: 440, y: 110, w: 100, h: 30 },
   { key: 'l_commande_detecteur', rep: 'B1', name: 'détecteur de présence', x: 470, y: 170, w: 40, h: 48 },
-  { key: 'l_alarmes_baes', rep: 'E3', name: 'BAES 45 lm', x: 448, y: 250, w: 80, h: 44 },
   { key: 'l_commande_interrupteur', rep: 'S1', name: 'interrupteur dérogation', x: 470, y: 330, w: 40, h: 40 },
   { key: 'l_alarmes_detecteur_manuel', rep: 'DM', name: 'déclencheur manuel', x: 474, y: 400, w: 36, h: 36 },
+];
+
+/* ------------------------------------------------- bloc récepteurs (bas) */
+
+/** Marque un élément comme récepteur du bloc du bas (x / y relatifs au bloc). */
+const R = (it: Omit<AnnexItem, 'recv'>): AnnexItem => ({ ...it, recv: true });
+
+/** Récepteurs d'une pièce d'habitation (scène `hab`). */
+export const ROOM_RECV: AnnexItem[] = [
+  R({ key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'point lumineux DCL', x: 40, y: 34, w: 60, h: 60 }),
+  R({ key: 'l_recepteu_chauffe_eau', rep: 'CE', name: 'chauffe-eau 2000 W', x: 150, y: 22, w: 50, h: 104 }),
+  R({ key: 'l_recepteu_vmc2', rep: 'VMC', name: 'VMC simple flux', x: 250, y: 30, w: 70, h: 86 }),
+  R({ key: 'l_recepteu_convecteur', rep: 'R1', name: 'convecteur 1500 W', x: 360, y: 50, w: 150, h: 70 }),
+];
+
+/** Récepteurs d'un local tertiaire (scène `ter`). */
+export const LOCAL_RECV: AnnexItem[] = [
+  R({ key: 'l_architec_tube_fluorescent_x2', rep: 'E1', name: 'réglette LED 2×36 W', x: 30, y: 40, w: 150, h: 40 }),
+  R({ key: 'l_architec_tube_fluorescent_x2', rep: 'E2', name: 'réglette LED 2×36 W', x: 200, y: 40, w: 150, h: 40 }),
+  R({ key: 'l_alarmes_baes', rep: 'E3', name: 'BAES 45 lm', x: 380, y: 36, w: 110, h: 56 }),
+];
+
+/** Charges du logement alimentées par l'installation PV (scène `pv`). */
+export const ROOF_RECV: AnnexItem[] = [
+  R({ key: 'l_recepteu_chauffe_eau', rep: 'CE', name: 'chauffe-eau', x: 60, y: 22, w: 50, h: 104 }),
+  R({ key: 'l_recepteu_convecteur', rep: 'R1', name: 'convecteur', x: 160, y: 50, w: 150, h: 70 }),
+  R({ key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'éclairage', x: 360, y: 34, w: 60, h: 60 }),
 ];
 
 /** Toiture : 2 strings de 4 modules (scène `pv`). */

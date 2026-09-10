@@ -1,6 +1,6 @@
 /**
- * Géométrie de la platine v3 (560 × 720 unités logiques).
- * Port fidèle de `docs/reference/illustration-v3.tpl.html` (section « platine geometry »).
+ * Géométrie de la platine v3 (560 × 920 unités logiques : armoire 0..720 + bloc récepteurs 734..920).
+ * Port fidèle de `docs/reference/illustration-v4.tpl.html` (section « platine geometry »).
  * Aucune dépendance React : ce module est purement calculatoire.
  */
 import type { AnnexKind, CatalogueItem, NetKind, SceneKind, Slot, TerminalDef, TpDefinition } from '@/lib/types';
@@ -11,7 +11,13 @@ export interface Box extends Point { w: number; h: number }
 /* ---------------------------------------------------------------- platine */
 
 export const PANEL_W = 560;
-export const PANEL_H = 720;
+/** Hauteur totale de la scène : armoire + bloc récepteurs. */
+export const PANEL_H = 920;
+/** Hauteur de l'armoire (cadre `.se-cab`), en haut de la scène. */
+export const CAB_H = 720;
+/** y du haut du bloc récepteurs (pointillés) et sa hauteur. */
+export const RECV_Y = 734;
+export const RECV_H = PANEL_H - RECV_Y;
 
 /** y du haut de chaque rail DIN ; le centre du rail est à y + 14. */
 export const RAILS: readonly number[] = [150, 346, 542];
@@ -63,11 +69,13 @@ export const STERM: Record<string, Point> = {
   'S1.22': { x: SR, y: ST.y + 164 },
 };
 
-/** Moteur (hors armoire) et sa boîte à bornes. */
-export const MOTOR: Point = { x: 436, y: 462 };
+/** Moteur (hors armoire) et sa boîte à bornes : dans le bloc récepteurs, sous la platine. */
+export const MOTOR: Point = { x: 40, y: 760 };
 export const MOTOR_W = 112;
 export const MOTOR_H = 112;
-export const TB: Box = { x: 436, y: 592, w: 112, h: 112 };
+export const TB: Box = { x: 200, y: 770, w: 112, h: 112 };
+/** Presse-étoupe de sortie du câble moteur, en bas de l'armoire. */
+export const PE_GLAND: Point = { x: TB.x - 30, y: 712 };
 const TT = (cx: number, cy: number): Point => ({ x: TB.x + cx, y: TB.y + cy });
 
 /** Bornes basses de la boîte à bornes (U1 V1 W1 + PE). */
@@ -129,6 +137,21 @@ export const ROW_LABELS: Record<SceneKind, string[]> = {
 export const ANNEX_TITLE: Record<AnnexKind, string> = {
   door: 'PORTE', room: 'PIÈCE', local: 'LOCAL', roof: 'TOITURE',
 };
+
+/** Titre du bloc récepteurs (sous la platine), par scène / annexe. */
+export const RECV_TITLE: Record<AnnexKind, string> = {
+  door: 'Récepteurs · moteur M1 hors armoire',
+  room: 'Récepteurs · pièce',
+  local: 'Récepteurs · local',
+  roof: 'Récepteurs · charges du logement (autoconsommation)',
+};
+
+/**
+ * Position absolue d'un élément du bloc récepteurs.
+ * Les `RecvItem.x/y` sont relatifs au bloc (comme dans la référence v4).
+ */
+export const recvBox = (it: { x: number; y: number; w: number; h: number }): Box =>
+  ({ x: it.x, y: RECV_Y + it.y, w: it.w, h: it.h });
 
 /* ------------------------------------------------------------ helpers */
 

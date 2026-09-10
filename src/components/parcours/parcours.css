@@ -10,3 +10,6 @@
   height: 18px;
   border-radius: 50%;
 }
+
+/* Zone de travail d'une étape : étagère de mesure + platine zoomable. */
+.tp-stage { display: flex; width: 100%; flex-direction: column; gap: 8px; }

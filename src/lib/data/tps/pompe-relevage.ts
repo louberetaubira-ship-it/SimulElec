@@ -66,6 +66,7 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     ...X2(238, 7),
   ],
   annexItems: [],
+  recvItems: [],
   liaisons: [],
   nets: {},
   tests: BASE_TESTS,

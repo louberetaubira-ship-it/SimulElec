@@ -65,6 +65,7 @@ export const TP_INVERSION: TpDefinition = {
     ...X2(238, 8),
   ],
   annexItems: [],
+  recvItems: [],
   liaisons: [],
   nets: {},
   tests: BASE_TESTS,

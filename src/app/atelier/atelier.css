@@ -65,6 +65,7 @@
 /* ---- platine ---- */
 .at-stage { position: relative; }
 .at-zones { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+/* Les zones vivent dans le calque zoomé du Workspace : coordonnées logiques de la platine. */
 .at-zone {
   position: absolute; border: 1.5px dashed rgba(102, 113, 127, .55); border-radius: 6px;
 }

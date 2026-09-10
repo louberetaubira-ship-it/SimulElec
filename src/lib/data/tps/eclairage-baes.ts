@@ -3,7 +3,7 @@
  * Prévu : implanté et documenté, câblage non encore jouable.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, LOCAL_ITEMS, X2 } from './common';
+import { BASE_TESTS, LOCAL_ITEMS, LOCAL_RECV, X2 } from './common';
 
 export const TP_ECLAIRAGE_BAES: TpDefinition = {
   id: 'eclairage-baes',
@@ -67,6 +67,7 @@ export const TP_ECLAIRAGE_BAES: TpDefinition = {
     }),
   ],
   annexItems: LOCAL_ITEMS,
+  recvItems: LOCAL_RECV,
   liaisons: [],
   nets: {},
   tests: BASE_TESTS,

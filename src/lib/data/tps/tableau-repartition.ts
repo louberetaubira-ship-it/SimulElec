@@ -3,7 +3,7 @@
  * Prévu : implanté et documenté, câblage non encore jouable.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, ROOM_ITEMS } from './common';
+import { BASE_TESTS, ROOM_ITEMS, ROOM_RECV } from './common';
 
 export const TP_TABLEAU_REPARTITION: TpDefinition = {
   id: 'tableau-repartition',
@@ -67,6 +67,7 @@ export const TP_TABLEAU_REPARTITION: TpDefinition = {
     { id: 'pe', label: 'PE · Bornier de terre', key: 'earth', rail: 2, x: 300, rep: 'PE' },
   ],
   annexItems: ROOM_ITEMS,
+  recvItems: ROOM_RECV,
   liaisons: [],
   nets: {},
   tests: BASE_TESTS,

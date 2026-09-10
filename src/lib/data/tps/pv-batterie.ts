@@ -3,7 +3,7 @@
  * Prévu : implanté et documenté, câblage non encore jouable.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, ROOF_ITEMS, X2 } from './common';
+import { BASE_TESTS, ROOF_ITEMS, ROOF_RECV, X2 } from './common';
 
 export const TP_PV_BATTERIE: TpDefinition = {
   id: 'pv-batterie',
@@ -71,6 +71,7 @@ export const TP_PV_BATTERIE: TpDefinition = {
     }),
   ],
   annexItems: ROOF_ITEMS,
+  recvItems: ROOF_RECV,
   liaisons: [],
   nets: {},
   tests: [

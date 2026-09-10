@@ -3,7 +3,7 @@
  * Liaisons complètes : deux strings de 4 modules, coffret DC, onduleur, coffret AC, comptage, AGCP.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, L, ROOF_ITEMS, X2 } from './common';
+import { BASE_TESTS, L, ROOF_ITEMS, ROOF_RECV, X2 } from './common';
 
 export const TP_PV_RESEAU: TpDefinition = {
   id: 'pv-reseau',
@@ -92,6 +92,7 @@ export const TP_PV_RESEAU: TpDefinition = {
     }),
   ],
   annexItems: ROOF_ITEMS,
+  recvItems: ROOF_RECV,
   liaisons: [
     // string 1 : 4 modules en série, ramené sur le bornier
     L('PV1.X1', 'x2_1.b', 'DC+'), L('PV1.X2', 'PV2.X1', 'DC+'), L('PV2.X2', 'PV3.X1', 'DC+'),

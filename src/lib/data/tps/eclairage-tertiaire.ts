@@ -3,7 +3,7 @@
  * Prévu : implanté et documenté, câblage non encore jouable.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, LOCAL_ITEMS, X2 } from './common';
+import { BASE_TESTS, LOCAL_ITEMS, LOCAL_RECV, X2 } from './common';
 
 export const TP_ECLAIRAGE_TERTIAIRE: TpDefinition = {
   id: 'eclairage-tertiaire',
@@ -62,6 +62,7 @@ export const TP_ECLAIRAGE_TERTIAIRE: TpDefinition = {
     ...X2(52, 6, 2, { group: 'X1', groupLabel: 'X1 · bornier de départ' }),
   ],
   annexItems: LOCAL_ITEMS,
+  recvItems: LOCAL_RECV,
   liaisons: [],
   nets: {},
   tests: BASE_TESTS,

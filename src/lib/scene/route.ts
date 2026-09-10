@@ -13,7 +13,7 @@
 import type { AnnexKind, AnnexItem, CatalogueItem, Slot, TerminalDef, TpDefinition } from '@/lib/types';
 import {
   DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, DUCT_YS, MTERM, MT2, PX_MM, RAILS, RES, SR, ST, STERM, TB,
-  ductY, slotGeom, term, type Box, type Point,
+  ductY, recvBox, slotGeom, term, type Box, type Point,
 } from './geometry';
 
 /* ------------------------------------------------------------- contexte */
@@ -28,7 +28,7 @@ export interface ResolvedSlot extends Box {
   item: CatalogueItem;
 }
 
-export type ExtKind = 'door' | 'motor' | 'res';
+export type ExtKind = 'door' | 'motor' | 'res' | 'recv';
 
 /** Borne extérieure à la platine (coffret de porte, moteur, réseau, annexe). */
 export interface ExtPoint extends Point {
@@ -73,8 +73,20 @@ export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
   };
 }
 
+/** Bornes X1 / X2 d'un récepteur du bloc du bas, sur son bord haut. */
+export function recvTerminals(it: AnnexItem): Record<string, ExtPoint> {
+  const b = recvBox(it);
+  return {
+    [`${it.rep}.X1`]: { x: b.x + b.w * 0.34, y: b.y, ext: 'recv' },
+    [`${it.rep}.X2`]: { x: b.x + b.w * 0.66, y: b.y, ext: 'recv' },
+  };
+}
+
+/** x du presse-étoupe qui dessert une borne du bloc récepteurs (bas de l'armoire). */
+export const recvGlandX = (x: number): number => Math.max(46, Math.min(536, Math.round(x)));
+
 /** Bornes extérieures d'un TP : coffret de porte, moteur, réseau, éléments d'annexe. */
-export function externalPoints(tp: Pick<TpDefinition, 'station' | 'hasMotor' | 'annexItems'>): Record<string, ExtPoint> {
+export function externalPoints(tp: Pick<TpDefinition, 'station' | 'hasMotor' | 'annexItems' | 'recvItems'>): Record<string, ExtPoint> {
   const out: Record<string, ExtPoint> = {};
   if (tp.station) for (const [id, p] of Object.entries(STERM)) out[id] = { ...p, ext: 'door' };
   if (tp.hasMotor) {
@@ -83,6 +95,7 @@ export function externalPoints(tp: Pick<TpDefinition, 'station' | 'hasMotor' | '
   }
   for (const [id, p] of Object.entries(RES)) out[id] = { ...p, ext: 'res' };
   for (const it of tp.annexItems ?? []) Object.assign(out, annexTerminals(it));
+  for (const it of tp.recvItems ?? []) Object.assign(out, recvTerminals(it));
   return out;
 }
 
@@ -176,11 +189,16 @@ function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
       push(P.x, P.y); push(P.x, ductY(3)); push(E.x, ductY(3)); push(E.x, E.y);
       return A.ext ? pts.reverse() : pts;
     }
-    if (ext === 'motor') {
+    if (ext === 'motor' || ext === 'recv') {
+      // borne → goulotte la plus proche → goulotte 4 → descente par le presse-étoupe → récepteur
       push(P.x, P.y); push(P.x, y);
-      const vxr = DUCT_XS[1];
-      push(vxr, y); push(vxr, ductY(3));
-      const xin = TB.x - 22 + Math.round((E.x - TB.x) / 28) * 4;
+      const xin = ext === 'motor'
+        ? TB.x - 30 + Math.round((E.x - TB.x) / 28) * 4
+        : recvGlandX(E.x);
+      if (Math.abs(y - ductY(3)) > 0.5) {
+        const vxr = DUCT_XS[1];
+        push(vxr, y); push(vxr, ductY(3));
+      }
       push(xin, ductY(3)); push(xin, E.y); push(E.x, E.y);
       return A.ext ? pts.reverse() : pts;
     }
@@ -348,10 +366,15 @@ export function stubs(pts: Point[] | null): [Point, Point][] {
   return [[pts[0], pts[1]], [pts[pts.length - 2], pts[pts.length - 1]]];
 }
 
-/** Portion du cheminement hors platine (porte, moteur, réseau) : dessinée au-dessus des couvercles. */
+/**
+ * Portion du cheminement hors platine (porte, moteur, réseau, bloc récepteurs) :
+ * dessinée au-dessus des couvercles. Le point d'entrée dans la goulotte est conservé
+ * pour que la descente vers le presse-étoupe reste raccordée.
+ */
 export function externalPart(pts: Point[] | null): Point[] {
   if (!pts) return [];
-  return pts.filter((p) => p.x > DUCT_R[1] || p.y > DUCTS_H[3][1]);
+  const out = (p: Point) => p.x > DUCT_R[1] || p.y > DUCTS_H[3][1];
+  return pts.filter((p, i) => out(p) || (i > 0 && out(pts[i - 1])) || (i < pts.length - 1 && out(pts[i + 1])));
 }
 
 /** Longueur d'une liaison, en mètres (1 px ≈ 1,1 mm). */

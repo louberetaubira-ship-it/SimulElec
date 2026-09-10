@@ -125,8 +125,16 @@ export interface TerminalNet {
   live: 'always' | 'q1' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
 }
 
-/** Élément d'annexe (pièce / local / toiture). */
-export interface AnnexItem { key: string; rep: string; name: string; x: number; y: number; w: number; h: number }
+/**
+ * Élément d'annexe (pièce / local / toiture) ou du bloc récepteurs.
+ * - dans `annexItems` : x / y absolus dans la scène (colonne de droite) ;
+ * - dans `recvItems` : x / y relatifs au bloc récepteurs (voir `recvBox`), et `recv: true`.
+ */
+export interface AnnexItem {
+  key: string; rep: string; name: string; x: number; y: number; w: number; h: number;
+  /** Récepteur du bloc du bas : bornes sur le bord haut, cheminement par la goulotte 4 et un presse-étoupe. */
+  recv?: boolean;
+}
 
 export interface TpDefinition {
   id: string;
@@ -143,10 +151,12 @@ export interface TpDefinition {
   plaque: Record<string, string>;
   cahierDesCharges: { k: string; v: string }[];
   postes: Poste[];
-  rails: number[];               // y de chaque rail (unités logiques, 560×720)
+  rails: number[];               // y de chaque rail (unités logiques, 560×920)
   slots: Slot[];
-  /** Éléments posés en annexe (pièce, local, toiture). Vide pour 'door' (station + moteur dessinés en code). */
+  /** Éléments posés en annexe (pièce, local, toiture). Vide pour 'door' (station dessinée en code). */
   annexItems: AnnexItem[];
+  /** Récepteurs du bloc sous la platine (hublot, chauffe-eau, VMC, réglettes, BAES, convecteur…). */
+  recvItems?: AnnexItem[];
   liaisons: Liaison[];
   /** Table borne → réseau pour les mesures. Clé « slot.borne » ; les préfixes RES/M/S1/S2/H1/H2 sont gérés en code. */
   nets: Record<string, TerminalNet>;

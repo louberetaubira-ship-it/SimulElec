@@ -13,6 +13,8 @@ import { CATALOGUE, spriteUrl } from '@/lib/data/catalogue';
 import { libraryIndex, libraryItemSync, loadFamily, loadLibraryItem, searchLibrary } from '@/lib/data/library';
 import { svgForKey } from '@/components/panel/svg';
 import Panel from '@/components/panel/Panel';
+import Workspace from '@/components/panel/Workspace';
+import InstrumentTray from '@/components/mesures/InstrumentTray';
 import { getMyProfile } from '@/lib/db/profiles';
 import { listMyClasses } from '@/lib/db/classes';
 import { ANNEX_RAIL, NETS, SCENES, freeTp, useAtelier } from './store';
@@ -136,26 +138,6 @@ function Stage() {
   const clickTerminal = useAtelier((s) => s.clickTerminal);
 
   const host = React.useRef<HTMLDivElement>(null);
-  const [geom, setGeom] = React.useState({ left: 0, top: 0, scale: 1 });
-
-  React.useEffect(() => {
-    const el = host.current;
-    if (!el) return;
-    const measure = () => {
-      const p = el.querySelector<HTMLElement>('.se-panel');
-      if (!p) return;
-      const r = p.getBoundingClientRect();
-      const w = el.getBoundingClientRect();
-      setGeom({ left: r.left - w.left, top: r.top - w.top, scale: r.width / PANEL_W });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    const p = el.querySelector<HTMLElement>('.se-panel');
-    if (p) ro.observe(p);
-    window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
-  }, []);
 
   const tp = React.useMemo(() => freeTp(scene, slots, wires), [scene, slots, wires]);
   const panelWires = React.useMemo(() => wires.map((w) => ({ a: w.a, b: w.b, net: w.net })), [wires]);
@@ -167,54 +149,56 @@ function Stage() {
     const p = host.current?.querySelector<HTMLElement>('.se-panel');
     if (!p) return;
     const r = p.getBoundingClientRect();
-    const s = r.width / PANEL_W;
-    const x = (e.clientX - r.left) / s;
-    const y = (e.clientY - r.top) / s;
+    const sc = r.width / PANEL_W;
+    const x = (e.clientX - r.left) / sc;
+    const y = (e.clientY - r.top) / sc;
     if (x >= ANNEX_X) { setRail(ANNEX_RAIL); return; }
     const i = RAILS.findIndex((ry) => y >= ry - 20 && y <= ry + RAIL_H + 20);
     if (i >= 0) setRail(i);
   };
 
-  const z = (x: number, y: number, w: number, h: number) => ({
-    left: geom.left + x * geom.scale,
-    top: geom.top + y * geom.scale,
-    width: w * geom.scale,
-    height: h * geom.scale,
-  });
-
   return (
     <section className="at-card" aria-label="Platine">
       <h2 className="at-h">Platine · {SCENES.find((s) => s.id === scene)?.label}</h2>
+      {/* Atelier libre : pas de table `nets`, donc aucune mesure calculable sur un montage quelconque. */}
+      <InstrumentTray value={null} onSelect={() => undefined} disabled />
       <div className="at-stage" ref={host} onClick={onStageClick}>
-        <Panel
-          tp={tp}
-          items={items}
-          wires={panelWires}
-          cover={cover}
-          marks={marks}
-          pickTerminals
-          pickWires
-          onTerminal={clickTerminal}
-          onWire={removeWire}
-          onDevice={removeSlot}
-        />
-        <div className="at-zones" aria-hidden="true">
-          {RAILS.map((ry, i) => (
+        <Workspace storageKey="atelier">
+          <Panel
+            tp={tp}
+            items={items}
+            wires={panelWires}
+            cover={cover}
+            marks={marks}
+            pickTerminals
+            pickWires
+            onTerminal={clickTerminal}
+            onWire={removeWire}
+            onDevice={removeSlot}
+            fixedScale
+          />
+          {/* zones de pose, en coordonnées logiques de la platine */}
+          <div className="at-zones" aria-hidden="true">
+            {RAILS.map((ry, i) => (
+              <div
+                key={ry}
+                className={`at-zone${rail === i ? ' sel' : ''}`}
+                style={{
+                  left: RAIL_X[0] - 4, top: ry - 8,
+                  width: RAIL_X[1] - RAIL_X[0] + 8, height: RAIL_H + 16,
+                }}
+              >
+                <span className="tag">rail {i + 1}</span>
+              </div>
+            ))}
             <div
-              key={ry}
-              className={`at-zone${rail === i ? ' sel' : ''}`}
-              style={z(RAIL_X[0] - 4, ry - 8, RAIL_X[1] - RAIL_X[0] + 8, RAIL_H + 16)}
+              className={`at-zone${rail === ANNEX_RAIL ? ' sel' : ''}`}
+              style={{ left: ANNEX_X, top: 20, width: 118, height: 680 }}
             >
-              <span className="tag">rail {i + 1}</span>
+              <span className="tag">annexe</span>
             </div>
-          ))}
-          <div
-            className={`at-zone${rail === ANNEX_RAIL ? ' sel' : ''}`}
-            style={z(ANNEX_X, 20, 118, 680)}
-          >
-            <span className="tag">annexe</span>
           </div>
-        </div>
+        </Workspace>
       </div>
       <p className="at-hint" data-testid="hint">
         {hint ?? (sel

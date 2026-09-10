@@ -117,6 +117,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     ...X2(238, 8),
   ],
   annexItems: [],
+  recvItems: [],
   liaisons: [
     // ---- puissance (identique au démarrage direct) ----
     L('x1_1.a', 'q1.1', 'L1'), L('x1_2.a', 'q1.3', 'L2'), L('x1_3.a', 'q1.5', 'L3'),

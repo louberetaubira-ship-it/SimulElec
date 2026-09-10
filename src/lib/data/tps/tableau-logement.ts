@@ -3,7 +3,7 @@
  * Liaisons complètes : arrivée mono, deux rangées peignées, départs vers la pièce.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, L, ROOM_ITEMS, X2 } from './common';
+import { BASE_TESTS, L, ROOM_ITEMS, ROOM_RECV, X2 } from './common';
 
 export const TP_TABLEAU_LOGEMENT: TpDefinition = {
   id: 'tableau-logement',
@@ -99,6 +99,7 @@ export const TP_TABLEAU_LOGEMENT: TpDefinition = {
     { id: 'pe2', label: 'PE · Bornier de terre', key: 'earth', rail: 2, x: 238, rep: 'PE', mark: 'PE', sub: '', group: 'X1' },
   ],
   annexItems: ROOM_ITEMS,
+  recvItems: ROOM_RECV,
   liaisons: [
     // arrivée branchement
     L('RES.L1', 'agcp.1', 'L1', 'pre'), L('RES.N', 'agcp.3', 'N', 'pre'), L('RES.PE', 'pe.b', 'PE', 'pre'),

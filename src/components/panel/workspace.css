@@ -1,0 +1,29 @@
+/* Zone de travail zoomable (SPEC-v3 §5) — portée de `.panelwrap` / `.pzoom` / `.ztool` de la référence v4. */
+
+.se-ws { display: flex; width: 100%; flex-direction: column; gap: 6px; }
+
+.se-ztool { display: flex; width: 100%; flex-wrap: wrap; align-items: center; gap: 6px; }
+.se-ztool button {
+  min-height: 34px; min-width: 40px; padding: 4px 10px; border-radius: 8px;
+  border: 1px solid var(--line, #D3D9E1); background: #fff; color: #141A21;
+  font: inherit; font-weight: 700; font-size: 12px; cursor: pointer;
+}
+.se-ztool button:hover { border-color: #E39A00; }
+.se-ztool button:focus-visible { outline: 2px solid #E39A00; outline-offset: 1px; }
+.se-ztool .zval {
+  min-width: 52px; text-align: center; font-family: var(--font-mono), monospace; font-size: 12px;
+}
+.se-ztool .hint { font-size: 11px; color: var(--muted, #66717F); }
+@media (max-width: 640px) {
+  .se-ztool .hint { display: none; }
+}
+
+.se-wswrap {
+  position: relative; width: 100%; height: clamp(340px, 62vh, 760px);
+  overflow: auto; overscroll-behavior: contain; touch-action: pan-x pan-y;
+  border: 1px solid var(--line, #D3D9E1); border-radius: 14px; background: #DEE2E6;
+  cursor: grab;
+}
+.se-wswrap.drag { cursor: grabbing; }
+.se-wszoom { transform-origin: top left; width: max-content; padding: 20px; }
+.se-wsinner { position: relative; }

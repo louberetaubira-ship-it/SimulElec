@@ -4,7 +4,7 @@
  * point lumineux DCL en pièce, voyants de tableau.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, L, ROOM_ITEMS, X2 } from './common';
+import { BASE_TESTS, L, ROOM_ITEMS, ROOM_RECV, X2 } from './common';
 
 export const TP_VA_ET_VIENT: TpDefinition = {
   id: 'va-et-vient',
@@ -62,6 +62,7 @@ export const TP_VA_ET_VIENT: TpDefinition = {
     ...X2(52, 6, 2, { group: 'X1', groupLabel: 'X1 · bornier de départ' }),
   ],
   annexItems: ROOM_ITEMS,
+  recvItems: ROOM_RECV,
   liaisons: [
     // arrivée branchement (câblage installateur)
     L('RES.L1', 'x2_1.b', 'L1', 'pre'), L('RES.N', 'x2_2.b', 'N', 'pre'), L('RES.PE', 'x2_3.b', 'PE', 'pre'),

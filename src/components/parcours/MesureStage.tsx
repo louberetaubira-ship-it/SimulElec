@@ -124,6 +124,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
 
       <Center>
         <TpPanel
+          trayEnabled={variant === 'horsTension' || variant === 'sousTension'}
           tp={tp}
           wires={wires}
           cover={false}

@@ -3,7 +3,7 @@
  * Prévu : implanté et documenté, câblage non encore jouable.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, ROOM_ITEMS, X2 } from './common';
+import { BASE_TESTS, ROOM_ITEMS, ROOM_RECV, X2 } from './common';
 
 export const TP_CHAUFFE_EAU: TpDefinition = {
   id: 'chauffe-eau',
@@ -61,6 +61,7 @@ export const TP_CHAUFFE_EAU: TpDefinition = {
     ...X2(52, 5, 2, { group: 'X1', groupLabel: 'X1 · bornier de départ' }),
   ],
   annexItems: ROOM_ITEMS,
+  recvItems: ROOM_RECV,
   liaisons: [],
   nets: {},
   tests: BASE_TESTS,

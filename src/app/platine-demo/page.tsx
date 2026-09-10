@@ -13,6 +13,7 @@ import { TPS, TP_BY_ID } from '@/lib/data/tps';
 import { NET_COLOR } from '@/lib/scene/geometry';
 import { planLanes, sceneContext, totalLength, wireLength } from '@/lib/scene/route';
 import Panel, { type PanelWire } from '@/components/panel/Panel';
+import Workspace from '@/components/panel/Workspace';
 import type { DeviceState } from '@/components/panel/Device';
 
 /* -------------------------------------------------------------- page */
@@ -41,7 +42,11 @@ function PlatineDemo() {
   // catalogue résolu : pack + compléments + éléments de bibliothèque (clés « l_… »)
   const items = React.useMemo(() => {
     const out: Record<string, CatalogueItem> = { ...lib };
-    const keys = Array.from(new Set<string>([...tp.slots.map((s) => s.key), ...tp.annexItems.map((a) => a.key)]));
+    const keys = Array.from(new Set<string>([
+      ...tp.slots.map((s) => s.key),
+      ...tp.annexItems.map((a) => a.key),
+      ...(tp.recvItems ?? []).map((a) => a.key),
+    ]));
     for (const k of keys) {
       const it = CATALOGUE_BY_KEY[k];
       if (it) out[k] = it;
@@ -50,8 +55,11 @@ function PlatineDemo() {
   }, [tp, lib]);
 
   React.useEffect(() => {
-    const missing = [...tp.slots.map((s) => s.key), ...tp.annexItems.map((a) => a.key)]
-      .filter((k) => k.startsWith('l_'));
+    const missing = [
+      ...tp.slots.map((s) => s.key),
+      ...tp.annexItems.map((a) => a.key),
+      ...(tp.recvItems ?? []).map((a) => a.key),
+    ].filter((k) => k.startsWith('l_'));
     if (!missing.length) return;
     let alive = true;
     Promise.all(missing.map((k) => loadLibraryItem(k))).then((list) => {
@@ -104,7 +112,7 @@ function PlatineDemo() {
         Platine · {tp.title}
       </h1>
       <p style={{ color: '#66717F', fontSize: 14, margin: '6px 0 14px' }}>
-        Démonstration du rendu v3 : goulottes, cheminement en peigne, borniers X1 / X2, commande 24 V,
+        Démonstration du rendu v4 : zone de travail zoomable, bloc récepteurs sous la platine, goulottes, cheminement en peigne, borniers X1 / X2, commande 24 V,
         coffret de porte et moteur. Longueur totale de conducteur ≈{' '}
         <b>{totalLength(plan).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m</b>.
       </p>
@@ -138,21 +146,24 @@ function PlatineDemo() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 16 }}>
-        <Panel
-          tp={tp}
-          items={items}
-          wires={wires}
-          cover={cover}
-          marks={marks}
-          deviceState={state}
-          lamps={{ h1: running, h2: state.f1 === 'trip' }}
-          motorRpm={running ? 1450 : 0}
-          coupling={coupling}
-          highlight={highlight}
-          onDevice={toggle}
-          onButton={onButton}
-          onCoupling={() => setCoupling((c) => (c === 'Y' ? 'D' : 'Y'))}
-        />
+        <Workspace storageKey="demo">
+          <Panel
+            tp={tp}
+            items={items}
+            wires={wires}
+            cover={cover}
+            marks={marks}
+            deviceState={state}
+            lamps={{ h1: running, h2: state.f1 === 'trip' }}
+            motorRpm={running ? 1450 : 0}
+            coupling={coupling}
+            highlight={highlight}
+            onDevice={toggle}
+            onButton={onButton}
+            onCoupling={() => setCoupling((c) => (c === 'Y' ? 'D' : 'Y'))}
+            fixedScale
+          />
+        </Workspace>
 
         <section>
           <h2 style={{ fontFamily: 'var(--font-title)', fontSize: 20, margin: '0 0 8px' }}>
