@@ -2,23 +2,20 @@
  * Contexte imposé au modèle pour la génération d'un TP.
  *
  * Tout ce que le modèle a le droit d'utiliser est décrit ici, en texte compact :
- * référentiel du diplôme, catalogue d'appareils (clé, désignation, bornes, largeur),
- * géométrie de la platine, exemple de maquette et listes fermées (pannes, instruments).
+ * référentiel du diplôme, index COMPLET de la bibliothèque (premier temps de la sélection
+ * du matériel), détail des seuls appareils retenus (second temps), géométrie de la platine,
+ * exemple de maquette et listes fermées (pannes, instruments).
  * Module PUR : aucune entrée / sortie, donc testable sans réseau.
  */
 import type { CatalogueItem, SceneKind } from '@/lib/types';
 import type { DiplomaId } from '@/lib/data/competences';
 import { COMPETENCES, DIPLOMAS } from '@/lib/data/competences';
-import { CATALOGUE } from '@/lib/data/catalogue';
 import { INSTRUMENTS } from '@/lib/sim/mesures';
 import { isFaultId, type FaultId } from '@/lib/sim/engine';
 import {
   ANNEX_TITLE, DUCTS_H, DUCT_L, DUCT_R, PANEL_H, PANEL_W, RAILS, RAIL_H, RAIL_X,
   RECV_Y, ROW_LABELS, STERM, MTERM, MT2, resIds,
 } from '@/lib/scene/geometry';
-
-/** Nombre maximal de lignes d'appareils envoyées au modèle. */
-export const LIGNES_CATALOGUE_MAX = 150;
 
 /* ------------------------------------------------------------------ pannes */
 
@@ -81,71 +78,92 @@ export function contexteReferentiel(diploma: DiplomaId): string {
   ].join('\n');
 }
 
-/* -------------------------------------------------------------- catalogue */
+/* -------------------------------------------------------------- appareils */
 
+/** Bornes raccordables d'un appareil, en clair. */
 const bornes = (item: CatalogueItem): string =>
   item.terminals.length ? item.terminals.map((t) => t.id).join(' ') : 'aucune borne';
 
-const ligneAppareil = (item: CatalogueItem): string =>
-  `${item.key} | ${item.name} | ${bornes(item)} | ${Math.round(item.w)} px`;
+/* ------------------------------------------------- index complet (1er temps) */
 
-export interface OptionsCatalogue {
-  scene: SceneKind;
-  /** Appareils de bibliothèque déjà chargés pour cette scène (facultatif). */
-  bibliotheque?: CatalogueItem[];
-  /** Matériel coché par le professeur : restreint la liste (clés ou fragments de nom). */
-  materielDisponible?: string[];
-  /** Nombre maximal de lignes (défaut : `LIGNES_CATALOGUE_MAX`). */
-  limite?: number;
+/** Une ligne de l'index complet : le strict nécessaire pour choisir un appareil. */
+export interface EntreeIndex {
+  key: string;
+  nom: string;
+  famille: string;
+  /** Nombre de bornes raccordables (0 = élément décoratif ou support). */
+  bornes: number;
 }
 
-/** Un appareil correspond-il au matériel déclaré disponible par le professeur ? */
-function disponible(item: CatalogueItem, filtres: string[]): boolean {
-  if (filtres.length === 0) return true;
-  const foin = `${item.key} ${item.name} ${item.ref} ${item.family}`.toLowerCase();
-  return filtres.some((f) => foin.includes(f));
+/** Désignation débarrassée du numéro de planche : « Disjoncteur · pl. 10 n°3 » → « Disjoncteur ». */
+const designation = (nom: string): string => {
+  const net = nom.replace(/\s*·?\s*pl\.\s*\d+\s*n°\s*\d+\s*$/i, '').trim();
+  return net || nom.trim() || 'élément';
+};
+
+/**
+ * INDEX COMPLET de la bibliothèque, compressé : regroupé par famille, puis par
+ * désignation (les doublons de désignation sont fusionnés), chaque clé suivie de son
+ * nombre de bornes. Rien n'est tronqué : tout appareil simulable y figure.
+ *
+ * Module PUR : la lecture des planches est faite par `index-bibliotheque.ts`.
+ */
+export function contexteIndexComplet(entrees: EntreeIndex[]): string {
+  const familles = new Map<string, Map<string, string[]>>();
+  for (const e of entrees) {
+    const parDesignation = familles.get(e.famille) ?? new Map<string, string[]>();
+    const nom = designation(e.nom);
+    const cles = parDesignation.get(nom) ?? [];
+    cles.push(`${e.key}(${e.bornes})`);
+    parDesignation.set(nom, cles);
+    familles.set(e.famille, parDesignation);
+  }
+
+  const lignes: string[] = [];
+  for (const [famille, parDesignation] of Array.from(familles.entries())) {
+    lignes.push(`# ${famille}`);
+    for (const [nom, cles] of Array.from(parDesignation.entries())) {
+      lignes.push(`  ${nom} : ${cles.join(' ')}`);
+    }
+  }
+
+  return [
+    `BIBLIOTHÈQUE COMPLÈTE DES APPAREILS SIMULABLES (${entrees.length} références, ${familles.size} familles)`,
+    'Lecture : « # famille », puis « désignation : clé(nombre de bornes) clé(nombre de bornes)… ».',
+    'Un appareil sans borne (0) ne se câble pas : il sert de repère, de support ou de décor.',
+    'Aucune autre clé n’existe : une clé inventée rend le TP injouable.',
+    ...lignes,
+  ].join('\n');
 }
 
-/** L'appareil a-t-il un intérêt pour la scène demandée ? (tri de pertinence) */
-function pertinence(item: CatalogueItem, scene: SceneKind, base: boolean): number {
-  let score = base ? 0 : 10;
-  if (item.terminals.length === 0) score += 30;
-  if (scene === 'ind' && ['contactor', 'thermal', 'motorcb', 'trafo', 'button', 'lamp', 'terminal'].includes(item.kind)) score -= 3;
-  if (scene === 'hab' && ['mcb', 'rcd', 'main', 'terminal', 'misc'].includes(item.kind)) score -= 3;
-  if (scene === 'ter' && ['mcb', 'rcd', 'lamp', 'button', 'misc', 'terminal'].includes(item.kind)) score -= 3;
-  if (scene === 'pv' && ['pv', 'inverter', 'battery', 'dc', 'main', 'terminal'].includes(item.kind)) score -= 3;
-  return score;
+/* ------------------------------------------- détail des appareils (2e temps) */
+
+/** Détail d'un appareil retenu : bornes nommées, largeur, hauteur, pose. */
+function ligneDetail(item: CatalogueItem, rep?: string): string {
+  const pose = item.door ? 'porte / annexe' : item.terminals.length ? 'rail DIN' : 'décor';
+  return [
+    `  ${item.key}${rep ? ` [repère envisagé ${rep}]` : ''} | ${item.name} | ${item.family}`,
+    `      bornes : ${bornes(item)}`,
+    `      encombrement : ${Math.round(item.w)} × ${Math.round(item.h)} px, ${item.modules} module(s), pose ${pose}`,
+  ].join('\n');
+}
+
+/** Appareil retenu par l'appel « choix du matériel », avec le repère envisagé. */
+export interface AppareilRetenu {
+  item: CatalogueItem;
+  rep?: string;
 }
 
 /**
- * Catalogue d'appareils autorisé : catalogue de base d'abord, puis les familles de
- * bibliothèque pertinentes, limité à `limite` lignes pour ne pas gonfler le contexte.
+ * Détail COMPLET des seuls appareils retenus : c'est tout ce dont l'appel « maquette »
+ * a besoin pour poser les rails, tirer les liaisons et placer les mesures.
  */
-export function contexteCatalogue(o: OptionsCatalogue): string {
-  const filtres = (o.materielDisponible ?? []).map((m) => m.trim().toLowerCase()).filter(Boolean);
-  const limite = o.limite ?? LIGNES_CATALOGUE_MAX;
-
-  const candidats = [
-    ...CATALOGUE.map((item) => ({ item, base: true })),
-    ...(o.bibliotheque ?? []).map((item) => ({ item, base: false })),
-  ]
-    .filter(({ item }) => disponible(item, filtres))
-    .map((c) => ({ ...c, score: pertinence(c.item, o.scene, c.base) }));
-
-  const vus = new Set<string>();
-  const retenus = candidats
-    .sort((a, b) => a.score - b.score)
-    .filter(({ item }) => (vus.has(item.key) ? false : (vus.add(item.key), true)))
-    .slice(0, limite);
-
-  const tete = filtres.length
-    ? `CATALOGUE D’APPAREILS AUTORISÉ (restreint au matériel déclaré disponible, ${retenus.length} références)`
-    : `CATALOGUE D’APPAREILS AUTORISÉ (${retenus.length} références)`;
-
+export function contexteDetailAppareils(retenus: AppareilRetenu[]): string {
   return [
-    tete,
-    'Format : clé | désignation | bornes | largeur. N’utilise QUE ces clés dans `slots` et `postes`.',
-    ...retenus.map(({ item }) => `  ${ligneAppareil(item)}`),
+    `APPAREILS RETENUS POUR CE TP (${retenus.length} références — liste fermée)`,
+    'Format : clé | désignation | famille, puis bornes, encombrement et mode de pose.',
+    'N’utilise QUE ces clés dans `slots` et dans les options de `postes`.',
+    ...retenus.map((r) => ligneDetail(r.item, r.rep)),
   ].join('\n');
 }
 
@@ -224,16 +242,19 @@ export function contexteListesFermees(): string {
 
 /* ------------------------------------------------------------- assemblage */
 
-export interface OptionsContexte extends OptionsCatalogue {
+export interface OptionsContexte {
   diploma: DiplomaId;
+  scene: SceneKind;
+  /** Appareils retenus au premier temps : seul leur détail part au modèle. */
+  retenus: AppareilRetenu[];
 }
 
-/** Contexte complet imposé au modèle. */
+/** Contexte complet imposé au modèle pour l'appel « maquette » (et sa réparation). */
 export function construireContexte(o: OptionsContexte): string {
   return [
     contexteReferentiel(o.diploma),
     '',
-    contexteCatalogue(o),
+    contexteDetailAppareils(o.retenus),
     '',
     contexteGeometrie(o.scene),
     '',

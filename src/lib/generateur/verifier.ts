@@ -4,6 +4,10 @@
  * Module PUR (sans React, sans réseau) : il reconstruit une `TpDefinition` à partir de la
  * maquette, puis la confronte au moteur de simulation.
  *
+ * Il tourne CÔTÉ NAVIGATEUR, entre l'appel « maquette » et l'appel « réparer » : c'est ce
+ * qui permet de garder chaque requête serveur courte. Le catalogue d'appareils lui est
+ * fourni par `bibliotheque-client.ts` (jamais par `bibliotheque.ts`, qui lit le disque).
+ *
  * Garanties :
  *  - `nets` est TOUJOURS déduite par `deriveNets` : la table du modèle n'est jamais reprise ;
  *  - toute borne, clé d'appareil, code de compétence et panne est vérifiée contre les listes réelles ;
@@ -119,7 +123,7 @@ function valeurVerifiee(valeur: number, unite: string, calculees: ValeurCalculee
 
 /**
  * Reconstruit, corrige et contrôle le TP produit par le modèle.
- * @param resultat sortie relue de l'outil (`lireResultat`)
+ * @param resultat dossier et maquette relus (`lirePedagogieOutil` + `lireMaquetteOutil`)
  * @param items appareils disponibles, par clé (catalogue de base + bibliothèque chargée)
  */
 export function verifier(

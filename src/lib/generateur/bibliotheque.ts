@@ -8,35 +8,12 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { CatalogueItem, LibraryFamily, LibraryItem, SceneKind } from '@/lib/types';
-import { libraryIndex, toCatalogueItem } from '@/lib/data/library';
+import { toCatalogueItem } from '@/lib/data/library';
+import { famillesPourScene } from './familles';
 
-/** Familles de bibliothèque pertinentes pour chaque type de scène, dans l'ordre de priorité. */
-const FAMILLES_PAR_SCENE: Record<SceneKind, RegExp[]> = {
-  ind: [
-    /^Disjoncteurs moteur$/, /^Contacteurs/, /^Alimentations/, /^Boutons/, /^Voyants/,
-    /^Borniers/, /^Fusibles/, /^Variateurs/, /^Automates/,
-  ],
-  hab: [/^Disjoncteurs$/, /^Différentiels$/, /^Borniers/, /^Prises/, /^Coffrets/, /^Domotique/],
-  ter: [
-    /^Disjoncteurs$/, /^Différentiels$/, /^Domotique/, /^Logelec · Commande tertiaire$/,
-    /^Logelec · Recepteurs$/, /^Voyants/, /^Comptage/,
-  ],
-  pv: [/^Batteries/, /^Comptage/, /^Disjoncteurs$/, /^Différentiels$/, /^Borniers/],
-};
+export { famillesPourScene };
 
 const cache = new Map<string, CatalogueItem[]>();
-
-/** Familles de bibliothèque à proposer au modèle pour une scène donnée. */
-export function famillesPourScene(scene: SceneKind): LibraryFamily[] {
-  const res = FAMILLES_PAR_SCENE[scene] ?? [];
-  const index = libraryIndex();
-  const out: LibraryFamily[] = [];
-  for (const re of res) {
-    const fam = index.find((f) => re.test(f.family));
-    if (fam && !out.includes(fam)) out.push(fam);
-  }
-  return out;
-}
 
 /** Charge une famille depuis `public/lib` (cache process). */
 export async function chargerFamille(fam: LibraryFamily): Promise<CatalogueItem[]> {

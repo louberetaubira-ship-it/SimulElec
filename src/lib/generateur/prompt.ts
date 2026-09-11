@@ -1,12 +1,18 @@
 /**
- * Prompt du générateur de TP : consigne système (ton de professeur d'atelier) et
- * construction du prompt utilisateur à partir du brief du professeur et du contexte imposé.
+ * Prompts du générateur de TP : consigne système (ton de professeur d'atelier) et
+ * construction des prompts utilisateur à partir du brief du professeur et du contexte imposé.
+ *
+ * La génération est découpée en QUATRE appels courts (dossier pédagogique, choix du
+ * matériel, maquette, réparation) : un prompt par appel, chacun avec le strict contexte
+ * dont il a besoin. Le choix du matériel voit la bibliothèque COMPLÈTE sous forme d'index
+ * compact ; la maquette ne reçoit que le détail des appareils retenus.
  *
  * Module PUR : aucune dépendance réseau, aucune donnée personnelle d'élève.
  */
 import type { SceneKind } from '@/lib/types';
 import type { DiplomaId } from '@/lib/data/competences';
 import { DIPLOMAS } from '@/lib/data/competences';
+import type { PedagogieGeneree } from './schema';
 import type { Anomalie } from './verifier';
 
 /** Consigne système : rôle, style, règles absolues. */
@@ -29,26 +35,54 @@ Règles absolues :
 
 Étapes du parcours (pour le champ « etape » des critères) : 0 choix du mode, 1 énoncé, 2 matériel, 3 pose, 4 câblage, 5 EPI et consignation, 6 mesures hors tension, 7 déconsignation, 8 mise en service, 9 diagnostic de panne, 10 bilan et quiz.
 
-Tu réponds uniquement en appelant l'outil « rediger_tp ».`;
+Tu réponds uniquement en appelant l'outil qu'on te donne, en un seul appel.`;
 
-/** Brief du professeur (aucune donnée personnelle d'élève ne doit y figurer). */
+/** Consigne système de l'appel 1 : le dossier pédagogique seul. */
+export const SYSTEME_PEDAGOGIE = `${SYSTEME}
+
+Cet appel ne porte QUE sur le dossier pédagogique : objectifs, matériel, activités, critères, quiz. Tu ne décris pas la platine appareil par appareil, elle sera construite à l'appel suivant. Va à l'essentiel : le professeur attend un dossier dense et court, pas un cours.`;
+
+/** Consigne système de l'appel 2 : le choix du matériel dans la bibliothèque complète. */
+export const SYSTEME_MATERIEL = `${SYSTEME}
+
+Cet appel ne porte QUE sur le choix du matériel. On te donne la bibliothèque complète de l'atelier, une entrée par appareil : tu retiens ceux dont ce TP a besoin, avec leur repère. Tu ne poses rien, tu ne câbles rien, tu ne rédiges rien : la platine sera construite à l'appel suivant, à partir du seul matériel que tu auras retenu. Recopie les clés à l'identique : une clé approximative rend le TP injouable.`;
+
+/** Consigne système de l'appel 3 : la maquette jouable seule. */
+export const SYSTEME_MAQUETTE = `${SYSTEME}
+
+Cet appel ne porte QUE sur la maquette jouable : appareils posés, liaisons, mesures, postes de choix, pannes, moteur. Le dossier pédagogique est déjà écrit, on t'en donne le résumé : la platine doit permettre d'exécuter chacune de ses consignes. Tu ne réécris pas le dossier.`;
+
+/** Consigne système de l'appel 3 : la réparation ciblée. */
+export const SYSTEME_REPARATION = `${SYSTEME}
+
+Cet appel est une réparation. On te donne la maquette refusée et la liste des anomalies relevées par le moteur de simulation. Tu ne renvoies QUE les sections que tu corriges : chaque section renvoyée remplace intégralement l'ancienne, les sections que tu omets sont conservées. Corrige la cause, ne supprime pas simplement l'élément fautif quand il est indispensable au TP.`;
+
+/**
+ * Brief du professeur (aucune donnée personnelle d'élève ne doit y figurer).
+ *
+ * Seul le thème est obligatoire. Tout le reste peut être laissé vide : le modèle le
+ * déduit du thème et le PROPOSE, le professeur le relit ensuite dans le studio.
+ */
 export interface Brief {
   diplomaId: DiplomaId;
   theme: string;
   resume: string;
-  /** Durée totale de la séance, en minutes. */
-  duration: number;
+  /** Durée totale de la séance, en minutes ; `null` = à proposer par le modèle. */
+  duration: number | null;
   /** Nature de la séquence : « découverte », « entraînement », « évaluation »… */
   sequenceType: string;
-  /** Activités souhaitées par le professeur. */
+  /** Compétences et activités du référentiel cochées par le professeur (vide = libre). */
   activities: string[];
-  /** Matériel déclaré disponible à l'atelier. */
+  /** Matériel déclaré disponible à l'atelier (vide = toute la bibliothèque). */
   materielDisponible: string[];
-  /** Type d'installation visé (déduit du thème si le professeur ne l'impose pas). */
-  scene: SceneKind;
+  /** Type d'installation imposé ; `null` = à déduire du thème. */
+  scene: SceneKind | null;
   /** Noms des documents joints (le contenu part en pièce jointe). */
   documents?: string[];
 }
+
+/** Durée retenue quand le professeur n'en a pas fixé : le modèle propose, on affiche ceci. */
+export const DUREE_PAR_DEFAUT = 240;
 
 const SCENE_LABEL: Record<SceneKind, string> = {
   ind: 'installation industrielle (armoire, départ moteur, commande)',
@@ -57,29 +91,154 @@ const SCENE_LABEL: Record<SceneKind, string> = {
   pv: 'installation photovoltaïque (production, stockage, raccordement réseau)',
 };
 
-const liste = (titre: string, valeurs: string[]): string =>
-  valeurs.length ? `${titre} : ${valeurs.join(' ; ')}` : `${titre} : libre`;
+/** Mention « à compléter » : le champ vide n'est jamais laissé vide, il est proposé. */
+const ACOMPLETER = 'LIBRE — à déduire du thème et à proposer';
 
-/** Prompt utilisateur : le brief, puis le contexte imposé. */
-export function construirePromptUtilisateur(brief: Brief, contexte: string): string {
+const liste = (titre: string, valeurs: string[]): string =>
+  valeurs.length ? `${titre} : ${valeurs.join(' ; ')}` : `${titre} : ${ACOMPLETER}`;
+
+/** Champs laissés vides par le professeur, en clair. */
+export function champsLibres(brief: Brief): string[] {
+  const out: string[] = [];
+  if (!brief.activities.length) out.push('les compétences et activités du référentiel réellement mobilisées');
+  if (!brief.materielDisponible.length) out.push('le matériel nécessaire');
+  if (!brief.scene) out.push('le type d’installation (scène) et la colonne annexe qui va avec');
+  if (brief.duration === null) out.push('la durée totale de la séance');
+  if (!brief.resume.trim()) out.push('la situation professionnelle (contexte de l’intervention)');
+  if (!brief.documents?.length) out.push('les caractéristiques techniques plausibles de l’équipement');
+  return out;
+}
+
+/** Consigne de complétion : ce qui est libre doit être PROPOSÉ, jamais laissé vide. */
+export function consigneCompletion(brief: Brief): string {
+  const libres = champsLibres(brief);
+  if (!libres.length) {
+    return 'Le brief est complet : respecte-le à la lettre.';
+  }
+  return [
+    'CE QUE LE PROFESSEUR A LAISSÉ LIBRE — tu dois le COMPLÉTER, pas le laisser vide :',
+    ...libres.map((l) => `  - ${l}`),
+    'Déduis chacun de ces éléments du thème et des pratiques d’atelier habituelles, puis propose-les ' +
+    'explicitement. Ils seront RELUS ET CORRIGÉS PAR UN PROFESSEUR dans le studio avant d’aller devant ' +
+    'les élèves : sois précis et cohérent, ne rends jamais une liste vide, ne demande rien en retour.',
+  ].join('\n');
+}
+
+/** Rappel du brief, commun à tous les appels. */
+export function rappelBrief(brief: Brief): string {
   const dip = DIPLOMAS.find((d) => d.id === brief.diplomaId);
   return [
-    'BRIEF DU PROFESSEUR',
+    'BRIEF DU PROFESSEUR (seul le thème est imposé ; tout champ « LIBRE » est à compléter par toi)',
     `  Diplôme : ${dip?.name ?? brief.diplomaId}`,
     `  Thème : ${brief.theme}`,
-    `  Attendu : ${brief.resume || 'non précisé'}`,
+    `  Attendu : ${brief.resume || ACOMPLETER}`,
     `  Type de séquence : ${brief.sequenceType || 'séance de travaux pratiques'}`,
-    `  Durée totale : ${brief.duration} minutes (répartis-la entre les activités)`,
-    `  Type d’installation : ${SCENE_LABEL[brief.scene]}`,
-    `  ${liste('Activités demandées', brief.activities)}`,
+    brief.duration === null
+      ? `  Durée totale : ${ACOMPLETER} (propose une durée réaliste, puis répartis-la entre les activités)`
+      : `  Durée totale : ${brief.duration} minutes (répartis-la entre les activités)`,
+    brief.scene
+      ? `  Type d’installation : ${SCENE_LABEL[brief.scene]}`
+      : `  Type d’installation : ${ACOMPLETER} (industriel, habitat, tertiaire ou photovoltaïque)`,
+    `  ${liste('Compétences et activités du référentiel demandées', brief.activities)}`,
     `  ${liste('Matériel disponible à l’atelier', brief.materielDisponible)}`,
-    brief.documents?.length ? `  Dossier technique joint : ${brief.documents.join(', ')}` : '  Dossier technique joint : aucun',
+    brief.documents?.length
+      ? `  Dossier technique joint : ${brief.documents.join(', ')}`
+      : `  Dossier technique joint : aucun (${ACOMPLETER.toLowerCase()})`,
+  ].join('\n');
+}
+
+/** Appel 1 — prompt du dossier pédagogique : brief, documents joints, référentiel. */
+export function construirePromptPedagogie(brief: Brief, referentiel: string): string {
+  const duree = brief.duration ?? DUREE_PAR_DEFAUT;
+  return [
+    rappelBrief(brief),
     '',
-    'Exploite le dossier technique joint (plaque signalétique, schéma, notice) pour les caractéristiques réelles.',
+    consigneCompletion(brief),
+    '',
+    brief.documents?.length
+      ? 'Exploite le dossier technique joint (plaque signalétique, schéma, notice) pour les caractéristiques réelles.'
+      : 'Aucun dossier technique n’est joint : appuie-toi sur les pratiques d’atelier habituelles pour ce thème.',
+    '',
+    referentiel,
+    '',
+    brief.activities.length
+      ? 'Les compétences cochées par le professeur sont prioritaires : chaque critère doit s’y rattacher.'
+      : 'Le professeur n’a coché aucune compétence : CHOISIS toi-même, dans le référentiel ci-dessus, ' +
+        'celles que le thème mobilise vraiment, et rattache-leur les critères.',
+    '',
+    brief.duration === null
+      ? 'Propose la durée totale dans le champ « duree » (une séance d’atelier réaliste), puis répartis-la entre 2 à 4 activités.'
+      : `Vise 2 à 4 activités qui tiennent dans ${duree} minutes au total.`,
+    '4 à 8 consignes par activité, 6 à 10 critères d’évaluation et 4 à 6 questions de quiz.',
+    'Renseigne « scene », « annex » et « duree », et liste dans « deductions » tout ce que tu as choisi toi-même.',
+    '',
+    'Rends maintenant le dossier pédagogique en appelant l’outil « rediger_pedagogie ».',
+  ].join('\n');
+}
+
+/**
+ * Appel 2 — prompt du CHOIX DU MATÉRIEL : le modèle voit la bibliothèque complète
+ * (index compact, une entrée par appareil) et n'en retient que ce qu'il lui faut.
+ */
+export function construirePromptMateriel(brief: Brief, resume: string, index: string): string {
+  return [
+    rappelBrief(brief),
+    '',
+    resume,
+    '',
+    index,
+    '',
+    brief.materielDisponible.length
+      ? 'Le professeur a déclaré du matériel disponible : privilégie-le, complète seulement si le TP l’exige.'
+      : 'Le professeur n’a rien coché : tu disposes de TOUTE la bibliothèque ci-dessus, sans restriction.',
+    '',
+    'Retiens le strict nécessaire pour rendre le TP jouable : protection en tête, appareils de puissance, ' +
+    'appareils de commande, bornier X1 (puissance) et bornier X2 (commande) borne par borne, organes de porte ' +
+    '(boutons, voyants) et récepteurs. Un appareil sans borne ne se câble pas : n’en prends que si le décor l’exige. ' +
+    'Chaque clé doit être RECOPIÉE À L’IDENTIQUE depuis la bibliothèque ci-dessus ; donne à chacune son repère ' +
+    '(Q1, KM1, F1, S1, H1, X1:1…). Compte une entrée de bornier par borne.',
+    '',
+    'Rends maintenant la liste du matériel en appelant l’outil « choisir_materiel ».',
+  ].join('\n');
+}
+
+/**
+ * Résumé COURT du dossier pédagogique pour l'appel maquette : titres et consignes des
+ * activités, plus le matériel. Les corrections, les critères et le quiz restent au chaud :
+ * la maquette n'en a pas besoin et le contexte doit rester léger.
+ */
+export function resumePedagogie(pedagogie: PedagogieGeneree, consignesMax = 8): string {
+  const activites = pedagogie.activites.flatMap((a) => [
+    `  ${a.titre} (${a.duree} min)`,
+    ...a.consignes.slice(0, consignesMax).map((c) => `    - ${c}`),
+  ]);
+  return [
+    'DOSSIER PÉDAGOGIQUE DÉJÀ RÉDIGÉ (résumé : titres et consignes des activités)',
+    `  Objectifs : ${pedagogie.objectifs.join(' ; ') || 'non précisés'}`,
+    ...(pedagogie.scene ? [`  Type d’installation retenu : ${SCENE_LABEL[pedagogie.scene]}`] : []),
+    ...(pedagogie.duree ? [`  Durée retenue : ${pedagogie.duree} minutes`] : []),
+    `  Matériel annoncé : ${pedagogie.materiel.join(' ; ') || 'non précisé'}`,
+    '  Activités :',
+    ...activites,
+    '',
+    'La platine doit permettre d’exécuter chacune de ces consignes : tout repère cité dans une ' +
+    'consigne (Q1, KM1, X1:5, S1, H2…) doit exister dans « slots ».',
+  ].join('\n');
+}
+
+/** Appel 3 — prompt de la maquette : brief, résumé du dossier, appareils retenus et géométrie. */
+export function construirePromptMaquette(brief: Brief, contexte: string, resume: string): string {
+  return [
+    rappelBrief(brief),
+    '',
+    resume,
     '',
     contexte,
     '',
-    'Rends maintenant le TP complet en appelant l’outil « rediger_tp ».',
+    'Le matériel est déjà choisi : pose ces appareils, tire les liaisons, place les mesures, ' +
+    'construis les postes de choix et les pannes. N’invente aucune clé supplémentaire.',
+    '',
+    'Rends maintenant la maquette jouable en appelant l’outil « rediger_maquette ».',
   ].join('\n');
 }
 
@@ -90,15 +249,21 @@ export interface PortionFautive {
 }
 
 /**
- * Relance après vérification : on rend les anomalies en clair et la portion fautive,
- * sans jamais réécrire à la place du modèle.
+ * Appel 3 — prompt de réparation : les anomalies en clair, les portions fautives et la
+ * maquette refusée. On ne réécrit jamais à la place du modèle.
  */
-export function construireRelance(anomalies: Anomalie[], portions: PortionFautive[]): string {
+export function construireRelance(
+  anomalies: Anomalie[],
+  portions: PortionFautive[],
+  maquette?: string,
+): string {
   const bloquantes = anomalies.filter((a) => a.gravite === 'bloquante');
   const avertissements = anomalies.filter((a) => a.gravite === 'avertissement');
   return [
-    'Le moteur de simulation a refusé cette version du TP. Corrige-la et rappelle l’outil « rediger_tp » avec le TP entier (pas seulement les parties fautives).',
+    'Le moteur de simulation a refusé cette version du TP. Corrige-la en appelant l’outil ' +
+    '« reparer_maquette » : ne renvoie que les sections que tu modifies.',
     '',
+    ...(maquette ? ['MAQUETTE REFUSÉE :', maquette, ''] : []),
     'ANOMALIES BLOQUANTES :',
     ...bloquantes.map((a) => `  - ${a.chemin} : ${a.message}`),
     ...(avertissements.length
