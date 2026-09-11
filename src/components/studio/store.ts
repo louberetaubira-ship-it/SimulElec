@@ -11,15 +11,20 @@ import { libraryItemSync, loadLibraryItem } from '@/lib/data/library';
 import { DOMAIN_LABEL, DOMAIN_TO_COMPETENCES, type DiplomaId, type Domain } from '@/lib/data/competences';
 import {
   createTp, freeTpId, getTpRow, isBundledTp, rowToDefinition, slugifyTitle, studioMetaOf, updateTp,
-  type TpSavePayload, type TpStoredDefinition,
+  validateTp, type TpRow, type TpSavePayload, type TpStoredDefinition,
 } from '@/lib/db/tps';
+import {
+  lirePedagogie, type ActiviteGeneree, type AnomalieGeneration, type CoutGeneration,
+  type CritereGenere, type PedagogieGeneree, type ReponseGeneration,
+} from './generation';
 import { tpById } from '@/lib/data/tps';
 import {
   ANNEX_BY_SCENE, checkTp, deduceLiaisons, deriveNets, emptyMeasure, emptyTp, isPlayable, linkKey,
   moveSlot, poseItem, posteFor, terminalsOf, type Zone,
 } from './model';
 
-export type StudioTab = 'materiel' | 'postes' | 'liaisons' | 'mesures' | 'competences' | 'reglages';
+export type StudioTab =
+  | 'materiel' | 'postes' | 'liaisons' | 'mesures' | 'competences' | 'reglages' | 'dossier' | 'criteres';
 
 /** Sélection courante : un appareil du rail, un élément d'annexe ou un récepteur. */
 export interface Selection { kind: 'slot' | 'annex' | 'recv'; id: string }
@@ -45,6 +50,21 @@ interface StudioState {
   dirty: boolean;
   error: string | null;
   anomalies: string[];
+
+  /* -------- générateur de TP (lot 8) -------- */
+  /** Dossier pédagogique généré, relu et corrigé par le professeur. */
+  pedagogie: PedagogieGeneree | null;
+  /** TP issu du générateur : bandeau de brouillon et validation obligatoire. */
+  generated: boolean;
+  /** Anomalies renvoyées par le vérificateur du serveur. */
+  genAnomalies: AnomalieGeneration[];
+  /** Ce que le moteur a corrigé de lui-même. */
+  corrections: string[];
+  /** Coût de la génération, pour information. */
+  cout: CoutGeneration | null;
+  /** Date de validation humaine (ISO), `null` tant que le TP n'est pas validé. */
+  validatedAt: string | null;
+  validating: boolean;
 
   load: (id: string | null, source?: string | null) => Promise<void>;
   say: (m: string | null) => void;
@@ -80,6 +100,18 @@ interface StudioState {
   publish: () => Promise<void>;
   unpublish: () => Promise<void>;
   importDefinition: (def: TpDefinition, domains: Domain[], diplomas: DiplomaId[]) => void;
+
+  /** Injecte le résultat du générateur dans le studio (maquette + dossier pédagogique). */
+  importGeneration: (res: ReponseGeneration, diploma: DiplomaId) => void;
+  patchPedagogie: (patch: Partial<PedagogieGeneree>) => void;
+  updateActivite: (index: number, a: ActiviteGeneree) => void;
+  removeActivite: (index: number) => void;
+  updateCritere: (index: number, c: CritereGenere) => void;
+  removeCritere: (index: number) => void;
+  /** Retire une anomalie de la liste : le professeur l'a traitée. */
+  resolveAnomalie: (index: number) => void;
+  /** Écrit `validated_by` / `validated_at` puis autorise la publication. */
+  validate: () => Promise<boolean>;
 }
 
 /** Délai d'enregistrement automatique du brouillon. */
@@ -160,15 +192,25 @@ export const useStudio = create<StudioState>((set, get) => {
     dirty: false,
     error: null,
     anomalies: [],
+    pedagogie: null,
+    generated: false,
+    genAnomalies: [],
+    corrections: [],
+    cout: null,
+    validatedAt: null,
+    validating: false,
 
     async load(id, source) {
       set({ loading: true, error: null });
+      // Nouveau TP : rien du TP précédent ne doit rester (dossier généré, anomalies, validation).
+      if (!id) set({ generated: false, pedagogie: null, validatedAt: null, genAnomalies: [], corrections: [], cout: null });
       try {
         if (id) {
           const row = await getTpRow(id);
           if (!row) throw new Error('Ce TP est introuvable (il a peut-être été supprimé).');
           const def = rowToDefinition(row) ?? { ...emptyTp(row.id, 'ind'), title: row.title, summary: row.summary ?? '' };
           const meta = studioMetaOf(row);
+          const stored = (row.definition ?? null) as unknown as Partial<TpStoredDefinition> | null;
           set({
             id: row.id,
             def,
@@ -178,6 +220,13 @@ export const useStudio = create<StudioState>((set, get) => {
             diplomas: meta.diplomas.length ? meta.diplomas : get().diplomas,
             dirty: false,
             savedAt: null,
+            generated: row.generated === true,
+            validatedAt: row.validated_at ?? null,
+            pedagogie: stored && stored.pedagogie ? lirePedagogie(stored.pedagogie) : null,
+            genAnomalies: [],
+            corrections: [],
+            cout: null,
+            tab: row.generated === true ? 'dossier' : 'materiel',
           });
           await resolve(def);
           return;
@@ -389,7 +438,7 @@ export const useStudio = create<StudioState>((set, get) => {
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
       if (enCours) return enCours;
       const promesse = (async (): Promise<string | null> => {
-      const { def, items, domains, diplomas, id, published, archived } = get();
+      const { def, items, domains, diplomas, id, published, archived, pedagogie, generated } = get();
       if (!def.title.trim() && !id) return null;
       set({ saving: true, error: null });
       try {
@@ -397,7 +446,11 @@ export const useStudio = create<StudioState>((set, get) => {
         // déjà présentes (TP dupliqué d'un TP fourni : bornes moteur, conditions d'étape).
         const nets = { ...def.nets, ...deriveNets(def) };
         const complete: TpDefinition = { ...def, nets, playable: isPlayable({ ...def, nets }, items) };
-        const stored: TpStoredDefinition = { ...complete, studio: { version: 1, domains, diplomas } };
+        const stored: TpStoredDefinition = {
+          ...complete,
+          studio: { version: 1, domains, diplomas },
+          ...(pedagogie ? { pedagogie } : {}),
+        };
         const payload: TpSavePayload = {
           title: complete.title,
           level: complete.level,
@@ -410,6 +463,7 @@ export const useStudio = create<StudioState>((set, get) => {
           published,
           archived,
           playable: complete.playable,
+          ...(generated ? { generated: true } : {}),
         };
         if (id) {
           await updateTp(id, payload);
@@ -441,8 +495,10 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     async publish() {
-      set({ published: true });
+      set({ published: true, error: null });
       const id = await get().save();
+      // La base refuse la publication d'un TP généré non validé : le message remonte tel quel.
+      if (get().error) { set({ published: false }); return; }
       if (id) say('TP publié : il apparaît dans le catalogue des élèves.');
     },
 
@@ -455,6 +511,79 @@ export const useStudio = create<StudioState>((set, get) => {
     importDefinition(def, domains, diplomas) {
       touch({ def, domains, diplomas, sel: null });
       void resolve(def);
+    },
+
+    importGeneration(res, diploma) {
+      const def: TpDefinition = { ...res.maquette, id: get().id ?? '', playable: false };
+      set({
+        pedagogie: res.pedagogie,
+        generated: true,
+        genAnomalies: res.anomalies,
+        corrections: res.corrections,
+        cout: res.cout,
+        validatedAt: null,
+        published: false,
+        tab: 'dossier',
+      });
+      touch({ def, diplomas: [diploma], sel: null });
+      void resolve(def);
+      say('Brouillon généré : relisez chaque champ avant de valider.');
+    },
+
+    patchPedagogie(patch) {
+      const p = get().pedagogie;
+      if (!p) return;
+      touch({ pedagogie: { ...p, ...patch } });
+    },
+
+    updateActivite(index, a) {
+      const p = get().pedagogie;
+      if (!p) return;
+      touch({ pedagogie: { ...p, activites: p.activites.map((x, i) => (i === index ? a : x)) } });
+    },
+
+    removeActivite(index) {
+      const p = get().pedagogie;
+      if (!p) return;
+      touch({ pedagogie: { ...p, activites: p.activites.filter((_, i) => i !== index) } });
+    },
+
+    updateCritere(index, c) {
+      const p = get().pedagogie;
+      if (!p) return;
+      touch({ pedagogie: { ...p, criteres: p.criteres.map((x, i) => (i === index ? c : x)) } });
+    },
+
+    removeCritere(index) {
+      const p = get().pedagogie;
+      if (!p) return;
+      touch({ pedagogie: { ...p, criteres: p.criteres.filter((_, i) => i !== index) } });
+    },
+
+    resolveAnomalie(index) {
+      set({ genAnomalies: get().genAnomalies.filter((_, i) => i !== index) });
+    },
+
+    async validate() {
+      if (get().genAnomalies.some((a) => a.gravite === 'bloquante')) {
+        set({ error: 'Une anomalie bloquante subsiste : corrigez-la avant de valider ce TP.' });
+        return false;
+      }
+      set({ validating: true, error: null });
+      const id = await get().save();
+      if (!id) {
+        set({ validating: false, error: 'Enregistrez le TP (un titre suffit) avant de le valider.' });
+        return false;
+      }
+      try {
+        const row: TpRow = await validateTp(id);
+        set({ validatedAt: row.validated_at ?? new Date().toISOString(), validating: false });
+        say('TP validé : vous pouvez le publier.');
+        return true;
+      } catch (e) {
+        set({ validating: false, error: e instanceof Error ? e.message : 'Validation impossible.' });
+        return false;
+      }
     },
   };
 });

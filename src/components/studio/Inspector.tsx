@@ -9,10 +9,13 @@ import type { ExpectedMeasure, Poste, PosteOption, SceneKind } from '@/lib/types
 import { INSTRUMENTS } from '@/lib/sim/mesures';
 import { DIPLOMAS, DOMAIN_LABEL, type DiplomaId, type Domain } from '@/lib/data/competences';
 import { RAILS } from '@/lib/scene/geometry';
+import { STAGES } from '@/lib/sim/progress';
 import { NET_LIST, terminalsOf, type TerminalRef } from './model';
 import { competenceCodes, useStudio, type StudioTab } from './store';
 
 const TABS: { id: StudioTab; label: string }[] = [
+  { id: 'dossier', label: 'Dossier pédagogique' },
+  { id: 'criteres', label: 'Critères' },
   { id: 'materiel', label: 'Matériel' },
   { id: 'postes', label: 'Postes de choix' },
   { id: 'liaisons', label: 'Liaisons' },
@@ -570,16 +573,278 @@ function Reglages() {
   );
 }
 
+/* -------------------------------------------------- dossier pédagogique généré */
+
+/** Liste de textes libres (objectifs, matériel, consignes) éditable ligne à ligne. */
+function Lignes({
+  valeurs, onChange, placeholder, ajouter, testid,
+}: {
+  valeurs: string[];
+  onChange: (v: string[]) => void;
+  placeholder: string;
+  ajouter: string;
+  testid?: string;
+}) {
+  return (
+    <div data-testid={testid}>
+      <div className="st-list" style={{ maxHeight: 'none' }}>
+        {valeurs.map((v, i) => (
+          <div key={i} className="st-line">
+            <div className="st-row" style={{ flexWrap: 'nowrap' }}>
+              <input
+                className="st-input"
+                value={v}
+                placeholder={placeholder}
+                aria-label={`${placeholder} ${i + 1}`}
+                onChange={(e) => onChange(valeurs.map((x, j) => (j === i ? e.target.value : x)))}
+              />
+              <button
+                type="button"
+                className="st-mini danger"
+                aria-label={`Retirer ${placeholder} ${i + 1}`}
+                onClick={() => onChange(valeurs.filter((_, j) => j !== i))}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button type="button" className="st-btn" style={{ marginTop: 6 }} onClick={() => onChange([...valeurs, ''])}>
+        {ajouter}
+      </button>
+    </div>
+  );
+}
+
+function Dossier() {
+  const pedagogie = useStudio((s) => s.pedagogie);
+  const patchPedagogie = useStudio((s) => s.patchPedagogie);
+  const updateActivite = useStudio((s) => s.updateActivite);
+  const removeActivite = useStudio((s) => s.removeActivite);
+
+  if (!pedagogie) {
+    return (
+      <p className="st-sub">
+        Ce TP n’a pas de dossier pédagogique généré. Créez-en un avec « ✦ Générer un TP », ou
+        rédigez l’énoncé dans l’onglet « Réglages ».
+      </p>
+    );
+  }
+
+  const total = pedagogie.activites.reduce((s, a) => s + (a.duree || 0), 0);
+
+  return (
+    <div data-testid="st-dossier">
+      <p className="st-sub">
+        Vous êtes responsable de ce contenu : relisez chaque champ, en particulier les valeurs
+        et les consignes de sécurité. {pedagogie.activites.length} activité
+        {pedagogie.activites.length > 1 ? 's' : ''} · {total} min au total.
+      </p>
+
+      <h3 className="st-h" style={{ marginTop: 12 }}>Objectifs</h3>
+      <Lignes
+        valeurs={pedagogie.objectifs}
+        onChange={(objectifs) => patchPedagogie({ objectifs })}
+        placeholder="Objectif"
+        ajouter="Ajouter un objectif"
+        testid="st-objectifs"
+      />
+
+      <h3 className="st-h" style={{ marginTop: 12 }}>Matériel de la séance</h3>
+      <Lignes
+        valeurs={pedagogie.materiel}
+        onChange={(materiel) => patchPedagogie({ materiel })}
+        placeholder="Matériel"
+        ajouter="Ajouter un matériel"
+      />
+
+      <h3 className="st-h" style={{ marginTop: 12 }}>Activités</h3>
+      <div className="st-list" style={{ maxHeight: 'none' }} data-testid="st-activites">
+        {pedagogie.activites.map((a, i) => (
+          <div key={i} className="st-line" data-activite={i}>
+            <div className="head">
+              <b>A{i + 1}</b>
+              <span className="n">{a.titre}</span>
+              <button
+                type="button"
+                className="st-mini danger"
+                aria-label={`Retirer l’activité ${i + 1}`}
+                onClick={() => removeActivite(i)}
+              >
+                ×
+              </button>
+            </div>
+            <label className="st-field">
+              <span>Titre</span>
+              <input
+                className="st-input"
+                value={a.titre}
+                data-testid={`st-activite-titre-${i}`}
+                onChange={(e) => updateActivite(i, { ...a, titre: e.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Durée (min)</span>
+              <input
+                className="st-input"
+                type="number"
+                value={a.duree}
+                onChange={(e) => updateActivite(i, { ...a, duree: Number(e.target.value) || 0 })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Contexte</span>
+              <textarea
+                className="st-area"
+                style={{ minHeight: 70 }}
+                value={a.contexte}
+                onChange={(e) => updateActivite(i, { ...a, contexte: e.target.value })}
+              />
+            </label>
+            <span className="st-field"><span>Consignes élève</span></span>
+            <Lignes
+              valeurs={a.consignes}
+              onChange={(consignes) => updateActivite(i, { ...a, consignes })}
+              placeholder="Consigne"
+              ajouter="Ajouter une consigne"
+            />
+            <label className="st-field">
+              <span>Correction professeur</span>
+              <textarea
+                className="st-area"
+                value={a.correction}
+                onChange={(e) => updateActivite(i, { ...a, correction: e.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Consignes de sécurité</span>
+              <textarea
+                className="st-area"
+                style={{ minHeight: 70 }}
+                value={a.securite ?? ''}
+                placeholder="Consignation, EPI, VAT, points de vigilance…"
+                onChange={(e) => updateActivite(i, { ...a, securite: e.target.value })}
+              />
+            </label>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="st-btn"
+        style={{ marginTop: 6 }}
+        onClick={() => patchPedagogie({
+          activites: [...pedagogie.activites, { titre: 'Nouvelle activité', duree: 30, contexte: '', consignes: [], correction: '' }],
+        })}
+      >
+        Ajouter une activité
+      </button>
+    </div>
+  );
+}
+
+/* --------------------------------------------------- critères d'évaluation */
+
+function Criteres() {
+  const pedagogie = useStudio((s) => s.pedagogie);
+  const updateCritere = useStudio((s) => s.updateCritere);
+  const removeCritere = useStudio((s) => s.removeCritere);
+  const patchPedagogie = useStudio((s) => s.patchPedagogie);
+
+  if (!pedagogie) {
+    return <p className="st-sub">Aucun critère généré : les compétences se cochent dans l’onglet « Compétences ».</p>;
+  }
+
+  const simulateur = pedagogie.criteres.filter((c) => c.source === 'simulateur').length;
+
+  return (
+    <div data-testid="st-criteres">
+      <p className="st-sub">
+        {pedagogie.criteres.length} critère{pedagogie.criteres.length > 1 ? 's' : ''} ·{' '}
+        {simulateur} observé{simulateur > 1 ? 's' : ''} par le simulateur,{' '}
+        {pedagogie.criteres.length - simulateur} par le professeur en atelier.
+      </p>
+      <div className="st-list" style={{ maxHeight: 'none', marginTop: 6 }}>
+        {pedagogie.criteres.map((c, i) => (
+          <div key={i} className="st-line" data-critere={i}>
+            <div className="head">
+              <b>{c.code}</b>
+              <span className={`st-tag${c.source === 'simulateur' ? ' ok' : ' warn'}`} data-source={c.source}>
+                {c.source === 'simulateur' ? 'observé par le simulateur' : 'observé par le professeur'}
+              </span>
+              <span className="n">{STAGES[c.etape] ?? `étape ${c.etape}`}</span>
+              <button
+                type="button"
+                className="st-mini danger"
+                aria-label={`Retirer le critère ${i + 1}`}
+                onClick={() => removeCritere(i)}
+              >
+                ×
+              </button>
+            </div>
+            <input
+              className="st-input"
+              value={c.critere}
+              aria-label={`Critère ${i + 1}`}
+              onChange={(e) => updateCritere(i, { ...c, critere: e.target.value })}
+            />
+            <div className="st-two">
+              <input
+                className="st-input"
+                value={c.code}
+                aria-label={`Code de compétence ${i + 1}`}
+                onChange={(e) => updateCritere(i, { ...c, code: e.target.value })}
+              />
+              <select
+                className="st-select"
+                value={c.source}
+                aria-label={`Source d’observation ${i + 1}`}
+                onChange={(e) => updateCritere(i, { ...c, source: e.target.value === 'professeur' ? 'professeur' : 'simulateur' })}
+              >
+                <option value="simulateur">Simulateur</option>
+                <option value="professeur">Professeur</option>
+              </select>
+            </div>
+            <select
+              className="st-select"
+              value={c.etape}
+              aria-label={`Étape du critère ${i + 1}`}
+              onChange={(e) => updateCritere(i, { ...c, etape: Number(e.target.value) })}
+            >
+              {STAGES.map((s, si) => <option key={s} value={si}>{si}. {s}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="st-btn"
+        style={{ marginTop: 6 }}
+        onClick={() => patchPedagogie({
+          criteres: [...pedagogie.criteres, { code: '', critere: '', source: 'professeur', etape: 0 }],
+        })}
+      >
+        Ajouter un critère
+      </button>
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------- assemblage */
 
 export default function Inspector() {
   const tab = useStudio((s) => s.tab);
   const setTab = useStudio((s) => s.setTab);
+  const pedagogie = useStudio((s) => s.pedagogie);
+
+  // Les deux premiers onglets n'existent que pour un TP porteur d'un dossier généré.
+  const tabs = pedagogie ? TABS : TABS.filter((t) => t.id !== 'dossier' && t.id !== 'criteres');
 
   return (
     <section className="st-card" aria-label="Inspecteur">
       <div className="st-tabs" role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -593,6 +858,8 @@ export default function Inspector() {
           </button>
         ))}
       </div>
+      {tab === 'dossier' && <Dossier />}
+      {tab === 'criteres' && <Criteres />}
       {tab === 'materiel' && <Materiel />}
       {tab === 'postes' && <Postes />}
       {tab === 'liaisons' && <Liaisons />}

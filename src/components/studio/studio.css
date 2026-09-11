@@ -126,3 +126,75 @@
 .st-anomalies li { margin: 2px 0; }
 .st-err { border: 1px solid rgba(217, 58, 58, .5); background: rgba(217, 58, 58, .08); color: #D93A3A;
   border-radius: 9px; padding: 7px 10px; font-size: 12.5px; }
+
+/* ---- générateur de TP (lot 8) ---- */
+.st-gen-wrap { padding: 12px; }
+@media (min-width: 960px) { .st-gen-wrap { padding: 16px; } }
+.st-gen { max-width: 1080px; margin: 0 auto; }
+.st-gen-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; margin-bottom: 12px; }
+.st-gen-head .st-tag { margin-left: auto; }
+.st-gen-title {
+  font-family: var(--font-title), "Barlow Condensed", system-ui, sans-serif;
+  font-size: 26px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: #141A21; margin: 0 0 2px;
+}
+.st-gen-grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 860px) { .st-gen-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.st-gen-large { grid-column: 1 / -1; }
+
+.st-drop {
+  margin-top: 8px; border: 1.5px dashed #D3D9E1; border-radius: 12px; background: #F5F6F8;
+  min-height: 84px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  justify-content: center; padding: 10px; text-align: center;
+}
+.st-drop.sel { border-color: #E39A00; background: #FFFBF2; }
+.st-sub.crit { color: #D93A3A; font-weight: 600; }
+
+.st-chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 34px; cursor: pointer;
+  border: 1px solid #D3D9E1; background: #F5F6F8; color: #141A21; border-radius: 999px;
+  padding: 4px 10px; font-size: 11.5px; line-height: 1.2;
+}
+.st-chip.sel { background: #141A21; color: #fff; border-color: #141A21; }
+
+/* étapes du pipeline */
+.st-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.st-step {
+  display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px;
+  border: 1px solid #D3D9E1; border-radius: 9px; background: #F5F6F8; color: #66717F; font-size: 12.5px;
+}
+.st-step .puce {
+  width: 20px; height: 20px; border-radius: 999px; display: grid; place-items: center;
+  border: 1px solid #D3D9E1; background: #fff; font-size: 11px; color: #66717F; flex: none;
+}
+.st-step.fait { color: #141A21; background: rgba(30, 158, 99, .10); border-color: rgba(30, 158, 99, .4); }
+.st-step.fait .puce { color: #1E9E63; border-color: rgba(30, 158, 99, .5); }
+.st-step.encours { color: #141A21; background: #FFFBF2; border-color: #E39A00; font-weight: 600; }
+.st-step.encours .puce { color: #E39A00; border-color: #E39A00; animation: st-pulse 1.1s ease-in-out infinite; }
+@keyframes st-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .st-step.encours .puce { animation: none; } }
+
+/* bandeau, filigrane et anomalies cliquables */
+.st-bandeau {
+  margin: 8px 12px 0; border-radius: 9px; padding: 8px 12px; font-size: 12.5px; font-weight: 600;
+  border: 1px solid rgba(217, 119, 6, .5); background: rgba(217, 119, 6, .12); color: #D97706;
+}
+.st-filigrane { display: none; }
+.st-anomalie { width: 100%; text-align: left; cursor: pointer; font: inherit; }
+.st-anomalie.crit { border-color: rgba(217, 58, 58, .5); background: rgba(217, 58, 58, .06); }
+.st-anomalie.warn { border-color: rgba(217, 119, 6, .5); background: rgba(217, 119, 6, .06); }
+.st-anomalie .head b { color: #D93A3A; font-size: 11px; }
+.st-anomalie.warn .head b { color: #D97706; }
+
+@media print {
+  .st-filigrane {
+    display: grid; place-items: center; position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    font-family: var(--font-title), "Barlow Condensed", system-ui, sans-serif;
+    font-size: 42px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+    color: rgba(217, 58, 58, .22); transform: rotate(-28deg); text-align: center;
+  }
+  .st-bar, .st-tabs, .st-fams { display: none !important; }
+}
+
+/* Libellés longs des listes à cocher du brief : ils s'enroulent au lieu d'être coupés. */
+.st-line .head .n.libre { white-space: normal; overflow: visible; }
