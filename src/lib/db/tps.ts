@@ -15,6 +15,7 @@ import type {
   SceneKind, Slot, TerminalNet, TestHorsTension, TpDefinition,
 } from '@/lib/types';
 import type { DiplomaId, Domain } from '@/lib/data/competences';
+import type { PedagogieGeneree } from '@/lib/generateur/schema';
 import { DOMAIN_LABEL } from '@/lib/data/competences';
 import { isDiplomaId } from '@/lib/student';
 
@@ -75,7 +76,11 @@ export interface TpStudioMeta {
 }
 
 /** Contenu du champ `definition` pour un TP du studio. */
-export type TpStoredDefinition = TpDefinition & { studio?: TpStudioMeta };
+export type TpStoredDefinition = TpDefinition & {
+  studio?: TpStudioMeta;
+  /** Dossier pédagogique d'un TP généré (objectifs, matériel, activités, critères, quiz). */
+  pedagogie?: PedagogieGeneree;
+};
 
 /** Contenu d'un TP documentaire (éditeur des premières versions, parcours de lecture). */
 export interface TpDocDefinition extends Record<string, unknown> {
@@ -102,10 +107,18 @@ export interface TpRow {
   archived: boolean;
   diplomas: DiplomaId[];
   updated_at?: string | null;
+  /** Dossier et maquette produits par le générateur (migration 0009). */
+  generated?: boolean;
+  /** Génération à l'origine du TP (`generation_logs.id`). */
+  generation_id?: string | null;
+  /** Professeur ayant relu et validé le TP généré. */
+  validated_by?: string | null;
+  /** Date de validation humaine : obligatoire avant publication d'un TP généré. */
+  validated_at?: string | null;
 }
 
 const TP_COLS =
-  'id, title, level, competences, summary, definition, published, family, scene, playable, author, archived, diplomas, updated_at';
+  'id, title, level, competences, summary, definition, published, family, scene, playable, author, archived, diplomas, updated_at, generated, generation_id, validated_by, validated_at';
 
 /** Saisie envoyée en base par le studio. */
 export interface TpSavePayload {
@@ -120,6 +133,9 @@ export interface TpSavePayload {
   published: boolean;
   archived: boolean;
   playable: boolean;
+  /** TP issu du générateur : la base interdit sa publication tant qu'il n'est pas validé. */
+  generated?: boolean;
+  generation_id?: string | null;
 }
 
 /** Identifiant lisible dérivé du titre (« Éclairage d'atelier » → « eclairage-d-atelier »). */
@@ -146,6 +162,8 @@ function row(payload: TpSavePayload) {
     playable: payload.playable,
     archived: payload.archived,
     diplomas: payload.diplomas,
+    ...(payload.generated === undefined ? {} : { generated: payload.generated }),
+    ...(payload.generation_id === undefined ? {} : { generation_id: payload.generation_id }),
   };
 }
 
@@ -200,6 +218,25 @@ export async function setPublished(id: string, published: boolean): Promise<void
   const supabase = createClient();
   const { error } = await supabase.from('tps').update({ published }).eq('id', id);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Validation humaine d'un TP généré : le professeur connecté engage sa responsabilité
+ * pédagogique sur le contenu. Sans elle, la base refuse la publication (migration 0009).
+ */
+export async function validateTp(id: string): Promise<TpRow> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Session expirée : reconnectez-vous pour valider ce TP.');
+  const { data, error } = await supabase
+    .from('tps')
+    .update({ validated_by: user.id, validated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select(TP_COLS)
+    .single();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('TP introuvable ou non modifiable.');
+  return data as TpRow;
 }
 
 /** Archive ou restaure un TP. */
