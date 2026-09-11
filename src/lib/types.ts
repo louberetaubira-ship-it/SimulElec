@@ -1,5 +1,36 @@
 // ---------- Domain types shared by the simulator, the TP engine and the UI (v3) ----------
 
+import type { DiplomaId } from './data/competences';
+
+/**
+ * Barème d'un TP : poids de chaque étape (points sur 100) et coût des gestes fautifs.
+ * Le barème par défaut (`DEFAULT_BAREME`, voir `src/lib/sim/progress.ts`) reproduit
+ * exactement la notation historique ; un TP peut le surcharger partiellement via
+ * `tps.definition.bareme` (`TpDefinition.bareme`).
+ */
+export interface Bareme {
+  /** Points attribués à chaque ligne de note (total 100 par défaut). */
+  poids: {
+    materiel: number; pose: number; cablage: number; tests: number; epi: number;
+    hors: number; sous: number; diag: number; quiz: number;
+  };
+  /** Points retirés par erreur de pose. */
+  coutErreurPose: number;
+  /** Points retirés par liaison de câblage refusée. */
+  coutErreurCablage: number;
+  /** Points retirés par fil retiré (geste de correction). */
+  coutFilRetire: number;
+  /** Points retirés par réinitialisation du câblage. */
+  coutReset: number;
+  /** Plafond (points) de la pénalité des gestes de correction. */
+  coutCorrectionMax: number;
+  /** Pénalité (score 0..1 de l'étape) par ouverture d'un rappel de cours. */
+  coutAide: number;
+}
+
+/** Surcharge partielle du barème par un TP. */
+export type BaremeOverride = Partial<Omit<Bareme, 'poids'>> & { poids?: Partial<Bareme['poids']> };
+
 /** Conducteurs : L1/L2/L3/N/PE, C = commande 24 V (+), C0 = 0 V commande, DC+/DC- = photovoltaïque. */
 export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-';
 
@@ -178,6 +209,10 @@ export interface TpDefinition {
   plcIo?: { io: string; label: string; device: string }[];
   station: boolean;
   hasMotor: boolean;
+  /** Diplômes visés par le TP (colonne `tps.diplomas` / bloc studio). */
+  diplomas?: DiplomaId[];
+  /** Barème propre au TP (surcharge partielle de `DEFAULT_BAREME`). */
+  bareme?: BaremeOverride;
 }
 
 /** Lecture d'instrument persistée. */
@@ -194,6 +229,16 @@ export interface ReadingRecord {
   /** Identifiant de la mesure attendue validée, s'il y en a une. */
   expectedId?: string;
 }
+
+/**
+ * Mode de passage d'un TP.
+ * - `entrainement` : aide illimitée, reprises libres, pas de chronomètre, note indicative ;
+ * - `evaluation` : aide comptée et limitée, chronomètre affiché, une seule tentative, note retenue.
+ */
+export type EvaluationMode = 'entrainement' | 'evaluation';
+
+/** Auto-évaluation de l'élève : code de compétence → niveau qu'il se donne. */
+export type AutoEval = Record<string, 'acquis' | 'enCours' | 'nonAcquis'>;
 
 /** Student progress persisted in attempts.state (JSON). */
 export interface AttemptState {
@@ -218,6 +263,27 @@ export interface AttemptState {
   quiz: number | null;
   /** Nombre d'ouvertures de l'aide « rappel de cours », par étape (pèse sur l'évaluation). */
   helpUsed: Record<number, number>;
+  /**
+   * Fils retirés par l'élève depuis le début de la tentative (geste de correction).
+   * Ajouté après coup : les tentatives déjà en base valent 0 (voir `normalizeState`).
+   */
+  wiresRemoved: number;
+  /** Réinitialisations de câblage demandées (étape ou platine entière). */
+  resets: number;
+  /**
+   * Mode choisi au lancement du TP. Absent = non encore choisi (l'élève choisit) ;
+   * les tentatives enregistrées avant cette évolution sont relues en « entraînement »
+   * (valeur sûre : aucune contrainte rétroactive) — voir `normalizeState`.
+   */
+  mode?: EvaluationMode;
+  /** Mode imposé par le professeur au moment d'affecter le TP (l'élève ne peut pas en changer). */
+  modeImpose?: boolean;
+  /** Horodatage ISO du début de la tentative (chronomètre du mode évaluation). */
+  startedAt?: string;
+  /** Auto-évaluation faite par l'élève avant l'affichage du bilan. */
+  autoEval?: AutoEval;
+  /** L'auto-évaluation a été validée par l'élève. */
+  autoEvalDone?: boolean;
 }
 
 /** Montage de l'atelier libre (table projects.data). */

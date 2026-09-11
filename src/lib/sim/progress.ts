@@ -1,4 +1,6 @@
-import type { AttemptState, Liaison, TpDefinition } from '../types';
+import type {
+  AttemptState, Bareme, BaremeOverride, EvaluationMode, Liaison, TpDefinition,
+} from '../types';
 import { isRunning, type SimState } from './engine';
 import { linkKey } from './layout';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
@@ -49,6 +51,8 @@ export function initialState(): AttemptState {
     fixed: false,
     quiz: null,
     helpUsed: {},
+    wiresRemoved: 0,
+    resets: 0,
   };
 }
 
@@ -69,6 +73,16 @@ export function normalizeState(raw: Partial<AttemptState> | null | undefined): A
     decons: { ...base.decons, ...(raw.decons ?? {}) },
     readings: raw.readings ?? base.readings,
     helpUsed: raw.helpUsed ?? base.helpUsed,
+    // compteurs ajoutés après coup : une tentative enregistrée avant leur existence vaut 0
+    wiresRemoved: raw.wiresRemoved ?? base.wiresRemoved,
+    resets: raw.resets ?? base.resets,
+    // mode de passage ajouté après coup : une tentative déjà commencée reste en
+    // « entraînement » (valeur sûre), une tentative neuve laisse l'élève choisir.
+    mode: raw.mode ?? ((raw.stage ?? 0) > 0 || Object.keys(raw.done ?? {}).length > 0 ? 'entrainement' : undefined),
+    modeImpose: raw.modeImpose ?? false,
+    startedAt: raw.startedAt,
+    autoEval: raw.autoEval ?? {},
+    autoEvalDone: raw.autoEvalDone ?? false,
   };
 }
 
@@ -132,6 +146,131 @@ export function coursForStage(tpId: string, stage: number): CoursId[] {
   return STAGE_COURS[stage] ?? [];
 }
 
+// ---------------------------------------------------------------- barème
+
+/**
+ * Barème par défaut, documenté et surchargeable par TP (`tps.definition.bareme`).
+ *
+ * Poids des étapes (total 100) :
+ *   matériel 15 · pose 10 · câblage 20 · tests hors tension 5 · EPI et consignation 15 ·
+ *   mesures hors tension 10 · mesures sous tension 15 · maintenance 5 · quiz 5.
+ *
+ * Coût des gestes :
+ *   — une erreur de pose retire 2 points ;
+ *   — une liaison de câblage refusée retire 2 points ;
+ *   — un fil retiré retire 0,25 point (se reprendre est un geste de métier, pas une faute) ;
+ *   — une réinitialisation retire 0,5 point ;
+ *   — l'ensemble des gestes de correction est plafonné à 3 points ;
+ *   — chaque ouverture d'un rappel de cours retire 0,1 au score 0..1 de l'étape.
+ *
+ * Sans surcharge, la notation est strictement identique à la notation historique.
+ */
+export const DEFAULT_BAREME: Bareme = {
+  poids: { materiel: 15, pose: 10, cablage: 20, tests: 5, epi: 15, hors: 10, sous: 15, diag: 5, quiz: 5 },
+  coutErreurPose: 2,
+  coutErreurCablage: 2,
+  coutFilRetire: 0.25,
+  coutReset: 0.5,
+  coutCorrectionMax: 3,
+  coutAide: 0.1,
+};
+
+/** Libellés des poids, pour l'éditeur de barème du professeur. */
+export const BAREME_LABELS: Record<keyof Bareme['poids'], string> = {
+  materiel: 'Choix du matériel', pose: 'Pose sur la platine', cablage: 'Câblage',
+  tests: 'Tests hors tension', epi: 'EPI et consignation', hors: 'Mesures hors tension',
+  sous: 'Mesures sous tension', diag: 'Maintenance corrective', quiz: 'Questions de validation',
+};
+
+/** Barème complet à partir d'une surcharge partielle (valeurs invalides ignorées). */
+export function resolveBareme(over?: BaremeOverride | null): Bareme {
+  if (!over) return DEFAULT_BAREME;
+  const num = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : d);
+  const p = over.poids ?? {};
+  return {
+    poids: {
+      materiel: num(p.materiel, DEFAULT_BAREME.poids.materiel),
+      pose: num(p.pose, DEFAULT_BAREME.poids.pose),
+      cablage: num(p.cablage, DEFAULT_BAREME.poids.cablage),
+      tests: num(p.tests, DEFAULT_BAREME.poids.tests),
+      epi: num(p.epi, DEFAULT_BAREME.poids.epi),
+      hors: num(p.hors, DEFAULT_BAREME.poids.hors),
+      sous: num(p.sous, DEFAULT_BAREME.poids.sous),
+      diag: num(p.diag, DEFAULT_BAREME.poids.diag),
+      quiz: num(p.quiz, DEFAULT_BAREME.poids.quiz),
+    },
+    coutErreurPose: num(over.coutErreurPose, DEFAULT_BAREME.coutErreurPose),
+    coutErreurCablage: num(over.coutErreurCablage, DEFAULT_BAREME.coutErreurCablage),
+    coutFilRetire: num(over.coutFilRetire, DEFAULT_BAREME.coutFilRetire),
+    coutReset: num(over.coutReset, DEFAULT_BAREME.coutReset),
+    coutCorrectionMax: num(over.coutCorrectionMax, DEFAULT_BAREME.coutCorrectionMax),
+    coutAide: num(over.coutAide, DEFAULT_BAREME.coutAide),
+  };
+}
+
+/** Barème appliqué à un TP (surcharge éventuelle portée par sa définition). */
+export const baremeOf = (tp: TpDefinition): Bareme => resolveBareme(tp.bareme);
+
+/** Total des poids : 100 avec le barème par défaut. */
+export const baremeTotal = (b: Bareme): number =>
+  Object.values(b.poids).reduce((a, v) => a + v, 0);
+
+/**
+ * Pénalités appliquées au score 0..1 d'une étape, déduites du barème en points :
+ * une liaison refusée vaut le quarantième du coût en points, un fil retiré le vingt-cinquième.
+ * Avec le barème par défaut : 0,05 · 0,01 · 0,02, plafond 0,15 — les valeurs historiques.
+ */
+function scorePenalties(b: Bareme) {
+  return {
+    erreurCablage: b.coutErreurCablage / 40,
+    filRetire: b.coutFilRetire / 25,
+    reset: b.coutReset / 25,
+    correctionMax: b.coutCorrectionMax / 20,
+  };
+}
+
+// ---------------------------------------------------------------- mode de passage
+
+/** Nombre d'ouvertures de l'aide autorisées en mode évaluation (au-delà, l'aide est refusée). */
+export const AIDE_MAX_EVALUATION = 3;
+
+/** Mode effectif d'une tentative : « entraînement » tant que rien n'a été choisi. */
+export const modeOf = (st: AttemptState): EvaluationMode => st.mode ?? 'entrainement';
+
+/** Le mode a-t-il été explicitement choisi (sinon : proposer le choix au lancement) ? */
+export const modeChosen = (st: AttemptState): boolean => st.mode != null;
+
+/** Aide encore disponible ? (illimitée en entraînement) */
+export function aideAllowed(st: AttemptState): boolean {
+  if (modeOf(st) !== 'evaluation') return true;
+  const total = Object.values(st.helpUsed ?? {}).reduce((a, v) => a + v, 0);
+  return total < AIDE_MAX_EVALUATION;
+}
+
+/** Ouvertures d'aide restantes en mode évaluation. */
+export function aideLeft(st: AttemptState): number {
+  const total = Object.values(st.helpUsed ?? {}).reduce((a, v) => a + v, 0);
+  return Math.max(0, AIDE_MAX_EVALUATION - total);
+}
+
+/** Secondes écoulées depuis le début de la tentative (chronomètre). */
+export function elapsedSeconds(st: AttemptState, now = Date.now()): number {
+  if (!st.startedAt) return 0;
+  const t = Date.parse(st.startedAt);
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, Math.round((now - t) / 1000));
+}
+
+/** Chronomètre formaté « mm:ss » (ou « h:mm:ss » au-delà d'une heure). */
+export function formatChrono(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
 // ---------------------------------------------------------------- matériel
 
 export function goodChoices(tp: TpDefinition, st: AttemptState): number {
@@ -162,6 +301,29 @@ export const nextLiaison = (tp: TpDefinition, st: AttemptState): Liaison | undef
 
 export const wiringComplete = (tp: TpDefinition, st: AttemptState) =>
   requiredLiaisons(tp).length > 0 && nextLiaison(tp, st) === undefined;
+
+/**
+ * Barème des gestes de correction du câblage (défaire un fil, tout recâbler).
+ *
+ * Défaire un fil est un geste de métier, pas une faute : l'élève qui se reprend doit être
+ * bien mieux noté que celui qui accumule les liaisons refusées. On garde donc un poids très
+ * faible, purement indicatif pour le professeur :
+ *   — une liaison refusée (`wireErrors`) coûte 2 points sur 20 à l'étape câblage ;
+ *   — un fil retiré (`wiresRemoved`) coûte 0,25 point, soit huit fois moins ;
+ *   — une réinitialisation (`resets`) coûte 0,5 point.
+ * La pénalité totale de correction est en outre plafonnée à 3 points sur 20, pour qu'un
+ * élève qui tâtonne longuement puisse malgré tout valider proprement son câblage.
+ * Sur le score par compétences (0..1), les mêmes gestes valent 0,01 et 0,02 par unité.
+ */
+export const WIRE_REMOVE_COST = 0.25;
+export const RESET_COST = 0.5;
+export const CORRECTION_MAX_COST = 3;
+
+/** Pénalité (en points sur 20) des gestes de correction d'une tentative. */
+export function correctionPenalty(st: AttemptState, b: Bareme = DEFAULT_BAREME): number {
+  const raw = (st.wiresRemoved ?? 0) * b.coutFilRetire + (st.resets ?? 0) * b.coutReset;
+  return Math.min(b.coutCorrectionMax, raw);
+}
 
 /** Réseau d'appartenance d'une borne, d'après le tableau de câblage (détection de court-circuit). */
 export function netOfTerminal(tp: TpDefinition, id: string): Liaison['net'] | null {
@@ -234,7 +396,9 @@ export function stageSatisfied(tp: TpDefinition, st: AttemptState, sim: SimState
 
 export interface ScoreLine { key: string; label: string; points: number; max: number; detail: string }
 
-export function scoreLines(tp: TpDefinition, st: AttemptState): ScoreLine[] {
+export function scoreLines(tp: TpDefinition, st: AttemptState, bareme?: Bareme): ScoreLine[] {
+  const b = bareme ?? baremeOf(tp);
+  const w = b.poids;
   const nPostes = Math.max(1, tp.postes.length);
   const ok = goodChoices(tp, st);
   const req = requiredLiaisons(tp).length;
@@ -250,20 +414,20 @@ export function scoreLines(tp: TpDefinition, st: AttemptState): ScoreLine[] {
   const clamp = (v: number, max: number) => Math.max(0, Math.min(max, Math.round(v)));
 
   return [
-    { key: 'materiel', label: 'Choix du matériel', points: clamp(ok / nPostes * 15, 15), max: 15, detail: `${ok} / ${tp.postes.length} références justes` },
-    { key: 'pose', label: 'Pose sur la platine', points: clamp(10 - st.poseErrors * 2, 10), max: 10, detail: `${st.poseErrors} erreur${st.poseErrors > 1 ? 's' : ''} de pose` },
-    { key: 'cablage', label: 'Câblage', points: clamp(wired / Math.max(1, req) * 20 - st.wireErrors * 2, 20), max: 20, detail: `${wired} / ${req} liaisons · ${st.wireErrors} refus` },
-    { key: 'tests', label: 'Tests hors tension', points: clamp(Object.keys(st.tests).length / nTests * 5, 5), max: 5, detail: `${Object.keys(st.tests).length} / ${tp.tests.length} tests` },
-    { key: 'epi', label: 'EPI et consignation', points: clamp((epiOk(st) ? 7 : epiN) + (consignationOk(st) ? 8 : st.cons.lock ? 3 : 0), 15), max: 15, detail: consignationOk(st) ? 'consignation complète' : 'consignation incomplète' },
-    { key: 'hors', label: 'Mesures hors tension', points: clamp(horsOk / Math.max(1, hors.length) * 10, 10), max: 10, detail: `${horsOk} / ${hors.length} mesures conformes` },
-    { key: 'sous', label: 'Mesures sous tension', points: clamp(sousOk / Math.max(1, sous.length) * 15, 15), max: 15, detail: `${sousOk} / ${sous.length} mesures conformes` },
-    { key: 'diag', label: 'Maintenance corrective', points: st.fixed ? clamp(5 - (Math.max(1, st.diagTries) - 1) * 2, 5) : 0, max: 5, detail: st.fixed ? `panne réparée en ${Math.max(1, st.diagTries)} essai(s)` : 'panne non traitée' },
-    { key: 'quiz', label: 'Questions de validation', points: clamp((st.quiz ?? 0) / nQuiz * 5, 5), max: 5, detail: st.quiz == null ? 'quiz non fait' : `${st.quiz} / ${tp.quiz.length} bonnes réponses` },
+    { key: 'materiel', label: 'Choix du matériel', points: clamp(ok / nPostes * w.materiel, w.materiel), max: w.materiel, detail: `${ok} / ${tp.postes.length} références justes` },
+    { key: 'pose', label: 'Pose sur la platine', points: clamp(w.pose - st.poseErrors * b.coutErreurPose, w.pose), max: w.pose, detail: `${st.poseErrors} erreur${st.poseErrors > 1 ? 's' : ''} de pose` },
+    { key: 'cablage', label: 'Câblage', points: clamp(wired / Math.max(1, req) * w.cablage - st.wireErrors * b.coutErreurCablage - correctionPenalty(st, b), w.cablage), max: w.cablage, detail: `${wired} / ${req} liaisons · ${st.wireErrors} refus · ${st.wiresRemoved ?? 0} fil${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} retiré${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} · ${st.resets ?? 0} remise${(st.resets ?? 0) > 1 ? 's' : ''} à zéro` },
+    { key: 'tests', label: 'Tests hors tension', points: clamp(Object.keys(st.tests).length / nTests * w.tests, w.tests), max: w.tests, detail: `${Object.keys(st.tests).length} / ${tp.tests.length} tests` },
+    { key: 'epi', label: 'EPI et consignation', points: clamp((epiOk(st) ? w.epi * 7 / 15 : epiN * w.epi / 15) + (consignationOk(st) ? w.epi * 8 / 15 : st.cons.lock ? w.epi * 3 / 15 : 0), w.epi), max: w.epi, detail: consignationOk(st) ? 'consignation complète' : 'consignation incomplète' },
+    { key: 'hors', label: 'Mesures hors tension', points: clamp(horsOk / Math.max(1, hors.length) * w.hors, w.hors), max: w.hors, detail: `${horsOk} / ${hors.length} mesures conformes` },
+    { key: 'sous', label: 'Mesures sous tension', points: clamp(sousOk / Math.max(1, sous.length) * w.sous, w.sous), max: w.sous, detail: `${sousOk} / ${sous.length} mesures conformes` },
+    { key: 'diag', label: 'Maintenance corrective', points: st.fixed ? clamp(w.diag - (Math.max(1, st.diagTries) - 1) * w.diag * 2 / 5, w.diag) : 0, max: w.diag, detail: st.fixed ? `panne réparée en ${Math.max(1, st.diagTries)} essai(s)` : 'panne non traitée' },
+    { key: 'quiz', label: 'Questions de validation', points: clamp((st.quiz ?? 0) / nQuiz * w.quiz, w.quiz), max: w.quiz, detail: st.quiz == null ? 'quiz non fait' : `${st.quiz} / ${tp.quiz.length} bonnes réponses` },
   ];
 }
 
-export function computeScore(tp: TpDefinition, st: AttemptState): number {
-  return scoreLines(tp, st).reduce((a, l) => a + l.points, 0);
+export function computeScore(tp: TpDefinition, st: AttemptState, bareme?: Bareme): number {
+  return scoreLines(tp, st, bareme).reduce((a, l) => a + l.points, 0);
 }
 
 // ------------------------------------------------ évaluation par compétences
@@ -287,7 +451,7 @@ function stageReached(st: AttemptState, stage: number): boolean {
  * Score brut 0..1 d'une étape, avant pénalité d'aide.
  * `undefined` si l'étape n'a pas été faite : elle restera « non évaluée ».
  */
-function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number): number | undefined {
+function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bareme): number | undefined {
   if (!stageReached(st, stage)) return undefined;
   switch (stage) {
     case 0:
@@ -305,7 +469,11 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number): numbe
       const req = requiredLiaisons(tp).length;
       if (req === 0) return 1;
       const done = requiredLiaisons(tp).filter(l => isWired(st, l)).length;
-      return clamp01(done / req - st.wireErrors * 0.05);
+      // même logique que `correctionPenalty` : le retrait d'un fil pèse cinq fois moins
+      // qu'une liaison refusée, et l'ensemble des corrections est plafonné à 0,15.
+      const pen = scorePenalties(b);
+      const corr = Math.min(pen.correctionMax, (st.wiresRemoved ?? 0) * pen.filRetire + (st.resets ?? 0) * pen.reset);
+      return clamp01(done / req - st.wireErrors * pen.erreurCablage - corr);
     }
     case 5: {
       const n = tp.tests.length;
@@ -349,11 +517,12 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number): numbe
  * Score 0..1 par étape du parcours, pénalisé par les ouvertures de l'aide
  * (−0,1 par ouverture, plancher 0,3 quand l'étape est réussie malgré tout).
  */
-export function stageScores(tp: TpDefinition, st: AttemptState): (number | undefined)[] {
+export function stageScores(tp: TpDefinition, st: AttemptState, bareme?: Bareme): (number | undefined)[] {
+  const b = bareme ?? baremeOf(tp);
   return PLATINE_STAGE_DOMAINS.map((_, i) => {
-    const raw = rawStageScore(tp, st, i);
+    const raw = rawStageScore(tp, st, i, b);
     if (raw == null) return undefined;
-    const penalty = helpCount(st, i) * 0.1;
+    const penalty = helpCount(st, i) * b.coutAide;
     const floor = raw >= 0.5 ? 0.3 : 0;
     return Math.max(floor, clamp01(raw - penalty));
   });
@@ -364,9 +533,10 @@ export function buildEvaluation(
   tp: TpDefinition,
   st: AttemptState,
   diploma: DiplomaId,
+  bareme?: Bareme,
 ): CompetenceEval[] | null {
   if (!tp.playable) return null;
-  return evaluate(diploma, PLATINE_STAGE_DOMAINS, stageScores(tp, st));
+  return evaluate(diploma, PLATINE_STAGE_DOMAINS, stageScores(tp, st, bareme), st.autoEval ?? null);
 }
 
 export interface Report extends Record<string, unknown> {
@@ -390,18 +560,34 @@ export interface Report extends Record<string, unknown> {
   stageScores: (number | undefined)[];
   /** Ouvertures de l'aide « rappel de cours », par étape. */
   helpUsed: Record<number, number>;
+  /** Fils défaits par l'élève (geste de correction). */
+  wiresRemoved: number;
+  /** Réinitialisations de câblage demandées. */
+  resets: number;
+  /** Mode de passage (entraînement / évaluation). */
+  mode: EvaluationMode;
+  /** Durée de la tentative, en secondes. */
+  duree: number;
+  /** Auto-évaluation de l'élève, avant correction. */
+  autoEval: Record<string, string>;
 }
 
 export interface ReportStudent { name: string; diploma: DiplomaId | null; etablissement: string }
 
 export function buildReport(tp: TpDefinition, st: AttemptState, student?: ReportStudent | null): Report {
-  const lines = scoreLines(tp, st);
+  const b = baremeOf(tp);
+  const lines = scoreLines(tp, st, b);
   const diploma = student?.diploma ?? null;
   return {
     student: student ?? null,
-    evaluation: diploma ? buildEvaluation(tp, st, diploma) : null,
-    stageScores: stageScores(tp, st),
+    evaluation: diploma ? buildEvaluation(tp, st, diploma, b) : null,
+    stageScores: stageScores(tp, st, b),
+    mode: modeOf(st),
+    duree: elapsedSeconds(st),
+    autoEval: st.autoEval ?? {},
     helpUsed: st.helpUsed ?? {},
+    wiresRemoved: st.wiresRemoved ?? 0,
+    resets: st.resets ?? 0,
     tpId: tp.id,
     title: tp.title,
     score: lines.reduce((a, l) => a + l.points, 0),

@@ -23,8 +23,14 @@ export function measurementOf(r: ReadingRecord): MeasurementInput {
   };
 }
 
-/** Reuses the student's running attempt for this TP, or creates one. */
-export async function getOrCreateAttempt(tpId: string): Promise<AttemptRow> {
+/**
+ * Reuses the student's running attempt for this TP, or creates one.
+ *
+ * `fresh` force une nouvelle ligne `attempts` (« Recommencer le TP ») : la tentative en
+ * cours n'est pas supprimée, elle passe en `abandonne` et reste dans l'historique de
+ * l'élève et du professeur.
+ */
+export async function getOrCreateAttempt(tpId: string, fresh = false): Promise<AttemptRow> {
   const supabase = createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw new Error('Session expirée : reconnecte-toi.');
@@ -39,7 +45,15 @@ export async function getOrCreateAttempt(tpId: string): Promise<AttemptRow> {
     .limit(1)
     .maybeSingle();
   if (readError) throw new Error(readError.message);
-  if (existing) return existing as AttemptRow;
+  if (existing && !fresh) return existing as AttemptRow;
+
+  if (existing && fresh) {
+    const { error: closeError } = await supabase
+      .from('attempts')
+      .update({ status: 'abandonne', updated_at: new Date().toISOString() })
+      .eq('id', (existing as AttemptRow).id);
+    if (closeError) throw new Error(closeError.message);
+  }
 
   const { data: created, error: insertError } = await supabase
     .from('attempts')

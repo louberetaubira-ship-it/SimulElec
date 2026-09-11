@@ -23,6 +23,22 @@ export function noteSur20(score: number): number {
   return Math.round((score / 5) * 10) / 10;
 }
 
+/**
+ * TP (identifiants) où chaque compétence a été travaillée, pour l'export du bilan.
+ * Une compétence non évaluée dans une tentative n'y figure pas.
+ */
+export function competenceTps(attempts: AttemptRow[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  attempts.filter(counted).forEach((a) => {
+    (a.evaluation ?? []).forEach((c) => {
+      if (c.mastery === 'nonEvalue') return;
+      const list = (out[c.code] ??= []);
+      if (!list.includes(a.tp_id)) list.push(a.tp_id);
+    });
+  });
+  return out;
+}
+
 /** Une tentative compte-t-elle dans le bilan ? */
 function counted(a: AttemptRow): boolean {
   return a.status === 'termine';

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import type { DiplomaId } from '@/lib/data/competences';
+import type { EvaluationMode } from '@/lib/types';
 import type { AttemptRow, ClassRow, ProfileRow } from './types';
 
 /** Colonnes d'une classe (migration 0005 comprise). */
@@ -20,6 +21,8 @@ export interface AssignmentRow {
   tp_id: string;
   due_at: string | null;
   created_at: string;
+  /** Mode imposé à la classe pour ce TP (migration 0008) ; null = l'élève choisit. */
+  mode: EvaluationMode | null;
 }
 
 /** Crée une classe ; le code d'inscription est généré par la base. */
@@ -84,11 +87,16 @@ export async function listClassAttempts(classId: string): Promise<AttemptWithStu
   return (data ?? []) as unknown as AttemptWithStudent[];
 }
 
-export async function assignTp(classId: string, tpId: string, dueAt?: string | null): Promise<AssignmentRow> {
+export async function assignTp(
+  classId: string,
+  tpId: string,
+  dueAt?: string | null,
+  mode?: EvaluationMode | null,
+): Promise<AssignmentRow> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('assignments')
-    .insert({ class_id: classId, tp_id: tpId, due_at: dueAt ?? null })
+    .insert({ class_id: classId, tp_id: tpId, due_at: dueAt ?? null, mode: mode ?? null })
     .select('*')
     .single();
   if (error) throw new Error(error.message);
@@ -104,6 +112,31 @@ export async function listAssignments(classId: string): Promise<AssignmentRow[]>
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as AssignmentRow[];
+}
+
+/**
+ * Mode imposé par le professeur à l'élève connecté pour ce TP (migration 0008).
+ * `null` : aucune consigne, l'élève choisit son mode au lancement.
+ */
+export async function assignedMode(tpId: string): Promise<EvaluationMode | null> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: profile } = await supabase
+    .from('profiles').select('class_id').eq('id', user.id).maybeSingle();
+  const classId = (profile as { class_id?: string | null } | null)?.class_id;
+  if (!classId) return null;
+  const { data } = await supabase
+    .from('assignments')
+    .select('mode')
+    .eq('class_id', classId)
+    .eq('tp_id', tpId)
+    .not('mode', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const mode = (data as { mode?: string } | null)?.mode;
+  return mode === 'evaluation' || mode === 'entrainement' ? mode : null;
 }
 
 /** Measurements + chat of one attempt (teacher detail view, RLS-checked). */

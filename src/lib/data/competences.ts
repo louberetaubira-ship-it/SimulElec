@@ -179,6 +179,11 @@ export interface CompetenceEval {
   /** Score 0..1 agrégé sur les étapes concernées. */
   score: number;
   mastery: Mastery;
+  /**
+   * Niveau que l'élève s'est donné lui-même avant la correction (auto-évaluation).
+   * Champ additionnel : les lectures existantes de `attempts.evaluation` l'ignorent.
+   */
+  self?: Mastery;
 }
 
 export function masteryOf(score: number, evaluated: boolean): Mastery {
@@ -193,7 +198,12 @@ export function masteryOf(score: number, evaluated: boolean): Mastery {
  * moyenne des scores des étapes qui la mobilisent.
  * @param stageScores score 0..1 par étape (undefined = étape non faite)
  */
-export function evaluate(diploma: DiplomaId, stageDomains: Domain[][], stageScores: (number | undefined)[]): CompetenceEval[] {
+export function evaluate(
+  diploma: DiplomaId,
+  stageDomains: Domain[][],
+  stageScores: (number | undefined)[],
+  autoEval?: Record<string, Mastery> | null,
+): CompetenceEval[] {
   const map = DOMAIN_TO_COMPETENCES[diploma];
   const acc: Record<string, { sum: number; n: number; domains: Set<Domain>; touched: boolean }> = {};
   stageDomains.forEach((domains, i) => {
@@ -211,6 +221,80 @@ export function evaluate(diploma: DiplomaId, stageDomains: Domain[][], stageScor
     .map(c => {
       const a = acc[c.code];
       const score = a.n ? a.sum / a.n : 0;
-      return { code: c.code, label: c.label, domains: Array.from(a.domains), score, mastery: masteryOf(score, a.touched) };
+      const self = autoEval?.[c.code];
+      return {
+        code: c.code, label: c.label, domains: Array.from(a.domains), score,
+        mastery: masteryOf(score, a.touched), ...(self ? { self } : {}),
+      };
     });
+}
+
+// ------------------------------------------------- compétences mobilisées par une étape
+
+/** Domaines d'une étape, selon la nature du parcours. */
+export function domainsOfStage(kind: 'platine' | 'dimensionnement', stage: number): Domain[] {
+  const table = kind === 'dimensionnement' ? PV_STAGE_DOMAINS : PLATINE_STAGE_DOMAINS;
+  return table[stage] ?? [];
+}
+
+/**
+ * Compétences (du référentiel du diplôme) mobilisées par une étape, avec leurs critères.
+ * Utilisé par le bandeau « Ce qui est évalué ici » et par la pastille du stepper.
+ */
+export function competencesForDomains(diploma: DiplomaId, domains: Domain[]): Competence[] {
+  const map = DOMAIN_TO_COMPETENCES[diploma];
+  const codes = new Set<string>();
+  domains.forEach(d => (map[d] ?? []).forEach(c => codes.add(c)));
+  return COMPETENCES[diploma].filter(c => codes.has(c.code));
+}
+
+/** Compétences mobilisées par l'étape `stage` du parcours `kind`. */
+export function competencesForStage(
+  diploma: DiplomaId,
+  kind: 'platine' | 'dimensionnement',
+  stage: number,
+): Competence[] {
+  return competencesForDomains(diploma, domainsOfStage(kind, stage));
+}
+
+/** Nombre de compétences mobilisées par chaque étape (pastille du stepper). */
+export function competenceCounts(diploma: DiplomaId, kind: 'platine' | 'dimensionnement'): number[] {
+  const table = kind === 'dimensionnement' ? PV_STAGE_DOMAINS : PLATINE_STAGE_DOMAINS;
+  return table.map((_, i) => competencesForStage(diploma, kind, i).length);
+}
+
+/** Libellé court d'un niveau de maîtrise (auto-évaluation et bilan). */
+export const MASTERY_TEXT: Record<Mastery, string> = {
+  acquis: 'Acquis',
+  enCours: 'En cours',
+  nonAcquis: 'Non acquis',
+  nonEvalue: 'Non évalué',
+};
+
+/** Ordre des niveaux, pour comparer l'auto-évaluation et le résultat calculé. */
+export const MASTERY_RANK: Record<Mastery, number> = {
+  nonEvalue: -1, nonAcquis: 0, enCours: 1, acquis: 2,
+};
+
+/**
+ * Écart entre l'estimation de l'élève et le niveau calculé.
+ * `0` = même niveau, `> 0` = l'élève s'est sur-estimé, `< 0` = sous-estimé.
+ */
+export function masteryGap(self: Mastery | undefined, computed: Mastery): number | null {
+  if (!self || self === 'nonEvalue' || computed === 'nonEvalue') return null;
+  return MASTERY_RANK[self] - MASTERY_RANK[computed];
+}
+
+/**
+ * Diplômes déduits du niveau affiché d'un TP (« 1re Bac Pro MELEC », « BTS Électrotechnique / CS TER »…).
+ * Dernier maillon de la chaîne profil → classe → TP quand aucun diplôme n'est connu.
+ */
+export function diplomasFromLevel(level: string | null | undefined): DiplomaId[] {
+  const t = (level ?? '').toLowerCase();
+  const out: DiplomaId[] = [];
+  if (t.includes('cap')) out.push('cap');
+  if (t.includes('bac pro') || t.includes('melec')) out.push('bacpro');
+  if (t.includes('bts')) out.push('bts');
+  if (t.includes('cs ter') || t.includes('tenr') || t.includes('énergies renouvelables')) out.push('cster');
+  return out;
 }
