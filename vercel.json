@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/generateur/pedagogie/route.ts": { "maxDuration": 60 },
+    "src/app/api/generateur/maquette/route.ts": { "maxDuration": 60 },
+    "src/app/api/generateur/reparer/route.ts": { "maxDuration": 60 },
+    "src/app/api/prof/route.ts": { "maxDuration": 60 }
+  }
+}
