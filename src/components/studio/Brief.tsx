@@ -2,9 +2,14 @@
 
 /**
  * Écran de brief du générateur de TP : ce que le professeur impose au modèle.
- * Diplôme, classe, durée, type de séance, thème et contexte, activités du référentiel,
- * dossier technique joint (compression des images, 10 Mo au total) et matériel réellement
- * disponible sur le plateau. Aucune donnée personnelle d'élève n'est transmise.
+ *
+ * SEUL LE THÈME EST OBLIGATOIRE. Le dossier technique joint, les compétences et activités
+ * du référentiel, le matériel du plateau, le type d'installation et la durée sont
+ * facultatifs : chacun porte une option explicite « Laisser l'IA choisir ». Ce qui est
+ * laissé libre est déduit du thème par le modèle, signalé « proposé par l'IA » dans le
+ * studio, et reste entièrement modifiable ensuite.
+ *
+ * Aucune donnée personnelle d'élève n'est transmise.
  */
 import React from 'react';
 import type { SceneKind } from '@/lib/types';
@@ -27,8 +32,11 @@ const SEQUENCES = [
 
 const DUREES = [55, 110, 165, 240, 330];
 
+/** Valeur de la liste « Durée » qui laisse le choix au modèle. */
+const DUREE_IA = '';
+
 const SCENES: { id: SceneKind | ''; label: string }[] = [
-  { id: '', label: 'Déduit du thème' },
+  { id: '', label: '✦ Laisser l’IA choisir' },
   { id: 'ind', label: 'Industriel · armoire' },
   { id: 'hab', label: 'Habitat · tableau' },
   { id: 'ter', label: 'Tertiaire · coffret' },
@@ -45,6 +53,29 @@ const MATERIEL: { famille: string; items: { key: string; name: string }[] }[] = 
   }
   return Array.from(map.entries()).map(([famille, items]) => ({ famille, items }));
 })();
+
+/**
+ * Option par défaut d'un champ facultatif : « Laisser l'IA choisir ».
+ * Elle est ACTIVE tant que le professeur n'a rien coché ; le bouton y revient d'un geste.
+ */
+function ChoixIa({
+  actif, libelle, onChoisir, testid,
+}: { actif: boolean; libelle: string; onChoisir: () => void; testid: string }) {
+  return (
+    <button
+      type="button"
+      className={`st-ia-defaut${actif ? ' sel' : ''}`}
+      onClick={onChoisir}
+      aria-pressed={actif}
+      data-testid={testid}
+      data-actif={actif ? 'oui' : 'non'}
+    >
+      <span aria-hidden="true">✦</span>
+      <span>{libelle}</span>
+      <span className={`st-tag${actif ? ' ok' : ''}`}>{actif ? 'actif' : 'revenir'}</span>
+    </button>
+  );
+}
 
 export interface LancementBrief {
   brief: BriefSaisie;
@@ -63,7 +94,7 @@ export default function Brief({
   const [diplomaId, setDiplomaId] = React.useState<DiplomaId>(depart?.diplomaId ?? 'bacpro');
   const [classes, setClasses] = React.useState<ClassRow[]>([]);
   const [classId, setClassId] = React.useState<string>(depart?.classId ?? '');
-  const [duration, setDuration] = React.useState(depart?.duration ?? 240);
+  const [duration, setDuration] = React.useState<number | null>(depart?.duration ?? null);
   const [sequenceType, setSequenceType] = React.useState(depart?.sequenceType ?? SEQUENCES[0]);
   const [theme, setTheme] = React.useState(depart?.theme ?? '');
   const [resume, setResume] = React.useState(depart?.resume ?? '');
@@ -107,6 +138,16 @@ export default function Brief({
     return () => { vivant = false; };
   }, []);
 
+  /** Ce que le professeur laisse à l'IA : rappelé sous le bouton de lancement. */
+  const libres = [
+    ...(docs.length ? [] : ['le dossier technique']),
+    ...(activities.length ? [] : ['les compétences et activités']),
+    ...(materiel.length ? [] : ['le matériel']),
+    ...(scene ? [] : ['le type d’installation']),
+    ...(duration === null ? ['la durée'] : []),
+    ...(resume.trim() ? [] : ['la situation professionnelle']),
+  ];
+
   const poids = docs.reduce((s, d) => s + d.octets, 0);
   const tropLourd = poids > TAILLE_DOCS_MAX;
   const pret = theme.trim().length >= 3 && !tropLourd && !occupe;
@@ -142,8 +183,9 @@ export default function Brief({
         <div>
           <h1 className="st-gen-title">✦ Générer un TP complet</h1>
           <p className="st-sub">
-            Le modèle rédige le dossier pédagogique et la maquette jouable à partir de votre brief.
-            Vous relisez et corrigez ensuite chaque champ avant de valider et de publier.
+            Un thème suffit : tout le reste est facultatif. Ce que vous laissez libre est déduit du
+            thème par l’IA, signalé « proposé par l’IA » dans le studio, et reste entièrement
+            modifiable. Vous relisez et corrigez chaque champ avant de valider et de publier.
           </p>
         </div>
         <span className="st-tag" data-testid="gen-quota">
@@ -169,13 +211,19 @@ export default function Brief({
           </label>
           <div className="st-two">
             <label className="st-field">
-              <span>Durée</span>
-              <select className="st-select" value={duration} onChange={(e) => setDuration(Number(e.target.value))} data-testid="gen-duree">
+              <span>Durée (facultatif)</span>
+              <select
+                className="st-select"
+                value={duration === null ? DUREE_IA : String(duration)}
+                onChange={(e) => setDuration(e.target.value === DUREE_IA ? null : Number(e.target.value))}
+                data-testid="gen-duree"
+              >
+                <option value={DUREE_IA}>✦ Laisser l’IA choisir</option>
                 {DUREES.map((d) => <option key={d} value={d}>{d} min</option>)}
               </select>
             </label>
             <label className="st-field">
-              <span>Installation</span>
+              <span>Installation (facultatif)</span>
               <select className="st-select" value={scene} onChange={(e) => setScene(e.target.value as SceneKind | '')} data-testid="gen-scene">
                 {SCENES.map((s) => <option key={s.id || 'auto'} value={s.id}>{s.label}</option>)}
               </select>
@@ -192,7 +240,7 @@ export default function Brief({
         <div className="st-card">
           <h2 className="st-h">Sujet</h2>
           <label className="st-field">
-            <span>Thème du TP</span>
+            <span>Thème du TP (obligatoire)</span>
             <input
               className="st-input"
               value={theme}
@@ -202,20 +250,31 @@ export default function Brief({
             />
           </label>
           <label className="st-field">
-            <span>Résumé et contexte</span>
+            <span>Résumé et contexte (facultatif)</span>
             <textarea
               className="st-area"
               value={resume}
               onChange={(e) => setResume(e.target.value)}
-              placeholder="Atelier de conditionnement, moteur 1,5 kW 400 V, commande par boîte à boutons en porte d’armoire…"
+              placeholder="Laissez vide : l’IA propose la situation professionnelle d’après le thème."
               data-testid="gen-resume"
             />
           </label>
         </div>
 
         <div className="st-card">
-          <h2 className="st-h">Activités du référentiel</h2>
-          <p className="st-sub">Cochez ce que la séance doit faire travailler ({DIPLOMAS.find((d) => d.id === diplomaId)?.short}).</p>
+          <h2 className="st-h">
+            Compétences et activités du référentiel <span className="st-tag">facultatif</span>
+          </h2>
+          <p className="st-sub">
+            Cochez ce que la séance doit faire travailler ({DIPLOMAS.find((d) => d.id === diplomaId)?.short}),
+            ou laissez l’IA les déduire du thème : elles seront signalées « proposé par l’IA » dans le studio.
+          </p>
+          <ChoixIa
+            actif={activities.length === 0}
+            libelle="Laisser l’IA choisir les compétences et activités"
+            onChoisir={() => setActivities([])}
+            testid="gen-activites-ia"
+          />
           <div className="st-list" style={{ marginTop: 6, maxHeight: '34vh' }} data-testid="gen-activites">
             {competences.map((c) => (
               <label key={c.code} className={`st-line${activities.includes(c.label) ? ' sel' : ''}`} style={{ cursor: 'pointer' }}>
@@ -235,11 +294,19 @@ export default function Brief({
         </div>
 
         <div className="st-card">
-          <h2 className="st-h">Dossier technique</h2>
+          <h2 className="st-h">
+            Dossier technique <span className="st-tag">facultatif</span>
+          </h2>
           <p className="st-sub">
             Dossier de l’équipement, schéma, TP d’inspiration : PDF, images ou texte. 10 Mo au total,
             les images sont compressées avant l’envoi.
           </p>
+          <ChoixIa
+            actif={docs.length === 0}
+            libelle="Aucun document : l’IA s’appuie sur les pratiques d’atelier habituelles"
+            onChoisir={() => setDocs([])}
+            testid="gen-docs-ia"
+          />
           <div
             className={`st-drop${survol ? ' sel' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setSurvol(true); }}
@@ -290,11 +357,20 @@ export default function Brief({
         </div>
 
         <div className="st-card st-gen-large">
-          <h2 className="st-h">Matériel disponible sur le plateau</h2>
+          <h2 className="st-h">
+            Matériel disponible sur le plateau <span className="st-tag">facultatif</span>
+          </h2>
           <p className="st-sub">
-            Le modèle n’a le droit d’utiliser que ce que vous avez en atelier. Sans coche, tout le
-            catalogue reste autorisé.
+            Cochez ce que vous avez en atelier pour restreindre le choix du modèle. Sans coche,
+            l’IA pioche dans TOUTE la bibliothèque — le même fonds que l’atelier libre — et
+            propose le matériel nécessaire au thème.
           </p>
+          <ChoixIa
+            actif={materiel.length === 0}
+            libelle="Laisser l’IA choisir le matériel dans toute la bibliothèque"
+            onChoisir={() => setMateriel([])}
+            testid="gen-materiel-ia"
+          />
           <div className="st-list" style={{ marginTop: 6, maxHeight: '30vh' }} data-testid="gen-materiel">
             {MATERIEL.map((f) => (
               <div key={f.famille} className="st-line">
@@ -349,7 +425,13 @@ export default function Brief({
         <button type="button" className="st-btn ghost" onClick={onAnnuler} data-testid="gen-annuler-brief">
           Revenir à la création manuelle
         </button>
-        {!pret && theme.trim().length < 3 && <span className="st-sub">Indiquez au moins le thème du TP.</span>}
+        {!pret && theme.trim().length < 3
+          ? <span className="st-sub">Indiquez au moins le thème du TP : c’est le seul champ obligatoire.</span>
+          : libres.length > 0 && (
+            <span className="st-sub" data-testid="gen-libres">
+              Laissé à l’IA : {libres.join(', ')}.
+            </span>
+          )}
       </div>
     </section>
   );

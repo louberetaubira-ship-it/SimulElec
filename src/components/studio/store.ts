@@ -516,7 +516,8 @@ export const useStudio = create<StudioState>((set, get) => {
     importGeneration(res, diploma) {
       const def: TpDefinition = { ...res.maquette, id: get().id ?? '', playable: false };
       set({
-        pedagogie: res.pedagogie,
+        // `deductions` : ce que l'IA a choisi elle-même (brief laissé vide) → pastilles du studio.
+        pedagogie: { ...res.pedagogie, ...(res.deductions.length ? { deductions: res.deductions } : {}) },
         generated: true,
         genAnomalies: res.anomalies,
         corrections: res.corrections,
@@ -527,7 +528,9 @@ export const useStudio = create<StudioState>((set, get) => {
       });
       touch({ def, diplomas: [diploma], sel: null });
       void resolve(def);
-      say('Brouillon généré : relisez chaque champ avant de valider.');
+      say(res.deductions.length
+        ? 'Brouillon généré : vérifiez d’abord ce qui porte la pastille « proposé par l’IA ».'
+        : 'Brouillon généré : relisez chaque champ avant de valider.');
     },
 
     patchPedagogie(patch) {

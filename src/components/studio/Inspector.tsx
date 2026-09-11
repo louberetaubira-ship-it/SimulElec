@@ -11,7 +11,31 @@ import { DIPLOMAS, DOMAIN_LABEL, type DiplomaId, type Domain } from '@/lib/data/
 import { RAILS } from '@/lib/scene/geometry';
 import { STAGES } from '@/lib/sim/progress';
 import { NET_LIST, terminalsOf, type TerminalRef } from './model';
+import type { ChampDeduit } from './generation';
 import { competenceCodes, useStudio, type StudioTab } from './store';
+
+/** Libellé de la pastille « proposé par l'IA », par champ déduit. */
+const DEDUIT_LABEL: Record<ChampDeduit, string> = {
+  competences: 'compétences proposées par l’IA',
+  activites: 'activités proposées par l’IA',
+  materiel: 'matériel proposé par l’IA',
+  scene: 'installation proposée par l’IA',
+  annexe: 'annexe proposée par l’IA',
+  duree: 'durée proposée par l’IA',
+};
+
+/**
+ * Pastille « proposé par l'IA » : le professeur n'avait rien imposé sur ce champ, le
+ * modèle l'a déduit du thème. C'est ce qu'il faut relire en priorité.
+ */
+function PastilleIa({ champ, deductions }: { champ: ChampDeduit; deductions?: ChampDeduit[] }) {
+  if (!deductions?.includes(champ)) return null;
+  return (
+    <span className="st-tag ia" title="Ce champ a été déduit du thème par l’IA : vérifiez-le en priorité." data-ia={champ}>
+      ✦ {DEDUIT_LABEL[champ]}
+    </span>
+  );
+}
 
 const TABS: { id: StudioTab; label: string }[] = [
   { id: 'dossier', label: 'Dossier pédagogique' },
@@ -68,6 +92,7 @@ function Materiel() {
   const remove = useStudio((s) => s.remove);
   const nudge = useStudio((s) => s.nudge);
   const patchSlot = useStudio((s) => s.patchSlot);
+  const deductions = useStudio((s) => s.pedagogie?.deductions);
 
   const slot = sel?.kind === 'slot' ? def.slots.find((s) => s.id === sel.id) : undefined;
   const item = slot ? items[slot.key] : undefined;
@@ -75,6 +100,15 @@ function Materiel() {
   return (
     <div>
       <p className="st-sub">Clique un appareil de la platine ou de la liste pour le régler.</p>
+      {deductions?.includes('materiel') && (
+        <div className="st-row" style={{ marginTop: 6 }} data-testid="st-materiel-ia">
+          <PastilleIa champ="materiel" deductions={deductions} />
+          <span className="st-sub">
+            Le matériel a été choisi par l’IA dans toute la bibliothèque : vérifiez les calibres
+            et les repères avant de valider.
+          </span>
+        </div>
+      )}
       <div className="st-list" style={{ marginTop: 6 }} data-testid="st-slots">
         {def.slots.length === 0 && <p className="st-sub">Aucun appareil posé pour l’instant.</p>}
         {def.slots.map((s) => (
@@ -435,6 +469,7 @@ function Reglages() {
   const def = useStudio((s) => s.def);
   const patchDef = useStudio((s) => s.patchDef);
   const setScene = useStudio((s) => s.setScene);
+  const deductions = useStudio((s) => s.pedagogie?.deductions);
 
   const cdc = def.cahierDesCharges;
 
@@ -449,13 +484,13 @@ function Reglages() {
         <input className="st-input" value={def.level} onChange={(e) => patchDef({ level: e.target.value })} />
       </label>
       <label className="st-field">
-        <span>Famille et scène</span>
+        <span>Famille et scène <PastilleIa champ="scene" deductions={deductions} /></span>
         <select className="st-select" value={def.scene} onChange={(e) => setScene(e.target.value as SceneKind)} data-testid="st-scene">
           {SCENES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </label>
       <label className="st-field">
-        <span>Annexe</span>
+        <span>Annexe <PastilleIa champ="annexe" deductions={deductions} /></span>
         <select className="st-select" value={def.annex} onChange={(e) => patchDef({ annex: e.target.value as typeof def.annex })}>
           <option value="door">Porte (coffret de boutons)</option>
           <option value="room">Pièce</option>
@@ -633,6 +668,7 @@ function Dossier() {
   }
 
   const total = pedagogie.activites.reduce((s, a) => s + (a.duree || 0), 0);
+  const deductions = pedagogie.deductions;
 
   return (
     <div data-testid="st-dossier">
@@ -641,6 +677,11 @@ function Dossier() {
         et les consignes de sécurité. {pedagogie.activites.length} activité
         {pedagogie.activites.length > 1 ? 's' : ''} · {total} min au total.
       </p>
+      {deductions && deductions.length > 0 && (
+        <div className="st-row" style={{ marginTop: 6 }} data-testid="st-deductions">
+          {deductions.map((d) => <PastilleIa key={d} champ={d} deductions={deductions} />)}
+        </div>
+      )}
 
       <h3 className="st-h" style={{ marginTop: 12 }}>Objectifs</h3>
       <Lignes
@@ -651,7 +692,9 @@ function Dossier() {
         testid="st-objectifs"
       />
 
-      <h3 className="st-h" style={{ marginTop: 12 }}>Matériel de la séance</h3>
+      <h3 className="st-h" style={{ marginTop: 12 }}>
+        Matériel de la séance <PastilleIa champ="materiel" deductions={deductions} />
+      </h3>
       <Lignes
         valeurs={pedagogie.materiel}
         onChange={(materiel) => patchPedagogie({ materiel })}
@@ -659,7 +702,9 @@ function Dossier() {
         ajouter="Ajouter un matériel"
       />
 
-      <h3 className="st-h" style={{ marginTop: 12 }}>Activités</h3>
+      <h3 className="st-h" style={{ marginTop: 12 }}>
+        Activités <PastilleIa champ="activites" deductions={deductions} />
+      </h3>
       <div className="st-list" style={{ maxHeight: 'none' }} data-testid="st-activites">
         {pedagogie.activites.map((a, i) => (
           <div key={i} className="st-line" data-activite={i}>
@@ -765,6 +810,9 @@ function Criteres() {
         {simulateur} observé{simulateur > 1 ? 's' : ''} par le simulateur,{' '}
         {pedagogie.criteres.length - simulateur} par le professeur en atelier.
       </p>
+      <div className="st-row" style={{ marginTop: 6 }}>
+        <PastilleIa champ="competences" deductions={pedagogie.deductions} />
+      </div>
       <div className="st-list" style={{ maxHeight: 'none', marginTop: 6 }}>
         {pedagogie.criteres.map((c, i) => (
           <div key={i} className="st-line" data-critere={i}>

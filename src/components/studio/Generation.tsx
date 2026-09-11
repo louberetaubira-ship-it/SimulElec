@@ -1,13 +1,20 @@
 'use client';
 
 /**
- * Écran d'attente du générateur de TP. L'appel dure de une à plusieurs minutes : pas de
- * fausse barre de progression, un minuteur honnête et l'étape courante estimée. La
- * génération est annulable (AbortController) et les erreurs s'affichent en français.
+ * Écran d'attente du générateur de TP.
+ *
+ * La génération n'est plus un seul appel long (qui se faisait couper à 504 par la
+ * passerelle) : elle est orchestrée ici, étape par étape, avec des appels serveur courts
+ * en flux. Chaque étape s'allume quand elle démarre, affiche la progression réelle
+ * renvoyée par le serveur et son temps écoulé.
+ *
+ * En cas d'échec, ce qui est déjà produit est conservé : on reprend à l'étape fautive,
+ * et si c'est la maquette qui a échoué on peut continuer avec le dossier pédagogique seul.
  */
 import React from 'react';
 import {
-  ETAPES_GENERATION, etapeEstimee, genererTp, type ReponseGeneration,
+  DELAI_ETAPE_MS, ETAPES_GENERATION, EchecEtape, acquisVide, dossierSeul, orchestrerGeneration,
+  type AcquisGeneration, type AvanceeEtape, type EtapeId, type EtatEtape, type ReponseGeneration,
 } from './generation';
 import type { LancementBrief } from './Brief';
 
@@ -17,6 +24,20 @@ function duree(secondes: number): string {
   const s = secondes % 60;
   return m ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`;
 }
+
+/** État affiché pour chaque étape. */
+interface LigneEtape {
+  etat: EtatEtape;
+  message: string;
+  /** Secondes passées sur cette étape. */
+  secondes: number;
+}
+
+const lignesInitiales = (): Record<EtapeId, LigneEtape> => {
+  const out = {} as Record<EtapeId, LigneEtape>;
+  for (const e of ETAPES_GENERATION) out[e.id] = { etat: 'attente', message: '', secondes: 0 };
+  return out;
+};
 
 export default function Generation({
   lancement, onTermine, onAnnuler, onReprendre,
@@ -28,36 +49,81 @@ export default function Generation({
   onReprendre: () => void;
 }) {
   const [secondes, setSecondes] = React.useState(0);
+  const [lignes, setLignes] = React.useState<Record<EtapeId, LigneEtape>>(lignesInitiales);
   const [erreur, setErreur] = React.useState<string | null>(null);
-  const [essai, setEssai] = React.useState(0);
-  const abort = React.useRef<AbortController | null>(null);
+  const [etapeFautive, setEtapeFautive] = React.useState<EtapeId | null>(null);
+  /** Essai courant : `depuis` indique l'étape par laquelle reprendre (null = tout). */
+  const [essai, setEssai] = React.useState<{ n: number; depuis: EtapeId | null }>({ n: 0, depuis: null });
 
+  const abort = React.useRef<AbortController | null>(null);
+  const acquis = React.useRef<AcquisGeneration>(acquisVide());
+  const encours = React.useRef<EtapeId | null>(null);
+
+  // Minuteur global + temps passé sur l'étape en cours.
   React.useEffect(() => {
-    const t = setInterval(() => setSecondes((s) => s + 1), 1000);
+    const t = setInterval(() => {
+      setSecondes((s) => s + 1);
+      const id = encours.current;
+      if (!id) return;
+      setLignes((l) => (l[id].etat === 'encours' ? { ...l, [id]: { ...l[id], secondes: l[id].secondes + 1 } } : l));
+    }, 1000);
     return () => clearInterval(t);
-  }, [essai]);
+  }, []);
 
   React.useEffect(() => {
     const controleur = new AbortController();
     abort.current = controleur;
     let vivant = true;
     setErreur(null);
+    setEtapeFautive(null);
     setSecondes(0);
+    encours.current = null;
+
+    const avancer = (a: AvanceeEtape) => {
+      if (!vivant) return;
+      if (a.etat === 'encours') encours.current = a.etape;
+      else if (encours.current === a.etape) encours.current = null;
+      setLignes((l) => ({
+        ...l,
+        [a.etape]: {
+          etat: a.etat,
+          message: a.message ?? (a.etat === 'encours' ? l[a.etape].message : ''),
+          secondes: a.etat === 'encours' && l[a.etape].etat !== 'encours' ? 0 : l[a.etape].secondes,
+        },
+      }));
+    };
+
     void (async () => {
       try {
-        const res = await genererTp(lancement.brief, lancement.docs, controleur.signal);
+        const res = await orchestrerGeneration({
+          brief: lancement.brief,
+          docs: lancement.docs,
+          signal: controleur.signal,
+          acquis: acquis.current,
+          onEtape: avancer,
+          ...(essai.depuis ? { depuis: essai.depuis } : {}),
+        });
         if (vivant && !controleur.signal.aborted) onTermine(res);
       } catch (e) {
         if (!vivant || controleur.signal.aborted) return;
-        setErreur(e instanceof Error ? e.message : 'La génération a échoué. Relancez-la dans un instant.');
+        encours.current = null;
+        if (e instanceof EchecEtape) {
+          setEtapeFautive(e.etape);
+          setErreur(e.message);
+        } else {
+          setErreur(e instanceof Error ? e.message : 'La génération a échoué. Relancez-la dans un instant.');
+        }
       }
     })();
+
     return () => { vivant = false; controleur.abort(); };
     // `essai` relance volontairement la génération.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [essai]);
 
-  const courante = erreur ? -1 : etapeEstimee(secondes);
+  const dossierPret = acquis.current.pedagogie !== null;
+  const peutContinuerSansMaquette = Boolean(erreur) && dossierPret && etapeFautive !== 'pedagogie';
+  const libelleFautive = ETAPES_GENERATION.find((e) => e.id === etapeFautive)?.label ?? '';
 
   return (
     <section className="st-gen" aria-label="Génération du TP en cours" data-testid="gen-progres">
@@ -74,23 +140,30 @@ export default function Generation({
 
       <div className="st-card" style={{ marginTop: 10 }}>
         <ol className="st-steps" data-testid="gen-etapes">
-          {ETAPES_GENERATION.map((e, i) => {
-            const etat = erreur ? (i < courante ? 'fait' : 'attente')
-              : i < courante ? 'fait' : i === courante ? 'encours' : 'attente';
+          {ETAPES_GENERATION.map((e) => {
+            const l = lignes[e.id];
             return (
-              <li key={e.id} className={`st-step ${etat}`} data-etape={e.id} data-etat={etat}>
-                <span className="puce" aria-hidden="true">{etat === 'fait' ? '✓' : etat === 'encours' ? '•' : ''}</span>
-                <span className="lib">{e.label}</span>
-                {etat === 'encours' && <span className="st-tag">en cours</span>}
+              <li key={e.id} className={`st-step ${l.etat}`} data-etape={e.id} data-etat={l.etat}>
+                <span className="puce" aria-hidden="true">
+                  {l.etat === 'fait' ? '✓' : l.etat === 'encours' ? '•' : l.etat === 'echec' ? '!' : ''}
+                </span>
+                <span className="lib">
+                  {e.label}
+                  {l.message && <span className="st-sub" style={{ display: 'block' }} data-testid={`gen-msg-${e.id}`}>{l.message}</span>}
+                </span>
+                {l.etat === 'encours' && <span className="st-tag">{duree(l.secondes)}</span>}
+                {l.etat === 'fait' && l.secondes > 0 && <span className="st-tag ok">{duree(l.secondes)}</span>}
+                {l.etat === 'echec' && <span className="st-tag warn">interrompue</span>}
               </li>
             );
           })}
         </ol>
         {!erreur && (
           <p className="st-sub" style={{ marginTop: 8 }}>
-            Le modèle rédige, le moteur de simulation vérifie puis répare : comptez une à trois
-            minutes. Les étapes sont estimées, aucune progression n’est inventée. Vous pouvez
-            quitter cet écran en annulant.
+            Chaque étape est un appel court au serveur : elle s’allume quand elle démarre et
+            affiche son temps réel. Au-delà de {Math.round(DELAI_ETAPE_MS / 1000)} secondes, une
+            étape est interrompue et vous pouvez la relancer seule. Vous pouvez quitter cet écran
+            en annulant.
           </p>
         )}
       </div>
@@ -102,10 +175,42 @@ export default function Generation({
       <div className="st-row" style={{ marginTop: 12 }}>
         {erreur ? (
           <>
-            <button type="button" className="st-btn primary" onClick={() => setEssai((n) => n + 1)} data-testid="gen-reessayer">
-              Relancer la génération
+            {etapeFautive && (
+              <button
+                type="button"
+                className="st-btn primary"
+                data-testid="gen-reprendre-etape"
+                onClick={() => setEssai((e) => ({ n: e.n + 1, depuis: etapeFautive }))}
+              >
+                Reprendre à l’étape « {libelleFautive} »
+              </button>
+            )}
+            {peutContinuerSansMaquette && (
+              <button
+                type="button"
+                className="st-btn"
+                data-testid="gen-dossier-seul"
+                onClick={() => {
+                  const p = acquis.current.pedagogie;
+                  if (p) onTermine(dossierSeul(p, lancement.brief, acquis.current));
+                }}
+              >
+                Continuer avec le dossier seul
+              </button>
+            )}
+            <button
+              type="button"
+              className="st-btn"
+              data-testid="gen-reessayer"
+              onClick={() => {
+                acquis.current = acquisVide();
+                setLignes(lignesInitiales());
+                setEssai((e) => ({ n: e.n + 1, depuis: null }));
+              }}
+            >
+              Tout relancer
             </button>
-            <button type="button" className="st-btn" onClick={onReprendre} data-testid="gen-corriger">
+            <button type="button" className="st-btn ghost" onClick={onReprendre} data-testid="gen-corriger">
               Corriger le brief
             </button>
           </>
