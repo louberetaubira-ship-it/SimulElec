@@ -22,6 +22,9 @@ import StepContent from '@/components/pv/steps';
 import Unifilaire from '@/components/pv/Unifilaire';
 import ProfBotPv from '@/components/pv/ProfBotPv';
 import AidePv, { AidePvButton } from '@/components/pv/AidePv';
+import CompetencesStage from '@/components/parcours/CompetencesStage';
+import { DiplomaPicker, diplomesVises, SOURCE_LABEL, useDiploma } from '@/components/parcours/useDiploma';
+import { competenceCounts } from '@/lib/data/competences';
 import { useStudent } from '@/lib/useStudent';
 import { diplomaShort } from '@/lib/student';
 import { usePvParcours } from './pvStore';
@@ -30,6 +33,7 @@ export default function DimensionnementClient({ tp }: { tp: TpDefinition }) {
   const store = usePvParcours();
   const { s, init, setStudent } = store;
   const { student, known } = useStudent(`/tp/${tp.id}`);
+  const dip = useDiploma(tp, student, known);
 
   React.useEffect(() => { void init(tp); }, [init, tp]);
   React.useEffect(() => { if (known) setStudent(student); }, [known, setStudent, student]);
@@ -43,6 +47,8 @@ export default function DimensionnementClient({ tp }: { tp: TpDefinition }) {
   const last = s.step === PV_STEP_COUNT - 1;
   const allDone = Array.from({ length: 10 }, (_, k) => k).every(k => s.done[k]);
   const resRef = React.useRef<HTMLDivElement>(null);
+  const counts = React.useMemo(() => competenceCounts(dip.diploma, 'dimensionnement'), [dip.diploma]);
+  const horsReferentiel = dip.vises.length > 0 && !dip.vises.includes(dip.diploma);
 
   const onValidate = () => {
     const okStep = store.validate();
@@ -60,10 +66,11 @@ export default function DimensionnementClient({ tp }: { tp: TpDefinition }) {
           <span className="ml-2 hidden sm:inline">
             · <b className="font-medium text-ink">{store.student.name}</b>
             <span className="ml-1 rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10.5px] font-semibold">
-              {diplomaShort(store.student.diploma)}
+              {diplomaShort(dip.diploma)}
             </span>
           </span>
         </div>
+        {dip.apercu && <DiplomaPicker value={dip.diploma} onChange={d => dip.setOverride(d)} />}
         <div className="ml-auto flex items-center gap-2.5 text-[12.5px]">
           <span className="hidden sm:inline">Progression</span>
           <div className="h-2 w-[120px] overflow-hidden rounded-full bg-[var(--surface-2)]">
@@ -74,12 +81,27 @@ export default function DimensionnementClient({ tp }: { tp: TpDefinition }) {
         </div>
       </header>
 
+      {horsReferentiel && (
+        <div className="border-b border-accent/40 bg-accent/10 px-4 py-2 text-[12.5px] text-ink" role="status">
+          Ce TP vise {diplomesVises(dip.vises)} ;
+          tes compétences seront évaluées dans le référentiel du {diplomaShort(dip.diploma)}
+          {dip.source !== 'apercu' && <> (d’après {SOURCE_LABEL[dip.source]})</>}.
+        </div>
+      )}
+
       <Stepper
         stage={s.step}
         done={s.done}
         onGo={store.goStep}
         labels={PV_STEP_LABELS}
         shortLabels={PV_STEP_SHORT}
+        competenceCounts={counts}
+      />
+      <CompetencesStage
+        diploma={dip.diploma}
+        kind="dimensionnement"
+        stage={s.step}
+        stageLabel={PV_STEP_LABELS[s.step]}
       />
       <ChainBar s={s} />
 
@@ -159,7 +181,8 @@ export default function DimensionnementClient({ tp }: { tp: TpDefinition }) {
                 <Evaluation
                   tp={tp}
                   student={store.student}
-                  evaluation={buildPvEvaluation(s, store.student.diploma)}
+                  diploma={dip.diploma}
+                  evaluation={buildPvEvaluation(s, dip.diploma)}
                   scores={pvStageScores(s)}
                   stageLabels={PV_STEP_LABELS}
                   helpUsed={s.helpUsed}

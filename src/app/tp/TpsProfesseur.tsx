@@ -73,6 +73,9 @@ export default function TpsProfesseur() {
               <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
                 TP du professeur
               </span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${tp.playable ? 'bg-good/20 text-good' : 'bg-[var(--surface-2)] text-muted'}`}>
+                {tp.playable ? 'jouable' : 'lecture'}
+              </span>
             </div>
             {tp.summary && <p className="m-0 text-[13px] text-muted">{tp.summary}</p>}
             <div className="flex flex-wrap gap-1.5">

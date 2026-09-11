@@ -3,7 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import type { TpDefinition } from '@/lib/types';
-import { MAX_STAGE_PREVIEW, STAGE_COUNT, STAGES } from '@/lib/sim/progress';
+import { MAX_STAGE_PREVIEW, modeChosen, STAGE_COUNT, STAGES } from '@/lib/sim/progress';
 import { Toast } from '@/components/ui';
 import Stepper from '@/components/parcours/Stepper';
 import ChoixTp from '@/components/parcours/ChoixTp';
@@ -19,6 +19,12 @@ import MesuresSousTension from '@/components/parcours/MesuresSousTension';
 import Validation from '@/components/parcours/Validation';
 import ProfBot from '@/components/parcours/ProfBot';
 import AideCours from '@/components/parcours/AideCours';
+import CompetencesStage from '@/components/parcours/CompetencesStage';
+import { ModeBadge, ModeChooser } from '@/components/parcours/ModeTp';
+import { DiplomaPicker, diplomesVises, SOURCE_LABEL, useDiploma } from '@/components/parcours/useDiploma';
+import { competenceCounts } from '@/lib/data/competences';
+import { assignedMode } from '@/lib/db/classes';
+import type { EvaluationMode } from '@/lib/types';
 import { useStudent } from '@/lib/useStudent';
 import { diplomaShort } from '@/lib/student';
 import { useParcours, panelWires } from './store';
@@ -31,11 +37,24 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
   const setBotOpen = s.setBotOpen;
   const setStudent = s.setStudent;
   const { student, known } = useStudent(`/tp/${tp.id}`);
+  const dip = useDiploma(tp, student, known);
+  const setEvalDiploma = s.setEvalDiploma;
+  const [impose, setImpose] = React.useState<EvaluationMode | null>(null);
 
   React.useEffect(() => { void init(tp); }, [init, tp]);
 
   // identité de l'élève : en-tête, contexte du professeur virtuel et rapports
   React.useEffect(() => { if (known) setStudent(student); }, [known, setStudent, student]);
+
+  // référentiel d'évaluation (profil → classe → niveau du TP, ou aperçu professeur)
+  React.useEffect(() => { setEvalDiploma(dip.diploma); }, [dip.diploma, setEvalDiploma]);
+
+  // mode imposé par le professeur à la classe au moment d'affecter le TP
+  React.useEffect(() => {
+    let alive = true;
+    assignedMode(tp.id).then(m => { if (alive) setImpose(m); }).catch(() => {});
+    return () => { alive = false; };
+  }, [tp.id]);
 
   // boucle de simulation : à partir de la déconsignation
   React.useEffect(() => {
@@ -61,6 +80,8 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
   const doneCount = Object.values(st.done).filter(Boolean).length;
   const ready = s.tp != null;
   const wires = React.useMemo(() => panelWires(tp, st, sim), [tp, st, sim]);
+  const counts = React.useMemo(() => competenceCounts(dip.diploma, 'platine'), [dip.diploma]);
+  const horsReferentiel = dip.vises.length > 0 && !dip.vises.includes(dip.diploma);
 
   const stage = (() => {
     if (!ready) return null;
@@ -116,10 +137,12 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
           <span className="ml-2 hidden sm:inline">
             · <b className="font-medium text-ink">{s.student.name}</b>
             <span className="ml-1 rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10.5px] font-semibold">
-              {diplomaShort(s.student.diploma)}
+              {diplomaShort(dip.diploma)}
             </span>
           </span>
         </div>
+        <ModeBadge st={st} />
+        {dip.apercu && <DiplomaPicker value={dip.diploma} onChange={d => dip.setOverride(d)} />}
         <div className="ml-auto flex items-center gap-2.5 text-[12.5px]">
           <span className="hidden sm:inline">Progression</span>
           <div className="h-2 w-[120px] overflow-hidden rounded-full bg-[var(--surface-2)]">
@@ -137,7 +160,23 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
         </div>
       )}
 
-      <Stepper stage={st.stage} done={st.done} onGo={goStage} maxStage={tp.playable ? STAGE_COUNT - 1 : MAX_STAGE_PREVIEW} />
+      {horsReferentiel && (
+        <div className="border-b border-accent/40 bg-accent/10 px-4 py-2 text-[12.5px] text-ink" role="status">
+          Ce TP vise {diplomesVises(dip.vises)} ;
+          tes compétences seront évaluées dans le référentiel du {diplomaShort(dip.diploma)}
+          {dip.source !== 'apercu' && <> (d’après {SOURCE_LABEL[dip.source]})</>}.
+        </div>
+      )}
+
+      <Stepper
+        stage={st.stage}
+        done={st.done}
+        onGo={goStage}
+        maxStage={tp.playable ? STAGE_COUNT - 1 : MAX_STAGE_PREVIEW}
+        competenceCounts={counts}
+      />
+
+      <CompetencesStage diploma={dip.diploma} stage={st.stage} stageLabel={STAGES[st.stage]} />
 
       <div data-parcours className="grid flex-1 lg:grid-cols-[340px_minmax(0,1fr)_340px]">
         {stage}
@@ -161,6 +200,10 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
           <ProfBot tp={tp} st={st} sim={sim} attemptId={s.attemptId} turns={s.turns} onTurn={s.pushTurn} />
         )}
       </div>
+
+      {ready && tp.playable && !modeChosen(st) && (
+        <ModeChooser impose={impose} onPick={(m, forced) => s.setMode(m, forced)} />
+      )}
 
       <AideCours />
       <Toast message={s.toast} />

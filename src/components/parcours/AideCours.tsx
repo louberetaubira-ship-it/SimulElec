@@ -11,7 +11,7 @@
 import React from 'react';
 import { COURS, coursList, type CoursFiche, type CoursId } from '@/lib/data/cours';
 import type { DiplomaId } from '@/lib/data/competences';
-import { coursForStage, STAGES } from '@/lib/sim/progress';
+import { aideLeft, coursForStage, modeOf, STAGES } from '@/lib/sim/progress';
 import { useParcours } from '@/app/tp/[id]/store';
 
 const REASON_TEXT: Record<string, string> = {
@@ -26,15 +26,20 @@ export function AideButton() {
   const openAide = useParcours(s => s.openAide);
   const st = useParcours(s => s.st);
   const used = st.helpUsed?.[st.stage] ?? 0;
+  const evaluation = modeOf(st) === 'evaluation';
+  const reste = aideLeft(st);
   return (
     <button
       type="button"
       data-aide-open
+      disabled={evaluation && reste === 0}
       onClick={() => openAide(null)}
-      className="min-h-touch w-full rounded-full border border-accent bg-accent px-4 py-2 text-[12.5px] font-semibold text-[var(--accent-ink)]"
+      className="min-h-touch w-full rounded-full border border-accent bg-accent px-4 py-2 text-[12.5px] font-semibold text-[var(--accent-ink)] disabled:opacity-50"
     >
       💡 J&apos;ai besoin d&apos;aide
-      {used > 0 && <span className="ml-1 font-normal opacity-80">· {used}</span>}
+      {evaluation
+        ? <span className="ml-1 font-normal opacity-80">· {reste} restante{reste > 1 ? 's' : ''}</span>
+        : used > 0 && <span className="ml-1 font-normal opacity-80">· {used}</span>}
     </button>
   );
 }
@@ -198,7 +203,7 @@ export default function AideCours() {
       reason={aideReason ? REASON_TEXT[aideReason] : null}
       fiches={fiches}
       current={current}
-      diploma={s.student.diploma}
+      diploma={s.evalDiploma}
       onPick={s.setAideFiche}
       onClose={s.closeAide}
       onAsk={s.askProf}

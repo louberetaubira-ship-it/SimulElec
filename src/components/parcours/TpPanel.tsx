@@ -68,9 +68,11 @@ export type TpPanelProps = Omit<PanelProps, 'items' | 'fixedScale'> & {
   instruments?: InstrumentKind[];
   /** Indicateur contextuel de la barre haute du mode atelier (ex. « 7 / 14 liaisons »). */
   indicator?: React.ReactNode;
+  /** Actions de l'étape placées dans la barre haute du mode atelier (Annuler / Rétablir / Supprimer). */
+  actions?: React.ReactNode;
 };
 
-export default function TpPanel({ trayEnabled = false, instruments, indicator, ...props }: TpPanelProps) {
+export default function TpPanel({ trayEnabled = false, instruments, indicator, actions, ...props }: TpPanelProps) {
   const items = useTpItems(props.tp);
   const inst = useParcours(s => s.mes.inst);
   const setInstrument = useParcours(s => s.setInstrument);
@@ -99,6 +101,7 @@ export default function TpPanel({ trayEnabled = false, instruments, indicator, .
         title={props.tp.title}
         subtitle={`Étape ${stage + 1} / ${STAGES.length} · ${STAGES[stage]}`}
         indicator={indicator}
+        actions={actions}
         drawer={<AtelierDrawer tp={props.tp} />}
         drawerTitle="Énoncé"
         tools={tools}

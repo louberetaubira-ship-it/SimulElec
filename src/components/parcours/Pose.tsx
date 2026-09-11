@@ -2,11 +2,11 @@
 
 import React from 'react';
 import type { AttemptState, CatalogueItem, TpDefinition } from '@/lib/types';
-import { spriteUrl } from '@/lib/data/catalogue';
-import { svgForKey } from '@/components/panel/svg';
+import { CATALOGUE_BY_KEY, spriteUrl } from '@/lib/data/catalogue';
+import { libraryItemSync } from '@/lib/data/library';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { missingSlots, poseComplete } from '@/lib/sim/progress';
-import TpPanel, { useTpItems } from './TpPanel';
+import TpPanel from './TpPanel';
 import { Center, Hint, Side } from './StageLayout';
 
 interface Props {
@@ -19,25 +19,15 @@ interface Props {
   preview?: boolean;
 }
 
-const THUMB_SHADOW = { filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.25))' } as const;
-
-/**
- * Vignette d'un appareil de la caisse, avec la même priorité de rendu que la platine :
- * dessin vectoriel (appareils DC / PV sans photo), puis image de bibliothèque (data URI),
- * puis sprite photo du pack. `item` vient du catalogue résolu du TP (bibliothèque préchargée).
- */
-function Thumb({ slotKey, item }: { slotKey: string; item?: CatalogueItem }) {
-  const vector = svgForKey(slotKey);
-  if (vector) {
-    return <span className="block h-[40px] w-[40px]" style={THUMB_SHADOW}>{vector}</span>;
-  }
-  const src = item?.src ?? spriteUrl(slotKey);
+/** Vignette d'un appareil de la caisse : sprite du pack ou image de bibliothèque. */
+function Thumb({ slotKey }: { slotKey: string }) {
+  const lib: CatalogueItem | null = CATALOGUE_BY_KEY[slotKey] ? null : libraryItemSync(slotKey);
+  const src = lib?.src ?? spriteUrl(slotKey);
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="" className="h-[40px] w-[40px] object-contain" style={THUMB_SHADOW} />;
+  return <img src={src} alt="" className="h-[40px] w-[40px] object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.25))' }} />;
 }
 
 export default function Pose({ tp, st, onPlace, onNext, readOnly, preview }: Props) {
-  const items = useTpItems(tp);
   const left = missingSlots(tp, st);
   const complete = poseComplete(tp, st);
 
@@ -66,7 +56,7 @@ export default function Pose({ tp, st, onPlace, onNext, readOnly, preview }: Pro
                 onClick={() => onPlace(s.id)}
                 className="flex min-h-touch items-center gap-2 rounded-[10px] border border-[var(--line)] bg-[var(--surface)] p-1.5 text-left disabled:opacity-50"
               >
-                <Thumb slotKey={s.key} item={items[s.key]} />
+                <Thumb slotKey={s.key} />
                 <span className="min-w-0">
                   <b className="block truncate text-[11.5px]">{s.rep ?? s.label.split(' · ')[0]}</b>
                   <span className="block truncate text-[10px] text-muted">{s.label.split(' · ').slice(1).join(' · ') || s.label}</span>

@@ -85,6 +85,20 @@ function sizeOf(item: CatalogueItem): { w: number; h: number } {
 
 export interface PlaceResult { slot: FreeSlot | null; error: string | null }
 
+/* ------------------------------------------------------- défaire / refaire */
+
+/** Photo du montage : tout ce qu'une opération annulable peut changer. */
+export interface AtelierSnap { slots: FreeSlot[]; wires: FreeProject['wires']; seq: number }
+export interface AtelierUndo { label: string; before: AtelierSnap; after: AtelierSnap }
+/** Profondeur de la pile d'annulation (au moins 30 opérations). */
+export const UNDO_MAX = 40;
+/** Durée du message « … supprimé · Annuler » (ms). */
+const UNDO_NOTICE_MS = 5500;
+
+/** Libellé court d'un fil. */
+export const wireLabel = (w: { a: string; b: string }): string =>
+  `${w.a.replace('.', ' ')} → ${w.b.replace('.', ' ')}`;
+
 /** Calcule la place du prochain appareil (rail courant ou annexe). Port de `freeAdd`. */
 export function place(slots: FreeSlot[], seq: number, item: CatalogueItem, rail: number): PlaceResult {
   const door = isDoorItem(item);
@@ -211,6 +225,16 @@ interface AtelierState {
   saving: boolean;
   loading: boolean;
   projects: ProjectRow[];
+  /** Fil sélectionné sur la platine (index dans `wires`). */
+  selWire: number | null;
+  /** Menu contextuel tactile ouvert sur un fil (appui long). */
+  wireMenu: { index: number; x: number; y: number } | null;
+  undoStack: AtelierUndo[];
+  redoStack: AtelierUndo[];
+  /** Message temporaire « … supprimé » avec bouton « Annuler ». */
+  undoNotice: string | null;
+  /** Boîte de dialogue « Vider la platine » ouverte. */
+  confirmClear: boolean;
 
   init: () => Promise<void>;
   say: (m: string | null) => void;
@@ -225,6 +249,14 @@ interface AtelierState {
   removeSlot: (id: string) => void;
   clickTerminal: (id: string) => void;
   removeWire: (idx: number) => void;
+  selectWire: (idx: number | null) => void;
+  openWireMenu: (idx: number, x: number, y: number) => void;
+  closeWireMenu: () => void;
+  deleteSelectedWire: () => void;
+  undo: () => void;
+  redo: () => void;
+  dismissUndoNotice: () => void;
+  askClear: (v: boolean) => void;
 
   clear: () => void;
   newProject: () => void;
@@ -242,6 +274,32 @@ export const useAtelier = create<AtelierState>((set, get) => {
     set({ hint: m });
     if (hintTimer) clearTimeout(hintTimer);
     if (m) hintTimer = setTimeout(() => set({ hint: null }), 3000);
+  };
+
+  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const notice = (m: string | null) => {
+    set({ undoNotice: m });
+    if (noticeTimer) clearTimeout(noticeTimer);
+    if (m) noticeTimer = setTimeout(() => set({ undoNotice: null }), UNDO_NOTICE_MS);
+  };
+
+  const snapOf = (): AtelierSnap => {
+    const { slots, wires, seq } = get();
+    return { slots, wires, seq };
+  };
+
+  /** Applique une opération sur le montage et l'empile dans l'historique. */
+  const commit = (label: string, next: (snap: AtelierSnap) => AtelierSnap) => {
+    const before = snapOf();
+    const after = next(before);
+    set(s => ({
+      ...after,
+      selWire: null,
+      wireMenu: null,
+      undoStack: [...s.undoStack, { label, before, after }].slice(-UNDO_MAX),
+      redoStack: [],
+    }));
   };
 
   /** Charge les éléments de bibliothèque manquants d'un montage rouvert. */
@@ -272,6 +330,12 @@ export const useAtelier = create<AtelierState>((set, get) => {
       seq,
       sel: null,
       rail: 0,
+      selWire: null,
+      wireMenu: null,
+      undoStack: [],
+      redoStack: [],
+      undoNotice: null,
+      confirmClear: false,
     });
   };
 
@@ -292,6 +356,12 @@ export const useAtelier = create<AtelierState>((set, get) => {
     saving: false,
     loading: true,
     projects: [],
+    selWire: null,
+    wireMenu: null,
+    undoStack: [],
+    redoStack: [],
+    undoNotice: null,
+    confirmClear: false,
 
     async init() {
       loadDemo();
@@ -318,41 +388,101 @@ export const useAtelier = create<AtelierState>((set, get) => {
       const next = seq + 1;
       const { slot, error } = place(slots, next, item, rail);
       if (!slot) { say(error); return; }
-      set((s) => ({
-        slots: [...s.slots, slot],
-        seq: next,
-        items: { ...s.items, [item.key]: item },
-        sel: null,
+      set((s) => ({ items: { ...s.items, [item.key]: item }, sel: null }));
+      commit(`Pose de ${slot.rep}`, (snap) => ({
+        ...snap, slots: [...snap.slots, slot], seq: next,
       }));
       say(`${slot.rep} posé${slot.rail === ANNEX_RAIL ? ' en annexe' : ` sur le rail ${(slot.rail ?? 0) + 1}`}.`);
     },
 
     removeSlot(id) {
-      set((s) => ({
-        slots: s.slots.filter((x) => x.id !== id),
-        wires: s.wires.filter((w) => !w.a.startsWith(`${id}.`) && !w.b.startsWith(`${id}.`)),
-        sel: null,
+      const slot = get().slots.find((x) => x.id === id);
+      set({ sel: null });
+      commit(`Retrait de ${slot?.rep ?? id}`, (snap) => ({
+        ...snap,
+        slots: snap.slots.filter((x) => x.id !== id),
+        wires: snap.wires.filter((w) => !w.a.startsWith(`${id}.`) && !w.b.startsWith(`${id}.`)),
       }));
       say('Appareil retiré (ses fils avec lui).');
     },
 
     clickTerminal(id) {
       const { sel, net, wires } = get();
-      if (!sel) { set({ sel: id }); return; }
+      if (!sel) { set({ sel: id, selWire: null }); return; }
       if (sel === id) { set({ sel: null }); return; }
       const exists = wires.some((w) => (w.a === sel && w.b === id) || (w.a === id && w.b === sel));
       if (exists) { set({ sel: null }); say('Ces deux bornes sont déjà reliées.'); return; }
-      set({ wires: [...wires, { a: sel, b: id, net }], sel: null });
+      set({ sel: null });
+      commit(`Fil ${sel.replace('.', ' ')} → ${id.replace('.', ' ')}`, (snap) => ({
+        ...snap, wires: [...snap.wires, { a: sel, b: id, net }],
+      }));
       say(`Fil ${net} : ${sel} → ${id}.`);
     },
 
     removeWire(idx) {
-      set((s) => ({ wires: s.wires.filter((_, i) => i !== idx) }));
-      say('Fil déposé.');
+      const w = get().wires[idx];
+      if (!w) return;
+      commit(`Retrait ${wireLabel(w)}`, (snap) => ({
+        ...snap, wires: snap.wires.filter((_, i) => i !== idx),
+      }));
+      notice(`Fil ${wireLabel(w)} supprimé`);
     },
 
+    selectWire(idx) {
+      if (idx == null) { set({ selWire: null, wireMenu: null }); return; }
+      if (!get().wires[idx]) return;
+      set((s) => ({ selWire: s.selWire === idx ? null : idx, wireMenu: null, sel: null }));
+    },
+
+    openWireMenu(idx, x, y) {
+      if (!get().wires[idx]) return;
+      set({ selWire: idx, wireMenu: { index: idx, x, y } });
+    },
+
+    closeWireMenu() { set({ wireMenu: null }); },
+
+    deleteSelectedWire() {
+      const { selWire } = get();
+      if (selWire == null) { say('Sélectionne d\'abord un fil sur la platine.'); return; }
+      get().removeWire(selWire);
+    },
+
+    undo() {
+      const { undoStack } = get();
+      const last = undoStack[undoStack.length - 1];
+      if (!last) { say('Rien à annuler.'); return; }
+      notice(null);
+      set((s) => ({
+        ...last.before,
+        selWire: null,
+        wireMenu: null,
+        undoStack: s.undoStack.slice(0, -1),
+        redoStack: [...s.redoStack, last].slice(-UNDO_MAX),
+      }));
+      say(`Annulé : ${last.label.toLowerCase()}`);
+    },
+
+    redo() {
+      const { redoStack } = get();
+      const last = redoStack[redoStack.length - 1];
+      if (!last) { say('Rien à rétablir.'); return; }
+      set((s) => ({
+        ...last.after,
+        selWire: null,
+        wireMenu: null,
+        redoStack: s.redoStack.slice(0, -1),
+        undoStack: [...s.undoStack, last].slice(-UNDO_MAX),
+      }));
+      say(`Rétabli : ${last.label.toLowerCase()}`);
+    },
+
+    dismissUndoNotice() { notice(null); },
+
+    askClear(v) { set({ confirmClear: v, wireMenu: null }); },
+
     clear() {
-      set({ slots: [], wires: [], seq: 0, sel: null });
+      set({ sel: null, confirmClear: false });
+      commit('Platine vidée', () => ({ slots: [], wires: [], seq: 0 }));
       say('Platine vidée.');
     },
 
@@ -396,6 +526,11 @@ export const useAtelier = create<AtelierState>((set, get) => {
         seq: maxSeq,
         sel: null,
         loading: false,
+        selWire: null,
+        wireMenu: null,
+        undoStack: [],
+        redoStack: [],
+        undoNotice: null,
       });
       await resolve(slots);
       say(`« ${row.title} » ouvert.`);

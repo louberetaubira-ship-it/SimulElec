@@ -53,6 +53,8 @@ export interface PanelProps {
   coupling?: 'Y' | 'D';
   /** Index de la liaison surlignée. */
   highlight?: number | null;
+  /** Index du fil sélectionné par l'élève (trait épaissi + halo). */
+  selectedWire?: number | null;
   probes?: { r?: string | null; k?: string | null };
   clamp?: number | null;
   lock?: boolean;
@@ -60,6 +62,8 @@ export interface PanelProps {
   pickWires?: boolean;
   onTerminal?: (id: string) => void;
   onWire?: (idx: number) => void;
+  /** Appui long sur un fil (tactile) : coordonnées écran du menu contextuel. */
+  onWireLongPress?: (idx: number, x: number, y: number) => void;
   onDevice?: (slotId: string) => void;
   onButton?: (b: 's1' | 's2', down: boolean) => void;
   onCoupling?: () => void;
@@ -82,8 +86,8 @@ function markOffset(id: string, fy: number): { dx: number; dy: number } {
 export default function Panel(props: PanelProps) {
   const {
     tp, items, wires, cover, marks, deviceState, lamps, motorRpm = 0, coupling = 'Y',
-    highlight = null, probes, clamp = null, lock = false, pickTerminals, pickWires,
-    onTerminal, onWire, onDevice, onButton, onCoupling, className, fixedScale = false,
+    highlight = null, selectedWire = null, probes, clamp = null, lock = false, pickTerminals, pickWires,
+    onTerminal, onWire, onWireLongPress, onDevice, onButton, onCoupling, className, fixedScale = false,
   } = props;
 
   const hostRef = React.useRef<HTMLDivElement>(null);
@@ -114,7 +118,10 @@ export default function Panel(props: PanelProps) {
     wires.forEach((w, i) => {
       const pts = route(ctx, plan, w.a, w.b, i);
       if (!pts) return;
-      out.push({ index: i, pts, net: w.net, external: Boolean(w.door || w.prewired), dead: w.dead });
+      out.push({
+        index: i, pts, net: w.net,
+        external: Boolean(w.door || w.prewired), dead: w.dead, locked: w.prewired,
+      });
     });
     return out;
   }, [ctx, plan, wires]);
@@ -252,7 +259,7 @@ export default function Panel(props: PanelProps) {
       <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} />
 
       {/* fils sous les couvercles : masqués par les goulottes quand les couvercles sont fermés */}
-      <WiresUnder wires={routed} highlight={highlight} pick={pickWires} onWire={onWire} />
+      <WiresUnder wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       {/* appareils */}
       {ctx.slots.map((s) => (
@@ -350,7 +357,7 @@ export default function Panel(props: PanelProps) {
       ) : null}
 
       {/* fils au-dessus des couvercles (brins + parties extérieures) */}
-      <WiresOver wires={routed} highlight={highlight} pick={pickWires} onWire={onWire} />
+      <WiresOver wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       <Overlays probes={probePos} clamp={clampPos} lock={lockBox} />
     </div>

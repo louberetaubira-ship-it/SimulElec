@@ -81,6 +81,8 @@ export default function ProfPage() {
   const [newClass, setNewClass] = useState('');
   const [newLevel, setNewLevel] = useState('');
   const [assignChoice, setAssignChoice] = useState('');
+  // mode imposé à la classe pour ce TP : « libre » laisse l'élève choisir au lancement
+  const [assignMode, setAssignMode] = useState<'libre' | 'entrainement' | 'evaluation'>('libre');
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -169,8 +171,12 @@ export default function ProfPage() {
     setErr(null);
     setMsg(null);
     try {
-      await assignTp(currentId, assignChoice);
-      setMsg('TP attribué à la classe.');
+      await assignTp(currentId, assignChoice, null, assignMode === 'libre' ? null : assignMode);
+      setMsg(
+        assignMode === 'libre'
+          ? 'TP attribué à la classe (chaque élève choisit son mode).'
+          : `TP attribué à la classe en mode ${assignMode === 'evaluation' ? 'évaluation' : 'entraînement'}.`,
+      );
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erreur');
     }
@@ -267,6 +273,16 @@ export default function ProfPage() {
                       {t.title}
                     </option>
                   ))}
+                </select>
+                <select
+                  value={assignMode}
+                  onChange={(e) => setAssignMode(e.target.value as 'libre' | 'entrainement' | 'evaluation')}
+                  aria-label="Mode imposé à la classe"
+                  className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-3 text-sm"
+                >
+                  <option value="libre">Mode au choix de l&apos;élève</option>
+                  <option value="entrainement">Entraînement imposé</option>
+                  <option value="evaluation">Évaluation imposée</option>
                 </select>
                 <button
                   onClick={onAssign}

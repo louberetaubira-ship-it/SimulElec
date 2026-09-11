@@ -122,7 +122,12 @@
 .se-wires path.dead { opacity: .3; }
 .se-wires path.pe { stroke-dasharray: 9 5; }
 .se-wires path.hl { stroke-width: 4.6; filter: drop-shadow(0 0 3px #E39A00); }
-.se-wires.pick path { pointer-events: stroke; cursor: crosshair; }
+/* fil sélectionné par l'élève : plus épais + halo, pour être vu à tout zoom */
+.se-wires path.sel { stroke-width: 5.4; filter: drop-shadow(0 0 3px #E39A00) drop-shadow(0 0 7px rgba(227, 154, 0, .75)); }
+/* tracé transparent de forte épaisseur : cible de clic confortable, rendu inchangé */
+.se-wires path.hit { stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+.se-wires.pick path.hit { cursor: crosshair; }
+.se-wires path.locked.hit { cursor: not-allowed; }
 
 /* ---- porte / annexe ---- */
 .se-door { position: absolute; left: 432px; top: 20px; width: 110px; height: 680px; border-left: 2px dashed #9AA3AD; z-index: 0; }

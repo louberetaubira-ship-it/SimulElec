@@ -1,7 +1,9 @@
 'use client';
 
 import { create } from 'zustand';
-import type { AttemptState, InstrumentKind, Liaison, NetKind, ReadingRecord, TpDefinition } from '@/lib/types';
+import type {
+  AttemptState, EvaluationMode, InstrumentKind, Liaison, NetKind, ReadingRecord, TpDefinition,
+} from '@/lib/types';
 import {
   initialSim, injectFault, isFaultId, netLive, pickFault, pressS1, pressS2, releaseS2, repairFault,
   resetF1, setCoupling, tick, toggleF2, toggleF3, toggleQ1, type SimState,
@@ -11,11 +13,13 @@ import {
   checkExpected, instrumentDef, read, type ClampWire, type ReadOut,
 } from '@/lib/sim/mesures';
 import {
-  buildEvaluation, buildReport, computeScore, coursForStage, initialState, netOfTerminal,
-  nextLiaison, normalizeState, requiredLiaisons, stageSatisfied, STAGE_COUNT, STAGES,
+  aideAllowed, AIDE_MAX_EVALUATION, buildEvaluation, buildReport, computeScore, coursForStage,
+  initialState, modeOf, netOfTerminal, nextLiaison, normalizeState, requiredLiaisons,
+  stageSatisfied, STAGE_COUNT, STAGES,
 } from '@/lib/sim/progress';
 import type { CoursId } from '@/lib/data/cours';
-import { fallbackStudent, type Student } from '@/lib/student';
+import { DEFAULT_DIPLOMA, fallbackStudent, type Student } from '@/lib/student';
+import type { DiplomaId, Mastery } from '@/lib/data/competences';
 import {
   addMeasurement, finishAttempt, getOrCreateAttempt, measurementOf, saveAttemptState,
 } from '@/lib/db/attempts';
@@ -39,12 +43,60 @@ const initialMes = (): MesState => ({ inst: null, dial: 0, probes: { r: null, k:
 /** Raison d'une ouverture automatique de l'aide. */
 export type AideReason = 'cablage' | 'materiel' | 'mesure' | 'diagnostic' | null;
 
+/* ------------------------------------------------------- défaire / refaire */
+
+/** Portée d'une réinitialisation demandée par l'élève. */
+export type ResetScope = 'stage' | 'all' | 'tp';
+
+/** Phase de câblage : les liaisons de puissance et celles de commande se traitent à part. */
+export type WirePhase = 'puissance' | 'commande';
+
+/** Photo de l'état câblage : tout ce qu'une opération annulable peut changer. */
+export interface WireSnap {
+  wires: AttemptState['wires'];
+  wiresRemoved: number;
+  resets: number;
+}
+
+/** Une opération annulable de la pile (câblage, retrait, effacement). */
+export interface UndoEntry { label: string; before: WireSnap; after: WireSnap }
+
+/** Profondeur de la pile d'annulation (au moins 30 opérations). */
+export const UNDO_MAX = 40;
+
+/** Durée d'affichage du message « Fil X → Y supprimé · Annuler » (ms). */
+const UNDO_NOTICE_MS = 5500;
+
+/** Un fil de commande (24 V / 0 V) ? Les autres conducteurs sont de la puissance. */
+export const isCommandeNet = (n: NetKind): boolean => n === 'C' || n === 'C0';
+
+/** Nature des liaisons attendues restantes : puissance d'abord, commande ensuite. */
+export function currentPhase(tp: TpDefinition, st: AttemptState): WirePhase {
+  const n = nextLiaison(tp, st);
+  if (n) return isCommandeNet(n.net) ? 'commande' : 'puissance';
+  const last = st.wires[st.wires.length - 1];
+  return last && isCommandeNet(last.net) ? 'commande' : 'puissance';
+}
+
+/** Fils de l'élève appartenant à la phase demandée. */
+export const wiresOfPhase = (st: AttemptState, phase: WirePhase) =>
+  st.wires.filter(w => (isCommandeNet(w.net) ? 'commande' : 'puissance') === phase);
+
+/** Libellé court d'un fil, pour les messages et la liste latérale. */
+export const wireLabel = (w: { a: string; b: string }): string =>
+  `${w.a.replace('.', ' ')} → ${w.b.replace('.', ' ')}`;
+
 interface ParcoursState {
   tp: TpDefinition;
   attemptId: string | null;
   offline: boolean;
   /** Identité de l'élève (nom, diplôme préparé) : en-tête du parcours et rapports. */
   student: Student;
+  /**
+   * Référentiel dans lequel la tentative est évaluée : profil, à défaut classe, à défaut
+   * niveau du TP (voir `useDiploma`). L'aperçu professeur peut le forcer.
+   */
+  evalDiploma: DiplomaId;
   st: AttemptState;
   sim: SimState;
   mes: MesState;
@@ -65,8 +117,27 @@ interface ParcoursState {
   botOpen: boolean;
   pendingQuestion: string | null;
 
+  /** Câblage — index (dans `panelWires`) du fil sélectionné sur la platine. */
+  selWire: number | null;
+  /** Câblage — menu contextuel tactile ouvert sur un fil (appui long). */
+  wireMenu: { index: number; x: number; y: number } | null;
+  /** Câblage — piles d'annulation / rétablissement. */
+  undoStack: UndoEntry[];
+  redoStack: UndoEntry[];
+  /** Câblage — message temporaire « … supprimé » avec bouton « Annuler ». */
+  undoNotice: string | null;
+  /** Câblage — boîte de dialogue de confirmation ouverte. */
+  confirmScope: ResetScope | null;
+  restarting: boolean;
+
   init: (tp: TpDefinition) => Promise<void>;
   setStudent: (s: Student) => void;
+  setEvalDiploma: (d: DiplomaId) => void;
+  /** Choix du mode de passage au lancement (ou mode imposé par le professeur). */
+  setMode: (m: EvaluationMode, impose?: boolean) => void;
+  /** Auto-évaluation : l'élève se place sur une compétence, puis valide. */
+  setAutoEval: (code: string, level: Mastery) => void;
+  submitAutoEval: () => void;
   openAide: (reason?: AideReason) => void;
   closeAide: () => void;
   setAideFiche: (id: CoursId | null) => void;
@@ -83,6 +154,18 @@ interface ParcoursState {
 
   clickTerminal: (id: string) => void;
   assist: () => void;
+
+  /** Câblage — sélection, suppression, annulation, réinitialisation. */
+  selectWire: (index: number | null) => void;
+  openWireMenu: (index: number, x: number, y: number) => void;
+  closeWireMenu: () => void;
+  deleteWire: (index: number) => void;
+  deleteSelectedWire: () => void;
+  undo: () => void;
+  redo: () => void;
+  dismissUndoNotice: () => void;
+  askReset: (scope: ResetScope | null) => void;
+  confirmReset: () => Promise<void>;
   runTest: (id: string, value: string) => void;
   /** À l'entrée d'une étape : met la platine dans l'état de départ attendu. */
   enterStage: (stage: number) => void;
@@ -258,10 +341,73 @@ export const useParcours = create<ParcoursState>((set, get) => {
     }
   };
 
+  /* ---------------------------------------------- défaire / refaire un fil */
+
+  let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const snapOf = (st: AttemptState): WireSnap => ({
+    wires: st.wires,
+    wiresRemoved: st.wiresRemoved ?? 0,
+    resets: st.resets ?? 0,
+  });
+
+  const applySnap = (st: AttemptState, snap: WireSnap): AttemptState => ({
+    ...st, wires: snap.wires, wiresRemoved: snap.wiresRemoved, resets: snap.resets,
+  });
+
+  /** Applique une opération sur le câblage et l'empile dans l'historique. */
+  const commit = (label: string, next: (snap: WireSnap) => WireSnap) => {
+    const before = snapOf(get().st);
+    const after = next(before);
+    patch(st => applySnap(st, after));
+    set(s => ({
+      undoStack: [...s.undoStack, { label, before, after }].slice(-UNDO_MAX),
+      redoStack: [],
+    }));
+  };
+
+  /** Message temporaire « Fil X → Y supprimé », avec un bouton « Annuler ». */
+  const notice = (m: string | null) => {
+    set({ undoNotice: m });
+    if (noticeTimer) clearTimeout(noticeTimer);
+    if (m) noticeTimer = setTimeout(() => set({ undoNotice: null }), UNDO_NOTICE_MS);
+  };
+
+  /** Fil affiché à cet index de la platine (pré-câblé compris). */
+  const wireAt = (index: number | null) => {
+    if (index == null) return null;
+    const { tp, st, sim } = get();
+    return panelWires(tp, st, sim)[index] ?? null;
+  };
+
+  /** Retire un fil de l'élève ; refuse les liaisons de l'installateur. */
+  const removeWire = (index: number): boolean => {
+    const w = wireAt(index);
+    if (!w) return false;
+    if (w.prewired) {
+      set({ selWire: null, wireMenu: null });
+      say('Fil posé par l\'installateur : non modifiable');
+      return false;
+    }
+    const k = linkKey(w.a, w.b);
+    commit(`Retrait ${wireLabel(w)}`, snap => ({
+      ...snap,
+      wires: snap.wires.filter(x => linkKey(x.a, x.b) !== k),
+      wiresRemoved: snap.wiresRemoved + 1,
+    }));
+    set({ selWire: null, wireMenu: null });
+    notice(`Fil ${wireLabel(w)} supprimé`);
+    return true;
+  };
+
   /** Ouvre l'aide (manuellement ou automatiquement) et compte l'ouverture sur l'étape. */
   const openAide = (reason: AideReason = null) => {
     const { st, tp, aideOpen } = get();
     if (aideOpen) return;
+    if (!aideAllowed(st)) {
+      say(`Mode évaluation : tu as déjà utilisé tes ${AIDE_MAX_EVALUATION} aides.`);
+      return;
+    }
     const fiche = coursForStage(tp?.id ?? '', st.stage)[0] ?? null;
     set({ aideOpen: true, aideReason: reason, aideFiche: get().aideFiche ?? fiche });
     patch(s2 => ({ ...s2, helpUsed: { ...s2.helpUsed, [s2.stage]: (s2.helpUsed[s2.stage] ?? 0) + 1 } }));
@@ -281,6 +427,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     attemptId: null,
     offline: false,
     student: fallbackStudent(),
+    evalDiploma: DEFAULT_DIPLOMA,
     aideOpen: false,
     aideReason: null,
     aideFiche: null,
@@ -288,6 +435,13 @@ export const useParcours = create<ParcoursState>((set, get) => {
     badChoices: 0,
     botOpen: false,
     pendingQuestion: null,
+    selWire: null,
+    wireMenu: null,
+    undoStack: [],
+    redoStack: [],
+    undoNotice: null,
+    confirmScope: null,
+    restarting: false,
     st: initialState(),
     sim: initialSim(),
     mes: initialMes(),
@@ -299,7 +453,12 @@ export const useParcours = create<ParcoursState>((set, get) => {
     saving: false,
 
     async init(tp) {
-      set({ tp, st: initialState(), sim: initialSim(), mes: initialMes(), turns: [], offline: false, attemptId: null });
+      set({
+        tp, st: initialState(), sim: initialSim(), mes: initialMes(), turns: [],
+        offline: false, attemptId: null,
+        selWire: null, wireMenu: null, undoStack: [], redoStack: [], undoNotice: null,
+        confirmScope: null, restarting: false,
+      });
       try {
         const row = await getOrCreateAttempt(tp.id);
         const restored = normalizeState(row.state as Partial<AttemptState> | null);
@@ -316,6 +475,22 @@ export const useParcours = create<ParcoursState>((set, get) => {
     },
 
     setStudent(student) { set({ student }); },
+
+    setEvalDiploma(d) { set({ evalDiploma: d }); },
+
+    setMode(m, impose = false) {
+      patch(s2 => ({ ...s2, mode: m, modeImpose: impose, startedAt: s2.startedAt ?? new Date().toISOString() }));
+      say(m === 'evaluation'
+        ? 'Mode évaluation : chronomètre lancé, aide limitée, une seule tentative.'
+        : 'Mode entraînement : prends ton temps, l\'aide est illimitée.');
+    },
+
+    setAutoEval(code, level) {
+      if (level === 'nonEvalue') return;
+      patch(s2 => ({ ...s2, autoEval: { ...(s2.autoEval ?? {}), [code]: level } }));
+    },
+
+    submitAutoEval() { patch(s2 => ({ ...s2, autoEvalDone: true })); },
 
     openAide(reason = null) { openAide(reason); },
 
@@ -336,7 +511,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       if (i < 0 || i >= STAGE_COUNT) return;
       if (i > st.stage && !st.done[i - 1]) { say('Termine d\'abord l\'étape précédente.'); return; }
       if (!tp.playable && i > 3) { say('Ce TP est en cours de finalisation : le parcours s\'arrête à la pose.'); return; }
-      set({ selTerminal: null, selSlot: null, selDevice: null, aideOpen: false, aideFiche: null });
+      set({ selTerminal: null, selSlot: null, selDevice: null, aideOpen: false, aideFiche: null, selWire: null, wireMenu: null });
       patch(s => ({ ...s, stage: i }));
     },
 
@@ -400,7 +575,9 @@ export const useParcours = create<ParcoursState>((set, get) => {
       if (st.wires.some(w => linkKey(w.a, w.b) === k)) {
         say('Cette liaison est déjà faite.');
       } else if (expected) {
-        patch(s => ({ ...s, wires: [...s.wires, { a: expected.a, b: expected.b, net: expected.net }] }));
+        commit(`Liaison ${wireLabel(expected)}`, snap => ({
+          ...snap, wires: [...snap.wires, { a: expected.a, b: expected.b, net: expected.net }],
+        }));
         say(`Liaison ${expected.a} → ${expected.b} réalisée.`);
       } else {
         patch(s => ({ ...s, wireErrors: s.wireErrors + 1 }));
@@ -419,8 +596,137 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { tp, st } = get();
       const n: Liaison | undefined = nextLiaison(tp, st);
       if (!n) return;
-      patch(s => ({ ...s, wires: [...s.wires, { a: n.a, b: n.b, net: n.net }] }));
+      commit(`Liaison ${wireLabel(n)}`, snap => ({
+        ...snap, wires: [...snap.wires, { a: n.a, b: n.b, net: n.net }],
+      }));
       say(`Câblage assisté : ${n.a} → ${n.b}`);
+    },
+
+    selectWire(index) {
+      if (index == null) { set({ selWire: null, wireMenu: null }); return; }
+      const w = wireAt(index);
+      if (!w) return;
+      if (w.prewired) {
+        set({ selWire: null, wireMenu: null });
+        say('Fil posé par l\'installateur : non modifiable');
+        return;
+      }
+      set(s => ({ selWire: s.selWire === index ? null : index, wireMenu: null }));
+    },
+
+    openWireMenu(index, x, y) {
+      const w = wireAt(index);
+      if (!w) return;
+      if (w.prewired) { say('Fil posé par l\'installateur : non modifiable'); return; }
+      set({ selWire: index, wireMenu: { index, x, y } });
+    },
+
+    closeWireMenu() { set({ wireMenu: null }); },
+
+    deleteWire(index) { removeWire(index); },
+
+    deleteSelectedWire() {
+      const { selWire } = get();
+      if (selWire == null) { say('Sélectionne d\'abord un fil sur la platine.'); return; }
+      removeWire(selWire);
+    },
+
+    undo() {
+      const { undoStack } = get();
+      const last = undoStack[undoStack.length - 1];
+      if (!last) { say('Rien à annuler.'); return; }
+      patch(st => applySnap(st, last.before));
+      set(s => ({
+        undoStack: s.undoStack.slice(0, -1),
+        redoStack: [...s.redoStack, last].slice(-UNDO_MAX),
+        selWire: null,
+        wireMenu: null,
+      }));
+      notice(null);
+      say(`Annulé : ${last.label.toLowerCase()}`);
+    },
+
+    redo() {
+      const { redoStack } = get();
+      const last = redoStack[redoStack.length - 1];
+      if (!last) { say('Rien à rétablir.'); return; }
+      patch(st => applySnap(st, last.after));
+      set(s => ({
+        redoStack: s.redoStack.slice(0, -1),
+        undoStack: [...s.undoStack, last].slice(-UNDO_MAX),
+        selWire: null,
+        wireMenu: null,
+      }));
+      say(`Rétabli : ${last.label.toLowerCase()}`);
+    },
+
+    dismissUndoNotice() { notice(null); },
+
+    askReset(scope) {
+      // mode évaluation : une seule tentative, on ne repart pas de zéro
+      if (scope === 'tp' && modeOf(get().st) === 'evaluation') {
+        say('Mode évaluation : le TP ne peut pas être recommencé.');
+        set({ wireMenu: null });
+        return;
+      }
+      set({ confirmScope: scope, wireMenu: null });
+    },
+
+    async confirmReset() {
+      const scope = get().confirmScope;
+      set({ confirmScope: null });
+      if (!scope) return;
+      const { tp, st } = get();
+
+      if (scope === 'stage') {
+        const phase = currentPhase(tp, st);
+        const doomed = wiresOfPhase(st, phase);
+        if (!doomed.length) { say(`Aucun fil de ${phase} à effacer.`); return; }
+        // les liaisons refusées (`wireErrors`) restent comptées : effacer n'efface pas les fautes
+        commit(`Effacement des fils de ${phase}`, snap => ({
+          ...snap,
+          wires: snap.wires.filter(w => (isCommandeNet(w.net) ? 'commande' : 'puissance') !== phase),
+          resets: snap.resets + 1,
+        }));
+        set({ selWire: null });
+        notice(`${doomed.length} fil${doomed.length > 1 ? 's' : ''} de ${phase} effacé${doomed.length > 1 ? 's' : ''}`);
+        return;
+      }
+
+      if (scope === 'all') {
+        if (!st.wires.length) { say('La platine n\'a aucun fil de ton câblage.'); return; }
+        const n = st.wires.length;
+        commit('Recâblage complet', snap => ({ ...snap, wires: [], resets: snap.resets + 1 }));
+        set({ selWire: null });
+        notice(`${n} fil${n > 1 ? 's' : ''} retiré${n > 1 ? 's' : ''} : la platine est prête à être recâblée`);
+        return;
+      }
+
+      // ---- nouvelle tentative : l'ancienne reste dans l'historique, rien n'est annulable
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      notice(null);
+      const fresh: AttemptState = { ...initialState(), stage: 2, done: { 0: true, 1: true } };
+      set({
+        restarting: true,
+        attemptId: null,
+        st: fresh,
+        sim: initialSim(),
+        mes: initialMes(),
+        turns: [],
+        selTerminal: null, selSlot: null, selDevice: null, selWire: null, wireMenu: null,
+        undoStack: [], redoStack: [],
+        aideOpen: false, aideFiche: null, aideAuto: {}, badChoices: 0,
+      });
+      try {
+        const row = await getOrCreateAttempt(tp.id, true);
+        set({ attemptId: row.id, offline: false });
+        await saveAttemptState(row.id, fresh, fresh.stage);
+      } catch {
+        set({ offline: true });
+      } finally {
+        set({ restarting: false });
+      }
+      say('Nouvelle tentative créée : reprends à l\'étape Matériel.');
     },
 
     runTest(id, value) {
@@ -597,7 +903,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     },
 
     async finish() {
-      const { tp, st, attemptId, offline, student } = get();
+      const { tp, st, attemptId, offline, student, evalDiploma } = get();
       if (!stageSatisfied(tp, st, get().sim, 10)) return;
       get().complete(10);
       if (!attemptId || offline) return;
@@ -605,10 +911,10 @@ export const useParcours = create<ParcoursState>((set, get) => {
       try {
         await finishAttempt(
           attemptId,
-          buildReport(tp, done, student),
+          buildReport(tp, done, { ...student, diploma: evalDiploma }),
           computeScore(tp, done),
-          buildEvaluation(tp, done, student.diploma),
-          student.diploma,
+          buildEvaluation(tp, done, evalDiploma),
+          evalDiploma,
         );
       } catch {
         set({ offline: true });

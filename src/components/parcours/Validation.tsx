@@ -3,10 +3,11 @@
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
-import { buildReport, scoreLines } from '@/lib/sim/progress';
+import { buildEvaluation, buildReport, scoreLines } from '@/lib/sim/progress';
 import { readingLabel } from '@/lib/sim/mesures';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
 import Evaluation from './Evaluation';
+import AutoEvaluation from './AutoEvaluation';
 import TpPanel from './TpPanel';
 import { deviceStateOf, lampsOf } from './panelState';
 import { Center, Hint, Side } from './StageLayout';
@@ -148,9 +149,35 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
 
 function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
   const s = useParcours();
+  const diploma = s.evalDiploma;
   const lines = scoreLines(tp, st);
-  const report = buildReport(tp, st, s.student);
+  const report = buildReport(tp, st, { ...s.student, diploma });
   const [sent, setSent] = React.useState(false);
+  const grille = React.useMemo(() => buildEvaluation(tp, st, diploma) ?? [], [tp, st, diploma]);
+
+  // auto-évaluation : l'élève se place avant de découvrir la correction
+  if (!st.autoEvalDone && grille.length > 0) {
+    return (
+      <>
+        <Side>
+          <SideTitle>Auto-évaluation</SideTitle>
+          <Note>
+            Le TP est terminé. Avant de voir ton bilan, place-toi toi-même sur chaque compétence
+            travaillée : tu compareras ensuite ton estimation au résultat calculé.
+          </Note>
+        </Side>
+        <Center>
+          <AutoEvaluation
+            diploma={diploma}
+            codes={grille.map(c => c.code)}
+            value={st.autoEval ?? {}}
+            onSet={s.setAutoEval}
+            onSubmit={() => { s.submitAutoEval(); void s.finish(); }}
+          />
+        </Center>
+      </>
+    );
+  }
 
   return (
     <>
@@ -170,6 +197,7 @@ function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
           tp={tp}
           st={st}
           student={s.student}
+          diploma={diploma}
           sent={sent}
           offline={s.offline || !s.attemptId}
           onSend={() => { void s.finish(); setSent(true); }}
@@ -202,6 +230,11 @@ function Rapport({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
           <div className="flex flex-col gap-1 font-mono-num text-[11.5px]">
             {st.readings.map((r, i) => <div key={i}>{readingLabel(r)}</div>)}
           </div>
+          <Note>
+            Gestes de correction du câblage : {st.wiresRemoved ?? 0} fil{(st.wiresRemoved ?? 0) > 1 ? 's' : ''} défait
+            {(st.wiresRemoved ?? 0) > 1 ? 's' : ''}, {st.resets ?? 0} réinitialisation{(st.resets ?? 0) > 1 ? 's' : ''}.
+            Se reprendre est normal : ces gestes ne pèsent que très légèrement sur la note.
+          </Note>
           <Note>
             {s.student.name} · {tp.competences.join(', ')}.
           </Note>

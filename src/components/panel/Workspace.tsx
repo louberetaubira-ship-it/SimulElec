@@ -104,6 +104,11 @@ export interface WorkspaceProps {
   subtitle?: string;
   /** Mode atelier — indicateur contextuel, ex. « 7 / 14 liaisons ». */
   indicator?: React.ReactNode;
+  /**
+   * Mode atelier — actions de l'étape en cours (Annuler / Rétablir / Supprimer le fil…),
+   * placées dans la barre haute. Optionnel : l'API existante est inchangée sans lui.
+   */
+  actions?: React.ReactNode;
   /** Mode atelier — contenu du tiroir de droite (énoncé + professeur virtuel). */
   drawer?: React.ReactNode;
   drawerTitle?: string;
@@ -115,7 +120,7 @@ export interface WorkspaceProps {
 
 export default function Workspace({
   children, storageKey = 'panel', contentHeight = PANEL_H, className,
-  title, subtitle, indicator, drawer, drawerTitle = 'Énoncé', tools, activeTool = null, onTool,
+  title, subtitle, indicator, actions, drawer, drawerTitle = 'Énoncé', tools, activeTool = null, onTool,
 }: WorkspaceProps) {
   const root = React.useRef<HTMLDivElement>(null);
   const wrap = React.useRef<HTMLDivElement>(null);
@@ -404,6 +409,7 @@ export default function Workspace({
             <b className="ttl">{title ?? 'Zone de travail'}</b>
             {subtitle && <span className="stp">{subtitle}</span>}
             {indicator != null && <span className="ind">{indicator}</span>}
+            {actions != null && <span className="acts">{actions}</span>}
             <div className="sp" />
             <button type="button" className="prefs" onClick={() => setPrefsOpen((v) => !v)} aria-expanded={prefsOpen} title="Confort d'affichage">⚙</button>
             {drawer && (

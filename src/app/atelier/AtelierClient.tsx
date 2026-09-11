@@ -15,9 +15,12 @@ import { svgForKey } from '@/components/panel/svg';
 import Panel from '@/components/panel/Panel';
 import Workspace from '@/components/panel/Workspace';
 import InstrumentTray from '@/components/mesures/InstrumentTray';
+import {
+  ConfirmDialog, UndoBar, WireContextMenu, WireToolbar, useWireShortcuts,
+} from '@/components/panel/WireTools';
 import { getMyProfile } from '@/lib/db/profiles';
 import { listMyClasses } from '@/lib/db/classes';
-import { ANNEX_RAIL, NETS, SCENES, freeTp, useAtelier } from './store';
+import { ANNEX_RAIL, NETS, SCENES, freeTp, useAtelier, wireLabel } from './store';
 import './atelier.css';
 
 const FAMILIES = libraryIndex();
@@ -136,6 +139,39 @@ function Stage() {
   const removeSlot = useAtelier((s) => s.removeSlot);
   const removeWire = useAtelier((s) => s.removeWire);
   const clickTerminal = useAtelier((s) => s.clickTerminal);
+  const selWire = useAtelier((s) => s.selWire);
+  const wireMenu = useAtelier((s) => s.wireMenu);
+  const undoDepth = useAtelier((s) => s.undoStack.length);
+  const redoDepth = useAtelier((s) => s.redoStack.length);
+  const undoNotice = useAtelier((s) => s.undoNotice);
+  const selectWire = useAtelier((s) => s.selectWire);
+  const openWireMenu = useAtelier((s) => s.openWireMenu);
+  const closeWireMenu = useAtelier((s) => s.closeWireMenu);
+  const deleteSelectedWire = useAtelier((s) => s.deleteSelectedWire);
+  const undo = useAtelier((s) => s.undo);
+  const redo = useAtelier((s) => s.redo);
+  const dismissUndoNotice = useAtelier((s) => s.dismissUndoNotice);
+
+  useWireShortcuts({
+    active: true,
+    hasSelection: selWire != null,
+    onDelete: deleteSelectedWire,
+    onUndo: undo,
+    onRedo: redo,
+    onEscape: () => selectWire(null),
+  });
+
+  const toolbar = (compact?: boolean) => (
+    <WireToolbar
+      compact={compact}
+      canUndo={undoDepth > 0}
+      canRedo={redoDepth > 0}
+      canDelete={selWire != null}
+      onUndo={undo}
+      onRedo={redo}
+      onDelete={deleteSelectedWire}
+    />
+  );
 
   const host = React.useRef<HTMLDivElement>(null);
 
@@ -146,6 +182,7 @@ function Stage() {
   const onStageClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const t = e.target as HTMLElement;
     if (t.closest('.se-dev, .se-hit, .se-term, .se-wires')) return;
+    selectWire(null);
     const p = host.current?.querySelector<HTMLElement>('.se-panel');
     if (!p) return;
     const r = p.getBoundingClientRect();
@@ -162,12 +199,14 @@ function Stage() {
       <h2 className="at-h">Platine · {SCENES.find((s) => s.id === scene)?.label}</h2>
       {/* Atelier libre : pas de table `nets`, donc aucune mesure calculable sur un montage quelconque. */}
       <InstrumentTray value={null} onSelect={() => undefined} disabled />
+      {toolbar()}
       <div className="at-stage" ref={host} onClick={onStageClick}>
         <Workspace
           storageKey="atelier"
           title="Atelier libre"
           subtitle={`Platine · ${SCENES.find((x) => x.id === scene)?.label ?? ''}`}
           indicator={`${slots.length} appareil${slots.length > 1 ? 's' : ''} · ${wires.length} fil${wires.length > 1 ? 's' : ''}`}
+          actions={toolbar(true)}
         >
           <Panel
             tp={tp}
@@ -176,9 +215,10 @@ function Stage() {
             cover={cover}
             marks={marks}
             pickTerminals
-            pickWires
             onTerminal={clickTerminal}
-            onWire={removeWire}
+            selectedWire={selWire}
+            onWire={selectWire}
+            onWireLongPress={openWireMenu}
             onDevice={removeSlot}
             fixedScale
           />
@@ -205,8 +245,19 @@ function Stage() {
           </div>
         </Workspace>
       </div>
+      {wireMenu && (
+        <WireContextMenu
+          x={wireMenu.x}
+          y={wireMenu.y}
+          onDelete={() => removeWire(wireMenu.index)}
+          onCancel={closeWireMenu}
+        />
+      )}
+      <UndoBar message={undoNotice} onUndo={undo} onDismiss={dismissUndoNotice} />
       <p className="at-hint" data-testid="hint">
-        {hint ?? (sel
+        {hint ?? (selWire != null
+          ? `Fil ${wireLabel(wires[selWire])} sélectionné : Suppr pour le retirer, Échap pour abandonner.`
+          : sel
           ? `Borne ${sel.replace('.', ' : ')} sélectionnée : clique la seconde borne.`
           : rail === ANNEX_RAIL
             ? 'Annexe sélectionnée. Clique un rail pour revenir sur la platine.'
@@ -312,8 +363,25 @@ function Inspector() {
             {s.saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
           <button type="button" className="at-btn" onClick={s.newProject}>Nouveau</button>
-          <button type="button" className="at-btn ghost" onClick={s.clear}>Vider</button>
+          <button type="button" className="at-btn ghost" data-testid="at-clear" onClick={() => s.askClear(true)}>Vider</button>
         </div>
+        {s.confirmClear && (
+          <ConfirmDialog
+            title="Vider la platine ?"
+            confirmLabel="Vider la platine"
+            body={(
+              <>
+                <p>
+                  Les <b>{s.slots.length} appareil{s.slots.length > 1 ? 's' : ''}</b> et
+                  les <b>{s.wires.length} fil{s.wires.length > 1 ? 's' : ''}</b> du montage seront retirés.
+                </p>
+                <p>Tu peux revenir en arrière avec « ↩︎ Annuler ».</p>
+              </>
+            )}
+            onConfirm={s.clear}
+            onCancel={() => s.askClear(false)}
+          />
+        )}
       </section>
 
       <section className="at-card" aria-label="Appareils posés">

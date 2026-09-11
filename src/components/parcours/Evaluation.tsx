@@ -9,7 +9,7 @@
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import {
-  COMPETENCES, DOMAIN_LABEL, type CompetenceEval, type Mastery,
+  COMPETENCES, DOMAIN_LABEL, masteryGap, type CompetenceEval, type DiplomaId, type Mastery,
 } from '@/lib/data/competences';
 import { buildEvaluation, buildReport, stageScores, STAGES } from '@/lib/sim/progress';
 import { diplomaName, diplomaShort, type Student } from '@/lib/student';
@@ -31,6 +31,8 @@ const MASTERY_TONE: Record<Mastery, { bar: string; chip: string }> = {
 function Ligne({ c, criteria }: { c: CompetenceEval; criteria: string[] }) {
   const tone = MASTERY_TONE[c.mastery];
   const pct = Math.round(c.score * 100);
+  const self = c.self;
+  const gap = masteryGap(self, c.mastery);
   return (
     <details className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-2.5 open:bg-[var(--surface)]">
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2">
@@ -38,9 +40,27 @@ function Ligne({ c, criteria }: { c: CompetenceEval; criteria: string[] }) {
           {c.code}
         </span>
         <span className="min-w-[10ch] flex-1 text-[12.5px] font-medium leading-snug">{c.label}</span>
-        <span className={`rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${tone.chip}`}>
-          {MASTERY_LABEL[c.mastery]}
+        {self && (
+          <span
+            data-self-level={self}
+            title="Ton estimation"
+            className={`rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${MASTERY_TONE[self].chip} opacity-80`}
+          >
+            Toi : {MASTERY_LABEL[self]}
+          </span>
+        )}
+        <span
+          data-computed-level={c.mastery}
+          title={self ? 'Résultat calculé' : undefined}
+          className={`rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${tone.chip}`}
+        >
+          {self ? 'Calculé : ' : ''}{MASTERY_LABEL[c.mastery]}
         </span>
+        {gap != null && gap !== 0 && (
+          <span className="text-[10.5px] font-semibold text-muted">
+            {gap > 0 ? '↓ tu t’es sur-estimé' : '↑ tu t’es sous-estimé'}
+          </span>
+        )}
         <span className="flex w-full items-center gap-2 sm:w-[180px]">
           <span className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--surface-2)]">
             <span className={`block h-full ${tone.bar}`} style={{ width: `${pct}%` }} />
@@ -66,6 +86,8 @@ function Ligne({ c, criteria }: { c: CompetenceEval; criteria: string[] }) {
 
 interface Props {
   tp: TpDefinition;
+  /** Référentiel d'évaluation ; par défaut celui du profil de l'élève. */
+  diploma?: DiplomaId;
   /** Parcours platine : la grille et les scores sont calculés à partir de l'état. */
   st?: AttemptState;
   student: Student;
@@ -86,9 +108,10 @@ interface Props {
 }
 
 export default function Evaluation({
-  tp, st, student, evaluation: evalProp, scores: scoresProp, stageLabels = STAGES,
-  helpUsed: helpProp, score: scoreProp, onSend, sent, offline,
+  tp, st, student, diploma: diplomaProp, evaluation: evalProp, scores: scoresProp,
+  stageLabels = STAGES, helpUsed: helpProp, score: scoreProp, onSend, sent, offline,
 }: Props) {
+  const diploma = diplomaProp ?? student.diploma;
   const sheet = React.useRef<HTMLElement>(null);
 
   /** Impression : on déplie les critères, on imprime, puis on referme. */
@@ -106,8 +129,8 @@ export default function Evaluation({
   }, []);
 
   const evaluation = React.useMemo(
-    () => (evalProp !== undefined ? evalProp : st ? buildEvaluation(tp, st, student.diploma) : null),
-    [evalProp, st, tp, student.diploma],
+    () => (evalProp !== undefined ? evalProp : st ? buildEvaluation(tp, st, diploma) : null),
+    [evalProp, st, tp, diploma],
   );
   const scores = React.useMemo(
     () => scoresProp ?? (st ? stageScores(tp, st) : []),
@@ -128,8 +151,13 @@ export default function Evaluation({
     );
   }
 
-  const criteria = COMPETENCES[student.diploma];
+  const criteria = COMPETENCES[diploma];
   const acquis = evaluation.filter(c => c.mastery === 'acquis').length;
+  const autoEvaluees = evaluation.filter(c => c.self);
+  const ecarts = autoEvaluees.map(c => masteryGap(c.self, c.mastery) ?? 0);
+  const justes = ecarts.filter(g => g === 0).length;
+  const surEstimes = ecarts.filter(g => g > 0).length;
+  const sousEstimes = ecarts.filter(g => g < 0).length;
 
   return (
     <article
@@ -144,15 +172,33 @@ export default function Evaluation({
         <h2 className="mt-1 text-[22px] font-bold leading-tight sm:text-[26px]">{tp.title}</h2>
         <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-1 text-[12.5px] sm:grid-cols-2">
           <div className="flex gap-1.5"><dt className="text-muted">Élève :</dt><dd className="m-0 font-medium">{student.name}</dd></div>
-          <div className="flex gap-1.5"><dt className="text-muted">Diplôme :</dt><dd className="m-0 font-medium">{diplomaShort(student.diploma)}</dd></div>
+          <div className="flex gap-1.5"><dt className="text-muted">Diplôme :</dt><dd className="m-0 font-medium">{diplomaShort(diploma)}</dd></div>
           <div className="flex gap-1.5"><dt className="text-muted">Établissement :</dt><dd className="m-0">{student.etablissement || '—'}</dd></div>
           <div className="flex gap-1.5"><dt className="text-muted">Date :</dt><dd className="m-0 font-mono-num">{date}</dd></div>
         </dl>
         <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
-          Référentiel : {diplomaName(student.diploma)}. {acquis} compétence{acquis > 1 ? 's' : ''} sur{' '}
+          Référentiel : {diplomaName(diploma)}. {acquis} compétence{acquis > 1 ? 's' : ''} sur{' '}
           {evaluation.length} au niveau « acquis ». Score global du TP : {score} / 100.
         </p>
       </header>
+
+      {autoEvaluees.length > 0 && (
+        <section
+          data-ecart
+          className="rounded-xl border border-accent/40 bg-accent/10 p-2.5 text-[12px] leading-relaxed"
+        >
+          <b className="block text-[12.5px]">Ton estimation et le résultat calculé</b>
+          Tu t&apos;es placé juste sur <b>{justes}</b> compétence{justes > 1 ? 's' : ''} sur{' '}
+          {autoEvaluees.length}
+          {surEstimes > 0 && <>, sur-estimé sur <b>{surEstimes}</b></>}
+          {sousEstimes > 0 && <>, sous-estimé sur <b>{sousEstimes}</b></>}.{' '}
+          {surEstimes > sousEstimes
+            ? 'Reprends les critères de réussite des compétences en écart : ce sont eux qui font la différence.'
+            : sousEstimes > surEstimes
+              ? 'Tu vaux mieux que ce que tu crois : fais-toi confiance au prochain TP.'
+              : 'Ton regard sur ton travail est juste : c’est une compétence de professionnel.'}
+        </section>
+      )}
 
       <div className="flex flex-col gap-1.5">
         {evaluation.map(c => (

@@ -1,0 +1,22 @@
+/*
+ * Impression du bilan de compétences (espace élève et fiche élève du professeur).
+ * Seule la feuille `.bilan-sheet` est imprimée : navigation, boutons et panneaux annexes
+ * disparaissent, l'en-tête d'établissement et l'identité de l'élève apparaissent.
+ */
+.bilan-print-only { display: none; }
+
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff; }
+  body.bilan-printing nav,
+  body.bilan-printing header:not(.bilan-sheet header),
+  body.bilan-printing .no-print,
+  /* seule la feuille du bilan (et ses ancêtres) reste visible dans la page */
+  body.bilan-printing main *:not(.bilan-sheet):not(.bilan-sheet *):not(:has(.bilan-sheet)) {
+    display: none !important;
+  }
+  body.bilan-printing main { display: block !important; padding: 0 !important; }
+  .bilan-print-only { display: block; }
+  .bilan-sheet { border: 0 !important; padding: 0 !important; max-width: none !important; }
+  .bilan-sheet tr, .bilan-sheet li { break-inside: avoid; }
+}

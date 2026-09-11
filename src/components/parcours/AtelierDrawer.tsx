@@ -10,6 +10,7 @@ import type { TpDefinition } from '@/lib/types';
 import { STAGES } from '@/lib/sim/progress';
 import { HELLO } from '@/lib/sim/context';
 import ProfBot from './ProfBot';
+import CompetencesStage from './CompetencesStage';
 import { useParcours } from '@/app/tp/[id]/store';
 
 export default function AtelierDrawer({ tp }: { tp: TpDefinition }) {
@@ -31,6 +32,14 @@ export default function AtelierDrawer({ tp }: { tp: TpDefinition }) {
             </div>
           ))}
         </div>
+        <CompetencesStage
+          diploma={s.evalDiploma}
+          stage={st.stage}
+          stageLabel={STAGES[st.stage]}
+          compact
+          className="-mx-3 rounded-none border-y border-[var(--line)]"
+        />
+
         {HELLO[st.stage] && (
           <p className="m-0 rounded-[10px] border border-accent bg-accent/10 px-2 py-1.5 text-[12px]">
             {HELLO[st.stage]}

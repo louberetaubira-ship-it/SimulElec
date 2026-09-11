@@ -48,7 +48,7 @@ export default function Nav() {
     links.push({ href: '/tp', label: 'Catalogue' });
     links.push({ href: '/prof/classes', label: 'Mes classes' });
     links.push({ href: '/prof', label: 'Suivi' });
-    links.push({ href: '/prof/tp/nouveau', label: 'Créer un TP' });
+    links.push({ href: '/prof/tp', label: 'Mes TP' });
     if (role === 'admin') links.push({ href: '/admin', label: 'Établissement' });
   }
   if (profile) links.push({ href: '/compte', label: 'Compte' });

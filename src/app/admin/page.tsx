@@ -9,14 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
-import {
-  addTeacher,
-  listAllowlist,
-  removeTeacher,
-  resetTeacherPassword,
-  type TeacherAllowEntry,
-  type TeacherCredential,
-} from '@/lib/db/allowlist';
+import { addTeacher, listAllowlist, removeTeacher, type TeacherAllowEntry } from '@/lib/db/allowlist';
 import type { ProfileRow } from '@/lib/db/types';
 import {
   Champ,
@@ -81,7 +74,6 @@ export default function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
-  const [credential, setCredential] = useState<TeacherCredential | null>(null);
 
   const recharger = useCallback(async () => {
     const [liste, compteurs] = await Promise.all([listAllowlist(), compter()]);
@@ -112,26 +104,10 @@ export default function AdminPage() {
       setEmail('');
       setNom('');
       setRole('professeur');
-      setOk('Adresse ajoutée. Adresse Google : elle peut se connecter directement. Autre adresse : cliquez « Créer accès » pour générer un mot de passe.');
+      setOk('Adresse ajoutée : la personne peut maintenant se connecter avec Google.');
       await recharger();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Ajout impossible.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function genererAcces(adresse: string) {
-    setErr(null);
-    setOk(null);
-    setCredential(null);
-    setBusy(true);
-    try {
-      const cred = await resetTeacherPassword(adresse);
-      setCredential(cred);
-      await recharger();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Génération impossible.');
     } finally {
       setBusy(false);
     }
@@ -181,32 +157,9 @@ export default function AdminPage() {
 
       <Panneau title="Liste blanche">
         <p className="mb-3 text-[13px] text-muted">
-          Seules les adresses inscrites ci-dessous peuvent se connecter. Deux modes possibles : «&nbsp;Continuer
-          avec Google&nbsp;» (adresses Gmail / Google Workspace), ou <strong>e-mail + mot de passe</strong> pour
-          toute autre adresse (ex.&nbsp;académique) — cliquez «&nbsp;Créer accès&nbsp;» pour générer le mot de passe.
+          Seules les adresses inscrites ci-dessous peuvent se connecter avec Google ; toute autre adresse est
+          refusée à l&apos;inscription.
         </p>
-
-        {credential && (
-          <div className="mb-3 rounded-xl border border-accent bg-accent/10 p-3 text-[13px]">
-            <p className="font-semibold text-[var(--ink)]">
-              {credential.created ? 'Accès créé' : 'Mot de passe réinitialisé'} pour {credential.email}
-            </p>
-            <p className="mt-1 text-muted">
-              Transmettez ces identifiants à la personne (il ne sera plus affiché ensuite). Elle se connecte
-              via l&apos;onglet «&nbsp;Professeur&nbsp;» avec son adresse e-mail et ce mot de passe.
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-lg border border-line bg-white px-2 py-1 font-mono text-[12px]">
-                {credential.email}
-              </span>
-              <span className="rounded-lg border border-line bg-white px-2 py-1 font-mono text-[13px] font-semibold">
-                {credential.password}
-              </span>
-              <CopierBouton value={credential.password} label="Copier le mot de passe" />
-              <CopierBouton value={`Identifiant : ${credential.email}\nMot de passe : ${credential.password}`} label="Copier les deux" />
-            </div>
-          </div>
-        )}
 
         <div className="overflow-x-auto rounded-xl border border-line">
           <table className="w-full min-w-[640px] text-[13px]">
@@ -245,15 +198,6 @@ export default function AdminPage() {
                       <CopierBouton value={entry.email} label="Copier" />
                       <button
                         type="button"
-                        disabled={busy}
-                        onClick={() => genererAcces(entry.email)}
-                        className="min-h-touch rounded-[10px] border border-accent bg-accent px-3 text-[12.5px] font-semibold text-[var(--accent-ink)] disabled:opacity-40"
-                        title="Créer le compte e-mail + mot de passe (ou réinitialiser le mot de passe)"
-                      >
-                        {entry.profile ? 'Réinit. mdp' : 'Créer accès'}
-                      </button>
-                      <button
-                        type="button"
                         disabled={busy || entry.email === profile.email}
                         onClick={() => retirer(entry.email)}
                         className="min-h-touch rounded-[10px] border border-crit/50 px-3 text-[12.5px] font-semibold text-crit disabled:opacity-40"
@@ -278,13 +222,13 @@ export default function AdminPage() {
 
       <Panneau title="Autoriser une adresse">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Champ label="Adresse e-mail" className="lg:col-span-2">
+          <Champ label="Adresse Google" className="lg:col-span-2">
             <input
               type="email"
               inputMode="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="prenom.nom@ac-guyane.fr"
+              placeholder="prenom.nom@ac-academie.fr"
               className={inputClass}
             />
           </Champ>

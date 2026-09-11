@@ -12,9 +12,10 @@ import { listMyAttempts } from '@/lib/db/attempts';
 import { listAssignments } from '@/lib/db/classes';
 import { listTps, type TpSummary } from '@/lib/db/tps';
 import { createClient } from '@/lib/supabase/client';
-import { eleveStats } from '@/lib/eleve-stats';
+import { competenceTps, eleveStats } from '@/lib/eleve-stats';
 import { COMPETENCES, DIPLOMAS, masteryOf, type CompetenceEval, type DiplomaId } from '@/lib/data/competences';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
+import BilanExport from '@/components/parcours/BilanExport';
 import {
   Barre,
   BilanCompetences,
@@ -90,6 +91,14 @@ export default function MoiPage() {
 
   const stats = useMemo(() => eleveStats(attempts), [attempts]);
   const titres = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
+  const tpsParCode = useMemo(() => {
+    const brut = competenceTps(attempts);
+    const out: Record<string, string[]> = {};
+    Object.entries(brut).forEach(([code, ids]) => {
+      out[code] = ids.map((id) => titres.get(id) ?? id);
+    });
+    return out;
+  }, [attempts, titres]);
 
   const termines = attempts.filter((a) => a.status === 'termine');
   const enCours = attempts.filter((a) => a.status === 'en_cours');
@@ -216,11 +225,23 @@ export default function MoiPage() {
         )}
       </Panneau>
 
-      <Panneau title="Mon bilan de compétences">
-        <p className="mb-3 text-[13px] text-muted">
+      <Panneau title="Mon bilan de compétences" className="bilan-sheet">
+        <p className="no-print mb-3 text-[13px] text-muted">
           Référentiel {diplome?.name ?? 'de ton diplôme'} : chaque compétence est évaluée à partir de tes TP
           terminés.
         </p>
+        <BilanExport
+          className="mb-3"
+          competences={bilan}
+          tpsParCode={tpsParCode}
+          fichier={`bilan-${(profile.full_name ?? 'eleve').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          identite={{
+            eleve: profile.full_name ?? 'Élève',
+            etablissement: profile.etablissement,
+            classe: klass?.name ?? null,
+            diplome: diplome?.short ?? null,
+          }}
+        />
         <BilanCompetences competences={bilan} />
       </Panneau>
 

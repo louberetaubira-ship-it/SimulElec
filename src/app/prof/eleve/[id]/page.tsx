@@ -8,8 +8,9 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { countHelpByAttempt, getStudentFile, type StudentFile } from '@/lib/db/classes';
-import { eleveStats, noteSur20 } from '@/lib/eleve-stats';
+import { competenceTps, eleveStats, noteSur20 } from '@/lib/eleve-stats';
 import { DIPLOMAS } from '@/lib/data/competences';
+import BilanExport from '@/components/parcours/BilanExport';
 import {
   BilanCompetences,
   Chiffre,
@@ -147,7 +148,19 @@ export default function FicheElevePage({ params }: { params: { id: string } }) {
         </div>
       </Panneau>
 
-      <Panneau title="Bilan de compétences cumulé">
+      <Panneau title="Bilan de compétences cumulé" className="bilan-sheet">
+        <BilanExport
+          className="mb-3"
+          competences={stats.competences}
+          tpsParCode={competenceTps(attempts)}
+          fichier={`bilan-${nom.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+          identite={{
+            eleve: nom,
+            etablissement: null,
+            classe: klass?.name ?? null,
+            diplome: diplome?.short ?? null,
+          }}
+        />
         <BilanCompetences competences={stats.competences} />
       </Panneau>
 
