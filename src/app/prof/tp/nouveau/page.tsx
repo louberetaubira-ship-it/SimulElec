@@ -10,7 +10,8 @@ import StudioClient from '@/components/studio/StudioClient';
 
 function Nouveau() {
   const params = useSearchParams();
-  return <StudioClient id={null} source={params.get('from')} />;
+  // `?generer=1` ouvre directement l'écran de brief du générateur.
+  return <StudioClient id={null} source={params.get('from')} generer={params.get('generer') === '1'} />;
 }
 
 export default function NouveauTpPage() {

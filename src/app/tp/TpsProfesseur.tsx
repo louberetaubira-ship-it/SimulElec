@@ -19,6 +19,14 @@ const FAMILY_SHORT: Record<string, string> = {
   pv: 'photovoltaïque',
 };
 
+/** « 12/09 » — date de validation d'un TP généré. */
+function jourMois(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export default function TpsProfesseur() {
   const [tps, setTps] = useState<TpRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +84,14 @@ export default function TpsProfesseur() {
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${tp.playable ? 'bg-good/20 text-good' : 'bg-[var(--surface-2)] text-muted'}`}>
                 {tp.playable ? 'jouable' : 'lecture'}
               </span>
+              {tp.generated && tp.validated_at && (
+                <span
+                  data-testid={`genere-${tp.id}`}
+                  className="rounded-full bg-good/20 px-2 py-0.5 text-[10px] font-semibold text-good"
+                >
+                  TP généré · validé le {jourMois(tp.validated_at)}
+                </span>
+              )}
             </div>
             {tp.summary && <p className="m-0 text-[13px] text-muted">{tp.summary}</p>}
             <div className="flex flex-wrap gap-1.5">

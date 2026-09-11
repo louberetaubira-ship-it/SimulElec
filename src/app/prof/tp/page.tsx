@@ -14,6 +14,7 @@ import {
   createTp, deleteTp, freeTpId, isBundledTp, listMyTps, rowToDefinition, setArchived, setPublished,
   studioMetaOf, type TpFamily, type TpRow, type TpStoredDefinition,
 } from '@/lib/db/tps';
+import { listMyGenerations, myQuota, type GenerationRow, type Quota } from '@/lib/db/generations';
 import { TPS } from '@/lib/data/tps';
 import { DIPLOMAS, type DiplomaId, type Domain } from '@/lib/data/competences';
 import { competencesOf } from '@/components/studio/store';
@@ -30,6 +31,20 @@ const FAMILY_LABEL: Record<string, string> = {
 };
 
 const btn = 'min-h-touch rounded-[10px] border border-line bg-surface px-3 text-[12.5px] font-semibold hover:bg-[var(--surface-2)]';
+
+/** « 12/09 » — date de validation affichée dans le badge d'un TP généré. */
+function jourMois(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Durée lisible d'une génération. */
+function dureeLisible(ms: number): string {
+  const s = Math.round(ms / 1000);
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s`;
+}
 
 function telecharger(nom: string, data: unknown) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -51,6 +66,8 @@ export default function CatalogueProfPage() {
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [aSupprimer, setASupprimer] = useState<TpRow | null>(null);
+  const [generations, setGenerations] = useState<GenerationRow[]>([]);
+  const [quota, setQuota] = useState<Quota | null>(null);
   const fichier = useRef<HTMLInputElement>(null);
 
   const charger = useCallback(async () => {
@@ -67,6 +84,13 @@ export default function CatalogueProfPage() {
       /* pas de classe : la colonne reste vide */
     }
     setRows(tps.map((t) => ({ ...t, classes: parClasse[t.id] ?? [] })));
+    try {
+      const [journal, q] = await Promise.all([listMyGenerations(), myQuota()]);
+      setGenerations(journal);
+      setQuota(q);
+    } catch {
+      /* journal des générations indisponible : le catalogue reste utilisable */
+    }
   }, []);
 
   useEffect(() => {
@@ -170,6 +194,13 @@ export default function CatalogueProfPage() {
         <Link href="/prof/tp/nouveau" className="min-h-touch rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold leading-[40px] text-[var(--accent-ink)]">
           Créer un TP
         </Link>
+        <Link
+          href="/prof/tp/nouveau?generer=1"
+          data-testid="lien-generer"
+          className="min-h-touch rounded-[10px] border border-line bg-surface px-4 text-[13px] font-semibold leading-[40px] hover:bg-[var(--surface-2)]"
+        >
+          ✦ Générer un TP
+        </Link>
         <button type="button" className={btn} onClick={() => fichier.current?.click()} disabled={busy}>
           Importer un fichier .json
         </button>
@@ -236,7 +267,17 @@ export default function CatalogueProfPage() {
                       <div className="font-semibold">{t.title}</div>
                       <div className="font-mono text-[11px] text-muted">{t.id}</div>
                     </td>
-                    <td className="pr-2 text-muted">établissement</td>
+                    <td className="pr-2 text-muted">
+                      {t.generated ? (
+                        <span
+                          data-testid={`origine-${t.id}`}
+                          className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                            t.validated_at ? 'border-good/50 bg-good/10 text-good' : 'border-warn/50 bg-warn/10 text-warn'}`}
+                        >
+                          {t.validated_at ? `TP généré · validé le ${jourMois(t.validated_at)}` : 'TP généré · à valider'}
+                        </span>
+                      ) : 'établissement'}
+                    </td>
                     <td className="pr-2">
                       {(t.diplomas ?? []).length === 0 ? <span className="text-muted">—</span> : (
                         <div className="flex flex-wrap gap-1">
@@ -294,6 +335,63 @@ export default function CatalogueProfPage() {
                         </button>
                         <button type="button" className={`${btn} text-crit`} onClick={() => setASupprimer(t)}>Supprimer</button>
                       </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panneau>
+
+      <Panneau
+        title="Mes générations"
+        aside={quota && (
+          <span className="rounded-full border border-line bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-semibold text-muted">
+            {quota.utilisees} / {quota.plafond} ce mois-ci
+          </span>
+        )}
+      >
+        {generations.length === 0 ? (
+          <p className="text-[13px] text-muted">
+            Aucune génération pour l’instant. « ✦ Générer un TP » rédige un brouillon complet à
+            partir de votre brief : vous le relisez, le validez, puis vous le publiez.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-[13px]">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-[.06em] text-muted">
+                  <th className="py-2">Thème</th>
+                  <th>Date</th>
+                  <th>Durée</th>
+                  <th>Coût estimé</th>
+                  <th>État</th>
+                  <th className="text-right">TP produit</th>
+                </tr>
+              </thead>
+              <tbody data-testid="mes-generations">
+                {generations.map((g) => (
+                  <tr key={g.id} className="border-t border-line align-top">
+                    <td className="py-2 pr-2 font-semibold">{g.theme || '—'}</td>
+                    <td className="pr-2 text-muted">{dateCourte(g.created_at)}</td>
+                    <td className="pr-2 text-muted">{dureeLisible(g.duree_ms)}</td>
+                    <td className="pr-2 font-mono text-muted">
+                      {Number(g.cout_estime).toFixed(2).replace('.', ',')} €
+                    </td>
+                    <td className="pr-2">
+                      <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                        g.statut === 'ok' ? 'border-good/50 bg-good/10 text-good'
+                          : g.statut === 'anomalies' ? 'border-warn/50 bg-warn/10 text-warn'
+                            : 'border-crit/50 bg-crit/10 text-crit'}`}
+                      >
+                        {g.statut}
+                      </span>
+                    </td>
+                    <td className="py-2 text-right">
+                      {g.tp_id
+                        ? <Link href={`/prof/tp/${g.tp_id}`} className="font-semibold underline">{g.tp_id}</Link>
+                        : <span className="text-muted">—</span>}
                     </td>
                   </tr>
                 ))}
