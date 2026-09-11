@@ -22,14 +22,14 @@ import { indexComplet } from '@/lib/generateur/index-bibliotheque';
 import { SYSTEME_MATERIEL, construirePromptMateriel } from '@/lib/generateur/prompt';
 import { OUTIL_MATERIEL, lireChoixMateriel } from '@/lib/generateur/schema';
 import {
-  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, ouvrirAcces, texte,
+  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, ouvrirAcces, rapporteur, texte,
   type CorpsBrief,
 } from '@/lib/generateur/serveur';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** Un seul appel au modèle : une minute suffit très largement. */
-export const maxDuration = 60;
+/** L'écriture du modèle peut dépasser la minute : la fonction doit vivre plus longtemps. */
+export const maxDuration = 300;
 
 /** Plafond de sortie : une liste de matériel, même fournie, tient dans 4 000 jetons. */
 const MAX_TOKENS = 4000;
@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
         systeme: SYSTEME_MATERIEL,
         outil: OUTIL_MATERIEL,
         maxTokens: MAX_TOKENS,
+        onEcriture: rapporteur(e, 'Choix du matériel'),
         messages: [{ role: 'user', content: construirePromptMateriel(brief, resume, index) }],
       });
 

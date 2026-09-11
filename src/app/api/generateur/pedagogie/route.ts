@@ -18,14 +18,18 @@ import { contexteReferentiel } from '@/lib/generateur/contexte';
 import { SYSTEME_PEDAGOGIE, construirePromptPedagogie } from '@/lib/generateur/prompt';
 import { OUTIL_PEDAGOGIE, lirePedagogieOutil } from '@/lib/generateur/schema';
 import {
-  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, ouvrirAcces,
+  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, ouvrirAcces, rapporteur,
   type CorpsBrief,
 } from '@/lib/generateur/serveur';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** Un seul appel au modèle : une minute suffit très largement. */
-export const maxDuration = 60;
+/**
+ * Un dossier pédagogique dense fait plusieurs milliers de jetons : l'écriture demande
+ * couramment deux à trois minutes. La fonction doit vivre plus longtemps que cette écriture,
+ * sinon elle est coupée en plein milieu (« le serveur a interrompu la réponse »).
+ */
+export const maxDuration = 300;
 
 /** Plafond de sortie : un dossier pédagogique dense tient dans 8 000 jetons. */
 const MAX_TOKENS = 8000;
@@ -89,13 +93,12 @@ export async function POST(request: NextRequest) {
   if (acces instanceof NextResponse) return acces;
   const { caller, apiKey } = acces;
 
-  return fluxReponse('Lecture du dossier technique et du référentiel…', async (e) => {
-    e.progres(
-      docs.length
-        ? `Rédaction du dossier pédagogique à partir de ${docs.length} document(s)…`
-        : 'Rédaction du dossier pédagogique…',
-    );
+  // Le libellé dit la vérité : sans document joint, rien n'est « lu », le modèle écrit.
+  const libelle = docs.length
+    ? `Lecture de ${docs.length} document${docs.length > 1 ? 's' : ''} puis rédaction du dossier…`
+    : 'Rédaction du dossier pédagogique à partir du thème';
 
+  return fluxReponse(libelle, async (e) => {
     let journalise = false;
     try {
       const { entree, jetonsEntree, jetonsSortie } = await appelModele({
@@ -103,6 +106,7 @@ export async function POST(request: NextRequest) {
         systeme: SYSTEME_PEDAGOGIE,
         outil: OUTIL_PEDAGOGIE,
         maxTokens: MAX_TOKENS,
+        onEcriture: rapporteur(e, 'Rédaction du dossier pédagogique'),
         messages: [{
           role: 'user',
           content: [

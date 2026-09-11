@@ -128,8 +128,13 @@ export interface AvanceeEtape {
   message?: string;
 }
 
-/** Délai d'attente par appel serveur (ms). Chaque route ne fait qu'un appel au modèle. */
-export const DELAI_ETAPE_MS = 90_000;
+/**
+ * Délai d'attente par appel serveur (ms). Chaque route ne fait qu'un appel au modèle, mais
+ * ce modèle ÉCRIT plusieurs milliers de jetons : deux à trois minutes sont normales. Le
+ * serveur envoie un battement de cœur chaque seconde, donc une étape vraiment bloquée se
+ * voit tout de suite ; ce délai n'est que le garde-fou ultime.
+ */
+export const DELAI_ETAPE_MS = 300_000;
 
 /* ------------------------------------------------------------- pièces jointes */
 

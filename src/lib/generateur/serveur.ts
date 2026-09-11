@@ -141,6 +141,11 @@ export interface OptionsAppel {
   messages: Anthropic.Messages.MessageParam[];
   /** Borné pour que la réponse tienne largement dans la durée de la fonction. */
   maxTokens: number;
+  /**
+   * Appelé pendant que le modèle écrit, avec le nombre de caractères déjà produits.
+   * Sert à alimenter l'écran d'attente : l'étape n'est jamais un écran figé.
+   */
+  onEcriture?: (caracteres: number) => void;
 }
 
 export interface RetourModele {
@@ -186,16 +191,31 @@ export async function appelModele(o: OptionsAppel): Promise<RetourModele> {
     messages: o.messages,
   };
 
+  /**
+   * Réponse EN FLUX. Une rédaction dense demande plus d'une minute : en flux, des octets
+   * circulent en permanence, la progression réelle remonte à l'écran d'attente et aucune
+   * passerelle ne coupe une connexion qu'elle croirait inactive.
+   */
+  const diffuser = async (model: string): Promise<Anthropic.Messages.Message> => {
+    let caracteres = 0;
+    const flux = anthropic.messages.stream({ model, ...requete });
+    if (o.onEcriture) {
+      flux.on('text', (t) => { caracteres += t.length; o.onEcriture?.(caracteres); });
+      flux.on('inputJson', (j) => { caracteres += j.length; o.onEcriture?.(caracteres); });
+    }
+    return flux.finalMessage();
+  };
+
   let reponse: Anthropic.Messages.Message;
   try {
-    reponse = await anthropic.messages.create({ model: MODELE, ...requete });
+    reponse = await diffuser(MODELE);
   } catch (e) {
     if (MODELE_REPLI === MODELE) {
       const detail = e instanceof Error ? e.message : 'erreur inconnue';
       throw new ErreurGeneration(`Le modèle n’a pas répondu (${detail}). Réessaie dans un instant.`, 502, detail);
     }
     try {
-      reponse = await anthropic.messages.create({ model: MODELE_REPLI, ...requete });
+      reponse = await diffuser(MODELE_REPLI);
     } catch (e2) {
       const detail = e2 instanceof Error ? e2.message : 'erreur inconnue';
       throw new ErreurGeneration(`Le modèle n’a pas répondu (${detail}). Réessaie dans un instant.`, 502, detail);
@@ -269,6 +289,21 @@ export interface Emetteur {
 }
 
 /**
+ * Rapporteur d'écriture : transforme le nombre de caractères produits par le modèle en un
+ * message lisible, au plus une fois par seconde pour ne pas inonder le flux.
+ */
+export function rapporteur(e: Emetteur, libelle: string): (caracteres: number) => void {
+  let dernier = 0;
+  return (caracteres) => {
+    const maintenant = Date.now();
+    if (maintenant - dernier < 1000) return;
+    dernier = maintenant;
+    const lignes = Math.round(caracteres / 80);
+    e.progres(lignes > 0 ? `${libelle} — ${lignes} ligne${lignes > 1 ? 's' : ''} écrite${lignes > 1 ? 's' : ''}…` : libelle);
+  };
+}
+
+/**
  * Réponse en flux : `travail` reçoit un émetteur de progression et rend la charge utile
  * finale. Un battement de cœur part toutes les 4 s tant que le travail dure, pour qu'aucune
  * passerelle ne considère la connexion inactive.
@@ -293,14 +328,18 @@ export function fluxReponse(
         }
       };
 
-      envoyer({ type: 'progres', message: premierMessage, secondes: 0 });
+      let dernier = premierMessage;
+      envoyer({ type: 'progres', message: dernier, secondes: 0 });
       const battement = setInterval(() => {
-        envoyer({ type: 'progres', message: premierMessage, secondes: secondes() });
+        envoyer({ type: 'progres', message: dernier, secondes: secondes() });
       }, BATTEMENT_MS);
 
       try {
         const data = await travail({
-          progres: (message) => envoyer({ type: 'progres', message, secondes: secondes() }),
+          progres: (message) => {
+            dernier = message;
+            envoyer({ type: 'progres', message, secondes: secondes() });
+          },
         });
         envoyer({ type: 'resultat', data });
       } catch (e) {

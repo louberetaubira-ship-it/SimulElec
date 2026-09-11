@@ -17,15 +17,15 @@ import { SYSTEME_REPARATION, construireRelance } from '@/lib/generateur/prompt';
 import { OUTIL_REPARATION, lireMaquetteOutil, lireReparation } from '@/lib/generateur/schema';
 import type { Anomalie } from '@/lib/generateur/verifier';
 import {
-  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, objet, ouvrirAcces,
+  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, objet, ouvrirAcces, rapporteur,
   sceneEffective, texte, type CorpsBrief,
 } from '@/lib/generateur/serveur';
 import { lireMaterielRetenu, retenusPourContexte } from '@/lib/generateur/retenus';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** Un seul appel au modèle : une minute suffit très largement. */
-export const maxDuration = 60;
+/** L'écriture du modèle peut dépasser la minute : la fonction doit vivre plus longtemps. */
+export const maxDuration = 300;
 
 /** Plafond de sortie : une réparation ne renvoie que les sections fautives. */
 const MAX_TOKENS = 8000;
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   ]);
   const scene = sceneEffective(brief);
 
-  return fluxReponse(`Réparation ciblée : ${anomalies.length} anomalie(s) à corriger…`, async () => {
+  return fluxReponse(`Réparation ciblée : ${anomalies.length} anomalie(s) à corriger…`, async (e) => {
     const appareils = await retenusPourContexte(retenus);
     const contexte = construireContexte({ diploma: brief.diplomaId, scene, retenus: appareils });
 
@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         systeme: SYSTEME_REPARATION,
         outil: OUTIL_REPARATION,
         maxTokens: MAX_TOKENS,
+        onEcriture: rapporteur(e, 'Réparation de la maquette'),
         messages: [{
           role: 'user',
           content: [

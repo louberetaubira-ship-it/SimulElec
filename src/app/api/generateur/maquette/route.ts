@@ -18,15 +18,15 @@ import { construireContexte } from '@/lib/generateur/contexte';
 import { SYSTEME_MAQUETTE, construirePromptMaquette } from '@/lib/generateur/prompt';
 import { OUTIL_MAQUETTE, lireMaquetteOutil } from '@/lib/generateur/schema';
 import {
-  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, ouvrirAcces,
+  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, ouvrirAcces, rapporteur,
   sceneEffective, texte, type CorpsBrief,
 } from '@/lib/generateur/serveur';
 import { lireMaterielRetenu, retenusPourContexte } from '@/lib/generateur/retenus';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** Un seul appel au modèle : une minute suffit très largement. */
-export const maxDuration = 60;
+/** L'écriture du modèle peut dépasser la minute : la fonction doit vivre plus longtemps. */
+export const maxDuration = 300;
 
 /** Plafond de sortie : une platine complète (slots, liaisons, mesures, postes) tient dans 10 000 jetons. */
 const MAX_TOKENS = 10000;
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
         systeme: SYSTEME_MAQUETTE,
         outil: OUTIL_MAQUETTE,
         maxTokens: MAX_TOKENS,
+        onEcriture: rapporteur(e, 'Construction de la maquette'),
         messages: [{ role: 'user', content: construirePromptMaquette(brief, contexte, resume) }],
       });
 
