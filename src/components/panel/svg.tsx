@@ -254,9 +254,54 @@ export function LockSvg() {
   );
 }
 
+/**
+ * Sectionneur porte-fusibles tripolaire (type GK1, 3 modules).
+ *
+ * C'est l'organe de SECTIONNEMENT ET DE CONSIGNATION d'un départ-moteur : il coupe en charge
+ * nulle, se cadenasse en position ouverte et porte trois cartouches aM qui assurent la
+ * protection contre les courts-circuits. Il se dessine ouvert ou fermé, parce que l'élève doit
+ * lire sa position d'un coup d'œil avant toute intervention.
+ */
+export function FuseSwitchSvg({ state }: { state?: 'on' | 'off' | 'trip' }) {
+  const gid = React.useId();
+  const ferme = state === 'on';
+  return (
+    <svg viewBox="0 0 78 120" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F2F3F5" /><stop offset=".5" stopColor="#DDE0E4" /><stop offset="1" stopColor="#C2C7CD" />
+        </linearGradient>
+      </defs>
+      {/* corps modulaire */}
+      <rect x="2" y="10" width="74" height="100" rx="3" fill={`url(#${gid})`} stroke="#6E7780" strokeWidth="1.5" />
+      {/* bornes à cage, en haut et en bas */}
+      <g fill="#2A2E33">
+        {[0, 1, 2].map((i) => <rect key={`t${i}`} x={10 + i * 24} width="16" y="2" height="10" rx="2" />)}
+        {[0, 1, 2].map((i) => <rect key={`b${i}`} x={10 + i * 24} width="16" y="108" height="10" rx="2" />)}
+      </g>
+      {/* trois tiroirs porte-cartouche : basculés vers l'avant quand le sectionneur est ouvert */}
+      {[0, 1, 2].map((i) => (
+        <g key={i} transform={`translate(${10 + i * 24} ${ferme ? 30 : 34})`}>
+          <rect x="0" y="0" width="16" height="58" rx="2" fill={ferme ? '#3A4047' : '#8A9299'} stroke="#20262D" />
+          <rect x="3" y={ferme ? 8 : 12} width="10" height="34" rx="1.5" fill="#C8A24B" stroke="#8A6D22" />
+          <text x="8" y={ferme ? 30 : 34} textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#3A2E0C">aM</text>
+        </g>
+      ))}
+      {/* étiquette et repère de position, lus avant consignation */}
+      <text x="39" y="24" textAnchor="middle" fontFamily={COND} fontSize="9" fontWeight="700" fill="#3A4047">
+        {ferme ? 'I' : 'O'}
+      </text>
+      <text x="39" y="103" textAnchor="middle" fontFamily={SANS} fontSize="6" fill="#66717F">3P · 400 V · aM</text>
+      {/* anneau de cadenassage, accessible uniquement en position ouverte */}
+      <circle cx="70" cy="99" r="3" fill="none" stroke={ferme ? '#9AA1A8' : '#D93A3A'} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 /** Rendu vectoriel associé à une clé de catalogue, s'il y en a un. */
-export function svgForKey(key: string): React.ReactNode | null {
+export function svgForKey(key: string, state?: 'on' | 'off' | 'trip'): React.ReactNode | null {
   switch (key) {
+    case 'fuseswitch': return <FuseSwitchSvg state={state} />;
     case 'pvpanel': return <PvPanelSvg />;
     case 'onduleur': return <OnduleurSvg />;
     case 'dcswitch': return <DcModSvg kind="sw" />;

@@ -159,6 +159,11 @@
 .se-station .lamp.g.on { background: #3DFF7A; box-shadow: 0 0 18px 6px rgba(61, 255, 122, .55), inset 0 2px 4px rgba(255, 255, 255, .7); }
 .se-station .lamp.r { background: #5B2E2E; top: 56px; }
 .se-station .lamp.r.on { background: #FF4D3D; box-shadow: 0 0 18px 6px rgba(255, 77, 61, .55), inset 0 2px 4px rgba(255, 255, 255, .7); }
+/* verre incolore (voyant « sous tension ») : gris clair éteint, blanc lumineux allumé */
+.se-station .lamp.c, .se-station .lamp.w { background: #C6CBD0; }
+.se-station .lamp.c.on, .se-station .lamp.w.on { background: #FFFDF0; box-shadow: 0 0 18px 6px rgba(255, 250, 220, .75), inset 0 2px 4px rgba(255, 255, 255, .8); }
+.se-station .lamp.y { background: #5E4E1E; }
+.se-station .lamp.y.on { background: #FFD23D; box-shadow: 0 0 18px 6px rgba(255, 210, 61, .55), inset 0 2px 4px rgba(255, 255, 255, .7); }
 .se-station .btn {
   position: absolute; left: 50%; transform: translateX(-50%); width: 34px; height: 34px; border-radius: 50%;
   border: 3px solid #4E555C; cursor: pointer;
@@ -167,6 +172,20 @@
 .se-station .btn:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 1px 0 #2F353B; }
 .se-station .btn.g { background: radial-gradient(circle at 35% 35%, #6CFF9C, #1E9E63); top: 104px; }
 .se-station .btn.r { background: radial-gradient(circle at 35% 35%, #FF8A80, #D93A3A); top: 148px; }
+.se-station .btn.c, .se-station .btn.w { background: radial-gradient(circle at 35% 35%, #FFFFFF, #C6CBD0); }
+.se-station .btn.y { background: radial-gradient(circle at 35% 35%, #FFE58A, #E39A00); }
+/* coup de poing : tête plus large, cerclée de l'anneau de déverrouillage */
+.se-station .btn.k { border-width: 4px; box-shadow: 0 4px 0 #2F353B, 0 5px 8px rgba(0, 0, 0, .45), inset 0 2px 3px rgba(255, 255, 255, .5); }
+.se-station .btn.k::after {
+  content: ""; position: absolute; inset: -5px; border-radius: 50%;
+  border: 2px solid #F0B429; opacity: .9;
+}
+/* verrouillé : la tête reste enfoncée tant qu'on ne l'a pas déverrouillée */
+.se-station .btn.latched {
+  transform: translateX(-50%) translateY(3px);
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, .55), 0 1px 0 #2F353B;
+  filter: brightness(.82);
+}
 .se-station .lb {
   position: absolute; left: -6px; transform: translateX(-100%); text-align: right;
   font-size: 7px; font-weight: 700; color: #20262D; white-space: nowrap; text-shadow: 0 0 3px #fff;

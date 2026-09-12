@@ -26,6 +26,10 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - La platine est blanche, réaliste (rails DIN dégradés, ombres portées sur les photos), les fils sont des courbes de Bézier avec ombre. Toujours se rapprocher de la réalité d'une armoire industrielle : borniers X1 (puissance) / X2 (commande), repérage des bornes, sections.
 - Mobile-first : tout doit rester utilisable sur un téléphone Android (colonnes empilées, panneau scalé, cibles tactiles ≥ 40 px).
 
+## Bibliothèque simulable
+- Si un TP a besoin d'un appareillage qui n'existe pas encore, on le **crée** : entrée dans `src/lib/data/catalogue.ts` (bornes nommées comme sur l'appareil réel) + dessin vectoriel dans `src/components/panel/svg.tsx` quand il n'y a pas de photo dans le pack. On ne remplace jamais un appareil par un approchant « qui fera l'affaire » : l'élève doit voir et manipuler le bon organe.
+- Un appareil dont la position se lit (sectionneur, interrupteur) reçoit son état dans son dessin (`svgForKey(key, state)`).
+
 ## Qualité
 - `npm run build` doit passer sans erreur ni warning ESLint bloquant. Pas de `any` gratuit. Composants client marqués `'use client'`.
 - Aucune clé secrète côté client. Les images sont servies depuis `public/sprites` (pas de data URI dans le code).

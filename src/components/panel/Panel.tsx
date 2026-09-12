@@ -9,8 +9,8 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  MTERM, MT2, NET_COLOR, PANEL_H, PANEL_W, PE_GLAND, RES, STERM,
-  recvBox, resIds, resLabel, term, type Point,
+  MTERM, MT2, NET_COLOR, PANEL_H, PANEL_W, PE_GLAND, RES,
+  pupitreOf, pupitreTerminals, recvBox, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
   annexTerminals, planLanes, recvGlandX, recvTerminals, route, sceneContext, tpos,
@@ -48,7 +48,10 @@ export interface PanelProps {
   marks: boolean;
   /** État des appareils : q1, f2, f3, km1, f1… */
   deviceState?: Record<string, DeviceState>;
-  lamps?: { h1: boolean; h2: boolean };
+  /** Voyants du coffret de porte allumés, par repère (« H1 », « H2 »…). */
+  lamps?: Record<string, boolean>;
+  /** Coups de poing du coffret restés verrouillés, par repère. */
+  latched?: Record<string, boolean>;
   motorRpm?: number;
   coupling?: 'Y' | 'D';
   /** Index de la liaison surlignée. */
@@ -65,7 +68,8 @@ export interface PanelProps {
   /** Appui long sur un fil (tactile) : coordonnées écran du menu contextuel. */
   onWireLongPress?: (idx: number, x: number, y: number) => void;
   onDevice?: (slotId: string) => void;
-  onButton?: (b: 's1' | 's2', down: boolean) => void;
+  /** Appui / relâchement d'un organe du coffret, désigné par son repère. */
+  onButton?: (rep: string, down: boolean) => void;
   onCoupling?: () => void;
   className?: string;
   /** Le composant ne se met pas lui-même à l'échelle (il est dans un `<Workspace>` zoomable). */
@@ -85,7 +89,7 @@ function markOffset(id: string, fy: number): { dx: number; dy: number } {
 
 export default function Panel(props: PanelProps) {
   const {
-    tp, items, wires, cover, marks, deviceState, lamps, motorRpm = 0, coupling = 'Y',
+    tp, items, wires, cover, marks, deviceState, lamps, latched, motorRpm = 0, coupling = 'Y',
     highlight = null, selectedWire = null, probes, clamp = null, lock = false, pickTerminals, pickWires,
     onTerminal, onWire, onWireLongPress, onDevice, onButton, onCoupling, className, fixedScale = false,
   } = props;
@@ -145,10 +149,19 @@ export default function Panel(props: PanelProps) {
     return out;
   }, [ctx]);
 
+  /** Étiquette du moteur : la plaque signalétique du TP, pas une valeur figée. */
+  const motorLabel = React.useMemo(() => {
+    const m = tp.motor;
+    if (!m) return undefined;
+    const kw = (m.P / 1000).toFixed(1).replace('.', ',').replace(',0', '');
+    return `M1 · ${kw} kW · ${m.U} V Y`;
+  }, [tp.motor]);
+
   // ---- bornes extérieures (porte, moteur, réseau, annexe)
+  const pupitre = React.useMemo(() => pupitreOf(tp), [tp]);
   const stationTerminals: TerminalMark[] = React.useMemo(
-    () => (tp.station ? Object.entries(STERM).map(([id, p]) => ({ id, pos: p })) : []),
-    [tp.station],
+    () => (tp.station ? Object.entries(pupitreTerminals(pupitre)).map(([id, p]) => ({ id, pos: p })) : []),
+    [tp.station, pupitre],
   );
   const motorTerminals: TerminalMark[] = React.useMemo(() => {
     if (!tp.hasMotor) return [];
@@ -279,7 +292,7 @@ export default function Panel(props: PanelProps) {
       {/* coffret de porte */}
       {tp.station ? (
         <>
-          <Station h1={Boolean(lamps?.h1)} h2={Boolean(lamps?.h2)} onButton={onButton} />
+          <Station pupitre={pupitre} lamps={lamps} latched={latched} onButton={onButton} />
           <Terminals
             terminals={stationTerminals}
             marks={false}
@@ -293,7 +306,8 @@ export default function Panel(props: PanelProps) {
       {/* moteur, dans le bloc récepteurs */}
       {tp.hasMotor ? (
         <>
-          <Motor rpm={motorRpm} />
+          {/* L'étiquette vient de la plaque du TP : chaque machine a son moteur. */}
+          <Motor rpm={motorRpm} label={motorLabel} />
           <TerminalBox coupling={coupling} onCoupling={onCoupling} />
           <Terminals
             terminals={motorTerminals}

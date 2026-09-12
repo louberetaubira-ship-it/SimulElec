@@ -130,7 +130,8 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
           cover={false}
           marks
           deviceState={deviceStateOf(sim)}
-          lamps={lampsOf(sim)}
+          lamps={lampsOf(sim, tp)}
+          latched={sim.latched}
           motorRpm={sim.n}
           coupling={sim.coupling}
           onDevice={s.deviceClick}

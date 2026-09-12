@@ -1,42 +1,86 @@
 'use client';
 
 /**
- * Coffret de porte XALD 4 trous : voyants H1 (vert, marche) et H2 (rouge, défaut),
- * boutons S2 (marche) et S1 (arrêt), bornes repérées sur le bord droit.
+ * Coffret de porte XALD : les organes (voyants, boutons, coups de poing) viennent
+ * de la définition du TP (`TpDefinition.pupitre`), dans l'ordre, avec leurs bornes
+ * repérées sur le bord droit. À défaut, c'est le pupitre historique H1/H2/S2/S1.
  */
 import React from 'react';
+import { pupitreLayout, type PupitrePlace } from '@/lib/scene/geometry';
+import type { PupitreItem } from '@/lib/types';
 
 export interface StationProps {
-  h1: boolean;
-  h2: boolean;
-  onButton?: (b: 's1' | 's2', down: boolean) => void;
+  /** Composition du pupitre, de haut en bas. */
+  pupitre: readonly PupitreItem[];
+  /** Voyants allumés, par repère. */
+  lamps?: Record<string, boolean>;
+  /** Coups de poing restés verrouillés, par repère. */
+  latched?: Record<string, boolean>;
+  onButton?: (rep: string, down: boolean) => void;
 }
 
-export default function Station({ h1, h2, onButton }: StationProps) {
-  const press = (b: 's1' | 's2', down: boolean) => () => onButton?.(b, down);
+/** Classe de couleur de la tête ou du verre. */
+const COLOR: Record<PupitreItem['color'], string> = {
+  green: 'g', red: 'r', clear: 'c', yellow: 'y', white: 'w',
+};
+
+/** Ce que dit le voyant, pour l'infobulle. */
+const SIGNAL: Record<'run' | 'ctl' | 'trip', string> = {
+  run: 'marche', ctl: 'sous tension', trip: 'défaut',
+};
+
+function Lamp({ place, on }: { place: PupitrePlace; on: boolean }) {
+  const it = place.item;
+  const quoi = it.signals ? SIGNAL[it.signals] : it.label;
+  return (
+    <div
+      className={`lamp ${COLOR[it.color]}${on ? ' on' : ''}`}
+      style={{ top: place.top, width: place.h, height: place.h }}
+      title={`${it.rep} · ${it.label} (${quoi}) : ${on ? 'allumé' : 'éteint'}`}
+    />
+  );
+}
+
+function Btn({ place, latched, onButton }: { place: PupitrePlace; latched: boolean; onButton?: (rep: string, down: boolean) => void }) {
+  const it = place.item;
+  const rep = it.rep;
+  const press = (down: boolean) => () => onButton?.(rep, down);
+  const aria = latched
+    ? `${rep} ${it.label} : verrouillé, clique pour déverrouiller`
+    : `${rep} ${it.label}`;
+  return (
+    <button
+      type="button"
+      className={`btn ${COLOR[it.color]}${it.latching ? ' k' : ''}${latched ? ' latched' : ''}`}
+      data-btn={rep}
+      aria-label={aria}
+      title={aria}
+      style={{ top: place.top, width: place.h, height: place.h }}
+      onPointerDown={press(true)}
+      onPointerUp={press(false)}
+      onPointerLeave={press(false)}
+      onClick={() => { onButton?.(rep, true); onButton?.(rep, false); }}
+    />
+  );
+}
+
+export default function Station({ pupitre, lamps, latched, onButton }: StationProps) {
+  const places = React.useMemo(() => pupitreLayout(pupitre), [pupitre]);
   return (
     <div className="se-station">
-      <div className={`lamp g${h1 ? ' on' : ''}`} />
-      <span className="lb" style={{ top: 6 }}>H1 X1</span>
-      <span className="lb" style={{ top: 22 }}>H1 X2</span>
-      <div className={`lamp r${h2 ? ' on' : ''}`} />
-      <span className="lb" style={{ top: 48 }}>H2 X1</span>
-      <span className="lb" style={{ top: 64 }}>H2 X2</span>
-      <button
-        type="button" className="btn g" data-btn="s2" aria-label="S2 marche"
-        onPointerDown={press('s2', true)} onPointerUp={press('s2', false)}
-        onPointerLeave={press('s2', false)} onClick={() => { onButton?.('s2', true); onButton?.('s2', false); }}
-      />
-      <span className="lb" style={{ top: 96 }}>S2 13</span>
-      <span className="lb" style={{ top: 112 }}>S2 14</span>
-      <button
-        type="button" className="btn r" data-btn="s1" aria-label="S1 arrêt"
-        onPointerDown={press('s1', true)} onPointerUp={press('s1', false)}
-        onPointerLeave={press('s1', false)} onClick={() => { onButton?.('s1', true); onButton?.('s1', false); }}
-      />
-      <span className="lb" style={{ top: 140 }}>S1 21</span>
-      <span className="lb" style={{ top: 156 }}>S1 22</span>
-      <div className="cap"><b>S1 S2 H1 H2</b>coffret de porte XALD</div>
+      {places.map((p) => (
+        <React.Fragment key={p.item.rep}>
+          {p.item.kind === 'lamp'
+            ? <Lamp place={p} on={Boolean(lamps?.[p.item.rep])} />
+            : <Btn place={p} latched={Boolean(latched?.[p.item.rep])} onButton={onButton} />}
+          {p.terms.map((t) => (
+            <span key={t.id} className="lb" style={{ top: t.y - 10 }}>{t.id.replace('.', ' ')}</span>
+          ))}
+        </React.Fragment>
+      ))}
+      <div className="cap">
+        <b>{places.map((p) => p.item.rep).join(' ')}</b>coffret de porte XALD
+      </div>
     </div>
   );
 }

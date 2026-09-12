@@ -1,4 +1,5 @@
-import type { Liaison, TpDefinition } from '../types';
+import type { Liaison, PupitreItem, TpDefinition } from '../types';
+import { pupitreOf } from '../scene/geometry';
 
 /** Pannes injectables (identifiants des `faults` des TP v3). */
 export type FaultId = 'a2' | 's1' | 'l2' | 'x2' | 'f3';
@@ -38,6 +39,16 @@ export interface SimState {
   fault: FaultId | null;
   /** Bouton marche maintenu enfoncé. */
   s2Held: boolean;
+  /**
+   * Boutons à verrouillage (coup de poing) restés enfoncés, par repère :
+   * leur contact NC reste ouvert jusqu'au déverrouillage explicite.
+   */
+  latched: Record<string, boolean>;
+  /**
+   * Carter / écran de protection en place (vrai au départ) : commande
+   * l'interrupteur de position quand le TP en déclare un.
+   */
+  carter: boolean;
   /** Temps écoulé depuis l'enclenchement de KM1 (s). */
   t: number;
   /** L'élève a déjà arrêté le moteur par S1. */
@@ -49,7 +60,8 @@ export interface SimState {
 export const initialSim = (): SimState => ({
   q1: false, f2: false, f3: false, km1: false, f1trip: false, coupling: 'Y',
   load: 0.8, I: 0, n: 0, peak: 0, heat: 0,
-  fault: null, s2Held: false, t: 0, stoppedByS1: false, chattering: false,
+  fault: null, s2Held: false, latched: {}, carter: true,
+  t: 0, stoppedByS1: false, chattering: false,
 });
 
 /** Caractéristiques moteur par défaut (TP sans moteur). */
@@ -73,8 +85,34 @@ export const isControlLive = (s: SimState): boolean => s.q1 && s.f2 && f3Ok(s) &
 /** Le moteur tourne (KM1 collé, puissance présente, thermique non déclenché). */
 export const isRunning = (s: SimState): boolean => s.q1 && s.km1 && !s.f1trip;
 
-/** Le contact NC de S1 est-il fermé ? (panne « s1 » = contact resté ouvert) */
+/** Le contact NC du bouton d'arrêt est-il fermé ? (panne « s1 » = contact resté ouvert) */
 export const s1Closed = (s: SimState): boolean => s.fault !== 's1';
+
+/* ------------------------------------------------------------- pupitre */
+
+/** Organes du pupitre par nature (le pupitre historique quand le TP n'en déclare pas). */
+export const stopButtons = (tp: Pick<TpDefinition, 'pupitre'>): PupitreItem[] =>
+  pupitreOf(tp).filter(p => p.kind === 'nc');
+export const startButtons = (tp: Pick<TpDefinition, 'pupitre'>): PupitreItem[] =>
+  pupitreOf(tp).filter(p => p.kind === 'no');
+
+/** Un bouton à verrouillage est-il resté enfoncé ? */
+export const isLatched = (s: SimState, rep: string): boolean => s.latched[rep] === true;
+
+/** Premier coup de poing verrouillé du pupitre, s'il y en a un. */
+export const latchedStop = (s: SimState, tp: Pick<TpDefinition, 'pupitre'>): PupitreItem | null =>
+  stopButtons(tp).find(p => isLatched(s, p.rep)) ?? null;
+
+/** Le carter coupe-t-il la commande ? (seulement si le TP déclare un interrupteur de position) */
+export const carterOpen = (s: SimState, tp: Pick<TpDefinition, 'interPosition'>): boolean =>
+  Boolean(tp.interPosition) && !s.carter;
+
+/**
+ * Chaîne d'arrêt fermée : tous les contacts NC du pupitre sont au repos,
+ * aucun coup de poing verrouillé, et l'interrupteur de position est fermé.
+ */
+export const stopChainClosed = (s: SimState, tp: Pick<TpDefinition, 'pupitre' | 'interPosition'>): boolean =>
+  s1Closed(s) && !latchedStop(s, tp) && !carterOpen(s, tp);
 
 /** Le fil X2:3 → KM1 A1 est-il en place ? (panne « x2 ») */
 export const a1Wired = (s: SimState): boolean => s.fault !== 'x2';
@@ -85,8 +123,9 @@ export const a2Wired = (s: SimState): boolean => s.fault !== 'a2';
 /** La bobine peut-elle être alimentée si on ferme le chemin ? */
 export const coilCircuitOk = (s: SimState): boolean => a1Wired(s) && a2Wired(s);
 
-/** Potentiel 24 V présent sur le nœud X2:2 / S2:13 / KM1:13. */
-export const loopPhaseAtS2 = (s: SimState): boolean => isControlLive(s) && s1Closed(s);
+/** Potentiel 24 V présent en sortie de la chaîne d'arrêt (X2:2 / S2:13 / KM1:13). */
+export const loopPhaseAtS2 = (s: SimState, tp: Pick<TpDefinition, 'pupitre' | 'interPosition'>): boolean =>
+  isControlLive(s) && stopChainClosed(s, tp);
 
 // ---------------------------------------------------------------- manœuvres
 
@@ -130,29 +169,84 @@ export function setCoupling(s: SimState, coupling: Coupling): ActionResult {
   };
 }
 
-export function pressS2(s: SimState): ActionResult {
-  if (!isPowered(s)) return { state: { ...s, s2Held: true }, message: 'Rien ne se passe : Q1 est ouvert.' };
-  if (!s.f2) return { state: { ...s, s2Held: true }, message: 'Rien ne se passe : F2 est ouvert.' };
-  if (!s.f3) return { state: { ...s, s2Held: true }, message: 'Rien ne se passe : F3 est ouvert.' };
-  if (s.fault === 'f3') return { state: { ...s, s2Held: true }, message: 'Rien ne se passe, pourtant F3 semble fermé.' };
-  if (s.f1trip) return { state: { ...s, s2Held: true }, message: 'Rien ne se passe : F1 a déclenché, 95-96 est ouvert.' };
-  if (!s1Closed(s)) return { state: { ...s, s2Held: true }, message: 'Rien ne se passe : le circuit de commande est coupé quelque part.' };
-  if (!a1Wired(s)) return { state: { ...s, s2Held: true }, message: 'Rien ne se passe, pourtant la commande est sous tension.' };
-  if (!a2Wired(s)) return { state: { ...s, s2Held: true, chattering: true }, message: 'KM1 vibre mais ne tient pas : la bobine est mal alimentée.' };
-  if (s.km1) return { state: { ...s, s2Held: true }, message: 'KM1 est déjà enclenché.' };
+/** Appui sur un bouton de marche (contact NO) du pupitre. */
+function pressStart(s: SimState, tp: TpDefinition, rep: string): ActionResult {
+  const held = { ...s, s2Held: true };
+  const latch = latchedStop(s, tp);
+  if (latch) {
+    return {
+      state: held,
+      message: `Le coup de poing ${latch.rep} est verrouillé : déverrouille-le avant de redémarrer.`,
+    };
+  }
+  if (carterOpen(s, tp)) {
+    const ip = tp.interPosition;
+    return {
+      state: held,
+      message: `Rien ne se passe : la protection est retirée — le contact ${ip?.rep ?? 'de position'} coupe la commande.`,
+    };
+  }
+  if (!isPowered(s)) return { state: held, message: 'Rien ne se passe : Q1 est ouvert.' };
+  if (!s.f2) return { state: held, message: 'Rien ne se passe : F2 est ouvert.' };
+  if (!s.f3) return { state: held, message: 'Rien ne se passe : F3 est ouvert.' };
+  if (s.fault === 'f3') return { state: held, message: 'Rien ne se passe, pourtant F3 semble fermé.' };
+  if (s.f1trip) return { state: held, message: 'Rien ne se passe : F1 a déclenché, 95-96 est ouvert.' };
+  if (!s1Closed(s)) return { state: held, message: 'Rien ne se passe : le circuit de commande est coupé quelque part.' };
+  if (!a1Wired(s)) return { state: held, message: 'Rien ne se passe, pourtant la commande est sous tension.' };
+  if (!a2Wired(s)) return { state: { ...held, chattering: true }, message: 'KM1 vibre mais ne tient pas : la bobine est mal alimentée.' };
+  if (s.km1) return { state: held, message: 'KM1 est déjà enclenché.' };
   return {
-    state: { ...s, s2Held: true, km1: true, t: 0, peak: 0, chattering: false },
-    message: 'S2 : KM1 s\'enclenche, l\'auto-maintien 13-14 prend le relais.',
+    state: { ...held, km1: true, t: 0, peak: 0, chattering: false },
+    message: `${rep} : KM1 s'enclenche, l'auto-maintien 13-14 prend le relais.`,
   };
 }
 
-export function releaseS2(s: SimState): SimState {
+/** Appui sur un bouton d'arrêt (contact NC) : ouverture de la chaîne d'arrêt. */
+function pressStop(s: SimState, item: PupitreItem): ActionResult {
+  const rep = item.rep;
+  // un coup de poing déjà verrouillé se déverrouille au clic suivant (quart de tour)
+  if (isLatched(s, rep)) {
+    const latched = { ...s.latched };
+    delete latched[rep];
+    return { state: { ...s, latched }, message: `${rep} déverrouillé : la chaîne d'arrêt est refermée.` };
+  }
+  const latched = item.latching ? { ...s.latched, [rep]: true } : s.latched;
+  const verrou = item.latching ? ' et se verrouille' : '';
+  if (!s.km1) {
+    return { state: { ...s, latched, chattering: false }, message: `${rep} : le circuit était déjà ouvert${verrou}.` };
+  }
+  return {
+    state: { ...s, latched, km1: false, stoppedByS1: true, chattering: false },
+    message: `${rep} : KM1 retombe${verrou}, le moteur s'arrête.`,
+  };
+}
+
+/** Appui sur un organe du pupitre, désigné par son repère (« S2 », « S4 », « S3 »…). */
+export function pressButton(s: SimState, tp: TpDefinition, rep: string): ActionResult {
+  const item = pupitreOf(tp).find(p => p.rep === rep);
+  if (!item || item.kind === 'lamp') return { state: s, message: `${rep} n'est pas un bouton.` };
+  return item.kind === 'no' ? pressStart(s, tp, rep) : pressStop(s, item);
+}
+
+/** Relâchement d'un bouton du pupitre (seuls les boutons de marche sont maintenus). */
+export function releaseButton(s: SimState): SimState {
   return { ...s, s2Held: false, chattering: false };
 }
 
-export function pressS1(s: SimState): ActionResult {
-  if (!s.km1) return { state: { ...s, chattering: false }, message: 'S1 : le circuit était déjà ouvert.' };
-  return { state: { ...s, km1: false, stoppedByS1: true, chattering: false }, message: 'S1 : KM1 retombe, le moteur s\'arrête.' };
+/**
+ * Bascule le carter (écran de protection) commandé par l'interrupteur de position :
+ * carter ouvert, la chaîne de commande est coupée exactement comme par un arrêt.
+ */
+export function toggleCarter(s: SimState, tp: Pick<TpDefinition, 'interPosition'>): ActionResult {
+  const carter = !s.carter;
+  const rep = tp.interPosition?.rep ?? 'S1';
+  const etat = tp.interPosition?.etat ?? 'écran de protection en place';
+  return {
+    state: { ...s, carter, km1: carter ? s.km1 : false, chattering: false },
+    message: carter
+      ? `${etat} : ${rep} referme la chaîne d'arrêt.`
+      : `Protection retirée : ${rep} s'ouvre, KM1 retombe et le moteur s'arrête.`,
+  };
 }
 
 /** Injecte une panne et remet la platine dans un état de départ pour le dépannage. */
@@ -228,19 +322,29 @@ export function tick(state: SimState, tp: TpDefinition, dt: number): ActionResul
  * Un fil est-il alimenté ? Sert à estomper les liaisons hors tension.
  * PE et 0 V ne sont jamais représentés comme vivants.
  */
-export function netLive(l: Pick<Liaison, 'a' | 'b' | 'net'>, s: SimState): boolean {
+export function netLive(l: Pick<Liaison, 'a' | 'b' | 'net'>, s: SimState, tp: TpDefinition): boolean {
   const net = l.net;
   if (net === 'PE' || net === 'C0' || net === 'N') return false;
   const ids = `${l.a} ${l.b}`;
+  /** La liaison touche-t-elle l'une de ces bornes du pupitre ? */
+  const touches = (list: string[]): boolean => list.some(t => ids.includes(t));
 
   if (net === 'C') {
+    const pu = pupitreOf(tp);
+    const lampsOfKind = (sig: PupitreItem['signals']): string[] =>
+      pu.filter(p => p.kind === 'lamp' && (p.signals ?? 'run') === sig).map(p => `${p.rep}.`);
+    // amont / aval des contacts : la chaîne d'arrêt (NC) alimente les boutons de marche (NO)
+    const stopOut = stopButtons(tp).map(p => `${p.rep}.22`);
+    const startIn = startButtons(tp).map(p => `${p.rep}.13`);
+    const startOut = startButtons(tp).map(p => `${p.rep}.14`);
+
     if (/t1\.24|f3\.1/.test(ids)) return isControlSupplied(s);
-    if (/f1\.9[78]|H2\./.test(ids)) return isControlLive(s) && s.f1trip;
+    if (/f1\.9[78]/.test(ids) || touches(lampsOfKind('trip'))) return isControlLive(s) && s.f1trip;
     if (/f3\.2|f1\.9[56]|x2_1/.test(ids)) return isControlLive(s);
-    if (/S1\.22|x2_2|km1\.13|S2\.13/.test(ids)) return loopPhaseAtS2(s);
-    if (/S2\.14|x2_3/.test(ids)) return loopPhaseAtS2(s) && (s.s2Held || s.km1);
-    if (/km1\.14|x2_4|H1\./.test(ids)) return loopPhaseAtS2(s) && s.km1;
-    if (/km1\.A1/.test(ids)) return loopPhaseAtS2(s) && a1Wired(s) && (s.km1 || s.s2Held);
+    if (/x2_2|km1\.13/.test(ids) || touches([...stopOut, ...startIn])) return loopPhaseAtS2(s, tp);
+    if (/x2_3/.test(ids) || touches(startOut)) return loopPhaseAtS2(s, tp) && (s.s2Held || s.km1);
+    if (/km1\.14|x2_4/.test(ids) || touches(lampsOfKind('run'))) return loopPhaseAtS2(s, tp) && s.km1;
+    if (/km1\.A1/.test(ids)) return loopPhaseAtS2(s, tp) && a1Wired(s) && (s.km1 || s.s2Held);
     return isControlLive(s);
   }
 

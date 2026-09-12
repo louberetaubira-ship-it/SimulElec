@@ -91,10 +91,10 @@ function PlatineDemo() {
     });
   };
 
-  const onButton = (b: 's1' | 's2', down: boolean) => {
+  const onButton = (rep: string, down: boolean) => {
     if (!down) return;
     setState((p) => {
-      if (b === 's1') return { ...p, km1: 'off' };
+      if (rep !== 'S2') return { ...p, km1: 'off' };
       const ok = p.q1 === 'on' && p.f2 === 'on' && p.f3 === 'on';
       return ok ? { ...p, km1: 'on' } : p;
     });
@@ -154,7 +154,7 @@ function PlatineDemo() {
             cover={cover}
             marks={marks}
             deviceState={state}
-            lamps={{ h1: running, h2: state.f1 === 'trip' }}
+            lamps={{ H1: running, H2: state.f1 === 'trip' }}
             motorRpm={running ? 1450 : 0}
             coupling={coupling}
             highlight={highlight}

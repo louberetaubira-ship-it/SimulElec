@@ -5,8 +5,8 @@ import type {
   AttemptState, EvaluationMode, InstrumentKind, Liaison, NetKind, ReadingRecord, TpDefinition,
 } from '@/lib/types';
 import {
-  initialSim, injectFault, isFaultId, netLive, pickFault, pressS1, pressS2, releaseS2, repairFault,
-  resetF1, setCoupling, tick, toggleF2, toggleF3, toggleQ1, type SimState,
+  initialSim, injectFault, isFaultId, netLive, pickFault, pressButton, releaseButton, repairFault,
+  resetF1, setCoupling, tick, toggleCarter, toggleF2, toggleF3, toggleQ1, type SimState,
 } from '@/lib/sim/engine';
 import { linkKey } from '@/lib/sim/layout';
 import {
@@ -185,7 +185,10 @@ interface ParcoursState {
   setLoad: (v: number) => void;
   coupling: (c: 'Y' | 'D') => void;
   deviceClick: (slotId: string) => void;
-  button: (b: 's1' | 's2', down?: boolean) => void;
+  /** Appui / relâchement d'un organe du coffret de porte, désigné par son repère. */
+  button: (rep: string, down?: boolean) => void;
+  /** Bascule l'écran de protection commandé par l'interrupteur de position. */
+  carter: () => void;
   advance: (dt: number) => void;
 
   ensureFault: () => void;
@@ -211,7 +214,7 @@ export function visibleWires(tp: TpDefinition, st: AttemptState, all = false): {
 
 /** Liaisons prêtes pour le `<Panel>`, avec l'estompage des fils hors tension. */
 export function panelWires(tp: TpDefinition, st: AttemptState, sim: SimState, all = false): PanelWire[] {
-  return visibleWires(tp, st, all).map(w => ({ ...w, dead: !netLive(w, sim) }));
+  return visibleWires(tp, st, all).map(w => ({ ...w, dead: !netLive(w, sim, tp) }));
 }
 
 export const useParcours = create<ParcoursState>((set, get) => {
@@ -851,14 +854,23 @@ export const useParcours = create<ParcoursState>((set, get) => {
       say(tp.slots.find(s => s.id === slotId)?.label ?? slotId);
     },
 
-    button(b, down = true) {
-      if (!down) { set(s => ({ sim: releaseS2(s.sim) })); return; }
-      const { sim } = get();
-      const r = b === 's2' ? pressS2(sim) : pressS1(sim);
+    button(rep, down = true) {
+      if (!down) { set(s => ({ sim: releaseButton(s.sim) })); return; }
+      const { sim, tp } = get();
+      const r = pressButton(sim, tp, rep);
       set({ sim: r.state });
       say(r.message);
       evaluate();
-      if (b === 's2') setTimeout(() => { set(s => ({ sim: releaseS2(s.sim) })); }, 450);
+      // l'appui simulé au clic est fugitif : on relâche le bouton de marche après la manœuvre
+      setTimeout(() => { set(s => ({ sim: releaseButton(s.sim) })); }, 450);
+    },
+
+    carter() {
+      const { sim, tp } = get();
+      const r = toggleCarter(sim, tp);
+      set({ sim: r.state });
+      say(r.message);
+      evaluate();
     },
 
     advance(dt) {

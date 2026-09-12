@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
-import { isControlLive, isRunning } from '@/lib/sim/engine';
+import { isControlLive, isRunning, startButtons } from '@/lib/sim/engine';
 import {
   consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
 } from '@/lib/sim/progress';
@@ -47,6 +47,13 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         : variant === 'decons' ? deconsComplete(st)
           : sousTensionComplete(tp, st);
 
+  /** Bouton de marche du pupitre, nommé dans les consignes (repère + libellé). */
+  const marcheRep = React.useMemo(() => startButtons(tp)[0]?.rep ?? 'le bouton de marche', [tp]);
+  const marche = React.useMemo(() => {
+    const b = startButtons(tp)[0];
+    return b ? `${b.rep} (${b.label})` : 'le bouton de marche';
+  }, [tp]);
+
   /** Rail du mode atelier : les cinq appareils restent à portée sur ces quatre étapes. */
   const instruments = React.useMemo(() => INSTRUMENTS.map(i => i.id), []);
 
@@ -81,6 +88,24 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         {variant === 'decons' && (
           <Card title="Déconsignation">
             <DeconsignationSteps st={st} sim={sim} onAct={s.consAct} />
+          </Card>
+        )}
+
+        {/* interrupteur de position : seulement quand le TP en déclare un */}
+        {variant === 'decons' && tp.interPosition && (
+          <Card title={`Sécurité · ${tp.interPosition.rep}`}>
+            <label className="flex items-center gap-2.5 text-[12px]">
+              <input
+                type="checkbox"
+                checked={sim.carter}
+                onChange={() => s.carter()}
+                className="h-touch w-touch accent-[var(--accent)]"
+              />
+              <span>{tp.interPosition.etat}</span>
+            </label>
+            <Note className="mt-1">
+              {tp.interPosition.label} : ouvre la chaîne d&apos;arrêt dès que la protection est retirée.
+            </Note>
           </Card>
         )}
 
@@ -142,7 +167,8 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           cover={false}
           marks
           deviceState={deviceStateOf(sim)}
-          lamps={lampsOf(sim)}
+          lamps={lampsOf(sim, tp)}
+          latched={sim.latched}
           motorRpm={sim.n}
           coupling={sim.coupling}
           probes={mes.probes}
@@ -162,10 +188,10 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
             : variant === 'horsTension'
               ? 'Installation consignée : choisis ton appareil, pose les deux pointes sur les bornes indiquées.'
               : variant === 'decons'
-                ? (isRunning(sim) ? 'Le moteur tourne : la mise en service est faite.' : isControlLive(sim) ? 'Commande sous tension : appuie sur S2 (bouton vert en porte).' : 'Referme Q1, F2 puis F3 en les cliquant.')
+                ? (isRunning(sim) ? 'Le moteur tourne : la mise en service est faite.' : isControlLive(sim) ? `Commande sous tension : appuie sur ${marche} en porte.` : 'Referme Q1, F2 puis F3 en les cliquant.')
                 : isRunning(sim)
                   ? 'Moteur en marche : fais tes relevés (V~, pince, tachymètre).'
-                  : 'Relance le moteur par S2 pour les mesures qui l\'exigent.'}
+                  : `Relance le moteur par ${marcheRep} pour les mesures qui l'exigent.`}
         </Hint>
       </Center>
     </>

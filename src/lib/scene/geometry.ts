@@ -3,7 +3,9 @@
  * Port fidèle de `docs/reference/illustration-v4.tpl.html` (section « platine geometry »).
  * Aucune dépendance React : ce module est purement calculatoire.
  */
-import type { AnnexKind, CatalogueItem, NetKind, SceneKind, Slot, TerminalDef, TpDefinition } from '@/lib/types';
+import type {
+  AnnexKind, CatalogueItem, NetKind, PupitreItem, SceneKind, Slot, TerminalDef, TpDefinition,
+} from '@/lib/types';
 
 export interface Point { x: number; y: number }
 export interface Box extends Point { w: number; h: number }
@@ -57,17 +59,91 @@ export const ST: Box = { x: 452, y: 100, w: 78, h: 190 };
 /** Bord droit du coffret : x des bornes de la station. */
 export const SR = ST.x + ST.w + 2;
 
-/** Bornes du coffret de porte (voyants H1/H2, boutons S2/S1). */
-export const STERM: Record<string, Point> = {
-  'H1.X1': { x: SR, y: ST.y + 16 },
-  'H1.X2': { x: SR, y: ST.y + 30 },
-  'H2.X1': { x: SR, y: ST.y + 58 },
-  'H2.X2': { x: SR, y: ST.y + 72 },
-  'S2.13': { x: SR, y: ST.y + 106 },
-  'S2.14': { x: SR, y: ST.y + 120 },
-  'S1.21': { x: SR, y: ST.y + 150 },
-  'S1.22': { x: SR, y: ST.y + 164 },
-};
+/* ------------------------------------------------------- coffret de porte */
+
+/**
+ * Pupitre historique : voyant vert de marche, voyant rouge de défaut,
+ * bouton vert de marche (NO) et bouton rouge d'arrêt (NC).
+ * C'est le pupitre de tous les TP qui ne déclarent pas `pupitre`.
+ */
+export const DEFAULT_PUPITRE: readonly PupitreItem[] = [
+  { rep: 'H1', kind: 'lamp', color: 'green', signals: 'run', label: 'voyant de marche' },
+  { rep: 'H2', kind: 'lamp', color: 'red', signals: 'trip', label: 'voyant de défaut' },
+  { rep: 'S2', kind: 'no', color: 'green', label: 'bouton marche' },
+  { rep: 'S1', kind: 'nc', color: 'red', label: 'bouton arrêt' },
+];
+
+/** Composition du coffret de porte d'un TP (pupitre historique par défaut). */
+export function pupitreOf(tp: Pick<TpDefinition, 'pupitre'>): readonly PupitreItem[] {
+  return tp.pupitre && tp.pupitre.length ? tp.pupitre : DEFAULT_PUPITRE;
+}
+
+/** Identifiants des deux bornes d'un organe, selon sa nature. */
+export function pupitreTermIds(it: PupitreItem): [string, string] {
+  if (it.kind === 'lamp') return [`${it.rep}.X1`, `${it.rep}.X2`];
+  if (it.kind === 'no') return [`${it.rep}.13`, `${it.rep}.14`];
+  return [`${it.rep}.21`, `${it.rep}.22`];
+}
+
+/** Hauteur du trou d'un organe (diamètre percé + collerette). */
+const PU_H = (it: PupitreItem): number => (it.kind === 'lamp' ? 30 : it.latching ? 40 : 34);
+/** Entraxe : hauteur de l'organe + le jeu de perçage habituel. */
+const PU_PITCH = (it: PupitreItem): number => (it.kind === 'lamp' ? 42 : it.latching ? 48 : 44);
+/** Premier trou, sous le bord haut du coffret. */
+const PU_TOP = 14;
+/** Respiration entre le groupe des voyants et le groupe des boutons. */
+const PU_GAP = 6;
+/** Bas utile du coffret : les organes sont comprimés pour y tenir (jusqu'à 5). */
+const PU_BOTTOM = ST.h - 8;
+
+/** Un organe du pupitre, placé : `top` et bornes en coordonnées relatives au coffret. */
+export interface PupitrePlace {
+  item: PupitreItem;
+  /** y du haut de l'organe, relatif au coffret. */
+  top: number;
+  /** Diamètre apparent de l'organe. */
+  h: number;
+  /** Identifiants et y (relatifs) des deux bornes. */
+  terms: [{ id: string; y: number }, { id: string; y: number }];
+}
+
+/**
+ * Répartit les organes sur la hauteur du coffret, dans l'ordre de la liste.
+ * Les entraxes reproduisent exactement le perçage historique à quatre trous ;
+ * au-delà, la colonne est comprimée pour rester dans le coffret.
+ */
+export function pupitreLayout(pupitre: readonly PupitreItem[]): PupitrePlace[] {
+  const tops: number[] = [];
+  let y = PU_TOP;
+  pupitre.forEach((it, i) => {
+    tops.push(y);
+    const next = pupitre[i + 1];
+    y += PU_PITCH(it) + (next && it.kind === 'lamp' && next.kind !== 'lamp' ? PU_GAP : 0);
+  });
+  const last = pupitre.length - 1;
+  const bottom = last < 0 ? PU_TOP : tops[last] + PU_H(pupitre[last]);
+  const k = bottom > PU_BOTTOM ? (PU_BOTTOM - PU_TOP) / (bottom - PU_TOP) : 1;
+  return pupitre.map((item, i) => {
+    const top = Math.round(PU_TOP + (tops[i] - PU_TOP) * k);
+    const [a, b] = pupitreTermIds(item);
+    return {
+      item, top, h: PU_H(item),
+      terms: [{ id: a, y: top + 2 }, { id: b, y: top + 16 }],
+    };
+  });
+}
+
+/** Bornes du coffret de porte, sur son bord droit, d'après la composition du pupitre. */
+export function pupitreTerminals(pupitre: readonly PupitreItem[]): Record<string, Point> {
+  const out: Record<string, Point> = {};
+  for (const p of pupitreLayout(pupitre)) {
+    for (const t of p.terms) out[t.id] = { x: SR, y: ST.y + t.y };
+  }
+  return out;
+}
+
+/** Bornes du pupitre historique (H1, H2, S2, S1) : référence du studio et du générateur. */
+export const STERM: Record<string, Point> = pupitreTerminals(DEFAULT_PUPITRE);
 
 /** Moteur (hors armoire) et sa boîte à bornes : dans le bloc récepteurs, sous la platine. */
 export const MOTOR: Point = { x: 40, y: 760 };

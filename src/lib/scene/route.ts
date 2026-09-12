@@ -12,8 +12,8 @@
  */
 import type { AnnexKind, AnnexItem, CatalogueItem, Slot, TerminalDef, TpDefinition } from '@/lib/types';
 import {
-  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, DUCT_YS, MTERM, MT2, PX_MM, RAILS, RES, SR, ST, STERM, TB,
-  ductY, recvBox, slotGeom, term, type Box, type Point,
+  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, DUCT_YS, MTERM, MT2, PX_MM, RAILS, RES, SR, ST, TB,
+  ductY, pupitreOf, pupitreTerminals, recvBox, slotGeom, term, type Box, type Point,
 } from './geometry';
 
 /* ------------------------------------------------------------- contexte */
@@ -86,9 +86,11 @@ export function recvTerminals(it: AnnexItem): Record<string, ExtPoint> {
 export const recvGlandX = (x: number): number => Math.max(46, Math.min(536, Math.round(x)));
 
 /** Bornes extérieures d'un TP : coffret de porte, moteur, réseau, éléments d'annexe. */
-export function externalPoints(tp: Pick<TpDefinition, 'station' | 'hasMotor' | 'annexItems' | 'recvItems'>): Record<string, ExtPoint> {
+export function externalPoints(tp: Pick<TpDefinition, 'station' | 'pupitre' | 'hasMotor' | 'annexItems' | 'recvItems'>): Record<string, ExtPoint> {
   const out: Record<string, ExtPoint> = {};
-  if (tp.station) for (const [id, p] of Object.entries(STERM)) out[id] = { ...p, ext: 'door' };
+  if (tp.station) {
+    for (const [id, p] of Object.entries(pupitreTerminals(pupitreOf(tp)))) out[id] = { ...p, ext: 'door' };
+  }
   if (tp.hasMotor) {
     for (const [id, p] of Object.entries(MTERM)) out[id] = { ...p, ext: 'motor' };
     for (const [id, p] of Object.entries(MT2)) out[id] = { ...p, ext: 'motor' };

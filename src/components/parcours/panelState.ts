@@ -1,5 +1,7 @@
 import type { DeviceState } from '@/components/panel/Device';
+import { pupitreOf } from '@/lib/scene/geometry';
 import { isControlLive, isRunning, type SimState } from '@/lib/sim/engine';
+import type { TpDefinition } from '@/lib/types';
 
 /** État visuel des appareils de la platine, d'après la simulation. */
 export function deviceStateOf(sim: SimState): Record<string, DeviceState> {
@@ -12,7 +14,17 @@ export function deviceStateOf(sim: SimState): Record<string, DeviceState> {
   };
 }
 
-/** Voyants du coffret de porte : H1 marche, H2 défaut. */
-export function lampsOf(sim: SimState): { h1: boolean; h2: boolean } {
-  return { h1: isRunning(sim) && isControlLive(sim), h2: isControlLive(sim) && sim.f1trip };
+/**
+ * Voyants du coffret de porte, par repère : chaque voyant s'allume selon ce qu'il
+ * signale — `run` moteur en marche, `ctl` commande sous tension, `trip` défaut thermique.
+ */
+export function lampsOf(sim: SimState, tp: Pick<TpDefinition, 'pupitre'>): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const p of pupitreOf(tp)) {
+    if (p.kind !== 'lamp') continue;
+    out[p.rep] = p.signals === 'trip' ? isControlLive(sim) && sim.f1trip
+      : p.signals === 'ctl' ? isControlLive(sim)
+        : isRunning(sim) && isControlLive(sim);
+  }
+  return out;
 }

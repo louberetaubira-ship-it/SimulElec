@@ -168,6 +168,40 @@ export interface AnnexItem {
 }
 
 /**
+ * Organe du coffret de porte (pupitre) : voyant ou bouton.
+ * L'ordre de la liste est l'ordre de haut en bas sur le coffret ; les bornes
+ * en découlent (`H1.X1` / `H1.X2`, `S4.13` / `S4.14`, `S3.21` / `S3.22`).
+ */
+export interface PupitreItem {
+  /** Repère gravé : « H1 », « S4 »… Préfixe des bornes : 'S4.13' / 'S4.14', 'H1.X1' / 'H1.X2'. */
+  rep: string;
+  /** Voyant, bouton à contact NO (marche) ou bouton à contact NC (arrêt). */
+  kind: 'lamp' | 'no' | 'nc';
+  /** Couleur de la tête ou du voyant. */
+  color: 'green' | 'red' | 'clear' | 'yellow' | 'white';
+  /** Voyants seulement : ce que le voyant signale. */
+  signals?: 'run' | 'ctl' | 'trip';
+  /** Boutons NC seulement : coup de poing à verrouillage, à déverrouiller avant de redémarrer. */
+  latching?: boolean;
+  /** Libellé lisible, affiché en légende et dans l'aide. */
+  label: string;
+}
+
+/**
+ * Interrupteur de position (contact commandé par un carter, un écran de protection,
+ * une trappe…). Il n'est pas sur le pupitre : il est câblé dans la chaîne d'arrêt,
+ * entre deux bornes du bornier. Carter ouvert = commande coupée, comme un arrêt.
+ */
+export interface InterPosition {
+  /** Repère de l'appareil : « S1 ». */
+  rep: string;
+  /** Libellé lisible : « interrupteur de position de l'écran de protection ». */
+  label: string;
+  /** Ce que commande le contact, à afficher à l'élève : « écran de protection en place ». */
+  etat: string;
+}
+
+/**
  * Nature du parcours :
  * - `platine` (défaut) : les 11 étapes de câblage / mesures sur la platine ;
  * - `dimensionnement` : étude et dimensionnement (aucune platine, aucun câblage).
@@ -208,6 +242,13 @@ export interface TpDefinition {
   /** Automate : affectation des E/S (TP M221). */
   plcIo?: { io: string; label: string; device: string }[];
   station: boolean;
+  /**
+   * Composition du coffret de porte, de haut en bas. Absent = pupitre historique
+   * (H1 marche · H2 défaut · S2 marche · S1 arrêt), voir `DEFAULT_PUPITRE`.
+   */
+  pupitre?: PupitreItem[];
+  /** Interrupteur de position câblé dans la chaîne d'arrêt (carter, écran de protection). */
+  interPosition?: InterPosition;
   hasMotor: boolean;
   /** Diplômes visés par le TP (colonne `tps.diplomas` / bloc studio). */
   diplomas?: DiplomaId[];
