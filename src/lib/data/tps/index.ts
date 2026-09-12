@@ -1,38 +1,24 @@
 /**
- * Les 14 TP de SimulElec v3 (SPEC-v3 §4), un fichier par TP.
+ * Catalogue FOURNI avec l'application.
+ *
+ * Il ne contient plus qu'un seul TP de référence : « Démarrage direct un sens de marche ».
+ * C'est le gabarit vivant du simulateur — il sert de modèle de structure (postes, liaisons,
+ * mesures attendues, barème) aux TP que le professeur crée dans le studio ou fait générer.
+ *
+ * Les treize autres TP de la v3 ont été retirés du catalogue à la demande du professeur :
+ * le catalogue se reconstruit désormais TP par TP, à partir des dossiers techniques réels
+ * de l'établissement. Leurs fichiers restent dans ce dossier, hors de `TPS` : ils ne sont
+ * plus ni affichés, ni pré-rendus, ni jouables, mais restent disponibles comme référence de
+ * rédaction. Pour en remettre un au catalogue, il suffit de l'importer et de l'ajouter à
+ * `TPS` ci-dessous.
+ *
  * L'ordre de ce tableau est l'ordre d'affichage du catalogue.
  */
 import type { TpDefinition } from '@/lib/types';
 import { TP_DEMARRAGE_DIRECT } from './demarrage-direct';
-import { TP_INVERSION } from './inversion';
-import { TP_ETOILE_TRIANGLE } from './etoile-triangle';
-import { TP_POMPE_RELEVAGE } from './pompe-relevage';
-import { TP_AUTOMATE_M221 } from './automate-m221';
-import { TP_TABLEAU_LOGEMENT } from './tableau-logement';
-import { TP_TABLEAU_REPARTITION } from './tableau-repartition';
-import { TP_VA_ET_VIENT } from './va-et-vient';
-import { TP_CHAUFFE_EAU } from './chauffe-eau';
-import { TP_ECLAIRAGE_TERTIAIRE } from './eclairage-tertiaire';
-import { TP_ECLAIRAGE_BAES } from './eclairage-baes';
-import { TP_PV_RESEAU } from './pv-reseau';
-import { TP_PV_BATTERIE } from './pv-batterie';
-import { TP_PV_DIMENSIONNEMENT } from './pv-dimensionnement';
 
 export const TPS: TpDefinition[] = [
   TP_DEMARRAGE_DIRECT,
-  TP_INVERSION,
-  TP_ETOILE_TRIANGLE,
-  TP_POMPE_RELEVAGE,
-  TP_AUTOMATE_M221,
-  TP_TABLEAU_LOGEMENT,
-  TP_TABLEAU_REPARTITION,
-  TP_VA_ET_VIENT,
-  TP_CHAUFFE_EAU,
-  TP_ECLAIRAGE_TERTIAIRE,
-  TP_ECLAIRAGE_BAES,
-  TP_PV_RESEAU,
-  TP_PV_BATTERIE,
-  TP_PV_DIMENSIONNEMENT,
 ];
 
 export const TP_BY_ID: Record<string, TpDefinition> = Object.fromEntries(TPS.map((t) => [t.id, t]));
@@ -41,8 +27,4 @@ export function tpById(id: string): TpDefinition | undefined {
   return TP_BY_ID[id];
 }
 
-export {
-  TP_DEMARRAGE_DIRECT, TP_INVERSION, TP_ETOILE_TRIANGLE, TP_POMPE_RELEVAGE, TP_AUTOMATE_M221,
-  TP_TABLEAU_LOGEMENT, TP_TABLEAU_REPARTITION, TP_VA_ET_VIENT, TP_CHAUFFE_EAU,
-  TP_ECLAIRAGE_TERTIAIRE, TP_ECLAIRAGE_BAES, TP_PV_RESEAU, TP_PV_BATTERIE, TP_PV_DIMENSIONNEMENT,
-};
+export { TP_DEMARRAGE_DIRECT };
