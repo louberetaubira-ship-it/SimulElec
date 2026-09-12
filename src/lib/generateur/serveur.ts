@@ -260,10 +260,14 @@ export interface Journal {
   statut: string;
 }
 
-/** Journalise la part d'une étape (durée, jetons, coût, statut). Jamais bloquant. */
-export async function journaliser(caller: Caller, j: Journal): Promise<void> {
+/**
+ * Journalise la part d'une étape (durée, jetons, coût, statut). Jamais bloquant.
+ * Rend l'identifiant de la ligne écrite : l'étape pédagogique le transmet au studio, qui
+ * rattachera ensuite le TP enregistré à sa génération (colonne « TP produit » du journal).
+ */
+export async function journaliser(caller: Caller, j: Journal): Promise<string | null> {
   try {
-    await caller.supabase.from('generation_logs').insert({
+    const { data } = await caller.supabase.from('generation_logs').insert({
       teacher_id: caller.id,
       theme: j.brief.theme.slice(0, 300),
       diploma: j.brief.diplomaId,
@@ -274,9 +278,11 @@ export async function journaliser(caller: Caller, j: Journal): Promise<void> {
       passes: j.passes,
       anomalies: j.anomalies,
       statut: j.statut.slice(0, 300),
-    });
+    }).select('id').single();
+    return (data as { id: string } | null)?.id ?? null;
   } catch {
     // le journal ne doit jamais faire échouer la génération
+    return null;
   }
 }
 

@@ -56,6 +56,8 @@ interface StudioState {
   pedagogie: PedagogieGeneree | null;
   /** TP issu du générateur : bandeau de brouillon et validation obligatoire. */
   generated: boolean;
+  /** Ligne du journal de génération à l'origine de ce TP (`generation_logs.id`). */
+  generationId: string | null;
   /** Anomalies renvoyées par le vérificateur du serveur. */
   genAnomalies: AnomalieGeneration[];
   /** Ce que le moteur a corrigé de lui-même. */
@@ -198,12 +200,13 @@ export const useStudio = create<StudioState>((set, get) => {
     corrections: [],
     cout: null,
     validatedAt: null,
+    generationId: null,
     validating: false,
 
     async load(id, source) {
       set({ loading: true, error: null });
       // Nouveau TP : rien du TP précédent ne doit rester (dossier généré, anomalies, validation).
-      if (!id) set({ generated: false, pedagogie: null, validatedAt: null, genAnomalies: [], corrections: [], cout: null });
+      if (!id) set({ generated: false, generationId: null, pedagogie: null, validatedAt: null, genAnomalies: [], corrections: [], cout: null });
       try {
         if (id) {
           const row = await getTpRow(id);
@@ -221,6 +224,7 @@ export const useStudio = create<StudioState>((set, get) => {
             dirty: false,
             savedAt: null,
             generated: row.generated === true,
+            generationId: row.generation_id ?? null,
             validatedAt: row.validated_at ?? null,
             pedagogie: stored && stored.pedagogie ? lirePedagogie(stored.pedagogie) : null,
             genAnomalies: [],
@@ -438,7 +442,7 @@ export const useStudio = create<StudioState>((set, get) => {
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
       if (enCours) return enCours;
       const promesse = (async (): Promise<string | null> => {
-      const { def, items, domains, diplomas, id, published, archived, pedagogie, generated } = get();
+      const { def, items, domains, diplomas, id, published, archived, pedagogie, generated, generationId } = get();
       if (!def.title.trim() && !id) return null;
       set({ saving: true, error: null });
       try {
@@ -464,6 +468,7 @@ export const useStudio = create<StudioState>((set, get) => {
           archived,
           playable: complete.playable,
           ...(generated ? { generated: true } : {}),
+          ...(generationId ? { generation_id: generationId } : {}),
         };
         if (id) {
           await updateTp(id, payload);
@@ -519,6 +524,7 @@ export const useStudio = create<StudioState>((set, get) => {
         // `deductions` : ce que l'IA a choisi elle-même (brief laissé vide) → pastilles du studio.
         pedagogie: { ...res.pedagogie, ...(res.deductions.length ? { deductions: res.deductions } : {}) },
         generated: true,
+        generationId: res.generationId,
         genAnomalies: res.anomalies,
         corrections: res.corrections,
         cout: res.cout,

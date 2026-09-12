@@ -129,12 +129,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      await journaliser(caller, {
+      const generationId = await journaliser(caller, {
         brief, debut, jetonsEntree, jetonsSortie, passes: 1, anomalies: 0, statut: 'pedagogie:ok',
       });
 
       return {
         pedagogie,
+        generationId,
         cout: {
           tokens: jetonsEntree + jetonsSortie,
           euros: cout(jetonsEntree, jetonsSortie),

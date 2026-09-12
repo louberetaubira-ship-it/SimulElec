@@ -150,6 +150,20 @@ export default function StudioClient({
           onTermine={(res) => {
             s.importGeneration(res, lancement.brief.diplomaId);
             setMode('editeur');
+            // Le brouillon est enregistré TOUT DE SUITE, sans attendre l'enregistrement
+            // automatique : une génération coûte plusieurs minutes, elle ne doit jamais
+            // disparaître parce que l'onglet a été fermé. Puis on rattache le TP au journal.
+            void (async () => {
+              const tpId = await s.save();
+              if (tpId && res.generationId) {
+                try {
+                  const { lierTpAGeneration } = await import('@/lib/db/generations');
+                  await lierTpAGeneration(res.generationId, tpId);
+                } catch {
+                  // le lien du journal n'est pas vital : le TP est enregistré, c'est l'essentiel
+                }
+              }
+            })();
           }}
         />
       </main>

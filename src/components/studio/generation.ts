@@ -98,6 +98,8 @@ export interface ReponseGeneration {
   passes: number;
   /** Champs que le modèle a choisis lui-même : pastilles « proposé par l'IA » du studio. */
   deductions: ChampDeduit[];
+  /** Ligne du journal (`generation_logs.id`) à rattacher au TP enregistré. */
+  generationId: string | null;
 }
 
 /* ------------------------------------------------------------- étapes du pipeline */
@@ -447,11 +449,13 @@ export interface AcquisGeneration {
   tokens: number;
   euros: number;
   passes: number;
+  /** Ligne du journal ouverte par l'étape pédagogique. */
+  generationId: string | null;
 }
 
 /** Acquis vierge. */
 export const acquisVide = (): AcquisGeneration => ({
-  pedagogie: null, choix: null, maquette: null, tokens: 0, euros: 0, passes: 0,
+  pedagogie: null, choix: null, maquette: null, tokens: 0, euros: 0, passes: 0, generationId: null,
 });
 
 /** Coût lu dans la réponse d'une étape, cumulé dans les acquis. */
@@ -517,6 +521,7 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
           o.delaiMs,
         );
         cumuler(acquis, res.cout);
+        if (typeof res.generationId === 'string') acquis.generationId = res.generationId;
         return lirePedagogie(res.pedagogie);
       },
       (p) => `${p.activites.length} activité(s), ${p.criteres.length} critère(s), ${p.quiz.length} question(s).`,
@@ -657,6 +662,7 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
     cout: { tokens: acquis.tokens, euros: acquis.euros, secondes: secondes() },
     passes: Math.max(1, acquis.passes),
     deductions: deductionsDe(brief, resultat.pedagogie),
+    generationId: acquis.generationId,
   };
 }
 
@@ -684,6 +690,7 @@ export function dossierSeul(pedagogie: PedagogieGeneree, brief: BriefSaisie, acq
     cout: { tokens: acquis.tokens, euros: acquis.euros, secondes: 0 },
     passes: Math.max(1, acquis.passes),
     deductions: deductionsDe(brief, pedagogie),
+    generationId: acquis.generationId,
   };
 }
 

@@ -63,3 +63,12 @@ export async function myQuota(): Promise<Quota> {
   const utilisees = typeof data === 'number' ? data : 0;
   return { utilisees, plafond: QUOTA_MENSUEL, restantes: Math.max(0, QUOTA_MENSUEL - utilisees) };
 }
+
+/**
+ * Rattache le TP enregistré à sa génération : la colonne « TP produit » du journal
+ * devient un lien, et l'on sait d'où vient chaque TP généré. Jamais bloquant.
+ */
+export async function lierTpAGeneration(generationId: string, tpId: string): Promise<void> {
+  const supabase = createClient();
+  await supabase.from('generation_logs').update({ tp_id: tpId }).eq('id', generationId);
+}
