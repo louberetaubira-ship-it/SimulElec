@@ -9,6 +9,7 @@ import {
   resetF1, setCoupling, tick, toggleCarter, toggleF2, toggleF3, toggleQ1, type SimState,
 } from '@/lib/sim/engine';
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
+import { repereLiaison } from '@/lib/sim/reperes';
 import { linkKey } from '@/lib/sim/layout';
 import {
   checkExpected, instrumentDef, read, type ClampWire, type ReadOut,
@@ -83,9 +84,12 @@ export function currentPhase(tp: TpDefinition, st: AttemptState): WirePhase {
 export const wiresOfPhase = (st: AttemptState, phase: WirePhase) =>
   st.wires.filter(w => (isCommandeNet(w.net) ? 'commande' : 'puissance') === phase);
 
-/** Libellé court d'un fil, pour les messages et la liste latérale. */
-export const wireLabel = (w: { a: string; b: string }): string =>
-  `${w.a.replace('.', ' ')} → ${w.b.replace('.', ' ')}`;
+/**
+ * Libellé d'un fil pour les messages et la liste latérale : les REPÈRES lus sur la platine
+ * (« Q2:2 → T1:400 »), pas les identifiants internes du simulateur.
+ */
+export const wireLabel = (tp: Pick<TpDefinition, 'slots'>, w: { a: string; b: string }): string =>
+  repereLiaison(tp, w);
 
 interface ParcoursState {
   tp: TpDefinition;
@@ -405,13 +409,13 @@ export const useParcours = create<ParcoursState>((set, get) => {
       return false;
     }
     const k = linkKey(w.a, w.b);
-    commit(`Retrait ${wireLabel(w)}`, snap => ({
+    commit(`Retrait ${wireLabel(get().tp, w)}`, snap => ({
       ...snap,
       wires: snap.wires.filter(x => linkKey(x.a, x.b) !== k),
       wiresRemoved: snap.wiresRemoved + 1,
     }));
     set({ selWire: null, wireMenu: null });
-    notice(`Fil ${wireLabel(w)} supprimé`);
+    notice(`Fil ${wireLabel(get().tp, w)} supprimé`);
     return true;
   };
 
@@ -590,10 +594,10 @@ export const useParcours = create<ParcoursState>((set, get) => {
       if (st.wires.some(w => linkKey(w.a, w.b) === k)) {
         say('Cette liaison est déjà faite.');
       } else if (expected) {
-        commit(`Liaison ${wireLabel(expected)}`, snap => ({
+        commit(`Liaison ${wireLabel(tp, expected)}`, snap => ({
           ...snap, wires: [...snap.wires, { a: expected.a, b: expected.b, net: expected.net }],
         }));
-        say(`Liaison ${expected.a} → ${expected.b} réalisée.`);
+        say(`Liaison ${repereLiaison(tp, expected)} réalisée.`);
       } else {
         patch(s => ({ ...s, wireErrors: s.wireErrors + 1 }));
         if (get().st.wireErrors >= 3) autoAide('cablage');
@@ -611,10 +615,10 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { tp, st } = get();
       const n: Liaison | undefined = nextLiaison(tp, st);
       if (!n) return;
-      commit(`Liaison ${wireLabel(n)}`, snap => ({
+      commit(`Liaison ${wireLabel(tp, n)}`, snap => ({
         ...snap, wires: [...snap.wires, { a: n.a, b: n.b, net: n.net }],
       }));
-      say(`Câblage assisté : ${n.a} → ${n.b}`);
+      say(`Câblage assisté : ${repereLiaison(tp, n)}`);
     },
 
     selectWire(index) {

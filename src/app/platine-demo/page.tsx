@@ -13,6 +13,7 @@ import { TPS, TP_BY_ID } from '@/lib/data/tps';
 import { NET_COLOR } from '@/lib/scene/geometry';
 import { planLanes, sceneContext, totalLength, wireLength } from '@/lib/scene/route';
 import Panel, { type PanelWire } from '@/components/panel/Panel';
+import { repereLiaison } from '@/lib/sim/reperes';
 import Workspace from '@/components/panel/Workspace';
 import type { DeviceState } from '@/components/panel/Device';
 
@@ -192,7 +193,7 @@ function PlatineDemo() {
                 }}
               >
                 <i style={{ width: 12, height: 4, borderRadius: 2, background: NET_COLOR[l.net], flex: 'none' }} />
-                {l.a.replace('.', ' ')} → {l.b.replace('.', ' ')}
+                {repereLiaison(tp, l)}
                 {l.door ? <span style={{ color: '#66717F' }}>porte</span> : null}
                 <span style={{ marginLeft: 'auto', color: '#66717F' }}>
                   {wireLength(plan, i).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m

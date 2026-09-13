@@ -11,6 +11,7 @@ import {
   ConfirmDialog, UndoBar, WireContextMenu, WireToolButton, WireToolbar, useWireShortcuts,
 } from '@/components/panel/WireTools';
 import { currentPhase, useParcours, wireLabel, wiresOfPhase, type ResetScope } from '@/app/tp/[id]/store';
+import { repereLiaison } from '@/lib/sim/reperes';
 import TpPanel from './TpPanel';
 import { Center, Hint, Side } from './StageLayout';
 
@@ -187,7 +188,7 @@ export default function Cablage({ tp, st, wires, selTerminal, onTerminalClick, o
                 aria-pressed={selWire === i}
               >
                 <i className="h-1.5 w-4 flex-none rounded-sm" style={{ background: NET_COLOR[w.net] }} />
-                <span className="min-w-0 flex-1 truncate">{wireLabel(w)}</span>
+                <span className="min-w-0 flex-1 truncate">{wireLabel(tp, w)}</span>
               </button>
               {w.prewired ? (
                 <span className="flex-none rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-[.04em] text-muted">
@@ -198,7 +199,7 @@ export default function Cablage({ tp, st, wires, selTerminal, onTerminalClick, o
                   type="button"
                   data-testid="wire-remove"
                   className="grid h-9 w-9 flex-none place-items-center rounded-lg text-[15px] font-bold text-crit hover:bg-[var(--surface-2)]"
-                  aria-label={`Supprimer le fil ${wireLabel(w)}`}
+                  aria-label={`Supprimer le fil ${wireLabel(tp, w)}`}
                   onClick={() => deleteWire(i)}
                 >
                   ×
@@ -219,7 +220,7 @@ export default function Cablage({ tp, st, wires, selTerminal, onTerminalClick, o
                 className={`flex items-center gap-2 rounded-lg border bg-[var(--surface)] px-2 py-1.5 font-mono-num text-[11.5px] ${d ? 'border-[var(--line)] line-through opacity-55' : isNext ? 'border-accent' : 'border-[var(--line)]'}`}
               >
                 <i className="h-1 w-3 flex-none rounded-sm" style={{ background: NET_COLOR[l.net] }} />
-                {l.a.replace('.', ' ')} → {l.b.replace('.', ' ')}
+                {repereLiaison(tp, l)}
                 {l.door && <span className="ml-auto text-[10px] text-muted">porte</span>}
               </div>
             );
@@ -246,7 +247,7 @@ export default function Cablage({ tp, st, wires, selTerminal, onTerminalClick, o
         />
         <Hint>
           {selWire != null
-            ? `Fil ${wireLabel(wires[selWire] ?? { a: '', b: '' })} sélectionné : Suppr pour le retirer, Échap pour abandonner.`
+            ? `Fil ${wireLabel(tp, wires[selWire] ?? { a: '', b: '' })} sélectionné : Suppr pour le retirer, Échap pour abandonner.`
             : selTerminal
               ? `Borne ${terminalLabel(tp, selTerminal)} sélectionnée : clique la seconde borne.`
               : 'Suis le tableau à gauche : la prochaine liaison est encadrée.'}
