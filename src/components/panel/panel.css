@@ -86,10 +86,17 @@
 .se-dev .st.off { background: #6B7683; }
 .se-dev .st.trip { background: #D93A3A; animation: se-blink 1s steps(2) infinite; }
 @keyframes se-blink { 50% { opacity: .3 } }
+/**
+ * Repère de l'appareil : AU MILIEU de l'appareil, comme l'étiquette collée en face avant
+ * dans une armoire réelle. Sous l'appareil, il se confondait avec les repères de bornes et
+ * avec la goulotte de la rangée suivante.
+ */
 .se-dev .rep {
-  position: absolute; left: 50%; transform: translateX(-50%); top: 100%; margin-top: 4px;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   font-size: 7px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
-  color: #20262D; text-align: center; line-height: 1.15; text-shadow: 0 0 3px #fff, 0 0 3px #fff;
+  color: #20262D; text-align: center; line-height: 1.15; pointer-events: none;
+  background: rgba(255, 255, 255, .82); border-radius: 3px; padding: 1px 4px;
+  box-shadow: 0 0 0 1px rgba(32, 38, 45, .18);
 }
 .se-dev .rep b { display: block; font-family: var(--font-mono), monospace; font-size: 9.5px; }
 
@@ -194,9 +201,14 @@
   box-shadow: inset 0 3px 6px rgba(0, 0, 0, .55), 0 1px 0 #2F353B;
   filter: brightness(.82);
 }
+/**
+ * Repères des bornes du pupitre : À DROITE, contre les bornes elles-mêmes. À gauche, ils
+ * étaient séparés de leur borne par toute la largeur du coffret et l'élève devait deviner
+ * la correspondance.
+ */
 .se-station .lb {
-  position: absolute; left: -6px; transform: translateX(-100%); text-align: right;
-  font-size: 7px; font-weight: 700; color: #20262D; white-space: nowrap; text-shadow: 0 0 3px #fff;
+  position: absolute; right: 4px; text-align: right;
+  font-size: 6px; font-weight: 700; color: #20262D; white-space: nowrap; text-shadow: 0 0 3px #fff, 0 0 2px #fff;
 }
 .se-station .cap {
   position: absolute; left: 50%; transform: translateX(-50%); bottom: -16px; font-size: 7px; font-weight: 700;

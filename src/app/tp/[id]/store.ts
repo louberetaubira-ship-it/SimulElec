@@ -8,6 +8,7 @@ import {
   initialSim, injectFault, isFaultId, netLive, pickFault, pressButton, releaseButton, repairFault,
   resetF1, setCoupling, tick, toggleCarter, toggleF2, toggleF3, toggleQ1, type SimState,
 } from '@/lib/sim/engine';
+import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { linkKey } from '@/lib/sim/layout';
 import {
   checkExpected, instrumentDef, read, type ClampWire, type ReadOut,
@@ -367,6 +368,17 @@ export const useParcours = create<ParcoursState>((set, get) => {
       undoStack: [...s.undoStack, { label, before, after }].slice(-UNDO_MAX),
       redoStack: [],
     }));
+    syncCouplage();
+  };
+
+  /**
+   * Le couplage n'est plus donné par un bouton : il se DÉDUIT des barrettes que l'élève a
+   * posées sur la plaque à bornes. Tant qu'elles manquent, on garde la dernière valeur
+   * connue — le moteur ne tournera de toute façon pas sans ses enroulements refermés.
+   */
+  const syncCouplage = () => {
+    const c = couplageDesBarrettes(get().st.wires);
+    if (c && c !== get().sim.coupling) set(s => ({ sim: { ...s.sim, coupling: c } }));
   };
 
   /** Message temporaire « Fil X → Y supprimé », avec un bouton « Annuler ». */

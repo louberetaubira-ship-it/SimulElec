@@ -54,7 +54,6 @@ export interface PanelProps {
   /** Coups de poing du coffret restés verrouillés, par repère. */
   latched?: Record<string, boolean>;
   motorRpm?: number;
-  coupling?: 'Y' | 'D';
   /** Index de la liaison surlignée. */
   highlight?: number | null;
   /** Index du fil sélectionné par l'élève (trait épaissi + halo). */
@@ -71,7 +70,6 @@ export interface PanelProps {
   onDevice?: (slotId: string) => void;
   /** Appui / relâchement d'un organe du coffret, désigné par son repère. */
   onButton?: (rep: string, down: boolean) => void;
-  onCoupling?: () => void;
   className?: string;
   /** Le composant ne se met pas lui-même à l'échelle (il est dans un `<Workspace>` zoomable). */
   fixedScale?: boolean;
@@ -90,9 +88,9 @@ function markOffset(id: string, fy: number): { dx: number; dy: number } {
 
 export default function Panel(props: PanelProps) {
   const {
-    tp, items, wires, cover, marks, deviceState, lamps, latched, motorRpm = 0, coupling = 'Y',
+    tp, items, wires, cover, marks, deviceState, lamps, latched, motorRpm = 0,
     highlight = null, selectedWire = null, probes, clamp = null, lock = false, pickTerminals, pickWires,
-    onTerminal, onWire, onWireLongPress, onDevice, onButton, onCoupling, className, fixedScale = false,
+    onTerminal, onWire, onWireLongPress, onDevice, onButton, className, fixedScale = false,
   } = props;
 
   const hostRef = React.useRef<HTMLDivElement>(null);
@@ -368,7 +366,7 @@ export default function Panel(props: PanelProps) {
         <>
           {/* L'étiquette vient de la plaque du TP : chaque machine a son moteur. */}
           <Motor rpm={motorRpm} label={motorLabel} />
-          <TerminalBox coupling={coupling} onCoupling={onCoupling} />
+          <TerminalBox />
           <Terminals
             terminals={motorTerminals}
             marks={marks}

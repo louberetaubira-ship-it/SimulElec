@@ -32,7 +32,12 @@ export interface Bareme {
 export type BaremeOverride = Partial<Omit<Bareme, 'poids'>> & { poids?: Partial<Bareme['poids']> };
 
 /** Conducteurs : L1/L2/L3/N/PE, C = commande 24 V (+), C0 = 0 V commande, DC+/DC- = photovoltaïque. */
-export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-';
+/**
+ * Nature d'un conducteur. `BAR` désigne une BARRETTE de couplage de la plaque à bornes du
+ * moteur : ce n'est pas un fil tiré dans l'armoire, mais un pont que l'élève pose lui-même
+ * selon le couplage imposé par la plaque signalétique.
+ */
+export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-' | 'BAR';
 
 export type DeviceKind =
   | 'main' | 'mcb' | 'rcd' | 'motorcb' | 'contactor' | 'thermal'

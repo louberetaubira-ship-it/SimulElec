@@ -211,32 +211,31 @@ export function MotorSvg({ rpm = 0, label = 'M1 · 1,5 kW · 400 V Y' }: { rpm?:
   );
 }
 
-/** Boîte à bornes du moteur, barrettes étoile ou triangle. */
-export function TerminalBoxSvg({ coupling }: { coupling: 'Y' | 'D' }) {
-  const Y = coupling === 'Y';
+/**
+ * Plaque à bornes du moteur. Elle n'annonce plus le couplage : c'est l'élève qui le réalise
+ * en posant les barrettes d'après la plaque signalétique (400 V Y · 230 V Δ) et la tension
+ * du réseau. Le simulateur constate ensuite ce qui a été ponté.
+ */
+export function TerminalBoxSvg() {
   return (
     <svg viewBox="0 0 112 112">
       <rect x="2" y="10" width="108" height="100" rx="6" fill="#3A4047" stroke="#1F2429" />
       <rect x="8" y="16" width="96" height="88" rx="4" fill="#5B626A" />
       <text x="56" y="8" textAnchor="middle" fontFamily={COND} fontSize="9" fontWeight="700" fill="#20262D">
-        {`M1 · BOÎTE À BORNES · ${Y ? 'ÉTOILE Y' : 'TRIANGLE Δ'}`}
+        M1 · PLAQUE À BORNES
       </text>
-      {Y ? (
-        <rect x="22" y="34" width="72" height="12" rx="3" fill="#C9A34A" stroke="#6B5A00" />
-      ) : (
-        <>
-          <rect x="24" y="34" width="12" height="46" rx="3" fill="#C9A34A" stroke="#6B5A00" />
-          <rect x="52" y="34" width="12" height="46" rx="3" fill="#C9A34A" stroke="#6B5A00" />
-          <rect x="80" y="34" width="12" height="46" rx="3" fill="#C9A34A" stroke="#6B5A00" />
-        </>
-      )}
+      {/*
+        Plus de barrettes dessinées d'office : c'est l'ÉLÈVE qui les pose, en reliant les
+        bornes entre elles d'après la plaque signalétique. Le couplage se déduit ensuite de
+        ce qu'il a ponté — il n'est plus donné par un bouton.
+      */}
       <g fill="#D9DEE3" stroke="#20262D">
         <circle cx="30" cy="40" r="6" /><circle cx="58" cy="40" r="6" /><circle cx="86" cy="40" r="6" />
         <circle cx="30" cy="74" r="6" /><circle cx="58" cy="74" r="6" /><circle cx="86" cy="74" r="6" />
         <circle cx="14" cy="98" r="5" fill="#37B34A" />
       </g>
-      <text x="56" y="58" textAnchor="middle" fontFamily={MONO} fontSize="7" fill="#fff">
-        {Y ? 'W2–U2–V2 pontés' : 'U1-W2 · V1-U2 · W1-V2'}
+      <text x="56" y="60" textAnchor="middle" fontFamily={MONO} fontSize="6.5" fill="#C3CBD2">
+        barrettes à poser
       </text>
       <text x="98" y="102" textAnchor="end" fontFamily={MONO} fontSize="6.5" fill="#fff">400 V Y · 230 V Δ</text>
     </svg>

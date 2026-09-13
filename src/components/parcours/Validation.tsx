@@ -133,10 +133,8 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
           lamps={lampsOf(sim, tp)}
           latched={sim.latched}
           motorRpm={sim.n}
-          coupling={sim.coupling}
           onDevice={s.deviceClick}
           onButton={(b, down) => s.button(b, down)}
-          onCoupling={() => s.coupling(sim.coupling === 'Y' ? 'D' : 'Y')}
         />
         <Hint>
           {st.fixed

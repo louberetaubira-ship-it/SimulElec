@@ -198,7 +198,7 @@ export const PLC_TERMINALS: TerminalDef[] = [
 
 export const NET_COLOR: Record<NetKind, string> = {
   L1: '#8B4A2B', L2: '#2B2F36', L3: '#8E979F', N: '#2C7BE5', PE: '#37B34A',
-  C: '#E4312B', C0: '#7A3AB8', 'DC+': '#D93A3A', 'DC-': '#20262D',
+  C: '#E4312B', C0: '#7A3AB8', 'DC+': '#D93A3A', 'DC-': '#20262D', BAR: '#C9A34A',
 };
 
 /** Étiquettes des rangées (goulottes) selon la scène. */

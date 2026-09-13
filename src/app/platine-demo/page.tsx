@@ -41,7 +41,6 @@ function PlatineDemo() {
    */
   const [pick, setPick] = React.useState(false);
   const [borne, setBorne] = React.useState<string | null>(null);
-  const [coupling, setCoupling] = React.useState<'Y' | 'D'>('Y');
   const [highlight, setHighlight] = React.useState<number | null>(null);
   const [state, setState] = React.useState<Record<string, DeviceState>>({ q1: 'off', f2: 'off', f3: 'off', km1: 'off', f1: 'on' });
   const [lib, setLib] = React.useState<Record<string, CatalogueItem>>({});
@@ -155,9 +154,6 @@ function PlatineDemo() {
             {borne ?? 'aucune borne'}
           </span>
         ) : null}
-        <button type="button" style={btn(coupling === 'D')} onClick={() => setCoupling((c) => (c === 'Y' ? 'D' : 'Y'))}>
-          Couplage {coupling === 'Y' ? 'étoile Y' : 'triangle Δ'}
-        </button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 16 }}>
@@ -171,11 +167,9 @@ function PlatineDemo() {
             deviceState={state}
             lamps={{ H1: running, H2: state.f1 === 'trip' }}
             motorRpm={running ? 1450 : 0}
-            coupling={coupling}
             highlight={highlight}
             onDevice={pick ? undefined : toggle}
             onButton={onButton}
-            onCoupling={() => setCoupling((c) => (c === 'Y' ? 'D' : 'Y'))}
             pickTerminals={pick}
             onTerminal={pick ? setBorne : undefined}
             fixedScale

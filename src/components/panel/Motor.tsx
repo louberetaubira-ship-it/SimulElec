@@ -12,17 +12,12 @@ export function Motor({ rpm = 0, label }: MotorProps) {
   return <div className="se-motor"><MotorSvg rpm={rpm} label={label} /></div>;
 }
 
-export interface TerminalBoxProps { coupling: 'Y' | 'D'; onCoupling?: () => void }
-
-export function TerminalBox({ coupling, onCoupling }: TerminalBoxProps) {
-  if (!onCoupling) {
-    return <div className="se-tbox"><TerminalBoxSvg coupling={coupling} /></div>;
-  }
-  return (
-    <button type="button" className="se-tbox" title="Cliquer pour changer le couplage" onClick={onCoupling}>
-      <TerminalBoxSvg coupling={coupling} />
-    </button>
-  );
+/**
+ * Plaque à bornes. Le couplage n'est plus un bouton : l'élève pose les barrettes lui-même
+ * en reliant les bornes, exactement comme il tire un fil.
+ */
+export function TerminalBox() {
+  return <div className="se-tbox"><TerminalBoxSvg /></div>;
 }
 
 export default Motor;

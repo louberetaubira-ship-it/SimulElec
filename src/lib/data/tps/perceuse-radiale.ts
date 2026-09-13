@@ -233,11 +233,13 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     L('S3.22', 'S4.13', 'C', 'door'), L('S3.22', 'x2_2.b', 'C', 'door'),
     L('S4.14', 'x2_3.b', 'C', 'door'),
     L('x2_1.b', 'H1.X1', 'C', 'door'), L('x2_4.b', 'H1.X2', 'C0', 'door'),
-    // ---- câblage installateur : arrivée réseau et câble moteur ----
-    L('RES.L1', 'x1_1.b', 'L1', 'pre'), L('RES.L2', 'x1_2.b', 'L2', 'pre'), L('RES.L3', 'x1_3.b', 'L3', 'pre'),
-    L('RES.N', 'x1_4.b', 'N', 'pre'), L('RES.PE', 'x1_5.b', 'PE', 'pre'),
-    L('x1_6.b', 'M.U1', 'L1', 'pre'), L('x1_7.b', 'M.V1', 'L2', 'pre'), L('x1_8.b', 'M.W1', 'L3', 'pre'),
-    L('x1_9.b', 'M.PE', 'PE', 'pre'),
+    // ---- barrettes de couplage : l'élève les pose d'après la plaque (400 V → étoile) ----
+    L('M.U2', 'M.V2', 'BAR'), L('M.V2', 'M.W2', 'BAR'),
+    // ---- arrivée réseau et câble moteur : câblés par l'élève, comme le reste ----
+    L('RES.L1', 'x1_1.b', 'L1'), L('RES.L2', 'x1_2.b', 'L2'), L('RES.L3', 'x1_3.b', 'L3'),
+    L('RES.N', 'x1_4.b', 'N'), L('RES.PE', 'x1_5.b', 'PE'),
+    L('x1_6.b', 'M.U1', 'L1'), L('x1_7.b', 'M.V1', 'L2'), L('x1_8.b', 'M.W1', 'L3'),
+    L('x1_9.b', 'M.PE', 'PE'),
   ],
   nets: {
     // bornier de puissance X1

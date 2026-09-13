@@ -170,7 +170,6 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           lamps={lampsOf(sim, tp)}
           latched={sim.latched}
           motorRpm={sim.n}
-          coupling={sim.coupling}
           probes={mes.probes}
           clamp={mes.clamp}
           lock={st.cons.lock}
@@ -180,7 +179,6 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           onWire={s.onWire}
           onDevice={s.deviceClick}
           onButton={(b, down) => s.button(b, down)}
-          onCoupling={() => s.coupling(sim.coupling === 'Y' ? 'D' : 'Y')}
         />
         <Hint>
           {variant === 'epi'
