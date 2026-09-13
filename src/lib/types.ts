@@ -156,7 +156,14 @@ export interface Fault { id: string; title: string; symptom: string; fix: string
 
 /** Réseau électrique d'une borne, pour le calcul des mesures (voir lib/sim/mesures.ts). */
 export interface TerminalNet {
-  net: NetKind | 'U' | 'V' | 'W' | 'M2' | 'M' | 'I0' | 'I1' | 'I2' | 'Q0' | 'Q1' | 'Q2';
+  /**
+   * `TAP` désigne une PRISE INUTILISÉE d'un appareil à plusieurs prises (primaire 230 V d'un
+   * transformateur alimenté en 400 V, secondaire 48 V d'une commande en 24 V). Elle n'est
+   * équipotentielle à rien d'autre : la déclarer sur le 0 V ou le PE la rendrait
+   * silencieusement reliée à la terre, et une faute de câblage dessus passerait inaperçue.
+   */
+  net: NetKind | 'U' | 'V' | 'W' | 'M2' | 'M' | 'I0' | 'I1' | 'I2' | 'Q0' | 'Q1' | 'Q2'
+    | 'TAP-PRI-230' | 'TAP-SEC-48';
   /** Condition de présence de tension : 'always' | 'q1' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off'. */
   live: 'always' | 'q1' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
 }

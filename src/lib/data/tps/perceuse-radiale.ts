@@ -72,6 +72,8 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     { k: 'Réseau', v: '3 × 400 V + PE, 50 Hz, arrivée sur bornier X1' },
     { k: 'Force motrice', v: 'moteur asynchrone triphasé 1,1 kW, 1 500 tr/min, 4 pôles, couplage étoile' },
     { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1 400/24 V · 63 VA, primaire protégé par Q2, secondaire par Q3' },
+    { k: 'Primaire de T1', v: 'prises 0 · 230 · 400. Alimentation en 400 V ENTRE DEUX PHASES : raccorder sur 0 et 400, la prise 230 reste libre. En 230 V on utiliserait 0 et 230, avec le NEUTRE sur la borne 0 — ici il n\'y a pas de neutre à la machine.' },
+    { k: 'Secondaire de T1', v: 'prises 0V · 24 · 48. La commande est en 24 V : raccorder sur 0V et 24, la prise 48 reste libre. Le 0V est relié à la terre.' },
     { k: 'Sectionnement', v: 'Q1 sectionneur porte-fusibles cadenassable : c\'est LUI qui assure la consignation' },
     { k: 'Rail 1', v: 'Q1 · Q2 · Q3 · T1' },
     { k: 'Rail 2', v: 'KM1 · F1' },
@@ -140,9 +142,9 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       name: 'Q2 · Protection du primaire',
       need: 'Protéger le primaire 400 V de T1 (I₁ ≈ 0,16 A) et ses conducteurs',
       options: [
-        { key: 'mcb2p', ref: 'iC60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire : le primaire est pris entre DEUX phases, il faut couper les deux.' },
+        { key: 'mcb2ph', ref: 'iC60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire : le primaire est pris entre DEUX phases, il faut couper les deux.' },
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · 1 pôle', why: 'Un seul pôle coupé : la seconde phase du primaire reste sous tension, le transformateur reste dangereux.' },
-        { key: 'mcb2p', ref: 'iC60N 2P C20', spec: '20 A · courbe C', why: 'Calibre sans rapport avec un primaire de 0,16 A.' },
+        { key: 'mcb2ph', ref: 'iC60N 2P C20', spec: '20 A · courbe C', why: 'Calibre sans rapport avec un primaire de 0,16 A.' },
       ],
     },
     {
@@ -189,7 +191,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
   rails: [150, 346, 542],
   slots: [
     { id: 'q1', label: 'Q1 · Sectionneur porte-fusibles', key: 'fuseswitch', rail: 0, x: 46, rep: 'Q1' },
-    { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2p', rail: 0, x: 140, rep: 'Q2' },
+    { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
     { id: 'f3', label: 'Q3 · Secondaire 24 V', key: 'mcb1p', rail: 0, x: 200, rep: 'Q3' },
     { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 0, x: 240, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 1, x: 60, rep: 'KM1' },
@@ -214,8 +216,8 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     L('f1.2', 'x1_6.a', 'L1'), L('f1.4', 'x1_7.a', 'L2'), L('f1.6', 'x1_8.a', 'L3'),
     L('x1_5.a', 'x1_9.a', 'PE'),
     // ---- alimentation TBT : deux phases en aval de Q1 → Q2 → T1 → Q3 ----
-    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.N', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.N', 't1.0', 'L2'),
+    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
+    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
     L('t1.24', 'f3.1', 'C'),
     L('t1.0V', 'x2_4.a', 'C0'), L('x2_4.a', 'x1_5.a', 'PE'),
     // ---- commande : conducteur « 2 », défaut thermique, chaîne d'arrêt ----
@@ -265,11 +267,18 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     'f1.2': { net: 'U', live: 'run' }, 'f1.4': { net: 'V', live: 'run' }, 'f1.6': { net: 'W', live: 'run' },
     'f1.95': { net: 'C', live: 'ctl' }, 'f1.96': { net: 'C', live: 'ctl' },
     // protection du primaire (Q2)
-    'f2.1': { net: 'L1', live: 'q1' }, 'f2.N': { net: 'L2', live: 'q1' },
-    'f2.2': { net: 'L1', live: 'f2' }, 'f2.N2': { net: 'L1', live: 'f2' },
+    'f2.1': { net: 'L1', live: 'q1' }, 'f2.3': { net: 'L2', live: 'q1' },
+    'f2.2': { net: 'L1', live: 'f2' }, 'f2.4': { net: 'L2', live: 'f2' },
     // transformateur de commande
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'C0', live: 'always' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'C0', live: 'always' },
+    // Primaire à prises 0 · 230 · 400. Le TP alimente en 400 V ENTRE DEUX PHASES, donc sur
+    // 0 et 400 ; la prise 230 reste LIBRE. Elle était déclarée sur le 0 V de commande, donc
+    // équipotentielle à la terre : un élève qui y raccordait un retour de bobine obtenait un
+    // montage « cohérent » pour le simulateur, alors que c'est un court-circuit phase-terre.
+    // Même faute sur la prise 48 V du secondaire. Chacune a désormais son propre réseau.
+    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' },
+    't1.230': { net: 'TAP-PRI-230', live: 'f2' },
+    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' },
+    't1.48': { net: 'TAP-SEC-48', live: 'f2' },
     // protection du secondaire (Q3)
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
     // bornier de commande XC
@@ -349,6 +358,16 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     { id: 'f3', title: 'Q3 déclenché (défaut sur le 24 V)', symptom: 'H1 éteint alors que Q1 est fermé, 0 V sur tout le bornier XC, 24 V au secondaire de T1.', fix: 'Chercher le défaut d\'isolement du circuit 24 V, puis réarmer Q3.' },
   ],
   quiz: [
+    {
+      q: 'Le primaire de T1 porte trois prises : 0, 230 et 400. L\'alimentation se fait en 400 V entre deux phases. Sur quelles bornes raccordes-tu ?',
+      options: ['0 et 230', '0 et 400', '230 et 400'],
+      answer: 1,
+    },
+    {
+      q: 'Si ce transformateur était alimenté en 230 V au lieu de 400 V, que faudrait-il amener sur la borne 0 ?',
+      options: ['une deuxième phase', 'le neutre', 'le conducteur de protection'],
+      answer: 1,
+    },
     {
       q: 'Le moteur a une intensité nominale In = 2,6 A. Entre quelles valeurs se situe la pointe de courant au démarrage direct ?',
       options: ['entre 2,6 A et 5,2 A', 'entre 13 A et 20,8 A', 'entre 26 A et 52 A'],

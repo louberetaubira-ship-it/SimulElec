@@ -89,9 +89,9 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
       name: 'F2 · Protection du primaire',
       need: 'Protéger le primaire 400 V de T1 (I1 ≈ 0,16 A) et les conducteurs 1,5 mm²',
       options: [
-        { key: 'mcb2p', ref: 'iC60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire pour couper les deux phases du primaire, calibre adapté au transformateur.' },
+        { key: 'mcb2ph', ref: 'iC60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire pour couper les deux phases du primaire, calibre adapté au transformateur.' },
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', why: 'Un seul pôle coupé : la seconde phase du primaire reste sous tension.' },
-        { key: 'mcb2p', ref: 'iC60N 2P C20', spec: '20 A · courbe C', why: 'Calibre sans rapport avec le primaire : ni le transformateur ni les fils ne sont protégés.' },
+        { key: 'mcb2ph', ref: 'iC60N 2P C20', spec: '20 A · courbe C', why: 'Calibre sans rapport avec le primaire : ni le transformateur ni les fils ne sont protégés.' },
       ],
     },
     {
@@ -140,7 +140,7 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     { id: 'q1', label: 'Q1 · Disjoncteur moteur', key: 'motorcb', rail: 0, x: 52, rep: 'Q1' },
     { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 0, x: 112, rep: 'KM1' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 180, rep: 'F1' },
-    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2p', rail: 1, x: 52, rep: 'F2' },
+    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 1, x: 52, rep: 'F2' },
     { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 1, x: 116, rep: 'T1' },
     { id: 'f3', label: 'F3 · Secondaire 24 V', key: 'mcb1p', rail: 1, x: 204, rep: 'F3' },
     ...X1(52),
@@ -156,8 +156,8 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     L('f1.2', 'x1_6.a', 'L1'), L('f1.4', 'x1_7.a', 'L2'), L('f1.6', 'x1_8.a', 'L3'),
     L('x1_5.a', 'x1_9.a', 'PE'),
     // ---- commande : primaire, transformateur, secondaire 24 V ----
-    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.N', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.N', 't1.0', 'L2'),
+    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
+    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
     L('t1.24', 'f3.1', 'C'), L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_1.a', 'C'),
     L('x2_2.a', 'km1.13', 'C'), L('x2_3.a', 'km1.A1', 'C'), L('km1.14', 'km1.A1', 'C'),
     L('t1.0V', 'x2_6.a', 'C0'), L('x2_6.a', 'x1_5.a', 'PE'), L('km1.A2', 'x2_6.a', 'C0'),
@@ -198,11 +198,18 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     'f1.2': { net: 'U', live: 'run' }, 'f1.4': { net: 'V', live: 'run' }, 'f1.6': { net: 'W', live: 'run' },
     'f1.95': { net: 'C', live: 'ctl' }, 'f1.96': { net: 'C', live: 'ctl' },
     // protection du primaire
-    'f2.1': { net: 'L1', live: 'q1' }, 'f2.N': { net: 'L2', live: 'q1' },
-    'f2.2': { net: 'L1', live: 'f2' }, 'f2.N2': { net: 'L1', live: 'f2' },
+    'f2.1': { net: 'L1', live: 'q1' }, 'f2.3': { net: 'L2', live: 'q1' },
+    'f2.2': { net: 'L1', live: 'f2' }, 'f2.4': { net: 'L2', live: 'f2' },
     // transformateur
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'C0', live: 'always' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'C0', live: 'always' },
+    // Primaire à prises 0 · 230 · 400. Le TP alimente en 400 V ENTRE DEUX PHASES, donc sur
+    // 0 et 400 ; la prise 230 reste LIBRE. Elle était déclarée sur le 0 V de commande, donc
+    // équipotentielle à la terre : un élève qui y raccordait un retour de bobine obtenait un
+    // montage « cohérent » pour le simulateur, alors que c'est un court-circuit phase-terre.
+    // Même faute sur la prise 48 V du secondaire. Chacune a désormais son propre réseau.
+    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' },
+    't1.230': { net: 'TAP-PRI-230', live: 'f2' },
+    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' },
+    't1.48': { net: 'TAP-SEC-48', live: 'f2' },
     // protection du secondaire
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
     // bornier de commande
@@ -218,8 +225,10 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     'M.U2': { net: 'M2', live: 'run' }, 'M.V2': { net: 'M2', live: 'run' }, 'M.W2': { net: 'M2', live: 'run' },
     'S1.21': { net: 'C', live: 'ctl' }, 'S1.22': { net: 'C', live: 'ctl' },
     'S2.13': { net: 'C', live: 'ctl' }, 'S2.14': { net: 'C', live: 'ctl' },
-    'H1.X1': { net: 'C', live: 'ctl' }, 'H1.X2': { net: 'C', live: 'ctl' },
-    'H2.X1': { net: 'C', live: 'ctl' }, 'H2.X2': { net: 'C', live: 'ctl' },
+    // X2 des voyants : c'est le conducteur de RETOUR 0 V, pas le 24 V — l'élève doit
+    // pouvoir le distinguer au repérage comme à la mesure.
+    'H1.X1': { net: 'C', live: 'ctl' }, 'H1.X2': { net: 'C0', live: 'always' },
+    'H2.X1': { net: 'C', live: 'ctl' }, 'H2.X2': { net: 'C0', live: 'always' },
   },
   tests: [
     ...BASE_TESTS,
