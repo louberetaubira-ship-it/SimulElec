@@ -77,7 +77,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     { k: 'Rail 2', v: 'KM1 · F1' },
     { k: 'Rail 3', v: 'X1 bornier puissance · XC bornier commande (7 bornes)' },
     { k: 'Pupitre', v: 'H1 voyant incolore « sous tension » · S2 coup de poing à verrouillage · S3 arrêt · S4 marche, raccordés sur XC' },
-    { k: 'Sécurité machine', v: 'S1 interrupteur de position sur l\'écran de protection, en série dans la chaîne d\'arrêt entre XC:2 et XC:3' },
+    { k: 'Sécurité machine', v: 'S1 interrupteur de position à galet sur l\'écran de protection, contact NF 11-12 en série dans la chaîne d\'arrêt entre XC:2 et XC:3' },
     { k: 'Auto-maintien', v: 'contact KM1 13-14 en parallèle sur S4' },
     { k: 'Défaut thermique', v: 'F1 95-96 en tête de la chaîne de commande : un déclenchement coupe tout' },
     { k: 'X1:4 · N', v: 'neutre amené au bornier mais NON utilisé : la machine est alimentée en 3 × 400 V + PE' },
@@ -170,9 +170,9 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       name: 'S1 · Interrupteur de position',
       need: 'Interdire la rotation du mandrin tant que l\'écran de protection n\'est pas en place',
       options: [
-        { key: 'stopstart', ref: 'XCKJ + contact NF à manœuvre positive', spec: 'contact NF à ouverture positive', ok: true, why: 'À ouverture positive : l\'ouverture du carter ARRACHE mécaniquement le contact, même s\'il est collé. C\'est l\'exigence des protecteurs mobiles.' },
-        { key: 'stopstart', ref: 'Détecteur inductif', spec: 'détection sans contact', why: 'Un détecteur peut rester collé ou être leurré par une pièce métallique : il ne convient pas seul pour un protecteur mobile.' },
-        { key: 'stopstart', ref: 'Contact NO simple', spec: 'contact à fermeture', why: 'Contact NO : une rupture de fil laisserait la machine démarrer carter ouvert.' },
+        { key: 'limitswitch', ref: 'XCKJ à galet · contact NF 11-12', spec: 'NF à ouverture positive', ok: true, why: 'À ouverture positive : l\'ouverture de l\'écran ARRACHE mécaniquement le contact, même s\'il est collé. C\'est l\'exigence des protecteurs mobiles.' },
+        { key: 'limitswitch', ref: 'XCKJ à galet · contact NO 11-14', spec: 'NO à fermeture', why: 'Contact NO : une rupture de fil laisserait la perceuse démarrer écran ouvert. Le même appareil, mais la mauvaise borne.' },
+        { key: 'limitswitch', ref: 'Détecteur inductif', spec: 'détection sans contact', why: 'Un détecteur peut rester collé ou être leurré par une pièce métallique : il ne convient pas seul pour un protecteur mobile.' },
       ],
     },
     {
@@ -198,7 +198,14 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     ...XC,
   ],
   annexItems: [],
-  recvItems: [],
+  // S1 est sur la MACHINE, pas dans l'armoire : il est posé dans le bloc récepteurs, à côté
+  // du moteur, et l'élève le raccorde par le presse-étoupe comme le câble moteur.
+  recvItems: [
+    {
+      key: 'limitswitch', rep: 'S1', name: 'interrupteur de position · écran de protection',
+      x: 330, y: 20, w: 40, h: 92, recv: true,
+    },
+  ],
   liaisons: [
     // ---- puissance : réseau → Q1 → KM1 → F1 → moteur ----
     L('x1_1.a', 'q1.1', 'L1'), L('x1_2.a', 'q1.3', 'L2'), L('x1_3.a', 'q1.5', 'L3'),
@@ -213,8 +220,10 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     L('t1.0V', 'x2_4.a', 'C0'), L('x2_4.a', 'x1_5.a', 'PE'),
     // ---- commande : conducteur « 2 », défaut thermique, chaîne d'arrêt ----
     L('f3.2', 'x2_1.a', 'C'), L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_5.a', 'C'),
-    // S1 interrupteur de position : câble vers le carter, posé par l'installateur
-    L('x2_5.b', 'x2_6.b', 'C', 'pre'),
+    // S1 interrupteur de position : contact NF (11-12) en série dans la chaîne d'arrêt.
+    // Le contact NO 14 reste libre — c'est le piège : câbler sur 14 laisserait la perceuse
+    // démarrer écran ouvert et interdirait le démarrage écran fermé.
+    L('x2_5.b', 'S1.X1', 'C'), L('S1.X2', 'x2_6.b', 'C'),
     L('x2_6.a', 'x2_7.a', 'C'),
     // ---- commande : auto-maintien et bobine ----
     L('x2_2.a', 'km1.13', 'C'), L('x2_3.a', 'km1.A1', 'C'), L('km1.14', 'km1.A1', 'C'),
@@ -273,6 +282,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     'M.U1': { net: 'U', live: 'run' }, 'M.V1': { net: 'V', live: 'run' }, 'M.W1': { net: 'W', live: 'run' },
     'M.PE': { net: 'PE', live: 'run' },
     'M.U2': { net: 'M2', live: 'run' }, 'M.V2': { net: 'M2', live: 'run' }, 'M.W2': { net: 'M2', live: 'run' },
+    'S1.X1': { net: 'C', live: 'ctl' }, 'S1.X2': { net: 'C', live: 'ctl' },
     'S2.21': { net: 'C', live: 'ctl' }, 'S2.22': { net: 'C', live: 'ctl' },
     'S3.21': { net: 'C', live: 'ctl' }, 'S3.22': { net: 'C', live: 'ctl' },
     'S4.13': { net: 'C', live: 'ctl' }, 'S4.14': { net: 'C', live: 'ctl' },

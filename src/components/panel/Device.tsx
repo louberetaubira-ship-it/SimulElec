@@ -19,8 +19,7 @@ export interface DeviceProps {
 
 /** Corps de l'appareil : vectoriel, data URI de bibliothèque, ou sprite photo. */
 function body(slot: ResolvedSlot, state?: DeviceState): React.ReactNode {
-  // L'état est passé au dessin : un sectionneur se lit ouvert ou fermé, pas « quelque part ».
-  const vector = svgForKey(slot.key, state);
+  const vector = svgForKey(slot.key);
   if (vector) return vector;
   if (slot.item.src) return <img src={slot.item.src} alt={slot.slot.rep || slot.id} />;
   if (slot.key === 'trafo') return <img src="/sprites/trafo.png" alt="Transformateur de commande" />;

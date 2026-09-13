@@ -33,14 +33,24 @@ export const CATALOGUE: CatalogueItem[] = [
   item({ key: 'steck2p', name: 'Disjoncteur 2P C25', ref: 'Steck SD 2P C25', brand: 'Steck', kind: 'mcb', family: 'Disjoncteurs', modules: 2, poles: 2, In: 25,
     terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
   // ---- Sectionnement et consignation ----
-  // Dessiné en vectoriel : aucune photo du pack ne correspond. `switchable` est forcé à vrai
-  // (le dessin se charge de la position), ce que `vector()` ne permet pas — d'où l'objet complet.
-  {
-    key: 'fuseswitch', name: 'Sectionneur porte-fusibles 3P · cartouches aM 10 × 38', ref: 'GK1EK + fusibles aM 4 A',
-    brand: 'Schneider', kind: 'main', family: 'Sectionnement', modules: 3, poles: 3, In: 32,
-    w: 78, h: 120, switchable: true, svg: true,
+  // Photo reprise de la bibliothèque (famille « Fusibles · sectionneurs »), redimensionnée au
+  // pas modulaire et renommée : c'est bien un sectionneur porte-fusibles tripolaire à
+  // cartouches, l'organe de sectionnement ET de consignation d'un départ-moteur.
+  item({
+    key: 'fuseswitch', name: 'Sectionneur porte-fusibles 3P · cartouches aM 10 × 38', ref: 'LS1-D2531 + aM 4 A',
+    brand: 'Telemecanique', kind: 'main', family: 'Sectionnement', modules: 3, poles: 3, In: 32,
     terminals: [...top3(['1', '3', '5']), ...bot3(['2', '4', '6'])],
-  },
+  }),
+  // ---- Capteurs de position ----
+  // Interrupteur de position à galet, contacts NO / NF : protège un carter ou un écran mobile.
+  // Bornes nommées comme sur l'appareil : 11 commun, 12 contact NF, 14 contact NO.
+  item({
+    key: 'limitswitch', name: 'Interrupteur de position à galet · NO + NF', ref: 'XCKJ à ouverture positive',
+    brand: 'Schneider', kind: 'misc', family: 'Capteurs', modules: 0, poles: 1,
+    terminals: [
+      { id: '11', fx: 0.25, fy: 0.9 }, { id: '12', fx: 0.5, fy: 0.9 }, { id: '14', fx: 0.75, fy: 0.9 },
+    ],
+  }),
   // ---- Disjoncteurs moteur ----
   item({ key: 'motorcb', name: 'Disjoncteur moteur GV2ME08', ref: 'GV2ME08', brand: 'Schneider', kind: 'motorcb', family: 'Disjoncteurs', modules: 2.5, poles: 3, range: [2.5, 4], terminals: [...top3(['1', '3', '5']), ...bot3(['2', '4', '6'])] }),
   // ---- Différentiels ----
