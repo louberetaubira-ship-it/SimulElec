@@ -120,6 +120,24 @@ export function voltage(tp: TpDefinition, sim: SimState, a: string | null, b: st
 
 const isWinding = (n: string): boolean => ['U', 'V', 'W', 'M2', 'M'].includes(n);
 
+/**
+ * Résistance ohmique d'un enroulement, déduite de la plaque signalétique.
+ *
+ * Sur ces petites machines asynchrones, la résistance continue d'un enroulement vaut couramment
+ * 6 à 10 % de l'impédance nominale par phase `Z = U / (√3 · In)`. On retient 7,5 %, ce qui place
+ * la valeur au milieu des fourchettes relevées sur les dossiers techniques.
+ *
+ * Elle était auparavant figée à 4,2 Ω — calibrée sur le premier TP (1,5 kW, In 3,3 A) et donc
+ * fausse dès qu'un TP avait un autre moteur : sur la perceuse radiale (1,1 kW, In 2,6 A), la
+ * mesure attendue entre 5 et 9 Ω était impossible à valider.
+ */
+export function resistanceEnroulement(tp: TpDefinition): number {
+  const { U, In } = motorOf(tp);
+  if (!(U > 0) || !(In > 0)) return 4.2;
+  const z = U / (Math.sqrt(3) * In);
+  return Math.round(z * 0.075 * 10) / 10;
+}
+
 /** Résistance entre deux bornes : valeur, `'ERR'` (sous tension) ou `'OL'`. */
 export function ohms(tp: TpDefinition, sim: SimState, a: string | null, b: string | null): number | 'ERR' | 'OL' | null {
   const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
@@ -128,7 +146,7 @@ export function ohms(tp: TpDefinition, sim: SimState, a: string | null, b: strin
   if (A.live && B.live && u != null && u > 0) return 'ERR';
   if (A.net === B.net && A.net === 'PE') return 0.3;
   if (A.net === B.net) return 0.2;
-  if (isWinding(A.net) && isWinding(B.net)) return 4.2;
+  if (isWinding(A.net) && isWinding(B.net)) return resistanceEnroulement(tp);
   return 'OL';
 }
 
@@ -229,7 +247,10 @@ export function read(
     if ((isWinding(A.net) && B.net === 'PE') || (isWinding(B.net) && A.net === 'PE')) {
       return { value: 200, display: '> 200', unit: 'MΩ · 500 V DC' };
     }
-    if (isWinding(A.net) && isWinding(B.net)) return { value: 4.2, display: '4.2', unit: 'Ω (enroulement)' };
+    if (isWinding(A.net) && isWinding(B.net)) {
+      const r = resistanceEnroulement(tp);
+      return { value: r, display: fr(r, 1), unit: 'Ω (enroulement)' };
+    }
     return { value: 200, display: '> 200', unit: 'MΩ' };
   }
 

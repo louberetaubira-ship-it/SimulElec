@@ -30,6 +30,10 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - Si un TP a besoin d'un appareillage qui n'existe pas encore, on le **crée** : entrée dans `src/lib/data/catalogue.ts` (bornes nommées comme sur l'appareil réel) + dessin vectoriel dans `src/components/panel/svg.tsx` quand il n'y a pas de photo dans le pack. On ne remplace jamais un appareil par un approchant « qui fera l'affaire » : l'élève doit voir et manipuler le bon organe.
 - Avant de dessiner quoi que ce soit, chercher dans `public/lib/*.json` (1 381 références) : la plupart du temps l'appareil y est déjà en photo. On l'extrait alors vers `public/sprites/<clé>.png`, on l'inscrit dans `sprites.json` au pas modulaire, et on le renomme et le décrit selon les caractéristiques voulues.
 
+## Contrôles automatiques
+- `npx tsx scripts/audit-tps.ts` — cohérence électrique des liaisons attendues (bornes inexistantes, boucles, doublons, réseaux différents, repères en double).
+- `npx tsx scripts/audit-mesures.ts` — chaque mesure attendue est-elle *atteignable* ? La valeur rendue par le simulateur doit tomber dans `[min, max]`, sinon l'élève ne peut pas valider l'étape. À lancer après toute modification d'un TP ou du moteur de mesure.
+
 ## Qualité
 - `npm run build` doit passer sans erreur ni warning ESLint bloquant. Pas de `any` gratuit. Composants client marqués `'use client'`.
 - Aucune clé secrète côté client. Les images sont servies depuis `public/sprites` (pas de data URI dans le code).
