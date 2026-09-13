@@ -279,3 +279,21 @@
 .se-panel.pv .se-duct.open { background: #AEB4BA; }
 .se-panel.pv .se-duct .lbl { color: #4E555C; }
 .se-panel.pv .se-rail { background: linear-gradient(#DADDE0 0 2px, #7C8288 2px 4px, #DADDE0 4px 24px, #7C8288 24px 26px, #DADDE0 26px); }
+
+/**
+ * Borne montrée du doigt depuis le tableau de câblage (clic sur une liaison attendue).
+ * Le halo pulse deux fois pour attirer l'œil, puis reste allumé : l'élève garde le repère
+ * sous les yeux le temps d'aller chercher l'autre extrémité.
+ */
+.se-term.fx {
+  background: #E39A00;
+  box-shadow: 0 0 0 4px rgba(227, 154, 0, .5);
+  animation: se-aim 1.1s ease 2;
+}
+@keyframes se-aim {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(227, 154, 0, .5); }
+  50% { box-shadow: 0 0 0 10px rgba(227, 154, 0, .28); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .se-term.fx { animation: none; }
+}

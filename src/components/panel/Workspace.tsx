@@ -112,6 +112,15 @@ export interface WorkspaceProps {
   /** Mode atelier — contenu du tiroir de droite (énoncé + professeur virtuel). */
   drawer?: React.ReactNode;
   drawerTitle?: string;
+  /**
+   * Mode atelier — panneau de gauche, à demeure. À la différence du tiroir, il *pousse* la
+   * platine au lieu de la recouvrir : c'est là que va ce qu'on consulte pendant qu'on
+   * travaille (le tableau de câblage). Replié, il ne garde qu'un rail de 46 px.
+   */
+  dock?: React.ReactNode;
+  dockTitle?: string;
+  /** Le dock est-il déplié à la première entrée en atelier ? (ensuite : choix mémorisé). */
+  dockDefaultOpen?: boolean;
   /** Mode atelier — appareils de mesure disponibles à l'étape en cours. */
   tools?: WorkspaceTool[];
   activeTool?: string | null;
@@ -120,7 +129,9 @@ export interface WorkspaceProps {
 
 export default function Workspace({
   children, storageKey = 'panel', contentHeight = PANEL_H, className,
-  title, subtitle, indicator, actions, drawer, drawerTitle = 'Énoncé', tools, activeTool = null, onTool,
+  title, subtitle, indicator, actions, drawer, drawerTitle = 'Énoncé',
+  dock, dockTitle = 'Tableau', dockDefaultOpen = true,
+  tools, activeTool = null, onTool,
 }: WorkspaceProps) {
   const root = React.useRef<HTMLDivElement>(null);
   const wrap = React.useRef<HTMLDivElement>(null);
@@ -136,6 +147,7 @@ export default function Workspace({
   const nativeFs = React.useRef(false);
   const [idle, setIdle] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [dockOpen, setDockOpen] = React.useState(dockDefaultOpen);
   const [prefsOpen, setPrefsOpen] = React.useState(false);
   const [dark, setDark] = React.useState(true);
   const [autoHide, setAutoHide] = React.useState(true);
@@ -177,6 +189,8 @@ export default function Workspace({
     setReady(true);
     setDark(read('ws.bg') !== 'light');
     setAutoHide(read('ws.autohide') !== '0');
+    const memoDock = read(`ws.dock.${storageKey}`);
+    if (memoDock !== null) setDockOpen(memoDock === '1');
   }, [storageKey, fit]);
 
   // réajustement automatique tant que l'élève n'a pas fixé son zoom
@@ -401,6 +415,12 @@ export default function Workspace({
     };
   }, [fs, autoHide]);
 
+  /** Le dock change la largeur utile : la platine se réajuste si l'élève n'a pas fixé son zoom. */
+  const toggleDock = (open: boolean) => {
+    setDockOpen(open);
+    write(`ws.dock.${storageKey}`, open ? '1' : '0');
+  };
+
   const setBg = (isDark: boolean) => { setDark(isDark); write('ws.bg', isDark ? 'dark' : 'light'); };
   const setHide = (on: boolean) => { setAutoHide(on); write('ws.autohide', on ? '1' : '0'); };
 
@@ -414,6 +434,8 @@ export default function Workspace({
       className={`se-ws${fs ? ' se-ws-fs' : ''}${fs && !nativeFs.current ? ' se-ws-overlay' : ''}${dark ? ' dark' : ' light'}${className ? ` ${className}` : ''}`}
       data-testid="workspace-root"
       data-atelier={fs ? 'on' : 'off'}
+      data-dock={fs && dock ? (dockOpen ? 'open' : 'rail') : 'off'}
+      style={{ ['--dock-w' as string]: fs && dock ? (dockOpen ? '318px' : '46px') : '0px' } as React.CSSProperties}
     >
       {!fs && (
         <div className="se-ztool" role="group" aria-label="Zoom de la zone de travail">
@@ -494,12 +516,37 @@ export default function Workspace({
         </>
       )}
 
-      <div className={`se-wswrap${dragging ? ' drag' : ''}`} ref={wrap} data-testid="workspace">
+      <div className="se-wsmain">
+        {fs && dock && (dockOpen ? (
+          <aside className="se-fsdock" data-testid="atelier-dock">
+            <div className="hd">
+              <b>{dockTitle}</b>
+              <button type="button" onClick={() => toggleDock(false)} aria-label={`Replier « ${dockTitle} »`}>‹</button>
+            </div>
+            <div className="bd">{dock}</div>
+          </aside>
+        ) : (
+          <div className="se-fsdockrail" data-testid="atelier-dock-rail">
+            <button
+              type="button"
+              onClick={() => toggleDock(true)}
+              aria-label={`Déplier « ${dockTitle} »`}
+              data-testid="atelier-dock-open"
+            >
+              ›
+            </button>
+            {indicator != null && <span className="ind">{indicator}</span>}
+            <span className="vt">{dockTitle}</span>
+          </div>
+        ))}
+
+        <div className={`se-wswrap${dragging ? ' drag' : ''}`} ref={wrap} data-testid="workspace">
         {/* la boîte porte la taille *affichée* : le contenu reste centré et défilable à tout zoom */}
         <div className="se-wsbox" style={{ width: PANEL_W * zoom, height: contentHeight * zoom }}>
           <div className="se-wszoom" style={{ transform: `scale(${zoom})`, visibility: ready ? 'visible' : 'hidden' }}>
-            <div className="se-wsinner" style={{ width: PANEL_W, height: contentHeight }}>
-              {children}
+              <div className="se-wsinner" style={{ width: PANEL_W, height: contentHeight }}>
+                {children}
+              </div>
             </div>
           </div>
         </div>

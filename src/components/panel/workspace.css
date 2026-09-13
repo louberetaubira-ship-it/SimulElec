@@ -114,7 +114,7 @@
 
 /* rail d'instruments */
 .se-fsrail {
-  position: absolute; left: 8px; top: 56px; z-index: 6;
+  position: absolute; left: calc(var(--dock-w, 0px) + 8px); top: 56px; z-index: 6;
   display: flex; flex-direction: column; gap: 6px; padding: 6px;
   border: 1px solid var(--ws-line); border-radius: 14px;
   background: var(--ws-panel); backdrop-filter: blur(8px);
@@ -142,7 +142,8 @@
 
 /* pastille de zoom */
 .se-fszoom {
-  position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 6;
+  position: absolute; bottom: 14px; left: calc(50% + var(--dock-w, 0px) / 2);
+  transform: translateX(-50%); z-index: 6;
   display: flex; align-items: center; gap: 4px; padding: 5px;
   border: 1px solid var(--ws-line); border-radius: 999px;
   background: var(--ws-panel); color: var(--ws-fg); backdrop-filter: blur(8px);
@@ -167,7 +168,8 @@
 
 /* invitation à tourner l'appareil */
 .se-fsrotate {
-  position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 7;
+  position: absolute; top: 56px; left: calc(50% + var(--dock-w, 0px) / 2);
+  transform: translateX(-50%); z-index: 7;
   display: flex; align-items: center; gap: 8px; max-width: 92%; padding: 8px 12px;
   border: 1px solid var(--ws-line); border-radius: 12px;
   background: var(--ws-panel); color: var(--ws-fg); font-size: 12px;
@@ -202,4 +204,79 @@
 
 @media (prefers-reduced-motion: reduce) {
   .se-fsbar, .se-fsrail, .se-fszoom, .se-fsdrawer, .se-fsrail .tip { transition: none; }
+}
+
+/* ------------------------------------------- dock de gauche (mode atelier)
+ *
+ * À la différence du tiroir de droite, le dock ne recouvre pas la platine : il occupe une
+ * colonne et la platine se réajuste à ce qui reste. C'est ce qu'il faut pour un panneau
+ * qu'on consulte *pendant* qu'on travaille (le tableau de câblage).
+ * `.se-wsmain` n'existe que pour porter cette colonne : hors atelier il s'efface
+ * (`display: contents`) pour que la mise en page d'origine soit strictement inchangée.
+ */
+.se-wsmain { display: contents; }
+.se-ws-fs .se-wsmain { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; padding-top: 46px; }
+
+.se-fsdock {
+  display: flex; flex-direction: column; flex: none; width: 318px; min-height: 0;
+  border-right: 1px solid var(--ws-line);
+  background: var(--surface, #fff); color: var(--text, #141A21);
+}
+/**
+ * Fond sombre : le dock redéfinit *localement* les jetons de la palette, sinon les classes
+ * utilitaires du contenu (`bg-[var(--surface)]`, `text-muted`…) peindraient du blanc sur
+ * blanc — les lignes du tableau étaient illisibles.
+ */
+.se-ws-fs.dark .se-fsdock, .se-ws-fs.dark .se-fsdockrail {
+  --surface: #1B222B;
+  --surface-2: #242D38;
+  --line: #333D49;
+  --ink: #E8EDF3;
+  --muted: #94A1AE;
+  background: #151B23; color: #E8EDF3;
+}
+.se-fsdock .hd {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none;
+  padding: 6px 6px 6px 11px; border-bottom: 1px solid var(--ws-line);
+  font-family: var(--font-title), inherit; font-size: 14px; font-weight: 700;
+}
+.se-fsdock .hd button {
+  min-height: 34px; min-width: 34px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--ws-line); background: transparent; color: inherit; font: inherit; font-size: 15px;
+}
+.se-fsdock .hd button:hover { border-color: #E39A00; }
+.se-fsdock .hd button:focus-visible { outline: 2px solid #E39A00; outline-offset: 1px; }
+.se-fsdock .bd { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 9px; }
+
+/* replié : 46 px, la progression et le titre à la verticale */
+.se-fsdockrail {
+  display: flex; flex: none; width: 46px; flex-direction: column; align-items: center; gap: 10px;
+  padding: 7px 0; overflow: hidden;
+  border-right: 1px solid var(--ws-line);
+  background: var(--surface, #fff); color: var(--text, #141A21);
+}
+.se-fsdockrail button {
+  flex: none; min-height: 34px; min-width: 34px; border-radius: 9px; cursor: pointer;
+  border: 1px solid var(--ws-line); background: transparent; color: inherit; font: inherit; font-size: 15px;
+}
+.se-fsdockrail button:hover { border-color: #E39A00; }
+.se-fsdockrail button:focus-visible { outline: 2px solid #E39A00; outline-offset: 1px; }
+.se-fsdockrail .ind {
+  writing-mode: vertical-rl; flex: none;
+  font-family: var(--font-mono), monospace; font-size: 11.5px; white-space: nowrap;
+}
+.se-fsdockrail .vt {
+  writing-mode: vertical-rl; min-height: 0; overflow: hidden;
+  font-family: var(--font-title), inherit; font-size: 13.5px; font-weight: 700;
+  letter-spacing: .03em; white-space: nowrap; opacity: .75;
+}
+
+/* téléphone et petites tablettes : le dock passe sous la platine, qui garde la largeur */
+@media (max-width: 900px) {
+  .se-ws-fs { --dock-w: 0px !important; }
+  .se-ws-fs .se-wsmain { flex-direction: column; }
+  .se-fsdock, .se-fsdockrail { order: 2; width: auto; border-right: 0; border-top: 1px solid var(--ws-line); }
+  .se-fsdock { max-height: 46%; }
+  .se-fsdockrail { flex-direction: row; height: 42px; padding: 0 8px; }
+  .se-fsdockrail .ind, .se-fsdockrail .vt { writing-mode: horizontal-tb; }
 }

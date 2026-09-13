@@ -124,6 +124,12 @@ interface ParcoursState {
 
   /** Câblage — index (dans `panelWires`) du fil sélectionné sur la platine. */
   selWire: number | null;
+  /**
+   * Câblage — les deux bornes d'une liaison attendue montrées du doigt sur la platine.
+   * Alimenté par un clic sur une ligne du tableau : l'élève qui ne trouve pas « XC:5 int. »
+   * voit les deux bornes s'allumer au lieu de les chercher.
+   */
+  aimed: [string, string] | null;
   /** Câblage — menu contextuel tactile ouvert sur un fil (appui long). */
   wireMenu: { index: number; x: number; y: number } | null;
   /** Câblage — piles d'annulation / rétablissement. */
@@ -147,6 +153,8 @@ interface ParcoursState {
   closeAide: () => void;
   setAideFiche: (id: CoursId | null) => void;
   setBotOpen: (v: boolean) => void;
+  /** Montre les deux bornes d'une liaison attendue sur la platine (à nouveau : éteint). */
+  aim: (l: Liaison | null) => void;
   askProf: (question: string) => void;
   consumeQuestion: () => void;
   say: (m: string) => void;
@@ -455,6 +463,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     botOpen: false,
     pendingQuestion: null,
     selWire: null,
+    aimed: null,
     wireMenu: null,
     undoStack: [],
     redoStack: [],
@@ -518,6 +527,13 @@ export const useParcours = create<ParcoursState>((set, get) => {
     setAideFiche(id) { set({ aideFiche: id }); },
 
     setBotOpen(v) { set({ botOpen: v }); },
+
+    aim(l) {
+      const cur = get().aimed;
+      if (!l) { set({ aimed: null }); return; }
+      const same = cur != null && cur[0] === l.a && cur[1] === l.b;
+      set({ aimed: same ? null : [l.a, l.b] });
+    },
 
     askProf(question) { set({ pendingQuestion: question, botOpen: true, aideOpen: false }); },
 
@@ -598,6 +614,9 @@ export const useParcours = create<ParcoursState>((set, get) => {
           ...snap, wires: [...snap.wires, { a: expected.a, b: expected.b, net: expected.net }],
         }));
         say(`Liaison ${repereLiaison(tp, expected)} réalisée.`);
+        // la borne montrée du doigt vient d'être câblée : on éteint le guide
+        const a = get().aimed;
+        if (a && linkKey(a[0], a[1]) === k) set({ aimed: null });
       } else {
         patch(s => ({ ...s, wireErrors: s.wireErrors + 1 }));
         if (get().st.wireErrors >= 3) autoAide('cablage');

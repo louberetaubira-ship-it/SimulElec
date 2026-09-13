@@ -58,6 +58,11 @@ export interface PanelProps {
   highlight?: number | null;
   /** Index du fil sélectionné par l'élève (trait épaissi + halo). */
   selectedWire?: number | null;
+  /**
+   * Les deux bornes d'une liaison attendue, montrées du doigt depuis le tableau de câblage.
+   * Elles s'allument même si le fil n'est pas encore posé — c'est tout l'intérêt.
+   */
+  aimed?: [string, string] | null;
   probes?: { r?: string | null; k?: string | null };
   clamp?: number | null;
   lock?: boolean;
@@ -89,7 +94,7 @@ function markOffset(id: string, fy: number): { dx: number; dy: number } {
 export default function Panel(props: PanelProps) {
   const {
     tp, items, wires, cover, marks, deviceState, lamps, latched, motorRpm = 0,
-    highlight = null, selectedWire = null, probes, clamp = null, lock = false, pickTerminals, pickWires,
+    highlight = null, selectedWire = null, aimed = null, probes, clamp = null, lock = false, pickTerminals, pickWires,
     onTerminal, onWire, onWireLongPress, onDevice, onButton, className, fixedScale = false,
   } = props;
 
@@ -134,6 +139,11 @@ export default function Panel(props: PanelProps) {
     if (highlight != null && wires[highlight]) { s.add(wires[highlight].a); s.add(wires[highlight].b); }
     return s;
   }, [highlight, wires]);
+
+  const aimTerminals = React.useMemo(
+    () => new Set<string>(aimed ?? []),
+    [aimed],
+  );
 
   // ---- bornes des appareils posés
   const slotTerminals: TerminalMark[] = React.useMemo(() => {
@@ -338,6 +348,7 @@ export default function Panel(props: PanelProps) {
         terminals={slotTerminals}
         marks={marks}
         highlighted={hlTerminals}
+            aimed={aimTerminals}
         pick={pickTerminals}
             survol={survol}
         onTerminal={pickTerminals ? onTerminal : undefined}
@@ -354,6 +365,7 @@ export default function Panel(props: PanelProps) {
             terminals={stationTerminals}
             marks={false}
             highlighted={hlTerminals}
+            aimed={aimTerminals}
             pick={pickTerminals}
             survol={survol}
             onTerminal={pickTerminals ? onTerminal : undefined}
@@ -371,6 +383,7 @@ export default function Panel(props: PanelProps) {
             terminals={motorTerminals}
             marks={marks}
             highlighted={hlTerminals}
+            aimed={aimTerminals}
             pick={pickTerminals}
             survol={survol}
             onTerminal={pickTerminals ? onTerminal : undefined}
@@ -394,6 +407,7 @@ export default function Panel(props: PanelProps) {
           terminals={recvTerms}
           marks={marks}
           highlighted={hlTerminals}
+            aimed={aimTerminals}
           pick={pickTerminals}
             survol={survol}
           onTerminal={pickTerminals ? onTerminal : undefined}
@@ -406,6 +420,7 @@ export default function Panel(props: PanelProps) {
           terminals={annexTerms}
           marks={marks}
           highlighted={hlTerminals}
+            aimed={aimTerminals}
           pick={pickTerminals}
             survol={survol}
           onTerminal={pickTerminals ? onTerminal : undefined}
@@ -417,6 +432,7 @@ export default function Panel(props: PanelProps) {
         terminals={netTerminals}
         marks={false}
         highlighted={hlTerminals}
+            aimed={aimTerminals}
         pick={pickTerminals}
             survol={survol}
         onTerminal={pickTerminals ? onTerminal : undefined}

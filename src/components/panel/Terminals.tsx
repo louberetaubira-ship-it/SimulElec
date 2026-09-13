@@ -12,22 +12,25 @@ export interface TerminalsProps {
   terminals: TerminalMark[];
   marks: boolean;
   highlighted?: Set<string>;
+  /** Bornes montrées du doigt depuis le tableau de câblage (halo pulsé). */
+  aimed?: Set<string>;
   pick?: boolean;
   /** Borne actuellement sous le pointeur : l'élève voit laquelle il s'apprête à prendre. */
   survol?: string | null;
   onTerminal?: (id: string) => void;
 }
 
-export default function Terminals({ terminals, marks, highlighted, pick, survol, onTerminal }: TerminalsProps) {
+export default function Terminals({ terminals, marks, highlighted, aimed, pick, survol, onTerminal }: TerminalsProps) {
   return (
     <>
       {terminals.map((t) => {
         const hl = highlighted?.has(t.id) ? ' hl' : '';
         const sv = survol === t.id ? ' sv' : '';
+        const fx = aimed?.has(t.id) ? ' fx' : '';
         return (
           <React.Fragment key={t.id}>
             <div
-              className={`se-term${hl}${sv}${pick ? ' pick' : ''}`}
+              className={`se-term${hl}${fx}${sv}${pick ? ' pick' : ''}`}
               data-t={t.id}
               style={{ left: t.pos.x, top: t.pos.y }}
             />

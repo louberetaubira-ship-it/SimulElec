@@ -70,9 +70,12 @@ export type TpPanelProps = Omit<PanelProps, 'items' | 'fixedScale'> & {
   indicator?: React.ReactNode;
   /** Actions de l'étape placées dans la barre haute du mode atelier (Annuler / Rétablir / Supprimer). */
   actions?: React.ReactNode;
+  /** Panneau de gauche du mode atelier, à demeure (ex. le tableau de câblage). */
+  dock?: React.ReactNode;
+  dockTitle?: string;
 };
 
-export default function TpPanel({ trayEnabled = false, instruments, indicator, actions, ...props }: TpPanelProps) {
+export default function TpPanel({ trayEnabled = false, instruments, indicator, actions, dock, dockTitle, ...props }: TpPanelProps) {
   const items = useTpItems(props.tp);
   const inst = useParcours(s => s.mes.inst);
   const setInstrument = useParcours(s => s.setInstrument);
@@ -104,6 +107,8 @@ export default function TpPanel({ trayEnabled = false, instruments, indicator, a
         actions={actions}
         drawer={<AtelierDrawer tp={props.tp} />}
         drawerTitle="Énoncé"
+        dock={dock}
+        dockTitle={dockTitle}
         tools={tools}
         activeTool={inst}
         onTool={id => setInstrument(id as InstrumentKind)}
