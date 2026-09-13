@@ -37,9 +37,10 @@ export default function Pose({ tp, st, onPlace, onNext, readOnly, preview }: Pro
     [tp, st.placed],
   );
 
-  return (
+  /* Le même panneau sert la colonne et le dock du mode atelier : la caisse d'appareils
+     reste à portée quand l'élève travaille en plein écran. */
+  const panneau = (
     <>
-      <Side>
         <SideTitle>Pose sur la platine</SideTitle>
         <Note>
           Prends les appareils dans la caisse : chacun rejoint son emplacement sur le rail prévu par le
@@ -78,10 +79,15 @@ export default function Pose({ tp, st, onPlace, onNext, readOnly, preview }: Pro
             finalisation : reviens bientôt, ou choisis un TP marqué « jouable » au catalogue.
           </Note>
         )}
-      </Side>
+    </>
+  );
+
+  return (
+    <>
+      <Side>{panneau}</Side>
 
       <Center>
-        <TpPanel tp={posed} wires={[]} cover marks />
+        <TpPanel tp={posed} wires={[]} cover marks dock={panneau} dockTitle="Pose sur la platine" />
         <Hint>
           {left.length
             ? `Restent à poser : ${left.slice(0, 6).map(s => s.rep ?? s.id).join(', ')}${left.length > 6 ? '…' : ''}`

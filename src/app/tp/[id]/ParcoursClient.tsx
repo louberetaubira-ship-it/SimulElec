@@ -40,6 +40,26 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
   const dip = useDiploma(tp, student, known);
   const setEvalDiploma = s.setEvalDiploma;
   const [impose, setImpose] = React.useState<EvaluationMode | null>(null);
+  const shellRef = React.useRef<HTMLDivElement>(null);
+
+  /**
+   * Hauteur de la coque : tout l'écran moins ce que la barre de navigation du site occupe
+   * au-dessus. On mesure au lieu de coder une constante en dur — la barre se replie sur deux
+   * lignes quand la fenêtre rétrécit, et une valeur figée ferait déborder la page.
+   */
+  React.useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const mesurer = () => {
+      const haut = el.getBoundingClientRect().top + window.scrollY;
+      el.style.setProperty('--shell-top', `${Math.max(0, Math.round(haut))}px`);
+    };
+    mesurer();
+    const ro = new ResizeObserver(mesurer);
+    ro.observe(document.body);
+    window.addEventListener('resize', mesurer);
+    return () => { ro.disconnect(); window.removeEventListener('resize', mesurer); };
+  }, []);
 
   React.useEffect(() => { void init(tp); }, [init, tp]);
 
@@ -129,9 +149,19 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
     }
   })();
 
+  /*
+   * Coque d'application à partir de 1024 px : la page ne défile plus d'un bloc, chaque colonne
+   * défile chez elle. C'est ce qui redonne une *hauteur définie* à la zone de travail — sans
+   * elle, la platine grandit avec son contenu, ne déborde donc jamais, et ne se laisse plus
+   * faire défiler à la molette ni attraper à la main. En dessous de 1024 px : colonnes empilées
+   * et page qui défile, comme avant.
+   */
   return (
-    <div className="flex min-h-screen flex-col bg-[var(--app)]">
-      <header className="flex flex-wrap items-center gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-2.5">
+    <div
+      ref={shellRef}
+      className="flex min-h-screen flex-col bg-[var(--app)] lg:h-[calc(100dvh-var(--shell-top,0px))] lg:min-h-0 lg:overflow-hidden"
+    >
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-2.5">
         <div className="min-w-0 text-[12.5px] text-muted">
           TP · <b className="font-medium text-ink">{tp.title}</b>
           <span className="ml-2 hidden sm:inline">
@@ -154,14 +184,14 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
       </header>
 
       {!tp.playable && (
-        <div className="border-b border-warn/40 bg-warn/15 px-4 py-2 text-[12.5px] text-ink" role="status">
+        <div className="shrink-0 border-b border-warn/40 bg-warn/15 px-4 py-2 text-[12.5px] text-ink" role="status">
           <b>TP en cours de finalisation</b> — l&apos;énoncé, le matériel et la platine sont disponibles ;
           le câblage, les mesures et la mise en service arrivent prochainement.
         </div>
       )}
 
       {horsReferentiel && (
-        <div className="border-b border-accent/40 bg-accent/10 px-4 py-2 text-[12.5px] text-ink" role="status">
+        <div className="shrink-0 border-b border-accent/40 bg-accent/10 px-4 py-2 text-[12.5px] text-ink" role="status">
           Ce TP vise {diplomesVises(dip.vises)} ;
           tes compétences seront évaluées dans le référentiel du {diplomaShort(dip.diploma)}
           {dip.source !== 'apercu' && <> (d’après {SOURCE_LABEL[dip.source]})</>}.
@@ -180,7 +210,7 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
 
       <div
         data-parcours
-        className={`grid flex-1 ${botOpen ? 'lg:grid-cols-[340px_minmax(0,1fr)_340px]' : 'lg:grid-cols-[340px_minmax(0,1fr)]'}`}
+        className={`grid flex-1 lg:min-h-0 ${botOpen ? 'lg:grid-cols-[340px_minmax(0,1fr)_340px]' : 'lg:grid-cols-[340px_minmax(0,1fr)]'}`}
       >
         {stage}
         {botOpen && (
@@ -192,7 +222,7 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
         )}
       </div>
 
-      <div className="no-print sticky bottom-0 z-30 border-t border-[var(--line)] bg-[var(--surface)]">
+      <div className="no-print sticky bottom-0 z-30 shrink-0 border-t border-[var(--line)] bg-[var(--surface)]">
         <button
           type="button"
           onClick={() => setBotOpen(!botOpen)}

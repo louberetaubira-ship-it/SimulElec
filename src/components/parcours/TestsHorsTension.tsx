@@ -18,10 +18,12 @@ interface Props {
 
 export default function TestsHorsTension({ tp, st, wires, onRunTest, onNext }: Props) {
   const complete = testsComplete(tp, st);
-  return (
+
+  /* Le même panneau sert la colonne et le dock du mode atelier : en plein écran, l'élève
+     garde sa fiche de contrôles sous les yeux au lieu de sortir pour la lire. */
+  const panneau = (
     <>
-      <Side>
-        <SideTitle>Tests avant mise sous tension</SideTitle>
+      <SideTitle>Tests avant mise sous tension</SideTitle>
         <Note>
           Contrôle visuel, serrage, repérage : tout se vérifie platine hors tension. Les mesures
           d&apos;isolement et de continuité viendront après la consignation, aux étapes suivantes.
@@ -38,11 +40,20 @@ export default function TestsHorsTension({ tp, st, wires, onRunTest, onNext }: P
             );
           })}
         </div>
-        {complete && <Button variant="primary" onClick={onNext}>Fiche complète, passer aux EPI</Button>}
-      </Side>
+      {complete && <Button variant="primary" onClick={onNext}>Fiche complète, passer aux EPI</Button>}
+    </>
+  );
+
+  return (
+    <>
+      <Side>{panneau}</Side>
 
       <Center>
-        <TpPanel tp={tp} wires={wires} cover={false} marks />
+        <TpPanel
+          tp={tp} wires={wires} cover={false} marks
+          dock={panneau}
+          dockTitle="Tests avant mise sous tension"
+        />
         <Hint>Hors tension : les fils sont en place, rien n&apos;est alimenté.</Hint>
       </Center>
     </>

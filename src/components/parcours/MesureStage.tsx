@@ -69,9 +69,10 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         : variant === 'decons' ? 'En service, passer aux mesures sous tension'
           : 'Relevés conformes, passer à la validation';
 
-  return (
+  /* Le même panneau sert la colonne et le dock du mode atelier : l'appareil de mesure, les
+     relevés attendus et le journal restent sous la main en plein écran. */
+  const panneau = (
     <>
-      <Side>
         <SideTitle>{TITLES[variant]}</SideTitle>
 
         {variant === 'epi' && (
@@ -155,13 +156,20 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         )}
 
         {ready && <Button variant="primary" onClick={onNext}>{nextLabel}</Button>}
-      </Side>
+    </>
+  );
+
+  return (
+    <>
+      <Side>{panneau}</Side>
 
       <Center>
         <TpPanel
           trayEnabled={variant === 'horsTension' || variant === 'sousTension'}
           instruments={instruments}
           indicator={indicator}
+          dock={panneau}
+          dockTitle={TITLES[variant]}
           tp={tp}
           wires={wires}
           cover={false}

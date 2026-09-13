@@ -23,7 +23,7 @@ export default function Stepper({
   const last = maxStage ?? labels.length - 1;
   return (
     <nav
-      className="flex gap-1 overflow-x-auto border-b border-[var(--line)] bg-[var(--surface)] px-2 py-2"
+      className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--line)] bg-[var(--surface)] px-2 py-2"
       aria-label="Étapes du TP"
     >
       {labels.map((label, i) => {
