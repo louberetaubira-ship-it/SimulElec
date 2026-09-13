@@ -32,7 +32,11 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 
 ## Contrôles automatiques
 - `npx tsx scripts/audit-tps.ts` — cohérence électrique des liaisons attendues (bornes inexistantes, boucles, doublons, réseaux différents, repères en double).
-- `npx tsx scripts/audit-mesures.ts` — chaque mesure attendue est-elle *atteignable* ? La valeur rendue par le simulateur doit tomber dans `[min, max]`, sinon l'élève ne peut pas valider l'étape. À lancer après toute modification d'un TP ou du moteur de mesure.
+- `npx tsx scripts/audit-mesures.ts` — table de référence de la plaque à bornes (2 R en étoile, ⅔ R en triangle, OL barrettes retirées), puis : chaque mesure attendue est-elle *atteignable* ? La valeur rendue par le simulateur doit tomber dans `[min, max]`, sinon l'élève ne peut pas valider l'étape. À lancer après toute modification d'un TP ou du moteur de mesure.
+
+## Plaque à bornes du moteur
+- Un enroulement se mesure entre **U1–U2, V1–V2 ou W1–W2** ; toute autre paire ne conduit que par une barrette. `src/lib/sim/plaque.ts` résout le réseau réel (union-find sur les barrettes posées + méthode des nœuds sur la seule composante connexe des deux pointes) : jamais de constante.
+- Ordre normalisé : rangée haute **W2 U2 V2**, rangée basse **U1 V1 W1**. Étoile = barrettes W2–U2 et U2–V2 ; triangle = W2–U1, U2–V1, V2–W1.
 
 ## Qualité
 - `npm run build` doit passer sans erreur ni warning ESLint bloquant. Pas de `any` gratuit. Composants client marqués `'use client'`.

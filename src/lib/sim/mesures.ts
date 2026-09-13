@@ -5,6 +5,7 @@
  */
 import type { AttemptState, ExpectedMeasure, InstrumentKind, ReadingRecord, TerminalNet, TpDefinition } from '../types';
 import { isControlLive, isRunning, motorOf, type SimState } from './engine';
+import { estBorneMoteur, resistancePlaque } from './plaque';
 
 /* ------------------------------------------------------------------ EPI */
 
@@ -138,15 +139,40 @@ export function resistanceEnroulement(tp: TpDefinition): number {
   return Math.round(z * 0.075 * 10) / 10;
 }
 
-/** Résistance entre deux bornes : valeur, `'ERR'` (sous tension) ou `'OL'`. */
-export function ohms(tp: TpDefinition, sim: SimState, a: string | null, b: string | null): number | 'ERR' | 'OL' | null {
+/** Une liaison posée sur la platine, telle que l'ohmmètre la voit. */
+export interface Pose { a: string; b: string; net: string }
+
+/** Barrettes de couplage effectivement posées sur la plaque à bornes. */
+const barrettesDe = (poses: readonly Pose[] | undefined): [string, string][] =>
+  (poses ?? []).filter(w => w.net === 'BAR').map(w => [w.a, w.b] as [string, string]);
+
+/**
+ * Résistance entre deux bornes : valeur, `'ERR'` (sous tension) ou `'OL'`.
+ *
+ * Sur la plaque à bornes du moteur, la valeur est *résolue* à partir des barrettes que l'élève
+ * a posées (voir `plaque.ts`) : U1–U2 donne la résistance d'un enroulement, U1–W2 ne conduit
+ * que si une barrette la relie. Sans cet argument — audits, appels historiques — on considère
+ * qu'aucune barrette n'est posée, donc que seuls les enroulements conduisent.
+ */
+export function ohms(
+  tp: TpDefinition,
+  sim: SimState,
+  a: string | null,
+  b: string | null,
+  poses?: readonly Pose[],
+): number | 'ERR' | 'OL' | null {
   const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
   if (!A || !B) return null;
   const u = voltage(tp, sim, a, b);
   if (A.live && B.live && u != null && u > 0) return 'ERR';
+
+  if (estBorneMoteur(a) && estBorneMoteur(b)) {
+    const r = resistancePlaque(resistanceEnroulement(tp), barrettesDe(poses), a as string, b as string);
+    return r == null ? 'OL' : r;
+  }
+
   if (A.net === B.net && A.net === 'PE') return 0.3;
   if (A.net === B.net) return 0.2;
-  if (isWinding(A.net) && isWinding(B.net)) return resistanceEnroulement(tp);
   return 'OL';
 }
 
@@ -191,6 +217,7 @@ export function read(
   dial: string,
   probes: Probes,
   clamp: ClampWire | null = null,
+  poses?: readonly Pose[],
 ): ReadOut {
   const I = instrumentDef(inst);
   if (!I || dial === 'OFF') return EMPTY;
@@ -227,7 +254,7 @@ export function read(
   if (dial === 'V⎓' || dial === 'mV') return { value: 0, display: '0.0', unit: dial };
 
   if (dial === 'Ω' || dial === 'RPE 200 mA' || dial === '•))') {
-    const o = ohms(tp, sim, r, k);
+    const o = ohms(tp, sim, r, k, poses);
     if (o === 'ERR') return { value: null, display: 'ERR ⚡', unit: 'tension présente !', bad: true };
     if (o === 'OL' || o == null) return { value: null, display: 'OL', unit: 'Ω' };
     return {
@@ -247,9 +274,11 @@ export function read(
     if ((isWinding(A.net) && B.net === 'PE') || (isWinding(B.net) && A.net === 'PE')) {
       return { value: 200, display: '> 200', unit: 'MΩ · 500 V DC' };
     }
-    if (isWinding(A.net) && isWinding(B.net)) {
-      const r = resistanceEnroulement(tp);
-      return { value: r, display: fr(r, 1), unit: 'Ω (enroulement)' };
+    if (estBorneMoteur(r) && estBorneMoteur(k)) {
+      const o = resistancePlaque(resistanceEnroulement(tp), barrettesDe(poses), r as string, k as string);
+      return o == null
+        ? { value: 200, display: '> 200', unit: 'MΩ · 500 V DC' }
+        : { value: o, display: fr(o, 1), unit: 'Ω (enroulement)' };
     }
     return { value: 200, display: '> 200', unit: 'MΩ' };
   }

@@ -267,11 +267,17 @@ export const useParcours = create<ParcoursState>((set, get) => {
     return w ? { a: w.a, b: w.b, net: w.net } : null;
   };
 
+  /** Liaisons posées sur la platine : l'ohmmètre y lit les barrettes de couplage. */
+  const posesEnPlace = (): { a: string; b: string; net: string }[] => {
+    const { tp, st, sim } = get();
+    return panelWires(tp, st, sim).map(w => ({ a: w.a, b: w.b, net: w.net }));
+  };
+
   const currentRead = (): ReadOut => {
     const { tp, sim, mes } = get();
     const def = instrumentDef(mes.inst);
     const dial = def ? def.dials[Math.min(mes.dial, def.dials.length - 1)] : 'OFF';
-    return read(tp, sim, mes.inst, dial, mes.probes, clampWire());
+    return read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace());
   };
 
   /** Consignation, VAT, validation des mesures : rejoué à chaque changement. */
@@ -280,7 +286,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     const def = instrumentDef(mes.inst);
     const dial = def ? def.dials[Math.min(mes.dial, def.dials.length - 1)] : 'OFF';
     const { r, k } = mes.probes;
-    const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire());
+    const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace());
     const stage = st.stage;
 
     // ---- séparation (étape 6) : Q1 ouvert met toute la platine hors tension
@@ -842,7 +848,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const def = instrumentDef(mes.inst);
       if (!def) { say('Choisis d\'abord un appareil.'); return; }
       const dial = def.dials[Math.min(mes.dial, def.dials.length - 1)];
-      const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire());
+      const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace());
       if (!out.display) { say('L\'appareil est sur OFF.'); return; }
       const w = clampWire();
       const entry: ReadingRecord = {

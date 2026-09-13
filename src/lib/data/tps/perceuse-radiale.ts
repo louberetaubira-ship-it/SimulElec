@@ -236,7 +236,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     L('S4.14', 'x2_3.b', 'C', 'door'),
     L('x2_1.b', 'H1.X1', 'C', 'door'), L('x2_4.b', 'H1.X2', 'C0', 'door'),
     // ---- barrettes de couplage : l'élève les pose d'après la plaque (400 V → étoile) ----
-    L('M.U2', 'M.V2', 'BAR'), L('M.V2', 'M.W2', 'BAR'),
+    L('M.W2', 'M.U2', 'BAR'), L('M.U2', 'M.V2', 'BAR'),
     // ---- arrivée réseau et câble moteur : câblés par l'élève, comme le reste ----
     L('RES.L1', 'x1_1.b', 'L1'), L('RES.L2', 'x1_2.b', 'L2'), L('RES.L3', 'x1_3.b', 'L3'),
     L('RES.N', 'x1_4.b', 'N'), L('RES.PE', 'x1_5.b', 'PE'),
@@ -316,7 +316,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     {
       id: 'renr',
       title: 'Résistance des enroulements',
-      how: 'Multimètre en Ω entre M.U1 et M.W2, barrettes de couplage retirées : les trois enroulements doivent être équilibrés.',
+      how: 'Multimètre en Ω, barrettes de couplage retirées : mesure U1–U2, puis V1–V2, puis W1–W2. Les trois valeurs doivent être égales. Entre deux enroulements différents (U1–V1 par exemple), l\'appareil doit afficher OL.',
       expected: '5 à 9 Ω, écart < 5 % entre phases',
     },
   ],
@@ -330,8 +330,8 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       instrument: 'ctrl', dial: 'RISO 500 V', a: 'M.U1', b: 'M.PE', min: 0.5, max: 9999, unit: 'MΩ',
     },
     {
-      id: 'renr', title: 'Résistance d\'un enroulement (U1 – W2)', stage: 'horsTension',
-      instrument: 'mm', dial: 'Ω', a: 'M.U1', b: 'M.W2', min: 5, max: 9, unit: 'Ω',
+      id: 'renr', title: 'Résistance de l\'enroulement U (U1 – U2)', stage: 'horsTension',
+      instrument: 'mm', dial: 'Ω', a: 'M.U1', b: 'M.U2', min: 5, max: 9, unit: 'Ω',
     },
     {
       id: 'u400', title: 'Tension composée en aval de Q1', stage: 'sousTension',

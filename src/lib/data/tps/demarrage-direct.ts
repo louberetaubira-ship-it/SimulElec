@@ -241,7 +241,7 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     {
       id: 'renr',
       title: 'Résistance des enroulements',
-      how: 'Multimètre en Ω entre M.U1 et M.W2, barrettes retirées : les trois enroulements doivent être équilibrés.',
+      how: 'Multimètre en Ω, barrettes retirées : mesure U1–U2, puis V1–V2, puis W1–W2. Les trois valeurs doivent être égales. Entre deux enroulements différents, l\'appareil doit afficher OL.',
       expected: '3 à 6 Ω, écart < 5 % entre phases',
     },
   ],
@@ -255,8 +255,8 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
       instrument: 'ctrl', dial: 'RISO 500 V', a: 'M.U1', b: 'M.PE', min: 0.5, max: 9999, unit: 'MΩ',
     },
     {
-      id: 'renr', title: 'Résistance d\'un enroulement (U1 – W2)', stage: 'horsTension',
-      instrument: 'mm', dial: 'Ω', a: 'M.U1', b: 'M.W2', min: 3, max: 6, unit: 'Ω',
+      id: 'renr', title: 'Résistance de l\'enroulement U (U1 – U2)', stage: 'horsTension',
+      instrument: 'mm', dial: 'Ω', a: 'M.U1', b: 'M.U2', min: 3, max: 6, unit: 'Ω',
     },
     {
       id: 'u400', title: 'Tension composée en aval de Q1', stage: 'sousTension',
