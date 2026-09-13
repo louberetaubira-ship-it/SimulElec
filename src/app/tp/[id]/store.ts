@@ -10,6 +10,7 @@ import {
 } from '@/lib/sim/engine';
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
+import { reseauCommande } from '@/lib/sim/commande';
 import { listeMiseSousTension, repereLiaison, repereSlot } from '@/lib/sim/reperes';
 import { linkKey } from '@/lib/sim/layout';
 import {
@@ -39,9 +40,15 @@ export interface MesState {
   clamp: number | null;
   pick: Pick_;
   log: string[];
+  /**
+   * Bouton de marche maintenu appuyé pendant la mesure. Sur une vraie platine,
+   * c'est ce qu'on fait pour mesurer en aval d'un contact NO : sans ça, la moitié
+   * du circuit de commande est inaccessible à l'instrument.
+   */
+  marcheMaintenue: boolean;
 }
 
-const initialMes = (): MesState => ({ inst: null, dial: 0, probes: { r: null, k: null }, clamp: null, pick: null, log: [] });
+const initialMes = (): MesState => ({ inst: null, dial: 0, probes: { r: null, k: null }, clamp: null, pick: null, log: [], marcheMaintenue: false });
 
 /** Raison d'une ouverture automatique de l'aide. */
 export type AideReason = 'cablage' | 'materiel' | 'mesure' | 'diagnostic' | null;
@@ -207,6 +214,9 @@ interface ParcoursState {
 
   ensureFault: () => void;
   diagnose: (faultId: string) => void;
+  setRemede: (id: string) => void;
+  conclure: () => void;
+  maintenirMarche: (v: boolean) => void;
   setQuiz: (good: number) => void;
   repair: () => void;
   finish: () => Promise<void>;
@@ -297,11 +307,21 @@ export const useParcours = create<ParcoursState>((set, get) => {
     }
   };
 
+  /**
+   * Réseau du circuit de commande tel qu'il est câblé et dans l'état où il est.
+   * C'est lui qui donne leur valeur aux mesures de commande — plus aucune
+   * constante, plus aucune comparaison d'étiquettes de réseau.
+   */
+  const reseau = () => {
+    const { tp, st, sim, mes } = get();
+    return reseauCommande(tp, st, sim, { marcheMaintenue: mes.marcheMaintenue });
+  };
+
   const currentRead = (): ReadOut => {
     const { tp, sim, mes } = get();
     const def = instrumentDef(mes.inst);
     const dial = def ? def.dials[Math.min(mes.dial, def.dials.length - 1)] : 'OFF';
-    return read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace());
+    return read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace(), reseau());
   };
 
   /** Consignation, VAT, validation des mesures : rejoué à chaque changement. */
@@ -310,7 +330,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     const def = instrumentDef(mes.inst);
     const dial = def ? def.dials[Math.min(mes.dial, def.dials.length - 1)] : 'OFF';
     const { r, k } = mes.probes;
-    const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace());
+    const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace(), reseau());
     const stage = st.stage;
 
     // ---- séparation (étape 6) : Q1 ouvert met toute la platine hors tension
@@ -883,7 +903,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const def = instrumentDef(mes.inst);
       if (!def) { say('Choisis d\'abord un appareil.'); return; }
       const dial = def.dials[Math.min(mes.dial, def.dials.length - 1)];
-      const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace());
+      const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace(), reseau());
       if (!out.display) { say('L\'appareil est sur OFF.'); return; }
       const w = clampWire();
       const entry: ReadingRecord = {
@@ -980,12 +1000,45 @@ export const useParcours = create<ParcoursState>((set, get) => {
       set({ sim: injectFault(get().sim, f) });
     },
 
+    /**
+     * L'élève retient une cause. Aucun verdict ici : le simulateur ne souffle rien
+     * tant que la conclusion n'est pas posée en entier (cause + remède).
+     */
     diagnose(faultId) {
-      const { st } = get();
-      const exact = faultId === st.fault;
-      patch(s => ({ ...s, diagnosis: faultId, diagTries: s.diagTries + 1 }));
-      say(exact ? 'Diagnostic exact.' : 'Ce n\'est pas ça : vérifie avec les instruments.');
-      if (!exact) autoAide('diagnostic');
+      patch(s => ({ ...s, diagnosis: faultId }));
+    },
+
+    /** L'élève retient une action de remise en état. Pas de verdict non plus. */
+    setRemede(id) {
+      patch(s => ({ ...s, remede: id }));
+    },
+
+    /**
+     * Conclusion : la cause et le remède sont jugés ENSEMBLE. Trouver la panne sans
+     * savoir quoi faire dessus n'est pas un dépannage, et proposer la bonne
+     * intervention en s'étant trompé de cause relève du hasard.
+     */
+    conclure() {
+      const { tp, st } = get();
+      if (!st.diagnosis || !st.remede) { say('Choisis une cause ET une action de remise en état.'); return; }
+      const bonneCause = st.diagnosis === st.fault;
+      const bonRemede = st.remede === st.fault;
+      patch(s => ({ ...s, diagTries: s.diagTries + 1 }));
+      if (bonneCause && bonRemede) {
+        say('Cause et remise en état exacts : tu peux intervenir.');
+        return;
+      }
+      const quoi = !bonneCause && !bonRemede ? 'Ni la cause ni l\'action ne conviennent'
+        : !bonneCause ? 'L\'action tient debout, mais pas pour cette cause'
+          : 'La cause est la bonne, l\'action proposée n\'y répond pas';
+      say(`${quoi}. Reprends tes mesures : ${tp.faults.length} pannes sont possibles, l'instrument les départage.`);
+      autoAide('diagnostic');
+    },
+
+    /** Bouton de marche maintenu appuyé pendant une mesure (contact NO fermé). */
+    maintenirMarche(v) {
+      set(s => ({ mes: { ...s.mes, marcheMaintenue: v } }));
+      evaluate();
     },
 
     setQuiz(good) {
@@ -995,6 +1048,11 @@ export const useParcours = create<ParcoursState>((set, get) => {
     },
 
     repair() {
+      const { st } = get();
+      if (st.diagnosis !== st.fault || st.remede !== st.fault) {
+        say('Pose d\'abord une conclusion juste : la cause et l\'action de remise en état.');
+        return;
+      }
       patch(s => ({ ...s, fixed: true }));
       set(s => ({ sim: repairFault(s.sim) }));
       say('Réparation faite : remets en service pour confirmer.');

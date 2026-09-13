@@ -34,6 +34,7 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - `npx tsx scripts/audit-tps.ts` — cohérence électrique des liaisons attendues (bornes inexistantes, boucles, doublons, réseaux différents, repères en double).
 - `npx tsx scripts/audit-reperes.ts` — repères cités dans les TP et repères écrits en dur dans les textes partagés.
 - `npx tsx scripts/audit-trafo.ts` — prises du transformateur de commande et tension du secondaire.
+- `npx tsx scripts/audit-diagnostic.ts` — chaque panne est-elle *trouvable* à l'instrument, et *distincte* des autres ?
 - `npx tsx scripts/audit-mesures.ts` — table de référence de la plaque à bornes (2 R en étoile, ⅔ R en triangle, OL barrettes retirées), puis : chaque mesure attendue est-elle *atteignable* ? La valeur rendue par le simulateur doit tomber dans `[min, max]`, sinon l'élève ne peut pas valider l'étape. À lancer après toute modification d'un TP ou du moteur de mesure.
 
 ## Repères
@@ -44,6 +45,13 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - Le TP déclare son transformateur (`trafo` : prises du primaire, prises du secondaire, tension du réseau, tension de la bobine). `src/lib/sim/trafo.ts` en déduit la tension du secondaire par le rapport de transformation — jamais une constante.
 - Se tromper de prise **n'est pas refusé au câblage** : sur une vraie platine rien n'empêche de serrer le fil sur la 230 au lieu de la 400. La faute se découvre à la mesure ou à l'essai. Trois conséquences distinctes, à ne pas confondre : prise du primaire trop haute → tension trop faible, le contacteur ne colle pas (85 %, CEI 60947-4-1) ; prise du primaire trop basse → le fer sature, la protection du primaire déclenche ; prise du secondaire trop haute → le fer va bien, c'est la bobine qui grille.
 - `npx tsx scripts/audit-trafo.ts` — table de référence des prises, substitutions acceptées/refusées, et prises réellement câblées dans chaque TP du catalogue.
+
+## Circuit de commande et dépannage
+- `src/lib/sim/commande.ts` monte le réseau réel (fils posés, contacts dans leur état, bobine et voyant avec leur résistance) et le résout par la méthode des nœuds. Une mesure de commande ne compare plus deux étiquettes de réseau : sa valeur dépend de l'endroit exact des pointes.
+- Le voltmètre est modélisé par ses 10 MΩ d'impédance d'entrée : sans elle, une borne que rien n'alimente n'a pas de potentiel défini et la matrice est singulière — alors qu'un vrai appareil affiche bien quelque chose. L'ohmmètre, lui, refuse dès que le circuit est sous tension, même entre deux points au même potentiel.
+- Les branches de puissance entrent dans la continuité mais jamais dans le calcul des potentiels : le secondaire 24 V ne les alimente pas.
+- Une panne déclare ce qu'elle fait au réseau (`coupe` une liaison, `ouvre` un contact) et l'`action` de remise en état attendue. Sans ça elle est invisible à l'instrument — et `audit-diagnostic` la refuse.
+- À l'étape de dépannage, le simulateur ne souffle aucune hypothèse : l'élève mesure où il veut, note ses lectures, puis conclut **cause + action**, jugées ensemble.
 
 ## Plaque à bornes du moteur
 - Un enroulement se mesure entre **U1–U2, V1–V2 ou W1–W2** ; toute autre paire ne conduit que par une barrette. `src/lib/sim/plaque.ts` résout le réseau réel (union-find sur les barrettes posées + méthode des nœuds sur la seule composante connexe des deux pointes) : jamais de constante.

@@ -171,7 +171,27 @@ export interface ExpectedMeasure {
   when?: 'run' | 'ctl' | 'off';
 }
 
-export interface Fault { id: string; title: string; symptom: string; fix: string }
+/**
+ * Panne injectable par le professeur.
+ *
+ * `coupe` et `ouvre` disent ce que la panne fait AU RÉSEAU, pas seulement à
+ * l'élève : sans eux, le simulateur ne pourrait que raconter le symptôme, et la
+ * mesure ne servirait à rien. Avec eux, le solveur du circuit de commande
+ * (`src/lib/sim/commande.ts`) rend ce qu'un appareil rendrait vraiment sur une
+ * platine en panne — et l'élève doit chercher.
+ */
+export interface Fault {
+  id: string;
+  title: string;
+  symptom: string;
+  fix: string;
+  /** Liaison supprimée du réseau, sous la forme « borne>borne » (ordre indifférent). */
+  coupe?: string;
+  /** Organe dont le contact reste ouvert : identifiant de slot (`f3`) ou repère de pupitre (`S1`). */
+  ouvre?: string;
+  /** Action de remise en état attendue, proposée à l'élève parmi d'autres. */
+  action?: string;
+}
 
 /** Réseau électrique d'une borne, pour le calcul des mesures (voir lib/sim/mesures.ts). */
 export interface TerminalNet {
@@ -331,7 +351,14 @@ export interface AttemptState {
   decons: { unlock: boolean; close: boolean; essai: boolean };
   readings: ReadingRecord[];
   fault: string | null;
+  /** Cause retenue par l'élève (identifiant de panne). */
   diagnosis: string | null;
+  /**
+   * Action de remise en état retenue par l'élève. Trouver la cause ne suffit pas :
+   * un dépannage se termine par une intervention, et c'est le couple cause +
+   * remède qui est jugé.
+   */
+  remede: string | null;
   diagTries: number;
   fixed: boolean;
   quiz: number | null;

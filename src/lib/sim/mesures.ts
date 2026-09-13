@@ -5,6 +5,7 @@
  */
 import type { AttemptState, ExpectedMeasure, InstrumentKind, ReadingRecord, TerminalNet, TpDefinition } from '../types';
 import { isControlLive, isRunning, motorOf, type SimState } from './engine';
+import { resistanceCommande, tensionCommande, type Arete } from './commande';
 import { estBorneMoteur, resistancePlaque } from './plaque';
 
 /* ------------------------------------------------------------------ EPI */
@@ -116,7 +117,15 @@ export function voltage(
   sim: SimState,
   a: string | null,
   b: string | null,
+  reseau?: readonly Arete[],
 ): number | null {
+  // Dans le circuit de commande, la tension n'est pas une étiquette : elle se
+  // résout sur le réseau réellement câblé, contacts dans l'état où ils sont
+  // (voir `commande.ts`). C'est ce qui rend le dépannage à l'instrument possible.
+  if (reseau && isControlLive(sim) && dansReseau(reseau, a) && dansReseau(reseau, b)) {
+    const u = tensionCommande(reseau, a as string, b as string, sim.u2 ?? tp.trafo?.bobine ?? 24);
+    if (u != null) return Math.round(u * 10) / 10;
+  }
   const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
   if (!A || !B) return null;
   if (!A.live && !B.live) return 0;
@@ -131,6 +140,10 @@ export function voltage(
   if ((va === 'C' && isPhase(vb)) || (vb === 'C' && isPhase(va))) return Math.round(230 + uc);
   return 0;
 }
+
+/** La borne fait-elle partie du réseau de commande résolu ? */
+const dansReseau = (e: readonly Arete[], id: string | null): boolean =>
+  id != null && e.some(x => x.a === id || x.b === id);
 
 const isWinding = (n: string): boolean => ['U', 'V', 'W', 'M2', 'M'].includes(n);
 
@@ -173,14 +186,26 @@ export function ohms(
   a: string | null,
   b: string | null,
   poses?: readonly Pose[],
+  reseau?: readonly Arete[],
 ): number | 'ERR' | 'OL' | null {
   const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
   if (!A || !B) return null;
-  const u = voltage(tp, sim, a, b);
+  const u = voltage(tp, sim, a, b, reseau);
   if (A.live && B.live && u != null && u > 0) return 'ERR';
+  // Un ohmmètre se refuse dès que le CIRCUIT est sous tension, pas seulement quand
+  // il y a une différence de potentiel entre ses deux pointes : de part et d'autre
+  // d'un contact ouvert la tension est nulle, et pourtant mesurer là est interdit.
+  if (reseau && isControlLive(sim) && dansReseau(reseau, a) && dansReseau(reseau, b)) return 'ERR';
 
   if (estBorneMoteur(a) && estBorneMoteur(b)) {
     const r = resistancePlaque(resistanceEnroulement(tp), barrettesDe(poses), a as string, b as string);
+    return r == null ? 'OL' : r;
+  }
+
+  // Circuit de commande consigné : la continuité se résout sur le réseau réel —
+  // chaîne d'arrêt, bobine, contacts — et non sur une égalité d'étiquettes.
+  if (reseau && dansReseau(reseau, a) && dansReseau(reseau, b)) {
+    const r = resistanceCommande(reseau, a as string, b as string);
     return r == null ? 'OL' : r;
   }
 
@@ -231,6 +256,7 @@ export function read(
   probes: Probes,
   clamp: ClampWire | null = null,
   poses?: readonly Pose[],
+  reseau?: readonly Arete[],
 ): ReadOut {
   const I = instrumentDef(inst);
   if (!I || dial === 'OFF') return EMPTY;
@@ -239,7 +265,7 @@ export function read(
 
   if (I.id === 'vat') {
     if (!(r && k)) return { value: null, display: '--', unit: 'pose les 2 pointes' };
-    const u = voltage(tp, sim, r, k) ?? 0;
+    const u = voltage(tp, sim, r, k, reseau) ?? 0;
     return u > 50
       ? { value: u, display: `⚡ ${u}`, unit: 'V · PRÉSENCE TENSION', ok: false }
       : { value: 0, display: '0', unit: 'V · absence de tension', ok: true };
@@ -259,7 +285,7 @@ export function read(
   if (need) return { value: null, display: '----', unit: 'brancher les 2 cordons' };
 
   if (dial === 'V~') {
-    const u = voltage(tp, sim, r, k);
+    const u = voltage(tp, sim, r, k, reseau);
     return u == null
       ? { value: null, display: '--', unit: 'V~' }
       : { value: u, display: fr(u, 1), unit: 'V~' };
@@ -267,7 +293,7 @@ export function read(
   if (dial === 'V⎓' || dial === 'mV') return { value: 0, display: '0.0', unit: dial };
 
   if (dial === 'Ω' || dial === 'RPE 200 mA' || dial === '•))') {
-    const o = ohms(tp, sim, r, k, poses);
+    const o = ohms(tp, sim, r, k, poses, reseau);
     if (o === 'ERR') return { value: null, display: 'ERR ⚡', unit: 'tension présente !', bad: true };
     if (o === 'OL' || o == null) return { value: null, display: 'OL', unit: 'Ω' };
     return {
@@ -280,7 +306,7 @@ export function read(
   if (dial === 'RISO 500 V') {
     const A = netOf(tp, sim, r), B = netOf(tp, sim, k);
     if (!A || !B) return { value: null, display: '--', unit: '' };
-    const u = voltage(tp, sim, r, k);
+    const u = voltage(tp, sim, r, k, reseau);
     if (A.live && B.live && u != null && u > 0) {
       return { value: null, display: 'ERR ⚡', unit: 'circuit sous tension : interdit', bad: true };
     }

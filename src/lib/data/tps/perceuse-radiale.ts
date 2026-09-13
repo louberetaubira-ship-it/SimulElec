@@ -350,12 +350,40 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       instrument: 'tach', dial: 'tr/min', min: 1350, max: 1480, unit: 'tr/min', when: 'run',
     },
   ],
+  // `coupe` / `ouvre` : ce que la panne fait au réseau, pour que le solveur du
+  // circuit de commande la rende mesurable. `action` : la remise en état attendue,
+  // proposée à l'élève au milieu d'autres à l'étape de dépannage.
   faults: [
-    { id: 'a2', title: 'Fil A2 de la bobine KM1 desserré', symptom: 'KM1 vibre et ne tient pas à l\'appui sur S4.', fix: 'Resserrer A2 et refaire la continuité A2 – XC:7.' },
-    { id: 's1', title: 'Contact NF de l\'interrupteur de position S1 resté ouvert', symptom: 'Rien ne se passe à l\'appui sur S4, pourtant H1 est allumé et l\'écran de protection est bien en place.', fix: 'Contrôler le réglage de la came de S1, puis remplacer le contact NF à ouverture positive.' },
-    { id: 'l2', title: 'Phase L2 coupée entre F1 et X1:7', symptom: 'Le moteur ronfle sans tourner, courant anormal sur L1 et L3, F1 finit par déclencher.', fix: 'Refaire la liaison F1:4 → X1:7 et réarmer F1.' },
-    { id: 'x2', title: 'Fil XC:6 → KM1 A1 débranché', symptom: 'Rien ne se passe à l\'appui sur S4, mais 24 V présents sur XC:6.', fix: 'Reconnecter XC:6 sur A1.' },
-    { id: 'f3', title: 'Q3 déclenché (défaut sur le 24 V)', symptom: 'H1 éteint alors que Q1 est fermé, 0 V sur tout le bornier XC, 24 V au secondaire de T1.', fix: 'Chercher le défaut d\'isolement du circuit 24 V, puis réarmer Q3.' },
+    {
+      id: 'a2', title: 'Fil A2 de la bobine KM1 desserré',
+      symptom: 'KM1 vibre et ne tient pas à l\'appui sur S4.',
+      fix: 'Resserrer A2 et refaire la continuité A2 – XC:7.',
+      coupe: 'km1.A2>x2_4.a', action: 'Resserrer le fil sur A2 et contrôler la continuité jusqu\'au 0 V',
+    },
+    {
+      id: 's1', title: 'Contact NF de l\'interrupteur de position S1 resté ouvert',
+      symptom: 'Rien ne se passe à l\'appui sur S4, pourtant H1 est allumé et l\'écran de protection est bien en place.',
+      fix: 'Contrôler le réglage de la came de S1, puis remplacer le contact NF à ouverture positive.',
+      ouvre: 'S1', action: 'Régler la came de S1 et remplacer le contact NF à ouverture positive',
+    },
+    {
+      id: 'l2', title: 'Phase L2 coupée entre F1 et X1:7',
+      symptom: 'Le moteur ronfle sans tourner, courant anormal sur L1 et L3, F1 finit par déclencher.',
+      fix: 'Refaire la liaison F1:4 → X1:7 et réarmer F1.',
+      coupe: 'f1.4>x1_7.a', action: 'Refaire la liaison F1:4 → X1:7 et réarmer F1',
+    },
+    {
+      id: 'x2', title: 'Fil XC:6 → KM1 A1 débranché',
+      symptom: 'Rien ne se passe à l\'appui sur S4, mais 24 V présents sur XC:6.',
+      fix: 'Reconnecter XC:6 sur A1.',
+      coupe: 'x2_3.a>km1.A1', action: 'Reconnecter le fil de XC:6 sur la borne A1 de KM1',
+    },
+    {
+      id: 'f3', title: 'Q3 déclenché (défaut sur le 24 V)',
+      symptom: 'H1 éteint alors que Q1 est fermé, 0 V sur tout le bornier XC, 24 V au secondaire de T1.',
+      fix: 'Chercher le défaut d\'isolement du circuit 24 V, puis réarmer Q3.',
+      ouvre: 'f3', action: 'Chercher le défaut d\'isolement du 24 V, puis réarmer Q3',
+    },
   ],
   quiz: [
     {

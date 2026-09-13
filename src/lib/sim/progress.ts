@@ -48,6 +48,7 @@ export function initialState(): AttemptState {
     readings: [],
     fault: null,
     diagnosis: null,
+    remede: null,
     diagTries: 0,
     fixed: false,
     quiz: null,
@@ -77,6 +78,8 @@ export function normalizeState(raw: Partial<AttemptState> | null | undefined): A
     // compteurs ajoutés après coup : une tentative enregistrée avant leur existence vaut 0
     wiresRemoved: raw.wiresRemoved ?? base.wiresRemoved,
     resets: raw.resets ?? base.resets,
+    // remède ajouté après coup : une tentative enregistrée avant son existence n'en a pas
+    remede: raw.remede ?? base.remede,
     // mode de passage ajouté après coup : une tentative déjà commencée reste en
     // « entraînement » (valeur sûre), une tentative neuve laisse l'élève choisir.
     mode: raw.mode ?? ((raw.stage ?? 0) > 0 || Object.keys(raw.done ?? {}).length > 0 ? 'entrainement' : undefined),

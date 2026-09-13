@@ -275,12 +275,40 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
       instrument: 'tach', dial: 'tr/min', min: 1300, max: 1500, unit: 'tr/min', when: 'run',
     },
   ],
+  // `coupe` / `ouvre` : ce que la panne fait au réseau, pour que le solveur du
+  // circuit de commande la rende mesurable. `action` : la remise en état attendue,
+  // proposée à l'élève au milieu d'autres à l'étape de dépannage.
   faults: [
-    { id: 'a2', title: 'Fil A2 de la bobine KM1 desserré', symptom: 'KM1 vibre et ne tient pas à l\'appui sur S2.', fix: 'Resserrer A2 et refaire la continuité A2 – X2:6.' },
-    { id: 's1', title: 'Contact NC de S1 (21-22) resté ouvert', symptom: 'Rien ne se passe à l\'appui sur S2, 24 V présents sur X2:1.', fix: 'Remplacer le bloc de contact de S1.' },
-    { id: 'l2', title: 'Phase L2 coupée entre F1 et X1:7', symptom: 'Le moteur ronfle, ne démarre pas, courant anormal sur L1 et L3, F1 finit par déclencher.', fix: 'Refaire la liaison F1:4 → X1:7 et réarmer F1.' },
-    { id: 'x2', title: 'Fil X2:3 → KM1 A1 débranché', symptom: 'Rien ne se passe à l\'appui sur S2, mais 24 V présents sur X2:3.', fix: 'Reconnecter X2:3 sur A1.' },
-    { id: 'f3', title: 'F3 déclenché (court-circuit sur le 24 V)', symptom: 'Aucun voyant, 0 V entre X2:1 et X2:6, 24 V au secondaire de T1.', fix: 'Chercher le défaut d\'isolement du 24 V, puis réarmer F3.' },
+    {
+      id: 'a2', title: 'Fil A2 de la bobine KM1 desserré',
+      symptom: 'KM1 vibre et ne tient pas à l\'appui sur S2.',
+      fix: 'Resserrer A2 et refaire la continuité A2 – X2:6.',
+      coupe: 'km1.A2>x2_6.a', action: 'Resserrer le fil sur A2 et contrôler la continuité jusqu\'au 0 V',
+    },
+    {
+      id: 's1', title: 'Contact NC de S1 (21-22) resté ouvert',
+      symptom: 'Rien ne se passe à l\'appui sur S2, 24 V présents sur X2:1.',
+      fix: 'Remplacer le bloc de contact de S1.',
+      ouvre: 'S1', action: 'Remplacer le bloc de contact du bouton d\'arrêt',
+    },
+    {
+      id: 'l2', title: 'Phase L2 coupée entre F1 et X1:7',
+      symptom: 'Le moteur ronfle, ne démarre pas, courant anormal sur L1 et L3, F1 finit par déclencher.',
+      fix: 'Refaire la liaison F1:4 → X1:7 et réarmer F1.',
+      coupe: 'f1.4>x1_7.a', action: 'Refaire la liaison F1:4 → X1:7 et réarmer F1',
+    },
+    {
+      id: 'x2', title: 'Fil X2:3 → KM1 A1 débranché',
+      symptom: 'Rien ne se passe à l\'appui sur S2, mais 24 V présents sur X2:3.',
+      fix: 'Reconnecter X2:3 sur A1.',
+      coupe: 'x2_3.a>km1.A1', action: 'Reconnecter le fil de X2:3 sur la borne A1 de KM1',
+    },
+    {
+      id: 'f3', title: 'F3 déclenché (court-circuit sur le 24 V)',
+      symptom: 'Aucun voyant, 0 V entre X2:1 et X2:6, 24 V au secondaire de T1.',
+      fix: 'Chercher le défaut d\'isolement du 24 V, puis réarmer F3.',
+      ouvre: 'f3', action: 'Chercher le défaut d\'isolement du 24 V, puis réarmer F3',
+    },
   ],
   quiz: [
     { q: 'Quel contact assure l\'auto-maintien après relâchement de S2 ?', options: ['F1 95-96', 'KM1 13-14', 'S1 21-22'], answer: 1 },
