@@ -280,3 +280,19 @@
   .se-fsdockrail { flex-direction: row; height: 42px; padding: 0 8px; }
   .se-fsdockrail .ind, .se-fsdockrail .vt { writing-mode: horizontal-tb; }
 }
+
+/* ------------------------------------------- zone de travail pleine hauteur
+ *
+ * Par défaut `.se-wswrap` a une hauteur figée calée sur la *fenêtre*
+ * (`clamp(340px, 62vh, 760px)`), qui ignore ce que l'en-tête, la barre d'étapes et la
+ * ligne d'aide ont déjà pris : d'où la bande grise sous la platine aux étapes à colonne
+ * longue. Avec `fill`, la zone prend simplement ce qui reste.
+ *
+ * Seulement à partir de 1024 px : en dessous les colonnes sont empilées et une zone qui
+ * s'étire enverrait le tableau et les boutons sous la ligne de flottaison.
+ */
+@media (min-width: 1024px) {
+  .se-ws-fill { flex: 1 1 auto; min-height: 0; }
+  .se-ws-fill > .se-wsmain { flex: 1 1 auto; min-height: 0; }
+  .se-ws-fill .se-wswrap { height: auto; flex: 1 1 auto; min-height: 300px; }
+}

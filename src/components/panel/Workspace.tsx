@@ -95,6 +95,13 @@ export interface WorkspaceProps {
   children: React.ReactNode;
   /** Clé de mémorisation du zoom (`simulelec.zoom.<storageKey>`). */
   storageKey?: string;
+  /**
+   * La zone de travail prend toute la hauteur que lui laisse son parent, au lieu de garder
+   * sa hauteur figée (`clamp(340px, 62vh, 760px)`). Le parent doit être une colonne flex de
+   * hauteur connue. Sans effet sous 1024 px : en colonnes empilées, une zone qui s'étire
+   * enverrait le reste de l'étape sous la ligne de flottaison.
+   */
+  fill?: boolean;
   /** Hauteur logique du contenu (par défaut la platine complète, 920). */
   contentHeight?: number;
   className?: string;
@@ -128,7 +135,7 @@ export interface WorkspaceProps {
 }
 
 export default function Workspace({
-  children, storageKey = 'panel', contentHeight = PANEL_H, className,
+  children, storageKey = 'panel', contentHeight = PANEL_H, className, fill = false,
   title, subtitle, indicator, actions, drawer, drawerTitle = 'Énoncé',
   dock, dockTitle = 'Tableau', dockDefaultOpen = true,
   tools, activeTool = null, onTool,
@@ -431,7 +438,7 @@ export default function Workspace({
   return (
     <div
       ref={root}
-      className={`se-ws${fs ? ' se-ws-fs' : ''}${fs && !nativeFs.current ? ' se-ws-overlay' : ''}${dark ? ' dark' : ' light'}${className ? ` ${className}` : ''}`}
+      className={`se-ws${fill ? ' se-ws-fill' : ''}${fs ? ' se-ws-fs' : ''}${fs && !nativeFs.current ? ' se-ws-overlay' : ''}${dark ? ' dark' : ' light'}${className ? ` ${className}` : ''}`}
       data-testid="workspace-root"
       data-atelier={fs ? 'on' : 'off'}
       data-dock={fs && dock ? (dockOpen ? 'open' : 'rail') : 'off'}

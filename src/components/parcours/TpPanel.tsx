@@ -73,9 +73,11 @@ export type TpPanelProps = Omit<PanelProps, 'items' | 'fixedScale'> & {
   /** Panneau de gauche du mode atelier, à demeure (ex. le tableau de câblage). */
   dock?: React.ReactNode;
   dockTitle?: string;
+  /** La platine descend jusqu'au bas de l'étape (défaut). */
+  fill?: boolean;
 };
 
-export default function TpPanel({ trayEnabled = false, instruments, indicator, actions, dock, dockTitle, ...props }: TpPanelProps) {
+export default function TpPanel({ trayEnabled = false, instruments, indicator, actions, dock, dockTitle, fill = true, ...props }: TpPanelProps) {
   const items = useTpItems(props.tp);
   const inst = useParcours(s => s.mes.inst);
   const setInstrument = useParcours(s => s.setInstrument);
@@ -100,6 +102,7 @@ export default function TpPanel({ trayEnabled = false, instruments, indicator, a
     <div className="tp-stage">
       <InstrumentTray value={inst} onSelect={setInstrument} disabled={!trayEnabled} />
       <Workspace
+        fill={fill}
         storageKey="tp"
         title={props.tp.title}
         subtitle={`Étape ${stage + 1} / ${STAGES.length} · ${STAGES[stage]}`}

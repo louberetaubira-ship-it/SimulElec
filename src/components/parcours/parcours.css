@@ -13,3 +13,9 @@
 
 /* Zone de travail d'une étape : étagère de mesure + platine zoomable. */
 .tp-stage { display: flex; width: 100%; flex-direction: column; gap: 8px; }
+
+/* La platine descend jusqu'au bas de l'étape : la zone de travail prend ce qui reste
+   une fois l'étagère d'instruments posée. Voir `.se-ws-fill` dans workspace.css. */
+@media (min-width: 1024px) {
+  .tp-stage { flex: 1 1 auto; min-height: 0; }
+}
