@@ -90,7 +90,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
       options: [
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C', ok: true, why: 'Calibre adapté à l\'automate, la bobine et les voyants ; un seul pôle car le 0 V est à la terre.' },
         { key: 'mcb1p', ref: 'iC60N 1P C10', spec: '10 A · courbe C', why: 'Trop élevé : les fils 1,5 mm² de commande ne sont pas protégés.' },
-        { key: 'mcb2p', ref: 'iC60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne mais coupe inutilement le 0 V mis à la terre.' },
+        { key: 'mcb2ph', ref: 'iC60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne mais coupe inutilement le 0 V mis à la terre.' },
       ],
     },
     {
@@ -109,7 +109,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     { id: 'q1', label: 'Q1 · Disjoncteur moteur', key: 'motorcb', rail: 0, x: 52, rep: 'Q1' },
     { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 0, x: 112, rep: 'KM1' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 180, rep: 'F1' },
-    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2p', rail: 0, x: 248, rep: 'F2' },
+    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 248, rep: 'F2' },
     { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 0, x: 308, rep: 'T1' },
     { id: 'f3', label: 'F3 · Secondaire 24 V', key: 'mcb1p', rail: 1, x: 52, rep: 'F3' },
     { id: 'plc', label: 'A1 · Automate M221', key: 'plc', rail: 1, x: 96, rep: 'A1' },
@@ -126,8 +126,8 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     L('f1.2', 'x1_6.a', 'L1'), L('f1.4', 'x1_7.a', 'L2'), L('f1.6', 'x1_8.a', 'L3'),
     L('x1_5.a', 'x1_9.a', 'PE'),
     // ---- alimentation de commande 24 V ----
-    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.N', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.N', 't1.0', 'L2'),
+    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
+    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
     L('t1.24', 'f3.1', 'C'),
     L('f3.2', 'plc.+24', 'C'), L('t1.0V', 'x2_6.a', 'C0'), L('x2_6.a', 'plc.0V', 'C0'),
     L('x2_6.a', 'x1_5.a', 'PE'),
@@ -167,10 +167,10 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     'f1.1': { net: 'U', live: 'run' }, 'f1.3': { net: 'V', live: 'run' }, 'f1.5': { net: 'W', live: 'run' },
     'f1.2': { net: 'U', live: 'run' }, 'f1.4': { net: 'V', live: 'run' }, 'f1.6': { net: 'W', live: 'run' },
     'f1.95': { net: 'C', live: 'f3' }, 'f1.96': { net: 'C', live: 'ctl' },
-    'f2.1': { net: 'L1', live: 'q1' }, 'f2.N': { net: 'L2', live: 'q1' },
-    'f2.2': { net: 'L1', live: 'f2' }, 'f2.N2': { net: 'L1', live: 'f2' },
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'C0', live: 'always' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'C0', live: 'always' },
+    'f2.1': { net: 'L1', live: 'q1' }, 'f2.3': { net: 'L2', live: 'q1' },
+    'f2.2': { net: 'L1', live: 'f2' }, 'f2.4': { net: 'L2', live: 'f2' },
+    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'TAP-PRI-230', live: 'f2' },
+    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'TAP-SEC-48', live: 'f2' },
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
     // automate
     'plc.+24': { net: 'C', live: 'f3' }, 'plc.0V': { net: 'C0', live: 'always' },
@@ -261,6 +261,16 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     { q: 'Le contact d\'arrêt S1 est câblé en NC sur I0.1. Que fait le programme ?', options: ['Il démarre quand I0.1 passe à 1', 'Il maintient la marche tant que I0.1 est à 1 et arrête quand elle retombe à 0', 'Il ignore I0.1'], answer: 1 },
   ],
   motor: { P: 1500, U: 400, In: 3.3, n: 1440, ns: 1500, cosPhi: 0.8 },
+  // Transformateur de commande à prises : le rapport de transformation est fixé par
+  // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
+  // Voir `src/lib/sim/trafo.ts`.
+  trafo: {
+    slot: 't1',
+    reseau: 400,
+    primaire: { '0': 0, '230': 230, '400': 400 },
+    secondaire: { '0V': 0, '24': 24, '48': 48 },
+    bobine: 24,
+  },
   station: true,
   hasMotor: true,
 };

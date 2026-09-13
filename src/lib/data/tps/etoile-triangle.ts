@@ -174,7 +174,7 @@ export const TP_ETOILE_TRIANGLE: TpDefinition = {
     { id: 'km2', label: 'KM2 · Étoile', key: 'kontakt', rail: 0, x: 180, rep: 'KM2' },
     { id: 'km3', label: 'KM3 · Triangle', key: 'kontakt', rail: 0, x: 248, rep: 'KM3' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 316, rep: 'F1' },
-    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2p', rail: 1, x: 48, rep: 'F2' },
+    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 1, x: 48, rep: 'F2' },
     { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 1, x: 102, rep: 'T1' },
     { id: 'f3', label: 'F3 · Secondaire 24 V', key: 'mcb1p', rail: 1, x: 178, rep: 'F3' },
     { id: 'ka1', label: 'KA1 · Bloc temporisé LADT2 (1 commun · 2 NF · 3 NO)', key: 'timer', rail: 1, x: 206, rep: 'KA1' },
@@ -200,8 +200,8 @@ export const TP_ETOILE_TRIANGLE: TpDefinition = {
     // ---- PE ----
     L('x1_5.a', 'x1_12.a', 'PE'),
     // ---- alimentation de la commande 24 V ----
-    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.N', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.N', 't1.0', 'L2'),
+    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
+    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
     L('t1.24', 'f3.1', 'C'), L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_1.a', 'C'),
     // ---- commande : marche et auto-maintien de KM1 ----
     L('x2_2.a', 'km1.13', 'C'), L('km1.14', 'x2_3.a', 'C'), L('x2_3.a', 'km1.A1', 'C'),
@@ -276,10 +276,10 @@ export const TP_ETOILE_TRIANGLE: TpDefinition = {
     'f1.95': { net: 'C', live: 'f3' }, 'f1.96': { net: 'C', live: 'ctl' },
     'f1.97': { net: 'C', live: 'f3' }, 'f1.98': { net: 'C', live: 'off' },
     // protections et transformateur de commande
-    'f2.1': { net: 'L1', live: 'q1' }, 'f2.N': { net: 'L2', live: 'q1' },
-    'f2.2': { net: 'L1', live: 'f2' }, 'f2.N2': { net: 'L1', live: 'f2' },
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'C0', live: 'always' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'C0', live: 'always' },
+    'f2.1': { net: 'L1', live: 'q1' }, 'f2.3': { net: 'L2', live: 'q1' },
+    'f2.2': { net: 'L1', live: 'f2' }, 'f2.4': { net: 'L2', live: 'f2' },
+    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'TAP-PRI-230', live: 'f2' },
+    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'TAP-SEC-48', live: 'f2' },
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
     // bornier de commande
     'x2_1.a': { net: 'C', live: 'ctl' }, 'x2_1.b': { net: 'C', live: 'ctl' },
@@ -363,6 +363,16 @@ export const TP_ETOILE_TRIANGLE: TpDefinition = {
     { q: 'Pourquoi retirer les barrettes de la boîte à bornes du moteur ?', options: ['Pour pouvoir ramener les six conducteurs et laisser les contacteurs réaliser les deux couplages', 'Pour isoler le moteur du réseau', 'Pour mesurer plus facilement les enroulements'], answer: 0 },
   ],
   motor: { P: 4000, U: 400, In: 8.1, n: 1450, ns: 1500, cosPhi: 0.84 },
+  // Transformateur de commande à prises : le rapport de transformation est fixé par
+  // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
+  // Voir `src/lib/sim/trafo.ts`.
+  trafo: {
+    slot: 't1',
+    reseau: 400,
+    primaire: { '0': 0, '230': 230, '400': 400 },
+    secondaire: { '0V': 0, '24': 24, '48': 48 },
+    bobine: 24,
+  },
   station: true,
   hasMotor: true,
 };

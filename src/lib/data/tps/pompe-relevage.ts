@@ -151,7 +151,7 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     { id: 'q1', label: 'Q1 · Disjoncteur moteur', key: 'motorcb', rail: 0, x: 52, rep: 'Q1' },
     { id: 'km1', label: 'KM1 · Contacteur pompe', key: 'kontakt', rail: 0, x: 112, rep: 'KM1' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 180, rep: 'F1' },
-    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2p', rail: 1, x: 52, rep: 'F2' },
+    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 1, x: 52, rep: 'F2' },
     { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 1, x: 116, rep: 'T1' },
     { id: 'f3', label: 'F3 · Secondaire 24 V', key: 'mcb1p', rail: 1, x: 204, rep: 'F3' },
     { id: 'ka1', label: 'KA1 · Relais de mémorisation (1-2 bobine · 3-4 contact NO)', key: 'timer', rail: 1, x: 240, rep: 'KA1' },
@@ -171,8 +171,8 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     L('f1.2', 'x1_6.a', 'L1'), L('f1.4', 'x1_7.a', 'L2'), L('f1.6', 'x1_8.a', 'L3'),
     L('x1_5.a', 'x1_9.a', 'PE'),
     // ---- alimentation de la commande 24 V ----
-    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.N', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.N', 't1.0', 'L2'),
+    L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
+    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
     L('t1.24', 'f3.1', 'C'), L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_1.a', 'C'),
     // ---- commande : marche forcée, départ vers les flotteurs ----
     L('x2_2.a', 'x2_4.a', 'C'), L('x2_3.a', 'km1.A1', 'C'),
@@ -227,10 +227,10 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     'f1.95': { net: 'C', live: 'f3' }, 'f1.96': { net: 'C', live: 'ctl' },
     'f1.97': { net: 'C', live: 'f3' }, 'f1.98': { net: 'C', live: 'off' },
     // protections et transformateur de commande
-    'f2.1': { net: 'L1', live: 'q1' }, 'f2.N': { net: 'L2', live: 'q1' },
-    'f2.2': { net: 'L1', live: 'f2' }, 'f2.N2': { net: 'L1', live: 'f2' },
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'C0', live: 'always' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'C0', live: 'always' },
+    'f2.1': { net: 'L1', live: 'q1' }, 'f2.3': { net: 'L2', live: 'q1' },
+    'f2.2': { net: 'L1', live: 'f2' }, 'f2.4': { net: 'L2', live: 'f2' },
+    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'TAP-PRI-230', live: 'f2' },
+    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'TAP-SEC-48', live: 'f2' },
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
     // bornier de commande
     'x2_1.a': { net: 'C', live: 'ctl' }, 'x2_1.b': { net: 'C', live: 'ctl' },
@@ -321,6 +321,16 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     { q: 'Pourquoi les flotteurs sont-ils alimentés en 24 V et non en 230 V ?', options: ['Pour que les contacts durent plus longtemps', 'Parce qu\'ils sont immergés et manipulables : la très basse tension limite le risque électrique', 'Parce que le contacteur l\'impose'], answer: 1 },
   ],
   motor: { P: 1100, U: 400, In: 2.6, n: 2850, ns: 3000, cosPhi: 0.82 },
+  // Transformateur de commande à prises : le rapport de transformation est fixé par
+  // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
+  // Voir `src/lib/sim/trafo.ts`.
+  trafo: {
+    slot: 't1',
+    reseau: 400,
+    primaire: { '0': 0, '230': 230, '400': 400 },
+    secondaire: { '0V': 0, '24': 24, '48': 48 },
+    bobine: 24,
+  },
   station: true,
   hasMotor: true,
 };

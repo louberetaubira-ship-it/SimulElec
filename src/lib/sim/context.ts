@@ -4,6 +4,7 @@ import { coursPrompt } from '../data/cours';
 import { diplomaName, type Student } from '../student';
 import { isControlLive, isRunning, type SimState } from './engine';
 import { nextLiaison, requiredLiaisons, STAGES } from './progress';
+import { repereSlot } from './reperes';
 import { EPI, mesureDone, mesuresFor, readingLabel } from './mesures';
 
 const fr = (v: number, d = 1) => v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -90,9 +91,10 @@ export function buildContext(
 
   if (st.stage >= 8) {
     lines.push(
-      `État du montage : Q1 ${sim.q1 ? 'fermé' : 'ouvert'}, F2 ${sim.f2 ? 'fermé' : 'ouvert'}, F3 ${sim.f3 ? 'fermé' : 'ouvert'}, ` +
-      `commande ${isControlLive(sim) ? 'sous tension' : 'hors tension'}, KM1 ${sim.km1 ? 'enclenché' : 'retombé'}, ` +
-      `F1 ${sim.f1trip ? 'déclenché' : 'ok'}, couplage ${sim.coupling === 'Y' ? 'étoile' : 'triangle'}, ` +
+      `État du montage : ${repereSlot(tp, 'q1')} ${sim.q1 ? 'fermé' : 'ouvert'}, ` +
+      `${repereSlot(tp, 'f2')} ${sim.f2 ? 'fermé' : 'ouvert'}, ${repereSlot(tp, 'f3')} ${sim.f3 ? 'fermé' : 'ouvert'}, ` +
+      `commande ${isControlLive(sim) ? 'sous tension' : 'hors tension'}, ${repereSlot(tp, 'km1')} ${sim.km1 ? 'enclenché' : 'retombé'}, ` +
+      `${repereSlot(tp, 'f1')} ${sim.f1trip ? 'déclenché' : 'ok'}, couplage ${sim.coupling === 'Y' ? 'étoile' : 'triangle'}, ` +
       `moteur ${isRunning(sim) ? 'en marche' : 'à l\'arrêt'}, I = ${fr(sim.I, 2)} A, n = ${Math.round(sim.n)} tr/min, charge ${Math.round(sim.load * 100)} %.`,
     );
   }
@@ -137,7 +139,7 @@ export const HELLO: Record<number, string> = {
   5: 'Contrôle visuel, serrage, puis les tests : rien ne se mesure au hasard.',
   6: 'On passe aux EPI et à la consignation : séparation, condamnation, identification, VAT. Dans cet ordre, sans en sauter un.',
   7: 'Installation consignée : tu peux mesurer en ohms. Jamais l\'inverse.',
-  8: 'Déconsignation : le cadenas d\'abord, puis on referme Q1, F2, F3 et on essaie.',
+  8: 'Déconsignation : le cadenas d\'abord, puis on referme les protections de l\'amont vers l\'aval, et on essaie.',
   9: 'Sous tension : bonne position du sélecteur, bons cordons, et tu notes ce que tu lis.',
   10: 'On t\'a signalé une panne. Méthode : symptôme, hypothèses, mesure qui tranche. Que dit le symptôme ?',
 };
@@ -145,20 +147,20 @@ export const HELLO: Record<number, string> = {
 /** Réponses préparées, utilisées si l'API du professeur n'est pas disponible. */
 export function fallbackAnswer(q: string): string {
   const l = q.toLowerCase();
-  if (/13.?14|auto.?maintien/.test(l)) return 'Quand tu relâches S2, qui garde la bobine alimentée ? Regarde quel contact de KM1 est en parallèle de S2, et ce qu\'il devient quand KM1 est enclenché.';
-  if (/95|96|thermique|f1/.test(l)) return 'Le relais thermique ne coupe pas la puissance lui-même. Où doit-il agir pour que KM1 retombe ? Cherche son contact NC dans le circuit de commande.';
+  if (/13.?14|auto.?maintien/.test(l)) return 'Quand tu relâches le bouton de marche, qui garde la bobine alimentée ? Regarde quel contact auxiliaire du contacteur est en parallèle du bouton, et ce qu\'il devient quand le contacteur est enclenché.';
+  if (/95|96|thermique|f1/.test(l)) return 'Le relais thermique ne coupe pas la puissance lui-même. Où doit-il agir pour que le contacteur retombe ? Cherche son contact NC dans le circuit de commande.';
   if (/epi|gants|écran|ecran|équipement|equipement/.test(l)) return 'Pour une intervention BT : gants isolants, écran facial, outils isolés 1000 V, chaussures, VAT vérifié et cadenas. Les bijoux, eux, restent au vestiaire. Que te manque-t-il dans ta liste ?';
   if (/consign|cadenas|séparation|separation|identification/.test(l)) return 'Quatre temps, toujours dans le même ordre : séparation, condamnation, identification, vérification d\'absence de tension. Où en es-tu exactement ?';
   if (/vat|absence de tension/.test(l)) return 'La VAT se vérifie sur une source connue avant ET après la mesure : sinon, comment savoir que l\'appareil fonctionnait encore ?';
   if (/gv2|calibre|plage|réglage|reglage/.test(l)) return 'Reprends In sur la plaque signalétique. La plage de réglage de la protection doit encadrer cette valeur : ni trop basse, ni trop haute.';
   if (/lc1d|contacteur|bobine/.test(l)) return 'Deux questions pour un contacteur : quel courant AC-3 doit-il tenir, et sous quelle tension sa bobine sera-t-elle alimentée ? Relis la ligne « commande » du cahier des charges.';
-  if (/x1|x2|bornier/.test(l)) return 'Un bornier sépare ce qui est dans l\'armoire de ce qui en sort. Que traverse X1, que traverse X2, et quelle section chacun doit-il accepter ?';
+  if (/x1|x2|xc|bornier/.test(l)) return 'Un bornier sépare ce qui est dans l\'armoire de ce qui en sort. Que traverse le bornier de puissance, que traverse celui de commande, et quelle section chacun doit-il accepter ?';
   if (/isolement|mω|mohm|megohm|mégohm|500/.test(l)) return 'Sous 500 V continu, la NF C 15-100 attend au moins 0,5 MΩ. Que signifierait une valeur bien plus basse pour le moteur ?';
   if (/err|ohms sous tension/.test(l)) return 'Un ohmmètre injecte son propre courant : sous tension il affiche ERR et son fusible saute. Que dois-tu faire avant toute mesure de résistance ?';
   if (/pe|continuité|continuite/.test(l)) return 'La continuité du PE se mesure entre la borne PE du bornier et la masse du récepteur, sous 200 mA. En dessous de 2 Ω, c\'est bon.';
   if (/pince|courant/.test(l)) return 'La pince se serre sur UN seul conducteur : si tu en enserres deux, la somme des courants s\'annule. Sur quelle phase veux-tu lire In ?';
-  if (/démarre pas|demarre pas|rien ne se passe|rien/.test(l)) return 'Procède par ordre : Q1 fermé ? F2 ? F3 ? Puis mesure la tension aux bornes de la bobine A1-A2 pendant l\'appui sur S2. Que trouves-tu ?';
-  if (/panne|diagnostic|commencer|mesure/.test(l)) return 'Pars du symptôme. S\'il concerne la commande, mesure en tension le long de la boucle : F3, 95-96, S1, S2, A1-A2. Si le moteur ronfle, pense à la puissance : pince sur chaque phase.';
+  if (/démarre pas|demarre pas|rien ne se passe|rien/.test(l)) return 'Procède par ordre, de l\'amont vers l\'aval : l\'appareil de tête est-il fermé ? Et les deux protections du transformateur ? Puis mesure la tension aux bornes de la bobine A1-A2 pendant l\'appui sur le bouton de marche. Que trouves-tu ?';
+  if (/panne|diagnostic|commencer|mesure/.test(l)) return 'Pars du symptôme. S\'il concerne la commande, mesure en tension le long de la boucle, de la protection du secondaire jusqu\'à la bobine, en passant par le contact 95-96 et la chaîne d\'arrêt. Si le moteur ronfle, pense à la puissance : pince sur chaque phase.';
   if (/glissement|vitesse|tr\/min/.test(l)) return 'Compare la vitesse lue à la vitesse de synchronisme : 1500 tr/min pour 4 pôles en 50 Hz. L\'écart, rapporté à ns, c\'est le glissement.';
   if (/couplage|triangle|étoile|etoile/.test(l)) return 'Regarde la plaque : 400 V Y / 230 V Δ. Sur un réseau 400 V, quel couplage donne 230 V par enroulement ?';
   return 'Dis-moi ce que tu observes ou ce que tu as mesuré, et où tu bloques précisément : je t\'aiderai à raisonner, pas à deviner.';

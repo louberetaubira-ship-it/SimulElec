@@ -1,5 +1,23 @@
 import type { Liaison, PupitreItem, TpDefinition } from '../types';
 import { pupitreOf } from '../scene/geometry';
+import { repereSlot } from './reperes';
+import type { DiagTrafo } from './trafo';
+
+/** Ce dont le moteur a besoin pour nommer un appareil comme il est marqué sur la platine. */
+type Rep = Pick<TpDefinition, 'slots'>;
+
+/**
+ * Repère d'un appareil, ou tournure neutre quand l'appelant n'a pas passé le TP.
+ * Aucun message destiné à l'élève n'écrit « Q1 » ou « F2 » en dur : le même moteur
+ * sert une platine où la protection du primaire s'appelle F2 et une autre où elle
+ * s'appelle Q2.
+ */
+const NEUTRE: Record<string, string> = {
+  q1: 'Le sectionneur général', f2: 'La protection du primaire',
+  f3: 'La protection du secondaire', f1: 'Le relais thermique', km1: 'Le contacteur',
+};
+const rep = (tp: Partial<Rep> | undefined, id: string): string =>
+  tp?.slots ? repereSlot({ slots: tp.slots }, id) : (NEUTRE[id] ?? id.toUpperCase());
 
 /** Pannes injectables (identifiants des `faults` des TP v3). */
 export type FaultId = 'a2' | 's1' | 'l2' | 'x2' | 'f3';
@@ -55,6 +73,31 @@ export interface SimState {
   stoppedByS1: boolean;
   /** KM1 a essayé de coller sans tenir (panne A2). */
   chattering: boolean;
+  /**
+   * Tension à vide au secondaire du transformateur de commande, déduite des
+   * prises réellement câblées (`src/lib/sim/trafo.ts`). `null` : le TP n'a pas
+   * de transformateur, ou le primaire n'est pas encore raccordé.
+   */
+  u2: number | null;
+  /**
+   * Faute de prise diagnostiquée par `etatTrafo` : c'est elle, et non la seule
+   * tension, qui dit quel organe souffre — le fer du transformateur (prise du
+   * primaire trop basse) ou la bobine du contacteur (prise du secondaire trop
+   * haute). `null` : pas de transformateur, ou pas encore raccordé.
+   */
+  trafoDiag: DiagTrafo | null;
+  /**
+   * La protection du primaire a déclenché sur surexcitation : prise trop basse
+   * pour la tension du réseau, circuit magnétique saturé.
+   */
+  trafoTrip: boolean;
+  /**
+   * Bobine du contacteur détruite par une surtension prolongée (prise du
+   * secondaire trop haute). Elle ne colle plus tant qu'elle n'est pas remplacée.
+   */
+  coilBurnt: boolean;
+  /** Échauffement de la bobine sur-alimentée (s). */
+  coilHeat: number;
 }
 
 export const initialSim = (): SimState => ({
@@ -62,6 +105,7 @@ export const initialSim = (): SimState => ({
   load: 0.8, I: 0, n: 0, peak: 0, heat: 0,
   fault: null, s2Held: false, latched: {}, carter: true,
   t: 0, stoppedByS1: false, chattering: false,
+  u2: null, trafoDiag: null, trafoTrip: false, coilBurnt: false, coilHeat: 0,
 });
 
 /** Caractéristiques moteur par défaut (TP sans moteur). */
@@ -81,6 +125,21 @@ export const f3Ok = (s: SimState): boolean => s.f3 && s.fault !== 'f3';
 
 /** Circuit de commande 24 V vivant : Q1 + F2 + F3, thermique non déclenché. */
 export const isControlLive = (s: SimState): boolean => s.q1 && s.f2 && f3Ok(s) && !s.f1trip;
+
+/**
+ * La bobine reçoit-elle au moins 85 % de sa tension assignée ?
+ *
+ * La CEI 60947-4-1 (§8.2.1.2.1) garantit la fermeture d'un contacteur pour toute
+ * tension comprise entre 85 % et 110 % de la tension assignée d'alimentation de
+ * commande. En dessous de 85 %, la fermeture n'est plus garantie : c'est ce qui
+ * arrive quand le primaire du transformateur est raccordé sur une prise trop
+ * haute (400 V marqués, 230 V appliqués → 13,8 V au lieu de 24 V).
+ */
+export const coilVoltageOk = (s: SimState, tp: Pick<TpDefinition, 'trafo'>): boolean =>
+  !tp.trafo || s.u2 == null || s.u2 >= 0.85 * tp.trafo.bobine;
+
+/** Bobine détruite par une surtension prolongée : elle ne collera plus. */
+export const coilAlive = (s: SimState): boolean => !s.coilBurnt;
 
 /** Le moteur tourne (KM1 collé, puissance présente, thermique non déclenché). */
 export const isRunning = (s: SimState): boolean => s.q1 && s.km1 && !s.f1trip;
@@ -131,46 +190,68 @@ export const loopPhaseAtS2 = (s: SimState, tp: Pick<TpDefinition, 'pupitre' | 'i
 
 export interface ActionResult { state: SimState; message: string }
 
-export function toggleQ1(s: SimState): ActionResult {
+export function toggleQ1(s: SimState, tp?: Rep): ActionResult {
   const q1 = !s.q1;
+  const r = rep(tp, 'q1');
   return {
     state: { ...s, q1, km1: q1 ? s.km1 : false, chattering: false },
-    message: q1 ? 'Q1 fermé : la puissance est sous tension.' : 'Q1 ouvert : platine séparée du réseau.',
+    message: q1
+      ? `${r} fermé : la puissance est sous tension.`
+      : `${r} ouvert : platine séparée du réseau.`,
   };
 }
 
-export function toggleF2(s: SimState): ActionResult {
+export function toggleF2(s: SimState, tp?: Rep & Pick<TpDefinition, 'trafo'>): ActionResult {
   const f2 = !s.f2;
+  const t = tp?.trafo;
+  // Prise du PRIMAIRE trop basse pour le réseau : le flux dépasse largement les
+  // 110 % qu'un transformateur supporte en permanence, le circuit sature et le
+  // courant magnétisant fait déclencher la protection du primaire.
+  // Une prise du SECONDAIRE trop haute ne fait pas ça : le fer va bien, c'est la
+  // bobine qui souffre — traité dans `tick`.
+  if (f2 && t && s.trafoDiag === 'surexcite') {
+    return {
+      state: { ...s, f2: false, km1: false, chattering: false, trafoTrip: true },
+      message: `${rep(tp, 'f2')} déclenche aussitôt : le secondaire donne ${s.u2} V au lieu de `
+        + `${t.bobine} V — le transformateur est alimenté sur une prise trop basse et sature.`,
+    };
+  }
   return {
-    state: { ...s, f2, km1: f2 ? s.km1 : false, chattering: false },
-    message: f2 ? 'F2 fermé : le primaire 400 V de T1 est alimenté.' : 'F2 ouvert : plus de primaire sur T1.',
+    state: { ...s, f2, km1: f2 ? s.km1 : false, chattering: false, trafoTrip: f2 ? s.trafoTrip : false },
+    message: f2
+      ? `${rep(tp, 'f2')} fermé : le primaire du transformateur de commande est alimenté.`
+      : `${rep(tp, 'f2')} ouvert : plus de primaire sur le transformateur.`,
   };
 }
 
-export function toggleF3(s: SimState): ActionResult {
+export function toggleF3(s: SimState, tp?: Rep): ActionResult {
   const f3 = !s.f3;
+  const r = rep(tp, 'f3');
   return {
     state: { ...s, f3, km1: f3 ? s.km1 : false, chattering: false },
-    message: f3 ? 'F3 fermé : la commande 24 V est sous tension.' : 'F3 ouvert : plus de commande 24 V.',
+    message: f3
+      ? `${r} fermé : le circuit de commande est sous tension.`
+      : `${r} ouvert : plus de commande.`,
   };
 }
 
-export function resetF1(s: SimState): ActionResult {
-  if (!s.f1trip) return { state: s, message: 'F1 est réglé à In — rien à réarmer.' };
-  return { state: { ...s, f1trip: false, heat: 0 }, message: 'F1 réarmé.' };
+export function resetF1(s: SimState, tp?: Rep): ActionResult {
+  const r = rep(tp, 'f1');
+  if (!s.f1trip) return { state: s, message: `${r} est réglé à In — rien à réarmer.` };
+  return { state: { ...s, f1trip: false, heat: 0 }, message: `${r} réarmé.` };
 }
 
-export function setCoupling(s: SimState, coupling: Coupling): ActionResult {
+export function setCoupling(s: SimState, coupling: Coupling, tp?: Rep): ActionResult {
   return {
     state: { ...s, coupling },
     message: coupling === 'Y'
       ? 'Couplage étoile : barrette W2-U2-V2, 230 V par enroulement.'
-      : 'Couplage triangle sur 400 V : surintensité ×1,73, F1 va déclencher.',
+      : `Couplage triangle sur 400 V : surintensité ×1,73, ${rep(tp, 'f1')} va déclencher.`,
   };
 }
 
 /** Appui sur un bouton de marche (contact NO) du pupitre. */
-function pressStart(s: SimState, tp: TpDefinition, rep: string): ActionResult {
+function pressStart(s: SimState, tp: TpDefinition, btn: string): ActionResult {
   const held = { ...s, s2Held: true };
   const latch = latchedStop(s, tp);
   if (latch) {
@@ -186,38 +267,54 @@ function pressStart(s: SimState, tp: TpDefinition, rep: string): ActionResult {
       message: `Rien ne se passe : la protection est retirée — le contact ${ip?.rep ?? 'de position'} coupe la commande.`,
     };
   }
-  if (!isPowered(s)) return { state: held, message: 'Rien ne se passe : Q1 est ouvert.' };
-  if (!s.f2) return { state: held, message: 'Rien ne se passe : F2 est ouvert.' };
-  if (!s.f3) return { state: held, message: 'Rien ne se passe : F3 est ouvert.' };
-  if (s.fault === 'f3') return { state: held, message: 'Rien ne se passe, pourtant F3 semble fermé.' };
-  if (s.f1trip) return { state: held, message: 'Rien ne se passe : F1 a déclenché, 95-96 est ouvert.' };
+  if (!isPowered(s)) return { state: held, message: `Rien ne se passe : ${rep(tp, 'q1')} est ouvert.` };
+  if (s.trafoTrip) {
+    return { state: held, message: `Rien ne se passe : ${rep(tp, 'f2')} a déclenché — vérifie la prise du primaire.` };
+  }
+  if (!s.f2) return { state: held, message: `Rien ne se passe : ${rep(tp, 'f2')} est ouvert.` };
+  if (!s.f3) return { state: held, message: `Rien ne se passe : ${rep(tp, 'f3')} est ouvert.` };
+  if (s.fault === 'f3') return { state: held, message: `Rien ne se passe, pourtant ${rep(tp, 'f3')} semble fermé.` };
+  if (s.f1trip) return { state: held, message: `Rien ne se passe : ${rep(tp, 'f1')} a déclenché, 95-96 est ouvert.` };
+  if (!coilVoltageOk(s, tp)) {
+    const pc = Math.round(((s.u2 ?? 0) / (tp.trafo?.bobine ?? 1)) * 100);
+    return {
+      state: held,
+      message: `${rep(tp, 'km1')} ne colle pas : la bobine n'a que ${s.u2} V, soit ${pc} % de sa tension `
+        + 'assignée — en dessous des 85 % où la fermeture est garantie.',
+    };
+  }
   if (!s1Closed(s)) return { state: held, message: 'Rien ne se passe : le circuit de commande est coupé quelque part.' };
   if (!a1Wired(s)) return { state: held, message: 'Rien ne se passe, pourtant la commande est sous tension.' };
-  if (!a2Wired(s)) return { state: { ...held, chattering: true }, message: 'KM1 vibre mais ne tient pas : la bobine est mal alimentée.' };
-  if (s.km1) return { state: held, message: 'KM1 est déjà enclenché.' };
+  if (!coilAlive(s)) {
+    return { state: held, message: `${rep(tp, 'km1')} ne colle plus : sa bobine a grillé — il faut la remplacer.` };
+  }
+  if (!a2Wired(s)) {
+    return { state: { ...held, chattering: true }, message: `${rep(tp, 'km1')} vibre mais ne tient pas : la bobine est mal alimentée.` };
+  }
+  if (s.km1) return { state: held, message: `${rep(tp, 'km1')} est déjà enclenché.` };
   return {
     state: { ...held, km1: true, t: 0, peak: 0, chattering: false },
-    message: `${rep} : KM1 s'enclenche, l'auto-maintien 13-14 prend le relais.`,
+    message: `${btn} : ${rep(tp, 'km1')} s'enclenche, l'auto-maintien 13-14 prend le relais.`,
   };
 }
 
 /** Appui sur un bouton d'arrêt (contact NC) : ouverture de la chaîne d'arrêt. */
-function pressStop(s: SimState, item: PupitreItem): ActionResult {
-  const rep = item.rep;
+function pressStop(s: SimState, item: PupitreItem, tp: Rep): ActionResult {
+  const btn = item.rep;
   // un coup de poing déjà verrouillé se déverrouille au clic suivant (quart de tour)
-  if (isLatched(s, rep)) {
+  if (isLatched(s, btn)) {
     const latched = { ...s.latched };
-    delete latched[rep];
-    return { state: { ...s, latched }, message: `${rep} déverrouillé : la chaîne d'arrêt est refermée.` };
+    delete latched[btn];
+    return { state: { ...s, latched }, message: `${btn} déverrouillé : la chaîne d'arrêt est refermée.` };
   }
-  const latched = item.latching ? { ...s.latched, [rep]: true } : s.latched;
+  const latched = item.latching ? { ...s.latched, [btn]: true } : s.latched;
   const verrou = item.latching ? ' et se verrouille' : '';
   if (!s.km1) {
-    return { state: { ...s, latched, chattering: false }, message: `${rep} : le circuit était déjà ouvert${verrou}.` };
+    return { state: { ...s, latched, chattering: false }, message: `${btn} : le circuit était déjà ouvert${verrou}.` };
   }
   return {
     state: { ...s, latched, km1: false, stoppedByS1: true, chattering: false },
-    message: `${rep} : KM1 retombe${verrou}, le moteur s'arrête.`,
+    message: `${btn} : ${rep(tp, 'km1')} retombe${verrou}, le moteur s'arrête.`,
   };
 }
 
@@ -225,7 +322,7 @@ function pressStop(s: SimState, item: PupitreItem): ActionResult {
 export function pressButton(s: SimState, tp: TpDefinition, rep: string): ActionResult {
   const item = pupitreOf(tp).find(p => p.rep === rep);
   if (!item || item.kind === 'lamp') return { state: s, message: `${rep} n'est pas un bouton.` };
-  return item.kind === 'no' ? pressStart(s, tp, rep) : pressStop(s, item);
+  return item.kind === 'no' ? pressStart(s, tp, rep) : pressStop(s, item, tp);
 }
 
 /** Relâchement d'un bouton du pupitre (seuls les boutons de marche sont maintenus). */
@@ -237,15 +334,15 @@ export function releaseButton(s: SimState): SimState {
  * Bascule le carter (écran de protection) commandé par l'interrupteur de position :
  * carter ouvert, la chaîne de commande est coupée exactement comme par un arrêt.
  */
-export function toggleCarter(s: SimState, tp: Pick<TpDefinition, 'interPosition'>): ActionResult {
+export function toggleCarter(s: SimState, tp: Pick<TpDefinition, 'interPosition'> & Partial<Rep>): ActionResult {
   const carter = !s.carter;
-  const rep = tp.interPosition?.rep ?? 'S1';
+  const ip = tp.interPosition?.rep ?? 'S1';
   const etat = tp.interPosition?.etat ?? 'écran de protection en place';
   return {
     state: { ...s, carter, km1: carter ? s.km1 : false, chattering: false },
     message: carter
-      ? `${etat} : ${rep} referme la chaîne d'arrêt.`
-      : `Protection retirée : ${rep} s'ouvre, KM1 retombe et le moteur s'arrête.`,
+      ? `${etat} : ${ip} referme la chaîne d'arrêt.`
+      : `Protection retirée : ${ip} s'ouvre, ${rep(tp, 'km1')} retombe et le moteur s'arrête.`,
   };
 }
 
@@ -255,7 +352,7 @@ export function injectFault(s: SimState, fault: FaultId): SimState {
 }
 
 export function repairFault(s: SimState): SimState {
-  return { ...s, fault: null, f1trip: false, heat: 0, chattering: false };
+  return { ...s, fault: null, f1trip: false, heat: 0, chattering: false, coilBurnt: false, coilHeat: 0 };
 }
 
 export function pickFault(tp: TpDefinition, rnd: number = Math.random()): FaultId {
@@ -269,6 +366,7 @@ export function pickFault(tp: TpDefinition, rnd: number = Math.random()): FaultI
 const SEUIL_TRIP = 3.0;      // image thermique en surcharge franche
 const SEUIL_TRIP_D = 2.0;    // couplage triangle sur 400 V : déclenchement rapide
 const SEUIL_TRIP_L2 = 6.0;   // marche en monophasé : plus lent mais inévitable
+const SEUIL_BOBINE = 24;     // image thermique d'une bobine sur-alimentée (pertes en U²)
 const lerp = (v: number, target: number, k: number, dt: number) => v + (target - v) * (1 - Math.exp(-k * dt));
 
 /**
@@ -306,11 +404,26 @@ export function tick(state: SimState, tp: TpDefinition, dt: number): ActionResul
       s.km1 = false;
       s.heat = 0;
       message = s.coupling === 'D'
-        ? 'F1 déclenche : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.'
-        : 'F1 déclenche : surcharge du moteur.';
+        ? `${repereSlot(tp, 'f1')} déclenche : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
+        : `${repereSlot(tp, 'f1')} déclenche : surcharge du moteur.`;
     }
   } else if (s.heat > 0) {
     s.heat = Math.max(0, s.heat - dt * 0.5);
+  }
+
+  // Bobine sur-alimentée (prise du secondaire trop haute) : le fer du
+  // transformateur va bien, c'est l'enroulement de la bobine qui encaisse. Ses
+  // pertes varient comme le carré de la tension — 48 V sur une bobine 24 V, c'est
+  // quatre fois l'échauffement nominal — et elle finit par griller.
+  if (s.km1 && !s.coilBurnt && s.trafoDiag === 'surtension' && tp.trafo && s.u2 != null) {
+    s.coilHeat += dt * (s.u2 / tp.trafo.bobine) ** 2;
+    if (s.coilHeat > SEUIL_BOBINE) {
+      s.coilBurnt = true;
+      s.km1 = false;
+      s.coilHeat = 0;
+      message = `La bobine de ${repereSlot(tp, 'km1')} a grillé : ${s.u2} V au lieu de `
+        + `${tp.trafo.bobine} V, elle n'a pas tenu. Reprends la prise du secondaire.`;
+    }
   }
 
   return { state: s, message };

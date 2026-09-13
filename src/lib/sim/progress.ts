@@ -1,7 +1,8 @@
 import type {
   AttemptState, Bareme, BaremeOverride, EvaluationMode, Liaison, TpDefinition,
 } from '../types';
-import { isRunning, type SimState } from './engine';
+import { isRunning, startButtons, type SimState } from './engine';
+import { listeMiseSousTension, repereSlot } from './reperes';
 import { linkKey } from './layout';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
 import type { CoursId } from '../data/cours';
@@ -356,12 +357,18 @@ export const deconsComplete = (st: AttemptState) => st.decons.essai;
 
 export interface ServiceCheck { id: string; title: string; ok: boolean }
 
-/** Étapes auto-validées de la déconsignation / mise en service. */
-export function serviceChecks(st: AttemptState, sim: SimState): ServiceCheck[] {
+/**
+ * Étapes auto-validées de la déconsignation / mise en service.
+ * Les repères viennent du TP : « F2 » sur le démarrage direct, « Q2 » sur la perceuse.
+ */
+export function serviceChecks(tp: TpDefinition, st: AttemptState, sim: SimState): ServiceCheck[] {
+  const marche = startButtons(tp)[0]?.rep ?? 'le bouton de marche';
+  const km1 = repereSlot(tp, 'km1');
+  const voyant = (tp.pupitre ?? []).find(p => p.kind === 'lamp')?.rep ?? 'H1';
   return [
     { id: 'unlock', title: 'Retirer le cadenas et l\'étiquette de consignation', ok: st.decons.unlock },
-    { id: 'close', title: 'Refermer Q1, F2 puis F3', ok: st.decons.close },
-    { id: 'essai', title: 'Essai : S2 → KM1 s\'enclenche et H1 s\'allume', ok: st.decons.essai },
+    { id: 'close', title: `Refermer ${listeMiseSousTension(tp)}`, ok: st.decons.close },
+    { id: 'essai', title: `Essai : ${marche} → ${km1} s'enclenche et ${voyant} s'allume`, ok: st.decons.essai },
     { id: 'run', title: 'Moteur en marche', ok: isRunning(sim) || st.decons.essai },
   ];
 }

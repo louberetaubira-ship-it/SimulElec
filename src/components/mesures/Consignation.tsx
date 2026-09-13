@@ -5,11 +5,14 @@
  * Port de `mesTasks` étape 1 de la référence.
  */
 import React from 'react';
-import type { AttemptState } from '@/lib/types';
+import type { AttemptState, TpDefinition } from '@/lib/types';
 import type { SimState } from '@/lib/sim/engine';
+import { repereSlot } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 
 export interface ConsignationProps {
+  /** Le TP fournit le repère de l'appareil de séparation : « Q1 » ici, autre chose ailleurs. */
+  tp: TpDefinition;
   st: AttemptState;
   sim: SimState;
   onAct: (a: 'lock' | 'ident') => void;
@@ -26,19 +29,20 @@ function Step({ done, n, children }: { done: boolean; n: string; children: React
   );
 }
 
-export default function Consignation({ st, sim, onAct }: ConsignationProps) {
+export default function Consignation({ tp, st, sim, onAct }: ConsignationProps) {
+  const q1 = repereSlot(tp, 'q1');
   const c = st.cons;
   const nVat = c.vat.length;
 
   return (
     <div className="flex flex-col gap-1.5">
       <Step done={c.sep} n="1">
-        <b>Séparation</b> — ouvre Q1 sur la platine (clique le disjoncteur moteur).
-        {sim.q1 ? <span className="block text-muted">Q1 est encore fermé.</span> : null}
+        <b>Séparation</b> — ouvre {q1} sur la platine (clique le disjoncteur moteur).
+        {sim.q1 ? <span className="block text-muted">{q1} est encore fermé.</span> : null}
       </Step>
 
       <Step done={c.lock} n="2">
-        <b>Condamnation</b> — cadenas et étiquette « NE PAS MANŒUVRER » sur Q1.
+        <b>Condamnation</b> — cadenas et étiquette « NE PAS MANŒUVRER » sur {q1}.
         {!c.lock && (
           <Button size="sm" className="mt-1.5" data-act="lock" disabled={!c.sep} onClick={() => onAct('lock')}>
             Poser le cadenas + l&apos;étiquette
@@ -47,7 +51,7 @@ export default function Consignation({ st, sim, onAct }: ConsignationProps) {
       </Step>
 
       <Step done={c.ident} n="3">
-        <b>Identification</b> — platine du TP, repère Q1, schéma folio 2.
+        <b>Identification</b> — platine du TP, repère {q1}, schéma folio 2.
         {!c.ident && (
           <Button size="sm" className="mt-1.5" data-act="ident" disabled={!c.lock} onClick={() => onAct('ident')}>
             Confirmer l&apos;identification
@@ -61,7 +65,7 @@ export default function Consignation({ st, sim, onAct }: ConsignationProps) {
       </Step>
 
       <Step done={nVat >= 3} n="4b">
-        <b>VAT en aval de Q1</b> — vérifie l&apos;absence de tension entre phases et phase / neutre :
+        <b>VAT en aval de {q1}</b> — vérifie l&apos;absence de tension entre phases et phase / neutre :
         <span className="font-mono-num"> q1.2 / q1.4</span>, <span className="font-mono-num">q1.4 / q1.6</span>,
         <span className="font-mono-num"> q1.2 / q1.6</span>.
         <span className="block text-muted">{Math.min(nVat, 3)} paire{nVat > 1 ? 's' : ''} contrôlée{nVat > 1 ? 's' : ''} sur 3.</span>

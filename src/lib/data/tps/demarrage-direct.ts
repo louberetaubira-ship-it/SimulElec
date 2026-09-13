@@ -288,6 +288,16 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     { q: 'Pourquoi la commande est-elle alimentée en 24 V par T1 plutôt qu\'en 400 V ?', options: ['Pour réduire le prix des fils', 'Pour limiter le risque électrique sur les organes accessibles en porte', 'Pour que le moteur démarre plus vite'], answer: 1 },
   ],
   motor: { P: 1500, U: 400, In: 3.3, n: 1440, ns: 1500, cosPhi: 0.8 },
+  // Transformateur de commande à prises : le rapport de transformation est fixé par
+  // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
+  // Voir `src/lib/sim/trafo.ts`.
+  trafo: {
+    slot: 't1',
+    reseau: 400,
+    primaire: { '0': 0, '230': 230, '400': 400 },
+    secondaire: { '0V': 0, '24': 24, '48': 48 },
+    bobine: 24,
+  },
   station: true,
   hasMotor: true,
 };

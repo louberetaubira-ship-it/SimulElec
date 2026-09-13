@@ -91,19 +91,19 @@ export const COURS: Record<CoursId, CoursFiche> = {
     theme: 'Contacteur',
     title: 'Contacteur, bobine, auto-maintien et contacts auxiliaires',
     summary:
-      "Un contacteur possède un circuit de puissance (1-2, 3-4, 5-6) et un circuit de commande (bobine A1-A2). Tant que la bobine est alimentée sous sa tension nominale, tous les contacts changent d'état. Le bouton poussoir S2 n'est appuyé qu'un instant : c'est le contact auxiliaire NO 13-14 du contacteur, câblé en parallèle sur S2, qui garde la bobine alimentée. C'est l'auto-maintien.",
+      "Un contacteur possède un circuit de puissance (1-2, 3-4, 5-6) et un circuit de commande (bobine A1-A2). Tant que la bobine est alimentée sous sa tension nominale, tous les contacts changent d'état. Le bouton poussoir de marche n'est appuyé qu'un instant : c'est le contact auxiliaire NO 13-14 du contacteur, câblé en parallèle sur ce bouton, qui garde la bobine alimentée. C'est l'auto-maintien.",
     rules: [
       'Puissance : 1-2 / 3-4 / 5-6 (nombres impairs = amont, pairs = aval)',
       'Bobine : A1 (+ commande) et A2 (0 V commande)',
-      'Auxiliaire NO : 13-14  → auto-maintien, en parallèle sur S2',
+      'Auxiliaire NO : 13-14  → auto-maintien, en parallèle sur le bouton de marche',
       'Auxiliaire NF : 21-22  → verrouillage, coupe l\'autre contacteur',
       'Relais thermique : 95-96 (NF, dans la commande) · 97-98 (NO, signalisation)',
-      'Boucle de commande : F3 → 95-96 → S1 (NF) → S2 (NO) // 13-14 → A1 … A2',
+      'Boucle de commande : protection du secondaire → 95-96 → chaîne d\'arrêt (NF) → bouton de marche (NO) // 13-14 → A1 … A2',
     ],
     example:
-      "Appui sur S2 : la bobine A1-A2 reçoit 24 V, KM1 colle, 13-14 se ferme. Relâchement de S2 : le courant passe maintenant par 13-14, KM1 reste collé. Appui sur S1 (NF) : la boucle est coupée, KM1 retombe et 13-14 s'ouvre — l'arrêt est prioritaire.",
+      "Appui sur le bouton de marche : la bobine A1-A2 reçoit 24 V, le contacteur colle, 13-14 se ferme. Relâchement : le courant passe maintenant par 13-14, le contacteur reste collé. Appui sur un bouton d'arrêt (NF) : la boucle est coupée, le contacteur retombe et 13-14 s'ouvre — l'arrêt est prioritaire.",
     pieges: [
-      'Câbler 13-14 en série avec S2 au lieu de parallèle : le moteur s\'arrête au relâchement.',
+      'Câbler 13-14 en série avec le bouton de marche au lieu de parallèle : le moteur s\'arrête au relâchement.',
       'Mettre le contact 95-96 dans le circuit de puissance : le thermique ne coupe pas la puissance lui-même.',
       'Choisir une bobine 230 V alors que la commande est en 24 V.',
     ],
@@ -118,27 +118,27 @@ export const COURS: Record<CoursId, CoursFiche> = {
   'transfo-commande': F({
     id: 'transfo-commande',
     theme: 'Transformateur',
-    title: 'Transformateur de commande 400 / 24 V et protections F2 / F3',
+    title: 'Transformateur de commande 400 / 24 V et ses deux protections',
     summary:
-      "Le circuit de commande est alimenté en très basse tension de sécurité (24 V) par un transformateur T1. Le primaire est raccordé sur deux phases (400 V) ou phase-neutre (230 V) selon la borne utilisée ; le secondaire donne 24 V. Le primaire est protégé par F2 (bipolaire, côté 400 V), le secondaire par F3 (unipolaire, côté 24 V). Les deux protections sont indispensables : elles ne protègent pas le même circuit.",
+      "Le circuit de commande est alimenté en très basse tension (24 V) par un transformateur de séparation. Comme un pôle du secondaire est relié au circuit de protection — ce que demande la norme des équipements de machines, pour qu'un premier défaut à la terre fasse déclencher la protection au lieu de rester invisible — le régime est la TBTP, et non la TBTS : en TBTS, le secondaire ne serait relié à la terre nulle part. Le primaire est raccordé entre les prises 0 et 400 sur deux phases, ou entre 0 et 230 sur phase-neutre, selon la tension d'alimentation ; la prise inutilisée reste libre, et on n'alimente jamais entre 230 et 400 ; le secondaire donne 24 V. Le primaire est protégé côté 400 V par un appareil bipolaire qui coupe les deux phases, le secondaire côté 24 V par un appareil unipolaire. Les deux protections sont indispensables : elles ne protègent pas le même circuit.",
     rules: [
       'Primaire : bornes 0 · 230 · 400  → choisir 0-400 sur réseau triphasé',
       'Secondaire : bornes 0V · 24V · 48V  → utiliser 0V-24V',
       'Rapport m = U2 / U1 = N2 / N1   ·   U2 = U1 · N2 / N1',
       'S (VA) = U2 · I2   →  I2 = S / U2  (courant secondaire disponible)',
-      'F2 = protection primaire 2 pôles · F3 = protection secondaire 1 pôle',
-      'Ordre de fermeture : Q1 → F2 → F3 ; ouverture dans l\'ordre inverse',
+      'Protection du primaire : 2 pôles · protection du secondaire : 1 pôle',
+      'Ordre de fermeture : appareil de tête → primaire → secondaire ; ouverture dans l\'ordre inverse',
     ],
     example:
       "T1 de 100 VA, 400/24 V. Secondaire : I2 = 100 / 24 = 4,2 A. Bobine LC1D09 en 24 V : appel ≈ 70 VA, maintien ≈ 8 VA — le transformateur convient. Rapport m = 24 / 400 = 0,06.",
     pieges: [
       'Raccorder le primaire sur la borne 230 alors que le réseau est en 400 V : le secondaire chute à 14 V et la bobine ne colle pas.',
-      'Oublier F3 : un court-circuit en commande fait déclencher tout le départ.',
+      'Oublier la protection du secondaire : un court-circuit en commande fait déclencher tout le départ.',
       'Confondre 24 V alternatif (bobine AC) et 24 V continu (automate).',
     ],
     levels: {
-      cap: 'Tu raccordes le primaire et le secondaire sur les bonnes bornes et tu refermes F2 puis F3.',
-      bacpro: 'Tu justifies le rôle de la TBTS, le calibre de F2 et F3 et tu vérifies la tension au secondaire.',
+      cap: 'Tu raccordes le primaire et le secondaire sur les bonnes bornes et tu refermes les deux protections dans l\'ordre.',
+      bacpro: 'Tu justifies le régime de la commande, le calibre des deux protections et tu vérifies la tension au secondaire.',
       bts: 'Tu dimensionnes le transformateur à partir du bilan des bobines (appel et maintien) et tu justifies les protections.',
       cster: 'Tu identifies l\'alimentation auxiliaire d\'un coffret et sa protection.',
     },
@@ -159,7 +159,7 @@ export const COURS: Record<CoursId, CoursFiche> = {
       'Un conducteur par borne à l\'extérieur ; pontage par barrette à l\'intérieur',
     ],
     example:
-      "Arrivée réseau : L1→X1:1, L2→X1:2, L3→X1:3, N→X1:4, PE→X1:5 (vert-jaune). Départ moteur : X1:6→U1, X1:7→V1, X1:8→W1, X1:9→PE. Boutons en porte : S1 et S2 sur X2:1 à X2:4, voyants sur X2:5 et X2:6.",
+      "Arrivée réseau : L1→X1:1, L2→X1:2, L3→X1:3, N→X1:4, PE→X1:5 (vert-jaune). Départ moteur : X1:6→U1, X1:7→V1, X1:8→W1, X1:9→PE. Les organes du coffret de porte passent par le bornier de commande, une borne par conducteur.",
     pieges: [
       'Mélanger puissance et commande sur le même bornier.',
       'Utiliser le vert-jaune pour autre chose que le PE : c\'est interdit.',
@@ -211,7 +211,7 @@ export const COURS: Record<CoursId, CoursFiche> = {
     rules: [
       'Continuité PE : R ≤ 2 Ω, mesurée sous un courant ≥ 200 mA',
       'Isolement en TBT/BT : U essai = 500 V continu → R ≥ 0,5 MΩ',
-      '(Circuits TBTS : 250 V → 0,5 MΩ · > 500 V : 1 000 V → 1 MΩ)',
+      '(Circuits TBTS et TBTP : 250 V → 0,5 MΩ · > 500 V : 1 000 V → 1 MΩ)',
       'Mesure d\'isolement : appareils électroniques et récepteurs déconnectés',
       'L\'ohmmètre injecte son propre courant : jamais sous tension (ERR, fusible)',
     ],
@@ -297,12 +297,12 @@ export const COURS: Record<CoursId, CoursFiche> = {
     rules: [
       'Vérifier : plus d\'intervenant, capots remis, outillage retiré',
       'Retirer la MALT-CCT, puis le cadenas et l\'étiquette',
-      'Refermer dans l\'ordre : Q1 → F2 → F3 (amont vers aval)',
+      'Refermer dans l\'ordre : appareil de tête → primaire → secondaire (amont vers aval)',
       'Essai à vide, puis en charge ; contrôler le sens de rotation',
       'Consigner les valeurs relevées sur le PV de mise en service',
     ],
     example:
-      "Cadenas retiré, Q1 refermé, F2 puis F3 : les voyants s'allument. Appui sur S2 : KM1 colle, H1 s'allume, le moteur démarre. Appui sur S1 : arrêt immédiat. L'essai est concluant.",
+      "Cadenas retiré, appareil de tête refermé, puis les deux protections : les voyants s'allument. Appui sur le bouton de marche : le contacteur colle, le voyant s'allume, le moteur démarre. Appui sur l'arrêt : coupure immédiate. L'essai est concluant.",
     pieges: [
       'Refermer F3 avant Q1 : on met la commande sous tension sans la puissance, les essais sont faussés.',
       'Déconsigner alors qu\'un collègue intervient encore : la clé du cadenas est nominative.',
@@ -330,7 +330,7 @@ export const COURS: Record<CoursId, CoursFiche> = {
       'Catégorie de mesure adaptée : CAT III 600 V minimum en armoire',
     ],
     example:
-      "Aux bornes du sectionneur : L1-L2 = 400 V, L1-N = 230 V. Aux bornes de la bobine A1-A2 pendant l'appui sur S2 : 24 V — la commande arrive bien. Si tu lis 0 V, la coupure est en amont : F3, 95-96, S1 ou S2.",
+      "Aux bornes du sectionneur : L1-L2 = 400 V, L1-N = 230 V. Aux bornes de la bobine A1-A2 pendant l'appui sur le bouton de marche : 24 V — la commande arrive bien. Si tu lis 0 V, la coupure est en amont : protection du secondaire, contact 95-96, chaîne d'arrêt ou bouton de marche.",
     pieges: [
       'Rester sur la position Ω pour mesurer une tension : ERR et fusible grillé.',
       'Mesurer 230 V entre phases et conclure à un défaut : c\'était phase-neutre.',
@@ -440,10 +440,10 @@ export const COURS: Record<CoursId, CoursFiche> = {
       '3. Hypothèses : lister les causes compatibles avec le symptôme',
       '4. Mesurer au milieu du circuit (dichotomie), pas borne à borne au hasard',
       '5. Conclure, réparer, RE-tester, consigner l\'intervention',
-      'Commande morte → mesurer 24 V le long de : F3, 95-96, S1, S2, A1-A2',
+      'Commande morte → mesurer 24 V le long de : protection du secondaire, 95-96, chaîne d\'arrêt, bouton de marche, A1-A2',
     ],
     example:
-      "Symptôme : le contacteur ne colle pas. Mesure au milieu de la boucle, après 95-96 : 24 V présents → le défaut est en aval (S1, S2, bobine). 0 V → le défaut est en amont (F3, thermique déclenché).",
+      "Symptôme : le contacteur ne colle pas. Mesure au milieu de la boucle, après 95-96 : 24 V présents → le défaut est en aval (chaîne d'arrêt, bouton de marche, bobine). 0 V → le défaut est en amont (protection du secondaire, thermique déclenché).",
     pieges: [
       'Changer une pièce « pour voir » avant d\'avoir mesuré.',
       'Oublier de vérifier l\'évidence : protection ouverte, thermique déclenché, arrêt d\'urgence enfoncé.',
@@ -472,7 +472,7 @@ export const COURS: Record<CoursId, CoursFiche> = {
       'Le voyant d\'entrée s\'allume = l\'information arrive physiquement',
     ],
     example:
-      "S2 (marche) sur I0.1, S1 (arrêt, contact NF) sur I0.0, KM1 sur Q0.0. Le commun des sorties reçoit le 24 V de commande, Q0.0 renvoie vers A1 de KM1, A2 va au 0 V. Programme : Q0.0 = (I0.1 OU Q0.0) ET I0.0.",
+      "Le bouton de marche sur I0.1, le bouton d'arrêt (contact NF) sur I0.0, la bobine du contacteur sur Q0.0. Le commun des sorties reçoit le 24 V de commande, Q0.0 renvoie vers A1 de KM1, A2 va au 0 V. Programme : Q0.0 = (I0.1 OU Q0.0) ET I0.0.",
     pieges: [
       'Oublier de raccorder le COM : les entrées ne changent jamais d\'état.',
       'Attendre 24 V sur une sortie relais : c\'est un contact sec, pas une source.',

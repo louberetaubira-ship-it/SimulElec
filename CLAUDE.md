@@ -32,7 +32,18 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 
 ## Contrôles automatiques
 - `npx tsx scripts/audit-tps.ts` — cohérence électrique des liaisons attendues (bornes inexistantes, boucles, doublons, réseaux différents, repères en double).
+- `npx tsx scripts/audit-reperes.ts` — repères cités dans les TP et repères écrits en dur dans les textes partagés.
+- `npx tsx scripts/audit-trafo.ts` — prises du transformateur de commande et tension du secondaire.
 - `npx tsx scripts/audit-mesures.ts` — table de référence de la plaque à bornes (2 R en étoile, ⅔ R en triangle, OL barrettes retirées), puis : chaque mesure attendue est-elle *atteignable* ? La valeur rendue par le simulateur doit tomber dans `[min, max]`, sinon l'élève ne peut pas valider l'étape. À lancer après toute modification d'un TP ou du moteur de mesure.
+
+## Repères
+- Le **repère** est ce qui est écrit sur l'appareil ; il change d'un TP à l'autre (F2 sur le démarrage direct, Q2 sur la perceuse) et n'est jamais l'identifiant interne (`f2`). Aucune phrase destinée à l'élève n'écrit un repère en dur : on demande `repereSlot(tp, 'f2')`, `listeMiseSousTension(tp)`, `startButtons(tp)`.
+- `npx tsx scripts/audit-reperes.ts` vérifie les deux choses : que les repères cités dans un TP existent sur sa platine, et qu'aucun fichier partagé n'en écrit en dur.
+
+## Transformateur de commande
+- Le TP déclare son transformateur (`trafo` : prises du primaire, prises du secondaire, tension du réseau, tension de la bobine). `src/lib/sim/trafo.ts` en déduit la tension du secondaire par le rapport de transformation — jamais une constante.
+- Se tromper de prise **n'est pas refusé au câblage** : sur une vraie platine rien n'empêche de serrer le fil sur la 230 au lieu de la 400. La faute se découvre à la mesure ou à l'essai. Trois conséquences distinctes, à ne pas confondre : prise du primaire trop haute → tension trop faible, le contacteur ne colle pas (85 %, CEI 60947-4-1) ; prise du primaire trop basse → le fer sature, la protection du primaire déclenche ; prise du secondaire trop haute → le fer va bien, c'est la bobine qui grille.
+- `npx tsx scripts/audit-trafo.ts` — table de référence des prises, substitutions acceptées/refusées, et prises réellement câblées dans chaque TP du catalogue.
 
 ## Plaque à bornes du moteur
 - Un enroulement se mesure entre **U1–U2, V1–V2 ou W1–W2** ; toute autre paire ne conduit que par une barrette. `src/lib/sim/plaque.ts` résout le réseau réel (union-find sur les barrettes posées + méthode des nœuds sur la seule composante connexe des deux pointes) : jamais de constante.

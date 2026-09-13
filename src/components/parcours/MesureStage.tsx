@@ -17,6 +17,7 @@ import DeconsignationSteps from '@/components/mesures/Deconsignation';
 import Instrument from '@/components/mesures/Instrument';
 import MesuresPanel from '@/components/mesures/MesuresPanel';
 import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
+import { listeMiseSousTension, repereSlot } from '@/lib/sim/reperes';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
 import TpPanel from './TpPanel';
 import { deviceStateOf, lampsOf } from './panelState';
@@ -54,6 +55,9 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
     return b ? `${b.rep} (${b.label})` : 'le bouton de marche';
   }, [tp]);
 
+  /** Repères de cette platine : « F2 » sur un TP, « Q2 » sur un autre. */
+  const repQ1 = React.useMemo(() => repereSlot(tp, 'q1'), [tp]);
+
   /** Rail du mode atelier : les cinq appareils restent à portée sur ces quatre étapes. */
   const instruments = React.useMemo(() => INSTRUMENTS.map(i => i.id), []);
 
@@ -81,14 +85,14 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
               <EpiChecklist epi={st.epi} onToggle={s.toggleEpi} />
             </Card>
             <Card title="Consignation">
-              <ConsignationSteps st={st} sim={sim} onAct={s.consAct} />
+              <ConsignationSteps tp={tp} st={st} sim={sim} onAct={s.consAct} />
             </Card>
           </>
         )}
 
         {variant === 'decons' && (
           <Card title="Déconsignation">
-            <DeconsignationSteps st={st} sim={sim} onAct={s.consAct} />
+            <DeconsignationSteps tp={tp} st={st} sim={sim} onAct={s.consAct} />
           </Card>
         )}
 
@@ -151,7 +155,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
               />
               <span className="font-mono-num">{Math.round(sim.load * 100)} %</span>
             </label>
-            <Note className="mt-1">Au-delà de 120 %, F1 finit par déclencher : c&apos;est son rôle.</Note>
+            <Note className="mt-1">Au-delà de 120 %, le relais thermique finit par déclencher : c&apos;est son rôle.</Note>
           </Card>
         )}
 
@@ -190,11 +194,11 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         />
         <Hint>
           {variant === 'epi'
-            ? (sim.q1 ? 'Ouvre Q1 en le cliquant : c\'est la séparation.' : 'Q1 est ouvert. Condamne, identifie, puis fais ta VAT.')
+            ? (sim.q1 ? `Ouvre ${repQ1} en le cliquant : c'est la séparation.` : `${repQ1} est ouvert. Condamne, identifie, puis fais ta VAT.`)
             : variant === 'horsTension'
               ? 'Installation consignée : choisis ton appareil, pose les deux pointes sur les bornes indiquées.'
               : variant === 'decons'
-                ? (isRunning(sim) ? 'Le moteur tourne : la mise en service est faite.' : isControlLive(sim) ? `Commande sous tension : appuie sur ${marche} en porte.` : 'Referme Q1, F2 puis F3 en les cliquant.')
+                ? (isRunning(sim) ? 'Le moteur tourne : la mise en service est faite.' : isControlLive(sim) ? `Commande sous tension : appuie sur ${marche} en porte.` : `Referme ${listeMiseSousTension(tp)} en les cliquant.`)
                 : isRunning(sim)
                   ? 'Moteur en marche : fais tes relevés (V~, pince, tachymètre).'
                   : `Relance le moteur par ${marcheRep} pour les mesures qui l'exigent.`}

@@ -9,7 +9,8 @@ import {
   resetF1, setCoupling, tick, toggleCarter, toggleF2, toggleF3, toggleQ1, type SimState,
 } from '@/lib/sim/engine';
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
-import { repereLiaison } from '@/lib/sim/reperes';
+import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
+import { listeMiseSousTension, repereLiaison, repereSlot } from '@/lib/sim/reperes';
 import { linkKey } from '@/lib/sim/layout';
 import {
   checkExpected, instrumentDef, read, type ClampWire, type ReadOut,
@@ -273,6 +274,29 @@ export const useParcours = create<ParcoursState>((set, get) => {
     return panelWires(tp, st, sim).map(w => ({ a: w.a, b: w.b, net: w.net }));
   };
 
+  /**
+   * Relit les prises du transformateur de commande après chaque changement de
+   * câblage : c'est elles, et non une constante, qui fixent la tension du
+   * secondaire (`src/lib/sim/trafo.ts`).
+   */
+  const majTrafo = () => {
+    const { tp, sim } = get();
+    if (!tp.trafo) return;
+    const e = etatTrafo(tp.trafo, posesEnPlace());
+    const u2 = e.diag === 'absent' ? null : e.u2;
+    const diag = e.diag === 'absent' ? null : e.diag;
+    if (u2 === sim.u2 && diag === sim.trafoDiag) return;
+    // Reprendre la prise remet le transformateur en état. La bobine grillée, elle,
+    // ne se répare pas toute seule : on la remplace, et on le dit.
+    const remplacee = sim.coilBurnt && diag === 'ok';
+    set(s => ({
+      sim: { ...s.sim, u2, trafoDiag: diag, trafoTrip: false, coilHeat: 0, coilBurnt: remplacee ? false : s.sim.coilBurnt },
+    }));
+    if (remplacee) {
+      say(`Prise reprise, et bobine de ${repereSlot(tp, 'km1')} remplacée : le contacteur est de nouveau opérationnel.`);
+    }
+  };
+
   const currentRead = (): ReadOut => {
     const { tp, sim, mes } = get();
     const def = instrumentDef(mes.inst);
@@ -295,7 +319,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     }
     if (stage === 6 && !sim.q1 && (sim.f2 || sim.f3)) {
       set(s => ({ sim: { ...s.sim, f2: false, f3: false, km1: false } }));
-      mlog('Séparation : Q1 ouvert, F2 et F3 retombent avec lui.');
+      mlog(`Séparation : ${repereSlot(tp, 'q1')} ouvert, ${repereSlot(tp, 'f2')} et ${repereSlot(tp, 'f3')} retombent avec lui.`);
     }
 
     // ---- déconsignation (étape 8)
@@ -304,8 +328,8 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const close = d.unlock && sim.q1 && sim.f2 && sim.f3;
       const essai = (d.close || close) && sim.km1;
       if (close !== d.close || essai !== d.essai) {
-        if (close && !d.close) mlog('Q1, F2 et F3 refermés : la platine est remise sous tension.');
-        if (essai && !d.essai) mlog('Essai concluant : KM1 s\'enclenche, H1 s\'allume.');
+        if (close && !d.close) mlog(`${listeMiseSousTension(tp, 'et')} refermés : la platine est remise sous tension.`);
+        if (essai && !d.essai) mlog(`Essai concluant : ${repereSlot(tp, 'km1')} s'enclenche, le voyant s'allume.`);
         patch(s => ({ ...s, decons: { ...s.decons, close: close || s.decons.close, essai: essai || s.decons.essai } }));
       }
     }
@@ -330,7 +354,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
           mlog(`VAT ${r} / ${k} : absence de tension.`);
         }
       } else if (sim.q1 && (out.value ?? 0) > 50) {
-        mlog('⚠ Présence de tension : Q1 n\'est pas ouvert, ne touche à rien.');
+        mlog(`⚠ Présence de tension : ${repereSlot(tp, 'q1')} n'est pas ouvert, ne touche à rien.`);
       }
     }
 
@@ -620,9 +644,20 @@ export const useParcours = create<ParcoursState>((set, get) => {
           ...snap, wires: [...snap.wires, { a: expected.a, b: expected.b, net: expected.net }],
         }));
         say(`Liaison ${repereLiaison(tp, expected)} réalisée.`);
+        majTrafo();
         // la borne montrée du doigt vient d'être câblée : on éteint le guide
         const a = get().aimed;
         if (a && linkKey(a[0], a[1]) === k) set({ aimed: null });
+      } else if (substitutTrafo(tp.trafo, requiredLiaisons(tp), selTerminal, id)) {
+        // Prise voisine du transformateur : la liaison se fait, comme sur une vraie
+        // platine. Le tableau de câblage sera complet et la faute ne se verra qu'à la
+        // mesure du secondaire ou au premier essai.
+        const att = substitutTrafo(tp.trafo, requiredLiaisons(tp), selTerminal, id)!;
+        commit(`Liaison ${wireLabel(tp, att)}`, snap => ({
+          ...snap, wires: [...snap.wires, { a: selTerminal, b: id, net: att.net }],
+        }));
+        say(`Liaison réalisée sur ${selTerminal.split('.')[1] === undefined ? id : selTerminal}.`);
+        majTrafo();
       } else {
         patch(s => ({ ...s, wireErrors: s.wireErrors + 1 }));
         if (get().st.wireErrors >= 3) autoAide('cablage');
@@ -824,16 +859,16 @@ export const useParcours = create<ParcoursState>((set, get) => {
     },
 
     consAct(a) {
-      const { st, sim } = get();
+      const { st, sim, tp } = get();
       if (a === 'lock') {
-        if (sim.q1) { say('Ouvre d\'abord Q1 : on ne condamne pas un appareil fermé.'); return; }
+        if (sim.q1) { say(`Ouvre d'abord ${repereSlot(tp, 'q1')} : on ne condamne pas un appareil fermé.`); return; }
         patch(s => ({ ...s, cons: { ...s.cons, lock: true } }));
-        mlog('Cadenas posé sur Q1, étiquette « NE PAS MANŒUVRER ».');
+        mlog(`Cadenas posé sur ${repereSlot(tp, 'q1')}, étiquette « NE PAS MANŒUVRER ».`);
       }
       if (a === 'ident') {
-        if (!st.cons.lock) { say('Condamne d\'abord Q1.'); return; }
+        if (!st.cons.lock) { say(`Condamne d'abord ${repereSlot(tp, 'q1')}.`); return; }
         patch(s => ({ ...s, cons: { ...s.cons, ident: true } }));
-        mlog('Identification : platine du TP, repère Q1, schéma folio 2.');
+        mlog(`Identification : platine du TP, repère ${repereSlot(tp, 'q1')}, schéma folio 2.`);
       }
       if (a === 'unlock') {
         patch(s => ({ ...s, cons: { ...s.cons, lock: false }, decons: { ...s.decons, unlock: true } }));
@@ -878,7 +913,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     setLoad(v) { set(s => ({ sim: { ...s.sim, load: v } })); },
 
     coupling(c) {
-      const r = setCoupling(get().sim, c);
+      const r = setCoupling(get().sim, c, get().tp);
       set({ sim: r.state });
       say(r.message);
     },
@@ -886,12 +921,22 @@ export const useParcours = create<ParcoursState>((set, get) => {
     deviceClick(slotId) {
       const { sim, tp, st } = get();
       if (st.stage < 5) return;
-      if (slotId === 'q1' && st.cons.lock) { say('Q1 est condamné par un cadenas : impossible de manœuvrer.'); return; }
-      if (slotId === 'q1') { const r = toggleQ1(sim); set({ sim: r.state }); say(r.message); evaluate(); return; }
-      if (slotId === 'f2') { const r = toggleF2(sim); set({ sim: r.state }); say(r.message); evaluate(); return; }
-      if (slotId === 'f3') { const r = toggleF3(sim); set({ sim: r.state }); say(r.message); evaluate(); return; }
-      if (slotId === 'f1') { const r = resetF1(sim); set({ sim: r.state }); say(r.message); evaluate(); return; }
-      if (slotId === 'km1') { say(sim.km1 ? 'KM1 est enclenché.' : 'KM1 est retombé.'); return; }
+      if (slotId === 'q1' && st.cons.lock) { say(`${repereSlot(tp, 'q1')} est condamné par un cadenas : impossible de manœuvrer.`); return; }
+      if (slotId === 'q1') { const r = toggleQ1(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
+      if (slotId === 'f2') {
+        const r = toggleF2(sim, tp);
+        set({ sim: r.state });
+        say(r.message);
+        if (r.state.trafoTrip) {
+          const e = expliqueTrafo(tp.trafo, etatTrafo(tp.trafo, posesEnPlace()));
+          if (e) say(e);
+        }
+        evaluate();
+        return;
+      }
+      if (slotId === 'f3') { const r = toggleF3(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
+      if (slotId === 'f1') { const r = resetF1(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
+      if (slotId === 'km1') { const rep = repereSlot(tp, 'km1'); say(sim.km1 ? `${rep} est enclenché.` : `${rep} est retombé.`); return; }
       say(tp.slots.find(s => s.id === slotId)?.label ?? slotId);
     },
 

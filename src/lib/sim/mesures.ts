@@ -33,9 +33,9 @@ export interface ConsStep { id: string; title: string; detail: string }
 /** Les 5 temps de l'intervention (NF C 18-510), portés de `MSTEPS`. */
 export const CONS_STEPS: ConsStep[] = [
   { id: 'epi', title: 'EPI, outillage et pré-identification', detail: 'Choisir l\'équipement adapté au domaine BT, identifier la platine, le schéma et l\'appareil de séparation.' },
-  { id: 'cons', title: 'Consignation', detail: 'Séparation Q1 · condamnation par cadenas · identification · VAT (vérification sur source, mesures, re-vérification).' },
+  { id: 'cons', title: 'Consignation', detail: 'Séparation par l\'appareil de tête · condamnation par cadenas · identification · VAT (vérification sur source, mesures, re-vérification).' },
   { id: 'hors', title: 'Mesures hors tension', detail: 'Continuité PE, isolement 500 V, résistance d\'enroulement.' },
-  { id: 'decons', title: 'Déconsignation', detail: 'Retrait de l\'étiquette et du cadenas, fermeture de Q1, F2, F3, essai.' },
+  { id: 'decons', title: 'Déconsignation', detail: 'Retrait de l\'étiquette et du cadenas, fermeture des protections de l\'amont vers l\'aval, essai.' },
   { id: 'sous', title: 'Mesures sous tension', detail: 'Tensions, courant de ligne à la pince, vitesse au tachymètre.' },
 ];
 
@@ -103,19 +103,32 @@ const isPhase = (n: string): boolean => PHASES.includes(n) || ['U', 'V', 'W'].in
 const asPhase = (n: string): string => (n === 'U' ? 'L1' : n === 'V' ? 'L2' : n === 'W' ? 'L3' : n);
 const isZero = (n: string): boolean => n === 'N' || n === 'PE' || n === '0' || n === 'C0';
 
-/** Tension entre deux bornes (V), `null` si l'une des bornes est inconnue. */
-export function voltage(tp: TpDefinition, sim: SimState, a: string | null, b: string | null): number | null {
+/**
+ * Tension entre deux bornes (V), `null` si l'une des bornes est inconnue.
+ *
+ * La tension de commande n'est pas une constante : elle vaut ce que donnent les
+ * prises réellement raccordées au transformateur. Un élève qui a pris la 230 au
+ * lieu de la 400 lit 41,7 V à son voltmètre — et c'est ainsi qu'il découvre sa
+ * faute (`src/lib/sim/trafo.ts`).
+ */
+export function voltage(
+  tp: TpDefinition,
+  sim: SimState,
+  a: string | null,
+  b: string | null,
+): number | null {
   const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
   if (!A || !B) return null;
   if (!A.live && !B.live) return 0;
   const va = A.live ? asPhase(A.net) : '0';
   const vb = B.live ? asPhase(B.net) : '0';
+  const uc = sim.u2 ?? tp.trafo?.bobine ?? 24;
   if (va === vb) return 0;
   if (isPhase(va) && isPhase(vb)) return 400;
   if (isPhase(va) && isZero(vb)) return 230;
   if (isPhase(vb) && isZero(va)) return 230;
-  if ((va === 'C' && isZero(vb)) || (vb === 'C' && isZero(va))) return 24;
-  if ((va === 'C' && isPhase(vb)) || (vb === 'C' && isPhase(va))) return 231;
+  if ((va === 'C' && isZero(vb)) || (vb === 'C' && isZero(va))) return uc;
+  if ((va === 'C' && isPhase(vb)) || (vb === 'C' && isPhase(va))) return Math.round(230 + uc);
   return 0;
 }
 

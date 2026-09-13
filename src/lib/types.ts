@@ -125,6 +125,25 @@ export interface Liaison {
   door?: boolean;          // liaison en porte
 }
 
+/**
+ * Transformateur de commande à prises (ABL6TS…). Le rapport de transformation est
+ * fixé par les spires : `U2 = Uprise_secondaire × Uréseau / Uprise_primaire`. Se
+ * tromper de prise ne bloque rien au câblage — ça se paie à l'essai.
+ * Voir `src/lib/sim/trafo.ts`.
+ */
+export interface TrafoDef {
+  /** Identifiant du slot du transformateur (`t1`). */
+  slot: string;
+  /** Tension qui alimente le primaire (400 V entre deux phases, 230 V phase-neutre…). */
+  reseau: number;
+  /** Prises du primaire : borne → tension marquée dessus. */
+  primaire: Record<string, number>;
+  /** Prises du secondaire : borne → tension marquée dessus. */
+  secondaire: Record<string, number>;
+  /** Tension assignée des récepteurs de commande (bobine du contacteur, voyant). */
+  bobine: number;
+}
+
 export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string }
 export interface Poste { id: string; name: string; need: string; options: PosteOption[] }
 
@@ -261,6 +280,8 @@ export interface TpDefinition {
   pupitre?: PupitreItem[];
   /** Interrupteur de position câblé dans la chaîne d'arrêt (carter, écran de protection). */
   interPosition?: InterPosition;
+  /** Transformateur de commande à prises : permet de simuler l'erreur de prise. */
+  trafo?: TrafoDef;
   hasMotor: boolean;
   /** Diplômes visés par le TP (colonne `tps.diplomas` / bloc studio). */
   diplomas?: DiplomaId[];

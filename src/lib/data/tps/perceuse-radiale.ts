@@ -394,6 +394,16 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     },
   ],
   motor: { P: 1100, U: 400, In: 2.6, n: 1430, ns: 1500, cosPhi: 0.79 },
+  // Transformateur de commande à prises : le rapport de transformation est fixé par
+  // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
+  // Voir `src/lib/sim/trafo.ts`.
+  trafo: {
+    slot: 't1',
+    reseau: 400,
+    primaire: { '0': 0, '230': 230, '400': 400 },
+    secondaire: { '0V': 0, '24': 24, '48': 48 },
+    bobine: 24,
+  },
   station: true,
   hasMotor: true,
 };

@@ -2,11 +2,14 @@
 
 /** Déconsignation et remise sous tension (port de `mesTasks` étape 3). */
 import React from 'react';
-import type { AttemptState } from '@/lib/types';
-import type { SimState } from '@/lib/sim/engine';
+import type { AttemptState, TpDefinition } from '@/lib/types';
+import { startButtons, type SimState } from '@/lib/sim/engine';
+import { reperesMiseSousTension, repereSlot } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 
 export interface DeconsignationProps {
+  /** Le TP fournit les repères : « F2 » ici, « Q2 » là — jamais écrits en dur. */
+  tp: TpDefinition;
   st: AttemptState;
   sim: SimState;
   onAct: (a: 'unlock') => void;
@@ -23,12 +26,16 @@ function Step({ done, n, children }: { done: boolean; n: string; children: React
   );
 }
 
-export default function Deconsignation({ st, sim, onAct }: DeconsignationProps) {
+export default function Deconsignation({ tp, st, sim, onAct }: DeconsignationProps) {
   const d = st.decons;
+  const [q1, pri, sec] = reperesMiseSousTension(tp);
+  const marche = startButtons(tp)[0];
+  const km1 = repereSlot(tp, 'km1');
+  const voyant = (tp.pupitre ?? []).find(p => p.kind === 'lamp')?.rep ?? 'H1';
   return (
     <div className="flex flex-col gap-1.5">
       <Step done={d.unlock} n="1">
-        <b>Retirer les pointes, l&apos;étiquette et le cadenas</b> de Q1.
+        <b>Retirer les pointes, l&apos;étiquette et le cadenas</b> de {q1}.
         {!d.unlock && (
           <Button size="sm" className="mt-1.5" data-act="unlock" onClick={() => onAct('unlock')}>
             Retirer le cadenas
@@ -36,13 +43,14 @@ export default function Deconsignation({ st, sim, onAct }: DeconsignationProps) 
         )}
       </Step>
       <Step done={d.close} n="2">
-        <b>Remise sous tension</b> — referme Q1, F2 puis F3 en les cliquant sur la platine.
+        <b>Remise sous tension</b> — referme {q1}, {pri} puis {sec} en les cliquant sur la platine.
         <span className="block font-mono-num text-[11px] text-muted">
-          Q1 {sim.q1 ? 'fermé' : 'ouvert'} · F2 {sim.f2 ? 'fermé' : 'ouvert'} · F3 {sim.f3 ? 'fermé' : 'ouvert'}
+          {q1} {sim.q1 ? 'fermé' : 'ouvert'} · {pri} {sim.f2 ? 'fermé' : 'ouvert'} · {sec} {sim.f3 ? 'fermé' : 'ouvert'}
         </span>
       </Step>
       <Step done={d.essai} n="3">
-        <b>Essai de fonctionnement</b> — appuie sur S2 (bouton vert en porte) : KM1 s&apos;enclenche, H1 s&apos;allume.
+        <b>Essai de fonctionnement</b> — appuie sur {marche?.rep ?? 'le bouton de marche'}
+        {marche ? ` (${marche.label})` : ''} en porte : {km1} s&apos;enclenche, {voyant} s&apos;allume.
         {d.essai ? <span className="block font-semibold text-good">Déconsignée, essais concluants.</span> : null}
       </Step>
     </div>
