@@ -50,14 +50,14 @@ interface Props {
 export default function CompetencesStage({
   diploma, kind = 'platine', stage, stageLabel, compact, className = '',
 }: Props) {
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
 
-  // première étape : déplié ; ensuite, l'état mémorisé (replié par défaut).
-  React.useEffect(() => {
-    const saved = readOpen();
-    if (stage === 0) { setOpen(saved ?? true); return; }
-    setOpen(saved ?? false);
-  }, [stage]);
+  /**
+   * Replié par défaut, à toutes les étapes : l'écran de travail est plus utile que le
+   * référentiel, et l'essentiel (les codes de compétence) reste lisible sur la barre.
+   * L'élève déplie quand il veut lire les critères ; son choix est mémorisé.
+   */
+  React.useEffect(() => { setOpen(readOpen() ?? false); }, [stage]);
 
   const comps = React.useMemo(() => competencesForStage(diploma, kind, stage), [diploma, kind, stage]);
   const domains = React.useMemo(() => domainsOfStage(kind, stage), [kind, stage]);
@@ -79,11 +79,11 @@ export default function CompetencesStage({
         data-competences-toggle
         onClick={toggle}
         aria-expanded={open}
-        className="flex min-h-touch w-full flex-wrap items-center gap-2 px-3 py-2 text-left"
+        className="flex w-full flex-wrap items-center gap-2 px-3 py-1 text-left"
       >
         <span aria-hidden className="text-[12px] text-muted">{open ? '▾' : '▸'}</span>
-        <span className="font-title text-[11px] font-semibold uppercase tracking-[.14em] text-accent">
-          Ce qui est évalué ici
+        <span className="font-title text-[10.5px] font-semibold uppercase tracking-[.12em] text-accent">
+          Évalué ici
         </span>
         <span className="flex flex-wrap gap-1">
           {comps.map(c => (
@@ -101,7 +101,7 @@ export default function CompetencesStage({
       </button>
 
       {open && (
-        <div className={`grid gap-2 px-3 pb-3 ${compact ? '' : 'sm:grid-cols-2'}`}>
+        <div className={`grid gap-2 px-3 pb-2.5 ${compact ? '' : 'sm:grid-cols-2 xl:grid-cols-3'}`}>
           {comps.map(c => (
             <article key={c.code} className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-2.5">
               <h3 className="m-0 flex flex-wrap items-baseline gap-1.5 text-[12.5px] font-semibold leading-snug">
@@ -116,14 +116,14 @@ export default function CompetencesStage({
               </p>
               <ul className="m-0 mt-1 flex list-none flex-col gap-1 p-0">
                 {c.criteria.map(x => (
-                  <li key={x} className="flex gap-1.5 text-[11.5px] leading-relaxed">
+                  <li key={x} className="flex gap-1.5 text-[11.5px] leading-snug">
                     <span aria-hidden className="text-good">✓</span><span>{x}</span>
                   </li>
                 ))}
               </ul>
             </article>
           ))}
-          <p className="m-0 text-[11px] text-muted sm:col-span-2">
+          <p className="m-0 text-[11px] text-muted sm:col-span-2 xl:col-span-3">
             Domaines travaillés : {domains.map(d => DOMAIN_LABEL[d]).join(' · ')}. Ces compétences sont
             celles du référentiel {diplomaShort(diploma)}.
           </p>

@@ -178,26 +178,33 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
 
       <CompetencesStage diploma={dip.diploma} stage={st.stage} stageLabel={STAGES[st.stage]} />
 
-      <div data-parcours className="grid flex-1 lg:grid-cols-[340px_minmax(0,1fr)_340px]">
+      <div
+        data-parcours
+        className={`grid flex-1 ${botOpen ? 'lg:grid-cols-[340px_minmax(0,1fr)_340px]' : 'lg:grid-cols-[340px_minmax(0,1fr)]'}`}
+      >
         {stage}
-        <div className="no-print hidden lg:flex lg:min-h-0 lg:flex-col">
-          {ready && (
-            <ProfBot tp={tp} st={st} sim={sim} attemptId={s.attemptId} turns={s.turns} onTurn={s.pushTurn} />
-          )}
-        </div>
+        {botOpen && (
+          <div className="no-print hidden lg:flex lg:min-h-0 lg:flex-col">
+            {ready && (
+              <ProfBot tp={tp} st={st} sim={sim} attemptId={s.attemptId} turns={s.turns} onTurn={s.pushTurn} />
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="no-print sticky bottom-0 z-30 border-t border-[var(--line)] bg-[var(--surface)] lg:hidden">
+      <div className="no-print sticky bottom-0 z-30 border-t border-[var(--line)] bg-[var(--surface)]">
         <button
           type="button"
           onClick={() => setBotOpen(!botOpen)}
           aria-expanded={botOpen}
-          className="min-h-touch w-full px-4 py-2.5 text-left text-[13px] font-semibold"
+          className="min-h-touch w-full px-4 py-2 text-left text-[12.5px] font-semibold"
         >
           {botOpen ? '▾' : '▴'} Professeur virtuel — {STAGES[st.stage]}
         </button>
         {botOpen && ready && (
-          <ProfBot tp={tp} st={st} sim={sim} attemptId={s.attemptId} turns={s.turns} onTurn={s.pushTurn} />
+          <div className="lg:hidden">
+            <ProfBot tp={tp} st={st} sim={sim} attemptId={s.attemptId} turns={s.turns} onTurn={s.pushTurn} />
+          </div>
         )}
       </div>
 

@@ -152,8 +152,16 @@ export default function Workspace({
     return clamp(Math.min(w / PANEL_W, h / contentHeight));
   }, [contentHeight]);
 
+  /**
+   * Vrai tant que l'élève n'a pas choisi son zoom : la platine se réajuste alors d'elle-même
+   * quand la zone de travail change de largeur (ouverture ou fermeture du professeur virtuel,
+   * rotation du téléphone), au lieu de rester coupée jusqu'à un clic sur « Ajuster ».
+   */
+  const autoFit = React.useRef(false);
+
   const apply = React.useCallback((z: number) => {
     const c = clamp(z);
+    autoFit.current = false;
     setZoom(c);
     zoomRef.current = c;
     write(`zoom.${storageKey}`, String(c));
@@ -161,13 +169,29 @@ export default function Workspace({
 
   // échelle initiale : celle mémorisée, sinon « Ajuster » ; puis les préférences de confort
   React.useEffect(() => {
-    const stored = readStored(storageKey) ?? fit();
+    const memo = readStored(storageKey);
+    const stored = memo ?? fit();
+    autoFit.current = memo === null;
     setZoom(stored);
     zoomRef.current = stored;
     setReady(true);
     setDark(read('ws.bg') !== 'light');
     setAutoHide(read('ws.autohide') !== '0');
   }, [storageKey, fit]);
+
+  // réajustement automatique tant que l'élève n'a pas fixé son zoom
+  React.useEffect(() => {
+    const el = wrap.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (!autoFit.current) return;
+      const c = fit();
+      zoomRef.current = c;
+      setZoom(c);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit]);
 
   // Ctrl + molette (listener non passif : `preventDefault` interdit en React onWheel)
   React.useEffect(() => {
@@ -176,6 +200,7 @@ export default function Workspace({
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
+      autoFit.current = false;
       setZoom((z) => {
         const c = clamp(z * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
         zoomRef.current = c;
@@ -219,6 +244,7 @@ export default function Workspace({
       if (pinch && pts.size === 2) {
         const d = dist();
         if (pinch.d > 0) {
+          autoFit.current = false;
           const c = clamp(pinch.z * (d / pinch.d));
           setZoom(c);
           zoomRef.current = c;
