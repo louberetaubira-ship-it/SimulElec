@@ -101,11 +101,19 @@
 }
 .se-term.hl { background: #E39A00; box-shadow: 0 0 0 4px rgba(227, 154, 0, .45); }
 .se-term.pick { cursor: crosshair; outline: 2px solid rgba(227, 154, 0, .9); outline-offset: 1px; }
-/* halo tactile ≥ 40 px (mobile) */
+/* borne visée : l'élève voit laquelle il va prendre AVANT de cliquer */
+.se-term.sv { background: #E39A00; box-shadow: 0 0 0 3px rgba(227, 154, 0, .55); transform: translate(-50%, -50%) scale(1.5); }
+/**
+ * Cible clavier / lecteur d'écran uniquement. Le pointeur, lui, est arbitré par DISTANCE
+ * dans `Panel` : ce halo de 40 px recouvrait le centre des bornes voisines (18 px d'écart
+ * sur un bornier) et volait leur clic, d'où l'obligation de viser à gauche.
+ */
 .se-hit {
   position: absolute; width: 40px; height: 40px; transform: translate(-50%, -50%);
   border: 0; background: transparent; padding: 0; z-index: 7; cursor: pointer; border-radius: 50%;
+  pointer-events: none;
 }
+.se-hit:focus-visible { pointer-events: auto; }
 .se-hit:focus-visible { outline: 2px solid #E39A00; }
 .se-tmark {
   position: absolute; pointer-events: none; transform: translate(-50%, -50%);

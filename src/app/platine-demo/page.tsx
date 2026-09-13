@@ -34,6 +34,13 @@ function PlatineDemo() {
 
   const [cover, setCover] = React.useState(true);
   const [marks, setMarks] = React.useState(true);
+  /**
+   * « Viser les bornes » : reproduit hors parcours la visée de l'étape câblage. Sert de banc
+   * de contrôle — la borne retournée s'affiche à côté du bouton, ce qui rend immédiatement
+   * visible toute régression du décalage de clic.
+   */
+  const [pick, setPick] = React.useState(false);
+  const [borne, setBorne] = React.useState<string | null>(null);
   const [coupling, setCoupling] = React.useState<'Y' | 'D'>('Y');
   const [highlight, setHighlight] = React.useState<number | null>(null);
   const [state, setState] = React.useState<Record<string, DeviceState>>({ q1: 'off', f2: 'off', f3: 'off', km1: 'off', f1: 'on' });
@@ -140,6 +147,14 @@ function PlatineDemo() {
         <button type="button" style={btn(marks)} onClick={() => setMarks((m) => !m)}>
           Repères des bornes
         </button>
+        <button type="button" style={btn(pick)} onClick={() => setPick((v) => !v)} data-testid="pick">
+          Viser les bornes
+        </button>
+        {pick ? (
+          <span data-testid="borne" style={{ fontFamily: 'var(--font-mono)', fontSize: 13, alignSelf: 'center' }}>
+            {borne ?? 'aucune borne'}
+          </span>
+        ) : null}
         <button type="button" style={btn(coupling === 'D')} onClick={() => setCoupling((c) => (c === 'Y' ? 'D' : 'Y'))}>
           Couplage {coupling === 'Y' ? 'étoile Y' : 'triangle Δ'}
         </button>
@@ -158,9 +173,11 @@ function PlatineDemo() {
             motorRpm={running ? 1450 : 0}
             coupling={coupling}
             highlight={highlight}
-            onDevice={toggle}
+            onDevice={pick ? undefined : toggle}
             onButton={onButton}
             onCoupling={() => setCoupling((c) => (c === 'Y' ? 'D' : 'Y'))}
+            pickTerminals={pick}
+            onTerminal={pick ? setBorne : undefined}
             fixedScale
           />
         </Workspace>

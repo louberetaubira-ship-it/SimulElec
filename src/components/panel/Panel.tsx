@@ -19,6 +19,7 @@ import {
 import { Ducts, Rails } from './Ducts';
 import Device, { type DeviceState } from './Device';
 import Terminals, { type TerminalMark } from './Terminals';
+import { borneVisee, rayonsDeCapture } from '@/lib/scene/pick';
 import { WiresOver, WiresUnder, type RoutedWire } from './Wires';
 import Station from './Station';
 import { Motor, TerminalBox } from './Motor';
@@ -203,6 +204,51 @@ export default function Panel(props: PanelProps) {
     [tp.scene],
   );
 
+  /* ------------------------------------------------- arbitrage du clic sur les bornes
+   *
+   * Chaque borne portait un halo tactile fixe de 40 px, pensé pour le doigt. Mais deux
+   * bornes voisines ne sont distantes que de 18 px sur un bornier, et de 13 px sur un
+   * contacteur : les halos se recouvraient, et à `z-index` égal c'était le dernier dessiné
+   * — la borne de DROITE — qui captait le clic. Il fallait viser à gauche pour atteindre la
+   * bonne borne.
+   *
+   * Le clic se résout donc par DISTANCE et non plus par empilement : on cherche la borne la
+   * plus proche du pointeur, dans un rayon qui s'adapte à la densité locale.
+   */
+
+  /** Toutes les bornes réellement affichées, dans le repère logique de la platine. */
+  const bornes: TerminalMark[] = React.useMemo(() => {
+    const out: TerminalMark[] = [...slotTerminals, ...netTerminals, ...recvTerms, ...annexTerms];
+    if (tp.station) out.push(...stationTerminals);
+    if (tp.hasMotor) out.push(...motorTerminals);
+    return out;
+  }, [slotTerminals, netTerminals, recvTerms, annexTerms, stationTerminals, motorTerminals, tp.station, tp.hasMotor]);
+
+  /** Rayons de capture, calculés sur la densité locale (voir `src/lib/scene/pick.ts`). */
+  const rayons = React.useMemo(() => rayonsDeCapture(bornes.map((t) => t.pos)), [bornes]);
+
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const [survol, setSurvol] = React.useState<string | null>(null);
+  const picking = Boolean(pickTerminals && onTerminal);
+
+  /**
+   * Borne la plus proche du pointeur, dans son rayon de capture — `null` si le pointeur
+   * n'est proche d'aucune borne. L'échelle est relue sur le DOM (largeur rendue / largeur
+   * logique), donc le calcul reste juste à n'importe quel zoom et en mode atelier.
+   */
+  const borneSous = React.useCallback((e: React.PointerEvent): string | null => {
+    const el = panelRef.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    if (!r.width) return null;
+    const k = r.width / PANEL_W;
+    const px = (e.clientX - r.left) / k;
+    const py = (e.clientY - r.top) / k;
+    const i = borneVisee(bornes.map((t) => t.pos), rayons, px, py);
+    const best = i < 0 ? null : bornes[i].id;
+    return best;
+  }, [bornes, rayons]);
+
   // ---- étiquettes de groupe (X1 / X2)
   const groupLabels = React.useMemo(() => {
     const groups: Record<string, typeof ctx.slots> = {};
@@ -253,8 +299,20 @@ export default function Panel(props: PanelProps) {
 
   const panel = (
     <div
+      ref={panelRef}
       className={`se-panel ${tp.scene}`}
       style={fixedScale ? undefined : { transform: `scale(${scale})` }}
+      onPointerDown={picking ? (e) => {
+        const id = borneSous(e);
+        // On ne neutralise l'événement que si une borne est vraiment visée : ailleurs,
+        // le glissement continue de faire défiler la zone de travail.
+        if (id) { e.preventDefault(); onTerminal?.(id); }
+      } : undefined}
+      onPointerMove={picking ? (e) => {
+        const id = borneSous(e);
+        setSurvol((prev) => (prev === id ? prev : id));
+      } : undefined}
+      onPointerLeave={picking ? () => setSurvol(null) : undefined}
     >
       {/* cadre de l'armoire (560 × 720) : fond, bordure, grille Lina */}
       <div className="se-cab" />
@@ -283,6 +341,7 @@ export default function Panel(props: PanelProps) {
         marks={marks}
         highlighted={hlTerminals}
         pick={pickTerminals}
+            survol={survol}
         onTerminal={pickTerminals ? onTerminal : undefined}
       />
       {groupLabels.map((g) => (
@@ -298,6 +357,7 @@ export default function Panel(props: PanelProps) {
             marks={false}
             highlighted={hlTerminals}
             pick={pickTerminals}
+            survol={survol}
             onTerminal={pickTerminals ? onTerminal : undefined}
           />
         </>
@@ -314,6 +374,7 @@ export default function Panel(props: PanelProps) {
             marks={marks}
             highlighted={hlTerminals}
             pick={pickTerminals}
+            survol={survol}
             onTerminal={pickTerminals ? onTerminal : undefined}
           />
         </>
@@ -336,6 +397,7 @@ export default function Panel(props: PanelProps) {
           marks={marks}
           highlighted={hlTerminals}
           pick={pickTerminals}
+            survol={survol}
           onTerminal={pickTerminals ? onTerminal : undefined}
         />
       ) : null}
@@ -347,6 +409,7 @@ export default function Panel(props: PanelProps) {
           marks={marks}
           highlighted={hlTerminals}
           pick={pickTerminals}
+            survol={survol}
           onTerminal={pickTerminals ? onTerminal : undefined}
         />
       ) : null}
@@ -357,6 +420,7 @@ export default function Panel(props: PanelProps) {
         marks={false}
         highlighted={hlTerminals}
         pick={pickTerminals}
+            survol={survol}
         onTerminal={pickTerminals ? onTerminal : undefined}
       />
       {netTerminals.map((t) => (

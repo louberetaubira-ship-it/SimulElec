@@ -13,18 +13,21 @@ export interface TerminalsProps {
   marks: boolean;
   highlighted?: Set<string>;
   pick?: boolean;
+  /** Borne actuellement sous le pointeur : l'élève voit laquelle il s'apprête à prendre. */
+  survol?: string | null;
   onTerminal?: (id: string) => void;
 }
 
-export default function Terminals({ terminals, marks, highlighted, pick, onTerminal }: TerminalsProps) {
+export default function Terminals({ terminals, marks, highlighted, pick, survol, onTerminal }: TerminalsProps) {
   return (
     <>
       {terminals.map((t) => {
         const hl = highlighted?.has(t.id) ? ' hl' : '';
+        const sv = survol === t.id ? ' sv' : '';
         return (
           <React.Fragment key={t.id}>
             <div
-              className={`se-term${hl}${pick ? ' pick' : ''}`}
+              className={`se-term${hl}${sv}${pick ? ' pick' : ''}`}
               data-t={t.id}
               style={{ left: t.pos.x, top: t.pos.y }}
             />
