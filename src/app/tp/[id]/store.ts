@@ -2,15 +2,19 @@
 
 import { create } from 'zustand';
 import type {
-  AttemptState, EvaluationMode, InstrumentKind, Liaison, NetKind, ReadingRecord, TpDefinition,
+  AttemptState, EvaluationMode, HypTest, InstrumentKind, Liaison, NetKind, Prevision,
+  ReadingRecord, TpDefinition,
 } from '@/lib/types';
 import {
-  initialSim, injectFault, isFaultId, netLive, pickFault, pressButton, releaseButton, repairFault,
+  initialSim, injectFault, isControlLive, isFaultId, netLive, pickFault, pressButton, releaseButton, repairFault,
   resetF1, setCoupling, tick, toggleCarter, toggleF2, toggleF3, toggleQ1, type SimState,
 } from '@/lib/sim/engine';
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
 import { reseauCommande } from '@/lib/sim/commande';
+import {
+  conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
+} from '@/lib/sim/diagnostic';
 import { listeMiseSousTension, repereLiaison, repereSlot } from '@/lib/sim/reperes';
 import { linkKey } from '@/lib/sim/layout';
 import {
@@ -46,9 +50,13 @@ export interface MesState {
    * du circuit de commande est inaccessible à l'instrument.
    */
   marcheMaintenue: boolean;
+  /** Hypothèse que le test en préparation vise. */
+  vise: string;
+  /** Lecture annoncée avant de mesurer — obligatoire pour pouvoir noter le test. */
+  prevision: Prevision | '';
 }
 
-const initialMes = (): MesState => ({ inst: null, dial: 0, probes: { r: null, k: null }, clamp: null, pick: null, log: [], marcheMaintenue: false });
+const initialMes = (): MesState => ({ inst: null, dial: 0, probes: { r: null, k: null }, clamp: null, pick: null, log: [], marcheMaintenue: false, vise: '', prevision: '' });
 
 /** Raison d'une ouverture automatique de l'aide. */
 export type AideReason = 'cablage' | 'materiel' | 'mesure' | 'diagnostic' | null;
@@ -213,6 +221,14 @@ interface ParcoursState {
   advance: (dt: number) => void;
 
   ensureFault: () => void;
+  /** Pose ou retire une hypothèse à l'étape de dépannage. */
+  poserHypothese: (id: string, on: boolean) => void;
+  /** Hypothèse actuellement visée par le test en préparation. */
+  viser: (id: string) => void;
+  /** Prévision annoncée avant de mesurer. */
+  prevoir: (p: Prevision | '') => void;
+  /** Enregistre le test : le verdict retenu est celui que la mesure impose. */
+  noterTest: (verdict: 'out' | 'keep') => void;
   diagnose: (faultId: string) => void;
   setRemede: (id: string) => void;
   conclure: () => void;
@@ -1000,6 +1016,76 @@ export const useParcours = create<ParcoursState>((set, get) => {
       set({ sim: injectFault(get().sim, f) });
     },
 
+    poserHypothese(id, on) {
+      patch(s => ({
+        ...s,
+        hypotheses: on ? Array.from(new Set([...s.hypotheses, id])) : s.hypotheses.filter(x => x !== id),
+      }));
+      if (!on && get().mes.vise === id) set(s => ({ mes: { ...s.mes, vise: '' } }));
+    },
+
+    viser(id) {
+      set(s => ({ mes: { ...s.mes, vise: id, probes: { r: null, k: null }, prevision: '' } }));
+    },
+
+    prevoir(p) {
+      set(s => ({ mes: { ...s.mes, prevision: p } }));
+    },
+
+    /**
+     * Enregistre le test d'hypothèse.
+     *
+     * Le verdict retenu n'est PAS celui que l'élève a cliqué : c'est celui que la
+     * mesure impose. S'il élimine une hypothèse que sa lecture laisse debout, le
+     * journal enregistre « retenue » et le lui dit. Le journal est une trace de ce
+     * qu'a dit l'appareil, pas de ce que l'élève espérait.
+     */
+    noterTest(verdict) {
+      const { tp, st, sim, mes } = get();
+      const def = instrumentDef(mes.inst);
+      if (!def || !mes.vise || !mes.prevision) { say('Vise une hypothèse et annonce ta prévision.'); return; }
+      const dial = def.dials[Math.min(mes.dial, def.dials.length - 1)];
+      const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace(), reseau());
+      if (out.bad) { say('L\'appareil refuse cette mesure : elle ne prouve rien.'); return; }
+
+      const v: Verification = {
+        dial,
+        a: mes.probes.r,
+        b: mes.probes.k,
+        ctx: { marcheMaintenue: mes.marcheMaintenue },
+        sousTension: isControlLive(sim),
+      };
+      const impose = verdictImpose(tp, st, sim, v, mes.vise);
+      const sep = departage(tp, st, sim, v, st.hypotheses);
+      const entry: HypTest = {
+        id: mes.vise,
+        instrument: def.id,
+        dial,
+        a: mes.probes.r ?? undefined,
+        b: mes.probes.k ?? undefined,
+        attendu: mes.prevision,
+        lu: `${out.display} ${out.unit}`.trim(),
+        value: out.value,
+        verdict: impose,
+        prevu: previsionTenue(mes.prevision, dial, out.value, out.display === 'OL'),
+        departage: sep.length,
+        at: new Date().toISOString(),
+      };
+      patch(s => ({ ...s, hypTests: [...s.hypTests, entry] }));
+
+      const titre = tp.faults.find(f => f.id === entry.id)?.title ?? entry.id;
+      if (impose !== verdict) {
+        say(`La mesure ne permet pas de conclure ça : « ${titre} » ${impose === 'out'
+          ? 'est au contraire écartée' : 'reste possible'}. Le journal enregistre ce que dit l'appareil.`);
+      } else {
+        say(`${titre} ${impose === 'out' ? 'éliminée' : 'retenue'} — verdict cohérent avec la mesure.`);
+      }
+      mlog(`Test : ${dial} ${entry.a ?? '—'} / ${entry.b ?? '—'} → ${entry.lu}`
+        + `, ${sep.length} hypothèse${sep.length > 1 ? 's' : ''} départagée${sep.length > 1 ? 's' : ''}.`);
+      set(s => ({ mes: { ...s.mes, vise: '', prevision: '', probes: { r: null, k: null }, pick: null } }));
+      evaluate();
+    },
+
     /**
      * L'élève retient une cause. Aucun verdict ici : le simulateur ne souffle rien
      * tant que la conclusion n'est pas posée en entier (cause + remède).
@@ -1020,6 +1106,8 @@ export const useParcours = create<ParcoursState>((set, get) => {
      */
     conclure() {
       const { tp, st } = get();
+      const porte = conclusionOuverte(st);
+      if (!porte.ouverte) { say(porte.manque); return; }
       if (!st.diagnosis || !st.remede) { say('Choisis une cause ET une action de remise en état.'); return; }
       const bonneCause = st.diagnosis === st.fault;
       const bonRemede = st.remede === st.fault;

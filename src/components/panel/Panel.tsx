@@ -59,10 +59,12 @@ export interface PanelProps {
   /** Index du fil sélectionné par l'élève (trait épaissi + halo). */
   selectedWire?: number | null;
   /**
-   * Les deux bornes d'une liaison attendue, montrées du doigt depuis le tableau de câblage.
-   * Elles s'allument même si le fil n'est pas encore posé — c'est tout l'intérêt.
+   * Bornes montrées du doigt. Deux, pour une liaison attendue désignée depuis le
+   * tableau de câblage — elles s'allument même si le fil n'est pas encore posé,
+   * c'est tout l'intérêt. Ou davantage, pour la ZONE d'une hypothèse à l'étape de
+   * dépannage : on y montre où chercher, jamais le point exact.
    */
-  aimed?: [string, string] | null;
+  aimed?: readonly string[] | null;
   probes?: { r?: string | null; k?: string | null };
   clamp?: number | null;
   lock?: boolean;

@@ -144,6 +144,84 @@ export interface TrafoDef {
   bobine: number;
 }
 
+/* ------------------------------------------------------------------ folio
+ *
+ * Un folio est un DESSIN : son tracé s'écrit, il ne se déduit pas d'un réseau.
+ * Mais on n'écrit pas des coordonnées — on écrit l'ORDRE des organes sur chaque
+ * colonne, et le moteur de mise en page (`src/lib/schema/folio.ts`) place les y.
+ * Un TP se décrit ainsi en une trentaine de lignes lisibles, et un déplacement
+ * d'organe ne demande pas de recalculer tout le reste.
+ *
+ * L'état de chaque contact n'est PAS déclaré ici : il se lit dans le réseau de
+ * `commande.ts`. Un contact que la panne a ouvert disparaît du réseau, et le
+ * folio le dessine ouvert. Une seule vérité, donc aucun risque que le schéma
+ * affiche autre chose que ce que mesure l'élève.
+ */
+
+/** Actionneur qui manœuvre un contact — c'est lui qui identifie l'appareil. */
+export type ActionneurFolio = 'bilame' | 'came' | 'galet' | 'champignon' | 'poussoir';
+
+/** Un organe posé sur une colonne du folio, de haut en bas. */
+export interface FolioElement {
+  type: 'contactNF' | 'contactNO' | 'bobine' | 'voyant' | 'disjoncteur' | 'borne' | 'fil';
+  /** Nœud du réseau en entrée (haut). */
+  a: string;
+  /** Nœud en sortie (bas). Absent pour une borne, qui est un point unique. */
+  b?: string;
+  /** Repère gravé sur l'appareil. */
+  rep?: string;
+  /** Numéros des deux bornes du contact (« 95 » / « 96 »). */
+  bornes?: [string, string];
+  actionneur?: ActionneurFolio;
+  /** Fonction de l'organe, écrite sous son repère. */
+  legende?: string;
+  /** Repère équipotentiel du conducteur qui SORT de cet organe. */
+  conducteur?: string;
+  /** Hauteur réservée, quand la valeur par défaut du type ne convient pas. */
+  h?: number;
+}
+
+/** Une colonne du folio : la chaîne principale, ou une dérivation. */
+export interface FolioColonne {
+  id: string;
+  /** Décalage horizontal en unités de colonne (0 = chaîne principale). */
+  dx: number;
+  /** Nœud d'où part la dérivation (absent : elle part du rail du haut). */
+  depuis?: string;
+  /** Nœud où elle rejoint (absent : elle rejoint le rail du bas). */
+  vers?: string;
+  elements: FolioElement[];
+}
+
+/** Cadre d'implantation : ce qui n'est pas dans l'armoire. */
+export interface FolioCadre {
+  titre: string;
+  /** Premier et dernier organe enfermés, par leur nœud d'entrée. */
+  de: string;
+  a: string;
+  /** Colonnes que le cadre englobe. Absent : la seule chaîne principale. */
+  colonnes?: string[];
+  /** Teinte : le capot de la machine, ou la porte de l'armoire. */
+  couleur: 'capot' | 'porte';
+}
+
+/** Folio du circuit de commande d'un TP. */
+export interface FolioDef {
+  /** Intitulés des deux rails. */
+  railHaut: string;
+  railBas: string;
+  /** Organe placé au-dessus du rail du haut (la protection du secondaire). */
+  tete?: FolioElement;
+  /** Nœud d'arrivée du secondaire, au sommet, et son repère lisible. */
+  source: string;
+  repSource: string;
+  /** Nœud de retour, sur le rail du bas, et son repère. */
+  retour: string;
+  repRetour: string;
+  colonnes: FolioColonne[];
+  cadres?: FolioCadre[];
+}
+
 export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string }
 export interface Poste { id: string; name: string; need: string; options: PosteOption[] }
 
@@ -191,6 +269,37 @@ export interface Fault {
   ouvre?: string;
   /** Action de remise en état attendue, proposée à l'élève parmi d'autres. */
   action?: string;
+}
+
+/**
+ * Lecture annoncée AVANT la mesure.
+ *
+ * Définir la vérification avant de la faire — quoi, comment, où, et surtout
+ * quel résultat on attend — est ce qui sépare le diagnostic du tâtonnement.
+ * Le simulateur confronte ensuite la prévision au relevé.
+ */
+export type Prevision = '24' | '0' | 'cont' | 'ol';
+
+/** Un test d'hypothèse : la vérification définie, faite, et ce qu'elle a tranché. */
+export interface HypTest {
+  /** Hypothèse visée (identifiant de panne). */
+  id: string;
+  instrument: InstrumentKind;
+  dial: string;
+  a?: string;
+  b?: string;
+  /** Prévision annoncée avant de mesurer. */
+  attendu: Prevision;
+  /** Ce que l'appareil a affiché. */
+  lu: string;
+  value: number | null;
+  /** Verdict retenu — celui que la mesure impose, pas celui que l'élève espérait. */
+  verdict: 'out' | 'keep';
+  /** L'élève avait-il prévu juste ? */
+  prevu: boolean;
+  /** Nombre d'hypothèses que cette mesure départage (une bonne en sépare plusieurs). */
+  departage: number;
+  at: string;
 }
 
 /** Réseau électrique d'une borne, pour le calcul des mesures (voir lib/sim/mesures.ts). */
@@ -302,6 +411,15 @@ export interface TpDefinition {
   interPosition?: InterPosition;
   /** Transformateur de commande à prises : permet de simuler l'erreur de prise. */
   trafo?: TrafoDef;
+  /** Folio du circuit de commande, dessiné à l'étape de dépannage. */
+  folio?: FolioDef;
+  /**
+   * Hypothèses PLAUSIBLES MAIS FAUSSES, proposées à l'élève au milieu des vraies
+   * pannes à l'étape de dépannage. Elles rendent l'élimination plus formatrice —
+   * écarter une piste crédible vaut mieux que cocher la seule qui reste. Aucune
+   * n'est déclarée pour l'instant ; le champ est là pour le jour où on en écrit.
+   */
+  leurres?: { id: string; titre: string; pourquoiFaux: string }[];
   hasMotor: boolean;
   /** Diplômes visés par le TP (colonne `tps.diplomas` / bloc studio). */
   diplomas?: DiplomaId[];
@@ -351,6 +469,14 @@ export interface AttemptState {
   decons: { unlock: boolean; close: boolean; essai: boolean };
   readings: ReadingRecord[];
   fault: string | null;
+  /**
+   * Hypothèses posées par l'élève à l'étape de dépannage. Il les pose AVANT de
+   * mesurer : c'est ce qui oriente ses vérifications, et ce que le rapport montre
+   * au professeur à la place d'un simple « trouvé en n essais ».
+   */
+  hypotheses: string[];
+  /** Journal des tests d'hypothèse : la trace du raisonnement. */
+  hypTests: HypTest[];
   /** Cause retenue par l'élève (identifiant de panne). */
   diagnosis: string | null;
   /**

@@ -326,6 +326,67 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
     secondaire: { '0V': 0, '24': 24, '48': 48 },
     bobine: 24,
   },
+  // Folio du circuit de commande. Seul l'ORDRE des organes est écrit : les
+  // ordonnées viennent du moteur de mise en page, l'état des contacts du réseau.
+  folio: {
+    railHaut: '24 V — secondaire de T1',
+    railBas: 'com — retour 0 V, relié à la terre',
+    source: 't1.24', repSource: 'T1:24',
+    retour: 't1.0V', repRetour: 'T1:0V',
+    tete: {
+      type: 'disjoncteur', a: 'f3.1', b: 'f3.2',
+      rep: 'F3', legende: 'protection du 24 V', conducteur: '2',
+    },
+    // Ordre important : une dérivation vient APRÈS la colonne d'où elle part,
+    // sinon son point de branchement n'est pas encore placé.
+    colonnes: [
+      {
+        id: 'chaine', dx: 0,
+        elements: [
+          { type: 'contactNF', a: 'f1.95', b: 'f1.96', rep: 'F1', bornes: ['95', '96'],
+            actionneur: 'bilame', legende: 'relais thermique', conducteur: '3' },
+          { type: 'borne', a: 'x2_1.a', rep: 'X2:1' },
+          { type: 'contactNF', a: 'S1.21', b: 'S1.22', rep: 'S1', bornes: ['21', '22'],
+            actionneur: 'poussoir', legende: 'arrêt', conducteur: '4' },
+          { type: 'contactNO', a: 'S2.13', b: 'S2.14', rep: 'S2', bornes: ['13', '14'],
+            actionneur: 'poussoir', legende: 'marche', conducteur: '5' },
+          { type: 'borne', a: 'x2_3.a', rep: 'X2:3' },
+          { type: 'bobine', a: 'km1.A1', b: 'km1.A2', rep: 'KM1', legende: 'bobine 24 V' },
+          { type: 'borne', a: 'x2_6.a', rep: 'X2:6' },
+        ],
+      },
+      {
+        id: 'defaut', dx: -2,
+        elements: [
+          // Contact à FERMETURE du thermique : fermé seulement quand F1 a
+          // déclenché, c'est lui qui allume le voyant de défaut.
+          { type: 'contactNO', a: 'f1.97', b: 'f1.98', rep: 'F1', bornes: ['97', '98'],
+            actionneur: 'bilame', legende: 'contact de défaut' },
+          { type: 'borne', a: 'x2_5.a', rep: 'X2:5' },
+          { type: 'voyant', a: 'H2.X1', b: 'H2.X2', rep: 'H2', legende: 'défaut' },
+        ],
+      },
+      {
+        id: 'maintien', dx: 1, depuis: 'S1.22', vers: 'km1.A1',
+        elements: [
+          { type: 'borne', a: 'x2_2.a', rep: 'X2:2' },
+          { type: 'contactNO', a: 'km1.13', b: 'km1.14', rep: 'KM1', bornes: ['13', '14'],
+            legende: 'auto-maintien' },
+        ],
+      },
+      {
+        id: 'voyants', dx: -1, depuis: 'km1.14',
+        elements: [
+          { type: 'borne', a: 'x2_4.a', rep: 'X2:4' },
+          { type: 'voyant', a: 'H1.X1', b: 'H1.X2', rep: 'H1', legende: 'marche' },
+        ],
+      },
+    ],
+    cadres: [
+      { titre: 'Coffret de porte', de: 'S1.21', a: 'S2.14',
+        couleur: 'porte', colonnes: ['chaine', 'voyants', 'defaut'] },
+    ],
+  },
   station: true,
   hasMotor: true,
 };

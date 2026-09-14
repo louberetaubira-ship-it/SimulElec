@@ -432,6 +432,65 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     secondaire: { '0V': 0, '24': 24, '48': 48 },
     bobine: 24,
   },
+  // Folio du circuit de commande. On n'écrit que l'ORDRE des organes : le moteur
+  // de mise en page (`src/lib/schema/folio.ts`) place les ordonnées, et l'état de
+  // chaque contact se lit dans le réseau, pas ici.
+  folio: {
+    railHaut: '24 V — secondaire de T1',
+    railBas: 'com — retour 0 V, relié à la terre',
+    source: 't1.24', repSource: 'T1:24',
+    retour: 't1.0V', repRetour: 'T1:0V',
+    tete: {
+      type: 'disjoncteur', a: 'f3.1', b: 'f3.2',
+      rep: 'Q3', legende: 'protection du 24 V', conducteur: '2',
+    },
+    colonnes: [
+      {
+        id: 'chaine', dx: 0,
+        elements: [
+          { type: 'contactNF', a: 'f1.95', b: 'f1.96', rep: 'F1', bornes: ['95', '96'],
+            actionneur: 'bilame', legende: 'relais thermique', conducteur: '3' },
+          { type: 'borne', a: 'x2_5.a', rep: 'XC:2' },
+          { type: 'contactNF', a: 'S1.X1', b: 'S1.X2', rep: 'S1', bornes: ['11', '12'],
+            actionneur: 'came', legende: 'écran de protection', conducteur: '4' },
+          { type: 'borne', a: 'x2_6.b', rep: 'XC:3' },
+          { type: 'borne', a: 'x2_7.a', rep: 'XC:4' },
+          { type: 'contactNF', a: 'S2.21', b: 'S2.22', rep: 'S2', bornes: ['21', '22'],
+            actionneur: 'champignon', legende: 'arrêt d\'urgence', conducteur: '5' },
+          { type: 'contactNF', a: 'S3.21', b: 'S3.22', rep: 'S3', bornes: ['21', '22'],
+            actionneur: 'poussoir', legende: 'arrêt', conducteur: '6' },
+          { type: 'contactNO', a: 'S4.13', b: 'S4.14', rep: 'S4', bornes: ['13', '14'],
+            actionneur: 'poussoir', legende: 'marche', conducteur: '7' },
+          { type: 'borne', a: 'x2_3.a', rep: 'XC:6' },
+          { type: 'bobine', a: 'km1.A1', b: 'km1.A2', rep: 'KM1', legende: 'bobine 24 V' },
+          { type: 'borne', a: 'x2_4.a', rep: 'XC:7' },
+        ],
+      },
+      {
+        id: 'voyant', dx: -1,
+        elements: [
+          { type: 'borne', a: 'x2_1.a', rep: 'XC:1' },
+          { type: 'fil', a: 'x2_1.a', b: 'H1.X1', h: 170 },
+          { type: 'voyant', a: 'H1.X1', b: 'H1.X2', rep: 'H1', legende: 'incolore' },
+        ],
+      },
+      {
+        id: 'maintien', dx: 1, depuis: 'S3.22', vers: 'km1.A1',
+        elements: [
+          { type: 'borne', a: 'x2_2.a', rep: 'XC:5' },
+          { type: 'contactNO', a: 'km1.13', b: 'km1.14', rep: 'KM1', bornes: ['13', '14'],
+            legende: 'auto-maintien' },
+        ],
+      },
+    ],
+    cadres: [
+      { titre: 'Sur le capot', de: 'S1.X1', a: 'S1.X2', couleur: 'capot' },
+      // Le voyant est en porte lui aussi ; le contact d'auto-maintien, non :
+      // il est sur le contacteur, dans l'armoire.
+      { titre: 'Boîtier de commande (en porte)', de: 'S2.21', a: 'S4.14',
+        couleur: 'porte', colonnes: ['chaine', 'voyant'] },
+    ],
+  },
   station: true,
   hasMotor: true,
 };

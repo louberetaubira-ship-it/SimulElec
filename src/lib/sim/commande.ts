@@ -41,6 +41,13 @@ export interface Arete {
    * ferait lire 24 V sur une phase.
    */
   puissance?: boolean;
+  /**
+   * Nature de la branche. Le folio en a besoin pour savoir si un CONDUCTEUR est
+   * coupé : il doit suivre les fils et les ponts de bornier seulement. S'il suit
+   * aussi les contacts et les récepteurs, la moindre branche parallèle — le
+   * voyant, par exemple — referme le circuit et un fil coupé reste tracé en noir.
+   */
+  nature?: 'fil' | 'contact' | 'charge' | 'source';
 }
 
 /**
@@ -114,16 +121,20 @@ export function reseauCommande(
   /** Fil posé par l'élève : il disparaît du réseau si la panne l'a coupé. */
   const fil = (a: string, b: string) => {
     const id = cle(a, b);
-    if (!coupee(id)) e.push({ a, b, r: R.FIL, id });
+    if (!coupee(id)) e.push({ a, b, r: R.FIL, id, nature: 'fil' });
   };
   /** Contact : il n'est dans le réseau que fermé, et la panne peut le forcer ouvert. */
   const contact = (a: string, b: string, ferme: boolean, organe: string) => {
-    if (ferme && !ouvert(organe)) e.push({ a, b, r: R.CONTACT, id: `${organe}:${a}-${b}` });
+    if (ferme && !ouvert(organe)) {
+      e.push({ a, b, r: R.CONTACT, id: `${organe}:${a}-${b}`, nature: 'contact' });
+    }
   };
 
   // ---- source : le secondaire du transformateur, présent même hors tension
   const t1 = tp.slots.find(s => s.key === 'trafo');
-  if (t1) e.push({ a: `${t1.id}.24`, b: `${t1.id}.0V`, r: R.SECONDAIRE, id: 'SOURCE' });
+  if (t1) {
+    e.push({ a: `${t1.id}.24`, b: `${t1.id}.0V`, r: R.SECONDAIRE, id: 'SOURCE', nature: 'source' });
+  }
 
   // ---- fils de commande posés par l'élève (et ceux de l'installateur)
   for (const w of st.wires) {
@@ -134,26 +145,35 @@ export function reseauCommande(
   for (const w of st.wires) {
     if (w.net === 'C' || w.net === 'C0' || w.net === 'BAR') continue;
     const id = cle(w.a, w.b);
-    if (!coupee(id)) e.push({ a: w.a, b: w.b, r: R.FIL, id, puissance: true });
+    if (!coupee(id)) e.push({ a: w.a, b: w.b, r: R.FIL, id, puissance: true, nature: 'fil' });
   }
 
   // ---- les deux faces d'une borne de bornier sont le MÊME point électrique.
   // Sans ce pont, tout ce qui est câblé en porte (pupitre, voyant) se retrouve
   // détaché du reste et aucune mesure ne traverse le bornier.
-  const faces = new Map<string, Set<string>>();
+  //
+  // Le pont hérite de la nature du bornier : celui d'une borne de PUISSANCE est
+  // marqué comme tel, sinon les bornes du bornier X1 entreraient dans le calcul
+  // des potentiels de la commande et se retrouveraient à 24 V.
+  const faces = new Map<string, { cotes: Set<string>; puissance: boolean }>();
   for (const w of st.wires) {
+    const cmd = w.net === 'C' || w.net === 'C0';
     for (const t of [w.a, w.b]) {
       const m = /^(.+)\.(a|b)$/.exec(t);
       if (!m) continue;
-      const l = faces.get(m[1]) ?? new Set<string>();
-      l.add(t);
+      const l = faces.get(m[1]) ?? { cotes: new Set<string>(), puissance: true };
+      l.cotes.add(t);
+      if (cmd) l.puissance = false;
       faces.set(m[1], l);
     }
   }
   for (const [slot, l] of Array.from(faces)) {
-    const cotes = Array.from(l);
+    const cotes = Array.from(l.cotes);
     if (cotes.length < 2) continue;
-    e.push({ a: cotes[0], b: cotes[1], r: R.CONTACT, id: `${slot}-borne` });
+    e.push({
+      a: cotes[0], b: cotes[1], r: R.CONTACT, id: `${slot}-borne`, nature: 'fil',
+      ...(l.puissance ? { puissance: true } : {}),
+    });
   }
 
   // ---- organes de la platine
@@ -167,7 +187,7 @@ export function reseauCommande(
     }
     if (slot.key?.startsWith('kontakt') || id === 'km1' || id === 'km2') {
       contact(`${id}.13`, `${id}.14`, sim.km1, `${id}-am`);
-      e.push({ a: `${id}.A1`, b: `${id}.A2`, r: rBobine, id: `${id}-bobine` });
+      e.push({ a: `${id}.A1`, b: `${id}.A2`, r: rBobine, id: `${id}-bobine`, nature: 'charge' });
     }
   }
 
@@ -176,7 +196,9 @@ export function reseauCommande(
   for (const p of pupitreOf(tp)) {
     if (p.kind === 'nc') contact(`${p.rep}.21`, `${p.rep}.22`, !isLatched(sim, p.rep), p.rep);
     if (p.kind === 'no') contact(`${p.rep}.13`, `${p.rep}.14`, ctx.marcheMaintenue, p.rep);
-    if (p.kind === 'lamp') e.push({ a: `${p.rep}.X1`, b: `${p.rep}.X2`, r: rLampe, id: `${p.rep}-lampe` });
+    if (p.kind === 'lamp') {
+      e.push({ a: `${p.rep}.X1`, b: `${p.rep}.X2`, r: rLampe, id: `${p.rep}-lampe`, nature: 'charge' });
+    }
   }
 
   // ---- interrupteur de position : contact NF commandé par le carter

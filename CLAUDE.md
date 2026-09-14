@@ -35,6 +35,7 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - `npx tsx scripts/audit-reperes.ts` — repères cités dans les TP et repères écrits en dur dans les textes partagés.
 - `npx tsx scripts/audit-trafo.ts` — prises du transformateur de commande et tension du secondaire.
 - `npx tsx scripts/audit-diagnostic.ts` — chaque panne est-elle *trouvable* à l'instrument, et *distincte* des autres ?
+- `npx tsx scripts/audit-folio.ts` — le folio est-il complet (toute borne de commande mesurable), fidèle (rien de rouge sur une platine saine, chaque panne visible) et cohérent avec les repères de la platine ?
 - `npx tsx scripts/audit-mesures.ts` — table de référence de la plaque à bornes (2 R en étoile, ⅔ R en triangle, OL barrettes retirées), puis : chaque mesure attendue est-elle *atteignable* ? La valeur rendue par le simulateur doit tomber dans `[min, max]`, sinon l'élève ne peut pas valider l'étape. À lancer après toute modification d'un TP ou du moteur de mesure.
 
 ## Repères
@@ -52,6 +53,12 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - Les branches de puissance entrent dans la continuité mais jamais dans le calcul des potentiels : le secondaire 24 V ne les alimente pas.
 - Une panne déclare ce qu'elle fait au réseau (`coupe` une liaison, `ouvre` un contact) et l'`action` de remise en état attendue. Sans ça elle est invisible à l'instrument — et `audit-diagnostic` la refuse.
 - À l'étape de dépannage, le simulateur ne souffle aucune hypothèse : l'élève mesure où il veut, note ses lectures, puis conclut **cause + action**, jugées ensemble.
+
+## Schéma développé
+- `src/lib/schema/symboles.ts` est la **source unique** des symboles CEI 60617, pour l'application comme pour les maquettes (`sh scripts/symboles.sh` intègre le paquet dans la page). On ne redessine jamais un symbole ailleurs : l'élève doit retrouver le même tracé partout.
+- Ce qui distingue un appareil, ce n'est pas le contact mais son **actionneur** : bilame, came, galet, champignon, poussoir. Et ce qui distingue un contact à ouverture d'un contact à fermeture, c'est **la barre** du contact fixe — un audit le vérifie.
+- Un TP décrit son folio par l'**ordre** des organes sur chaque colonne (`folio`), jamais par des coordonnées ; `src/lib/schema/folio.ts` place les ordonnées. Une dérivation doit être déclarée **après** la colonne d'où elle part.
+- L'état de chaque contact vient du **réseau** de `commande.ts`, jamais d'une déclaration : le schéma ne peut donc pas dire autre chose que ce que mesure l'élève. Un conducteur coupé se détecte sur les seules arêtes de nature `fil` — suivre aussi les contacts et les récepteurs laisserait une branche parallèle refermer le circuit.
 
 ## Plaque à bornes du moteur
 - Un enroulement se mesure entre **U1–U2, V1–V2 ou W1–W2** ; toute autre paire ne conduit que par une barrette. `src/lib/sim/plaque.ts` résout le réseau réel (union-find sur les barrettes posées + méthode des nœuds sur la seule composante connexe des deux pointes) : jamais de constante.
