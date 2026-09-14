@@ -103,12 +103,45 @@ function EleveForm({ next }: { next: string }) {
   );
 }
 
+/**
+ * Connexion professeur. DEUX chemins, et c'est volontaire :
+ *
+ *  · adresse + mot de passe — le seul qui marche avec une adresse ACADÉMIQUE, qui
+ *    n'est pas un compte Google. C'est l'administrateur qui génère le mot de passe
+ *    depuis l'écran d'administration et le remet à l'intéressé ;
+ *  · Google — pratique pour les adresses Gmail déjà inscrites.
+ *
+ * Dans les deux cas, la liste blanche `teacher_allowlist` tranche : une adresse qui
+ * n'y figure pas est refusée à la création du compte par le trigger `handle_new_user`.
+ */
 function ProfForm({ next, initialError }: { next: string; initialError: string | null }) {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [google, setGoogle] = useState(false);
   const [error, setError] = useState<string | null>(initialError);
 
-  async function signIn() {
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
     setBusy(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (err) {
+      setError('Adresse ou mot de passe incorrect.');
+      setBusy(false);
+      return;
+    }
+    router.replace(next);
+    router.refresh();
+  }
+
+  async function signIn() {
+    setGoogle(true);
     setError(null);
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
@@ -118,25 +151,68 @@ function ProfForm({ next, initialError }: { next: string; initialError: string |
     });
     if (err) {
       setError(err.message);
-      setBusy(false);
+      setGoogle(false);
     }
   }
 
   return (
     <div className="mt-5">
       <p className="text-sm leading-relaxed text-[#66717F]">
-        Utilisez votre compte Google professionnel. Seules les adresses inscrites par
-        l&apos;administrateur peuvent se connecter.
+        Adresse académique ou professionnelle, avec le mot de passe remis par
+        l&apos;administrateur. Seules les adresses inscrites peuvent se connecter.
       </p>
+
+      <form onSubmit={submit}>
+        <label className="mt-4 block text-sm font-medium text-[#141A21]">
+          Adresse électronique
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="prenom.nom@ac-guyane.fr"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+            className={INPUT}
+          />
+        </label>
+
+        <label className="mt-3 block text-sm font-medium text-[#141A21]">
+          Mot de passe
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            className={INPUT}
+          />
+        </label>
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="mt-5 min-h-[48px] w-full rounded-xl bg-[#141A21] px-4 text-sm font-semibold text-white transition hover:bg-[#000] disabled:opacity-60"
+        >
+          {busy ? 'Connexion…' : 'Se connecter'}
+        </button>
+      </form>
+
+      <div className="mt-5 flex items-center gap-3">
+        <span className="h-px flex-1 bg-[#D3D9E1]" />
+        <span className="text-xs text-[#66717F]">ou</span>
+        <span className="h-px flex-1 bg-[#D3D9E1]" />
+      </div>
 
       <button
         type="button"
         onClick={signIn}
-        disabled={busy}
-        className="mt-5 flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-[#D3D9E1] bg-white px-4 text-sm font-medium text-[#141A21] transition hover:bg-[#F5F6F8] disabled:opacity-60"
+        disabled={google}
+        className="mt-4 flex min-h-[48px] w-full items-center justify-center gap-3 rounded-xl border border-[#D3D9E1] bg-white px-4 text-sm font-medium text-[#141A21] transition hover:bg-[#F5F6F8] disabled:opacity-60"
       >
         <GoogleMark />
-        {busy ? 'Redirection…' : 'Continuer avec Google'}
+        {google ? 'Redirection…' : 'Continuer avec Google'}
       </button>
 
       {error && (
@@ -144,6 +220,11 @@ function ProfForm({ next, initialError }: { next: string; initialError: string |
           {error}
         </p>
       )}
+
+      <p className="mt-4 text-xs leading-relaxed text-[#66717F]">
+        Mot de passe oublié ? L&apos;administrateur peut en générer un nouveau depuis
+        l&apos;écran d&apos;administration.
+      </p>
     </div>
   );
 }

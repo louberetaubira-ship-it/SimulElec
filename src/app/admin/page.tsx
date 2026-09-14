@@ -75,6 +75,8 @@ export default function AdminPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  /** Mot de passe fraîchement généré, affiché UNE seule fois : il n'est stocké nulle part en clair. */
+  const [motDePasse, setMotDePasse] = useState<{ email: string; password: string } | null>(null);
 
   const recharger = useCallback(async () => {
     const [liste, compteurs] = await Promise.all([listAllowlist(), compter()]);
@@ -105,10 +107,45 @@ export default function AdminPage() {
       setEmail('');
       setNom('');
       setRole('professeur');
-      setOk('Adresse ajoutée : la personne peut maintenant se connecter avec Google.');
+      setOk('Adresse ajoutée. Pour une adresse académique, utilisez « Créer l\u2019accès » afin de générer son mot de passe.');
       await recharger();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Ajout impossible.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Génère (ou réinitialise) le mot de passe d'un accès enseignant.
+   *
+   * C'est le SEUL chemin praticable pour une adresse académique : elle n'est pas un
+   * compte Google. Le mot de passe n'est renvoyé qu'ici et une seule fois — ni la base
+   * ni l'écran ne le conservent : on le transmet à l'intéressé, qui le changera.
+   */
+  async function genererMotDePasse(adresse: string) {
+    setErr(null);
+    setOk(null);
+    setMotDePasse(null);
+    setBusy(true);
+    try {
+      const reponse = await fetch('/api/admin/profs/motdepasse', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: adresse }),
+      });
+      const charge = (await reponse.json().catch(() => null)) as
+        { email?: string; password?: string; created?: boolean; error?: string } | null;
+      if (!reponse.ok || !charge?.password) {
+        throw new Error(charge?.error ?? 'Génération impossible.');
+      }
+      setMotDePasse({ email: charge.email ?? adresse, password: charge.password });
+      setOk(charge.created
+        ? 'Compte créé. Transmettez le mot de passe ci-dessous : il ne sera plus affiché.'
+        : 'Mot de passe réinitialisé. Transmettez-le ci-dessous : il ne sera plus affiché.');
+      await recharger();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Génération impossible.');
     } finally {
       setBusy(false);
     }
@@ -158,9 +195,37 @@ export default function AdminPage() {
 
       <Panneau title="Liste blanche">
         <p className="mb-3 text-[13px] text-muted">
-          Seules les adresses inscrites ci-dessous peuvent se connecter avec Google ; toute autre adresse est
-          refusée à l&apos;inscription.
+          Seules les adresses inscrites ci-dessous peuvent se connecter ; toute autre est refusée à
+          l&apos;inscription. Une adresse Gmail peut passer par Google ; une adresse académique, elle,
+          n&apos;est pas un compte Google — il faut lui « créer l&apos;accès » ci-dessous, ce qui génère
+          un mot de passe à transmettre.
         </p>
+
+        {motDePasse && (
+          <div className="mb-3 rounded-xl border border-accent/50 bg-accent/5 p-3">
+            <p className="text-[13px] font-semibold text-[#141A21]">
+              Accès pour {motDePasse.email}
+            </p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
+              À transmettre à l&apos;intéressé, qui se connecte ensuite par l&apos;onglet
+              « Professeur » avec cette adresse et ce mot de passe. Il n&apos;est affiché
+              qu&apos;une fois.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <code className="rounded-[8px] border border-line bg-white px-3 py-1.5 font-mono text-[13px]">
+                {motDePasse.password}
+              </code>
+              <CopierBouton value={motDePasse.password} label="Copier le mot de passe" />
+              <button
+                type="button"
+                onClick={() => setMotDePasse(null)}
+                className="min-h-touch rounded-[10px] border border-line px-3 text-[12.5px] font-semibold text-muted"
+              >
+                Masquer
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-line">
           <table className="w-full min-w-[640px] text-[13px]">
@@ -197,6 +262,14 @@ export default function AdminPage() {
                   <td className="px-3 py-2.5 text-right">
                     <div className="flex justify-end gap-1.5">
                       <CopierBouton value={entry.email} label="Copier" />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => genererMotDePasse(entry.email)}
+                        className="min-h-touch rounded-[10px] border border-line px-3 text-[12.5px] font-semibold text-[#141A21] disabled:opacity-40"
+                      >
+                        {entry.profile ? 'Nouveau mot de passe' : 'Créer l\u2019accès'}
+                      </button>
                       <button
                         type="button"
                         disabled={busy || entry.email === profile.email}
