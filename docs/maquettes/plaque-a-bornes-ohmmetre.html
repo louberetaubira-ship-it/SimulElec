@@ -1,0 +1,526 @@
+<title>Ohmmètre sur la plaque à bornes</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --app: #F2F4F6; --surface: #FFFFFF; --surface-2: #EDF0F3; --line: #D3D9E1;
+    --ink: #141A21; --muted: #66717F; --accent: #E39A00;
+    --good: #1E9E63; --crit: #D93A3A; --bar: #C9A34A;
+    --title: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+      --ink: #E7ECF2; --muted: #8F9BA8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+    --ink: #E7ECF2; --muted: #8F9BA8;
+  }
+
+  body {
+    margin: 0; padding-block: 28px 56px; padding-left: 20px; padding-right: 20px;
+    background: var(--app); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: var(--title); font-weight: 600; font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.04; margin: 6px 0 0; text-wrap: balance;
+  }
+  h2 { font-family: var(--title); font-weight: 600; font-size: 25px; margin: 0 0 10px; }
+  .lede { max-width: 66ch; margin: 12px 0 0; }
+
+  .verdict {
+    border-left: 3px solid var(--good); background: var(--surface);
+    padding: 14px 18px; border-radius: 0 12px 12px 0; max-width: 72ch;
+  }
+  .verdict b { color: var(--good); }
+
+  /* ------------------------------------------------------------ le banc */
+
+  .banc { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.25fr) minmax(260px, 1fr); align-items: start; }
+  @media (max-width: 780px) { .banc { grid-template-columns: minmax(0, 1fr); } }
+
+  .plaque {
+    border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 14px;
+  }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .seg button {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 12px;
+    min-height: 36px; border-radius: 9px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #1A1300; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  svg { width: 100%; height: auto; display: block; }
+  .borne { cursor: pointer; }
+  .borne .cage { fill: #F6F8FA; stroke: #8A929C; stroke-width: 1.6; rx: 3; }
+  .borne .vis { fill: #E3C766; stroke: #8A6F1E; stroke-width: 1.4; }
+  .borne:hover .vis { fill: var(--accent); }
+  .borne[data-p="r"] .vis { fill: #D93A3A; stroke: #7C1F1F; }
+  .borne[data-p="k"] .vis { fill: #20262D; stroke: #000; }
+  .borne .rep {
+    font-family: var(--mono); font-size: 9px; font-weight: 600; fill: #20262D; text-anchor: middle;
+  }
+  .barrette { fill: var(--bar); stroke: #8A6F1E; stroke-width: 1.2; rx: 2.5; }
+  .enr { stroke: #8E979F; stroke-width: 2; fill: none; }
+  .enrlab { font-family: var(--mono); font-size: 8px; fill: #66717F; text-anchor: middle; }
+  .plaquebg { fill: #2B3138; rx: 8; }
+  .plaqueface { fill: #FFFFFF; stroke: #9AA3AD; stroke-width: 1.4; rx: 5; }
+  .chemin { stroke: var(--accent); stroke-width: 5; fill: none; stroke-linecap: round; opacity: .55; }
+
+  /* ------------------------------------------------------------ l'appareil */
+
+  .mesure { display: flex; flex-direction: column; gap: 12px; }
+  .ecran {
+    border: 1px solid var(--line); border-radius: 14px; background: #E8EDE3;
+    padding: 14px 16px; color: #1B2118;
+  }
+  .ecran .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: #4C5647;
+  }
+  .ecran .v {
+    font-family: var(--mono); font-size: 34px; font-weight: 600; line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .ecran .u { font-family: var(--mono); font-size: 13px; color: #4C5647; }
+  .pointes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--mono); font-size: 12.5px; }
+  .pointes i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .pointes .r { background: #D93A3A; }
+  .pointes .k { background: #20262D; }
+  .pointes button {
+    margin-left: auto; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: 12px; min-height: 34px; padding: 4px 10px; border-radius: 9px; cursor: pointer;
+  }
+  .explique {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+    padding: 12px 14px; font-size: 13.5px;
+  }
+  .explique b { font-weight: 600; }
+  .explique .calc { font-family: var(--mono); font-size: 12px; color: var(--muted); display: block; margin-top: 5px; }
+
+  /* ------------------------------------------------------------- tables */
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  caption {
+    text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent); padding-bottom: 7px;
+  }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { font-weight: 600; font-size: 12px; color: var(--muted); }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 12px 14px; }
+
+  ol.plan { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; max-width: 72ch; }
+  ol.plan li::marker { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  ol.plan b { font-weight: 600; }
+  code { font-family: var(--mono); font-size: 12.5px; }
+
+  .sources { font-size: 13px; color: var(--muted); max-width: 72ch; }
+  .sources a { color: var(--ink); }
+
+  .ask { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; max-width: 70ch; color: var(--muted); }
+  .ask b { color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">SimulElec · vérification · mesure des enroulements</p>
+    <h1>Ohmmètre sur la plaque à bornes</h1>
+    <p class="lede verdict">
+      <b>Tu as raison.</b> Un enroulement, ce sont ses deux extrémités : U1–U2, V1–V2, W1–W2.
+      U1 et W2 appartiennent à deux enroulements différents. Barrettes retirées, l'ohmmètre doit
+      afficher <b>OL</b> — circuit ouvert. Demander « la résistance d'un enroulement » entre U1 et W2
+      est une erreur de repère, et c'est moi qui l'ai écrite.
+    </p>
+  </header>
+
+  <section>
+    <h2>Le banc d'essai</h2>
+    <p style="margin:0 0 14px; max-width:68ch; color:var(--muted)">
+      Choisis l'état des barrettes, puis clique deux bornes pour y poser les pointes. La valeur est
+      <b style="color:var(--ink)">calculée</b> à chaque fois par résolution du réseau (méthode des nœuds),
+      jamais écrite à la main : c'est la même règle que celle que je mettrai dans le simulateur.
+    </p>
+
+    <div class="banc">
+      <div class="plaque">
+        <div class="seg" role="group" aria-label="État des barrettes">
+          <button type="button" id="c-none" aria-pressed="true">Barrettes retirées</button>
+          <button type="button" id="c-y" aria-pressed="false">Couplage étoile (400 V)</button>
+          <button type="button" id="c-d" aria-pressed="false">Couplage triangle (230 V)</button>
+        </div>
+
+        <svg id="pl" viewBox="0 0 380 300" role="img" aria-label="Plaque à bornes du moteur M1">
+          <rect x="24" y="18" width="300" height="150" class="plaquebg"/>
+          <rect x="34" y="28" width="280" height="130" class="plaqueface"/>
+          <text x="174" y="46" class="enrlab" style="font-size:9px">M1 · 1,1 kW · 400 V Y / 230 V Δ</text>
+          <g id="enrs"></g>
+          <g id="barrettes"></g>
+          <g id="chemins"></g>
+          <g id="bornes"></g>
+          <text x="174" y="196" class="enrlab" id="etat">barrettes retirées : les trois enroulements sont indépendants</text>
+          <g id="schema"></g>
+        </svg>
+      </div>
+
+      <div class="mesure">
+        <div class="ecran">
+          <div class="k">Multimètre TRMS · Ω</div>
+          <div class="v" id="val">----</div>
+          <div class="u" id="unit">pose les deux pointes</div>
+        </div>
+        <div class="pointes">
+          <span><i class="r"></i> <b id="pr">—</b></span>
+          <span><i class="k"></i> <b id="pk">—</b></span>
+          <button type="button" id="raz">Retirer les pointes</button>
+        </div>
+        <div class="explique" id="expl">
+          Clique une première borne : elle prend la pointe rouge. Clique une seconde : la pointe noire.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Les valeurs de référence</h2>
+    <div class="tw">
+      <table>
+        <caption>Moteur 1,1 kW · 400 V · In 2,6 A — résistance d'un enroulement R ≈ 6,7 Ω</caption>
+        <thead>
+          <tr><th>Pointes</th><th>Barrettes retirées</th><th>Étoile</th><th>Triangle</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>U1 – U2 <span style="color:var(--muted)">(un enroulement)</span></td>
+            <td class="n">6,70 Ω</td><td class="n">6,70 Ω</td><td class="n">4,47 Ω</td></tr>
+          <tr><td>U1 – W2</td>
+            <td class="n" style="color:var(--crit)">OL</td><td class="n">6,70 Ω</td><td class="n">0,00 Ω</td></tr>
+          <tr><td>U1 – V1 <span style="color:var(--muted)">(deux bornes de ligne)</span></td>
+            <td class="n" style="color:var(--crit)">OL</td><td class="n">13,40 Ω <span style="color:var(--muted)">= 2 R</span></td>
+            <td class="n">4,47 Ω <span style="color:var(--muted)">= ⅔ R</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin:12px 0 0; max-width:68ch; color:var(--muted); font-size:13.5px">
+      Les rapports 2 R en étoile et ⅔ R en triangle entre deux bornes de ligne sont la règle usuelle
+      de contrôle des machines ; ils sortent ici du calcul du réseau, et se recoupent avec la
+      documentation de mesure de résistance continue citée plus bas.
+    </p>
+  </section>
+
+  <section>
+    <h2>Ce que je corrigerai</h2>
+    <ol class="plan">
+      <li>
+        <b>La mesure attendue du TP change de bornes.</b> « Résistance d'un enroulement » devient
+        <code>M.U1 / M.U2</code>, et son titre « Résistance de l'enroulement U (U1 – U2) ». La consigne
+        du contrôle des tests dit déjà « barrettes retirées » : les deux seront enfin d'accord.
+      </li>
+      <li>
+        <b>Le simulateur cesse de supposer l'étoile.</b> Aujourd'hui U2, V2 et W2 partagent un même
+        réseau <code>M2</code> dans la définition du TP : le point neutre est câblé en dur, quoi que
+        l'élève fasse de ses barrettes. Les trois bornes deviendront indépendantes.
+      </li>
+      <li>
+        <b>La résistance sera calculée sur le réseau réel</b>, à partir des barrettes que l'élève a
+        posées, par la même méthode des nœuds que ce banc d'essai. Un élève qui oublie une barrette
+        lira une valeur fausse — et c'est précisément ce qu'on veut lui apprendre à repérer.
+      </li>
+      <li>
+        <b>Les barrettes étoile du TP relieront des bornes voisines.</b> Le TP déclare aujourd'hui
+        U2–V2 et V2–W2 ; or l'ordre normalisé de la rangée haute est W2, U2, V2. La seconde barrette
+        saute donc une borne. Ce sera W2–U2 et U2–V2, comme sur une vraie plaque.
+      </li>
+      <li>
+        <b>L'audit des mesures y gagne une règle.</b> Une mesure de type « enroulement » devra porter
+        sur une vraie paire (U1–U2, V1–V2, W1–W2), sinon le contrôle refuse le TP. C'est le genre
+        d'erreur qu'aucun de nous deux ne doit avoir à retrouver à l'œil.
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Ce qui était juste, et qui reste</h2>
+    <p style="max-width:68ch; margin:0">
+      La <b>valeur</b> de 6,7 Ω, elle, est bonne : elle vient de la plaque signalétique, à 7,5 % de
+      l'impédance nominale par phase. Ce n'est pas la valeur qui était fausse ce matin, ce sont les
+      bornes. Et l'ordre des bornes de la plaque du simulateur — W2 U2 V2 en haut, U1 V1 W1 en bas —
+      est déjà le bon.
+    </p>
+  </section>
+
+  <p class="ask">
+    <b>Confirme et je code.</b> Un seul point où j'aimerais ton avis de pédagogue : faut-il garder
+    <b>une</b> mesure d'enroulement (U1–U2), ou en demander <b>trois</b> — U, V et W — pour que l'élève
+    constate lui-même l'équilibre des trois phases ? La deuxième option est plus proche du métier ;
+    elle allonge l'étape de deux mesures.
+  </p>
+
+  <p class="sources">
+    Sources consultées :
+    <a href="https://sites.google.com/view/labobine-site/moteurs-triphas%C3%A9s/contr%C3%B4le-et-branchement">LABOBINE — Contrôle et branchement des moteurs triphasés</a> (le contrôle se fait entre U1–U2, V1–V2, W1–W2 ; entre deux enroulements différents, la valeur doit être infinie) ·
+    <a href="https://www.positron-libre.com/cours/electrotechnique/demarrage-moteur/couplage-moteur-triphase.php">Positron-libre — Couplage des moteurs triphasés</a> (étoile : barrettes entre X, Y, Z ; triangle : U–Z, V–X, W–Y, soit U1–W2, V1–U2, W1–V2) ·
+    <a href="https://fr.twmotor.net/info/three-phase-motor-winding-dc-resistance-measur-31540925.html">Mesure de la résistance continue des enroulements</a> (étoile : R de ligne = 2 × R de phase ; triangle : R de ligne = ⅔ × R de phase) ·
+    <a href="https://www.tecnipass.com/cours-materiels-machines-moteur.asynchrone?page=4">Tecnipass — Couplage de la plaque à bornes</a>.
+  </p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* Résistance d'un enroulement du moteur du TP : 7,5 % de Z = U / (√3·In). */
+  var R = Math.round((400 / (Math.sqrt(3) * 2.6)) * 0.075 * 10) / 10;   // 6.7 Ω
+
+  /* Plaque normalisée : rangée haute W2 U2 V2, rangée basse U1 V1 W1. */
+  var B = [
+    { id: 'W2', x: 90, y: 62 }, { id: 'U2', x: 174, y: 62 }, { id: 'V2', x: 258, y: 62 },
+    { id: 'U1', x: 90, y: 124 }, { id: 'V1', x: 174, y: 124 }, { id: 'W1', x: 258, y: 124 }
+  ];
+  var POS = {}; B.forEach(function (b) { POS[b.id] = b; });
+
+  /** Les trois enroulements : deux extrémités et leur résistance. */
+  var ENR = [['U1', 'U2'], ['V1', 'V2'], ['W1', 'W2']];
+
+  /** Barrettes posées, par couplage. Étoile : la rangée haute. Triangle : ponts verticaux. */
+  var COUPL = {
+    none: { bars: [], txt: 'barrettes retirées : les trois enroulements sont indépendants' },
+    y: { bars: [['W2', 'U2'], ['U2', 'V2']], txt: 'couplage étoile : W2, U2 et V2 reliées — c\'est le point neutre' },
+    d: { bars: [['W2', 'U1'], ['U2', 'V1'], ['V2', 'W1']], txt: 'couplage triangle : U1–W2, V1–U2, W1–V2' }
+  };
+
+  var etat = 'none', pr = null, pk = null;
+
+  /* ------------------------------------------------ résolution du réseau */
+
+  function racines(bars) {
+    var p = {}; B.forEach(function (b) { p[b.id] = b.id; });
+    function find(x) { while (p[x] !== x) { p[x] = p[p[x]]; x = p[x]; } return x; }
+    bars.forEach(function (b) { p[find(b[0])] = find(b[1]); });
+    var out = {}; B.forEach(function (b) { out[b.id] = find(b.id); });
+    return out;
+  }
+
+  /**
+   * Nœuds atteignables depuis `depart` en traversant les enroulements.
+   *
+   * La matrice de conductance ne doit porter QUE sur cette composante : montée sur les six
+   * bornes, elle est singulière dès qu'un enroulement flotte (barrettes retirées, V et W ne
+   * touchent rien), et l'élimination échoue alors même que le circuit mesuré, lui, est bon.
+   */
+  function composante(f, depart) {
+    var vus = [depart], pile = [depart];
+    while (pile.length) {
+      var n = pile.pop();
+      ENR.forEach(function (e) {
+        var x = f[e[0]], y = f[e[1]];
+        if (x === n && vus.indexOf(y) < 0) { vus.push(y); pile.push(y); }
+        if (y === n && vus.indexOf(x) < 0) { vus.push(x); pile.push(x); }
+      });
+    }
+    return vus;
+  }
+
+  /** Résistance entre deux bornes : méthode des nœuds, 1 A injecté, potentiel de b nul. */
+  function ohms(bars, a, b) {
+    var f = racines(bars);
+    if (f[a] === f[b]) return 0;
+
+    var noeuds = composante(f, f[a]);
+    if (noeuds.indexOf(f[b]) < 0) return null;   // OL : aucun chemin
+    var idx = {}; noeuds.forEach(function (n, i) { idx[n] = i; });
+    var n = noeuds.length;
+
+    var G = [], I = [];
+    for (var i = 0; i < n; i++) { G.push(new Array(n).fill(0)); I.push(0); }
+    ENR.forEach(function (e) {
+      var x = idx[f[e[0]]], y = idx[f[e[1]]];
+      if (x === undefined || y === undefined || x === y) return;
+      var g = 1 / R;
+      G[x][x] += g; G[y][y] += g; G[x][y] -= g; G[y][x] -= g;
+    });
+    I[idx[f[a]]] = 1; I[idx[f[b]]] = -1;
+
+    // on ancre le potentiel du nœud b à 0 en retirant sa ligne et sa colonne
+    var ref = idx[f[b]];
+    var m = [], rhs = [], carte = [];
+    for (var r = 0; r < n; r++) {
+      if (r === ref) continue;
+      var ligne = [];
+      for (var c = 0; c < n; c++) if (c !== ref) ligne.push(G[r][c]);
+      m.push(ligne); rhs.push(I[r]); carte.push(r);
+    }
+    var v = gauss(m, rhs);
+    if (!v) return null;
+    var ia = carte.indexOf(idx[f[a]]);
+    return ia < 0 ? 0 : Math.round(v[ia] * 100) / 100;
+  }
+
+  /** Élimination de Gauss avec pivot partiel. */
+  function gauss(A, b) {
+    var n = b.length;
+    for (var i = 0; i < n; i++) {
+      var piv = i;
+      for (var r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[piv][i])) piv = r;
+      if (Math.abs(A[piv][i]) < 1e-12) return null;
+      var t = A[i]; A[i] = A[piv]; A[piv] = t;
+      var tb = b[i]; b[i] = b[piv]; b[piv] = tb;
+      for (var r2 = i + 1; r2 < n; r2++) {
+        var k = A[r2][i] / A[i][i];
+        for (var c = i; c < n; c++) A[r2][c] -= k * A[i][c];
+        b[r2] -= k * b[i];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (var i2 = n - 1; i2 >= 0; i2--) {
+      var s = b[i2];
+      for (var c2 = i2 + 1; c2 < n; c2++) s -= A[i2][c2] * x[c2];
+      x[i2] = s / A[i2][i2];
+    }
+    return x;
+  }
+
+  /* ------------------------------------------------------------- rendu */
+
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(n, at) { var e = document.createElementNS(NS, n); for (var k in at) e.setAttribute(k, at[k]); return e; }
+  function vide(g) { while (g.firstChild) g.removeChild(g.firstChild); }
+
+  var gBornes = document.getElementById('bornes');
+  var gBar = document.getElementById('barrettes');
+  var gEnr = document.getElementById('enrs');
+  var gChem = document.getElementById('chemins');
+
+  // enroulements dessinés derrière la plaque, en pointillé
+  ENR.forEach(function (e) {
+    var a = POS[e[0]], b = POS[e[1]];
+    gEnr.appendChild(el('path', {
+      d: 'M' + a.x + ' ' + a.y + ' C ' + (a.x - 26) + ' ' + (a.y - 22) + ', ' + (b.x - 26) + ' ' + (b.y + 22) + ', ' + b.x + ' ' + b.y,
+      class: 'enr', 'stroke-dasharray': '4 3'
+    }));
+  });
+
+  B.forEach(function (b) {
+    var g = el('g', { class: 'borne', 'data-id': b.id, tabindex: '0', role: 'button' });
+    g.appendChild(el('rect', { x: b.x - 21, y: b.y - 17, width: 42, height: 34, class: 'cage' }));
+    g.appendChild(el('circle', { cx: b.x, cy: b.y - 3, r: 8, class: 'vis' }));
+    var t = el('text', { x: b.x, y: b.y + 14, class: 'rep' });
+    t.textContent = b.id; g.appendChild(t);
+    var ti = el('title', {}); ti.textContent = 'Borne ' + b.id; g.appendChild(ti);
+    g.addEventListener('click', function () { poser(b.id); });
+    g.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); poser(b.id); }
+    });
+    gBornes.appendChild(g);
+  });
+
+  function poser(id) {
+    if (pr === id) { pr = pk; pk = null; }
+    else if (pk === id) { pk = null; }
+    else if (pr === null) { pr = id; }
+    else if (pk === null) { pk = id; }
+    else { pr = id; pk = null; }
+    rendu();
+  }
+
+  function rendu() {
+    var c = COUPL[etat];
+
+    vide(gBar);
+    c.bars.forEach(function (b) {
+      var a = POS[b[0]], z = POS[b[1]];
+      var x1 = Math.min(a.x, z.x), y1 = Math.min(a.y, z.y);
+      var w = Math.abs(a.x - z.x), h = Math.abs(a.y - z.y);
+      gBar.appendChild(el('rect', {
+        x: x1 - 7, y: y1 - 7, width: w + 14, height: h + 14, class: 'barrette'
+      }));
+    });
+    // les vis repassent au-dessus des barrettes
+    gBornes.parentNode.appendChild(gBornes);
+
+    document.getElementById('etat').textContent = c.txt;
+    B.forEach(function (b) {
+      var g = gBornes.querySelector('[data-id="' + b.id + '"]');
+      g.setAttribute('data-p', pr === b.id ? 'r' : pk === b.id ? 'k' : '');
+    });
+
+    document.getElementById('pr').textContent = pr || '—';
+    document.getElementById('pk').textContent = pk || '—';
+
+    vide(gChem);
+    var val = document.getElementById('val');
+    var unit = document.getElementById('unit');
+    var expl = document.getElementById('expl');
+
+    if (!pr || !pk) {
+      val.textContent = '----';
+      unit.textContent = 'pose les deux pointes';
+      expl.textContent = pr
+        ? 'Pointe rouge sur ' + pr + '. Clique une seconde borne pour la pointe noire.'
+        : 'Clique une première borne : elle prend la pointe rouge. Clique une seconde : la pointe noire.';
+      return;
+    }
+
+    var o = ohms(c.bars, pr, pk);
+    var f = racines(c.bars);
+
+    if (o === null) {
+      val.textContent = 'OL';
+      unit.textContent = 'Ω · circuit ouvert';
+      expl.innerHTML = '<b>Aucun chemin entre ' + pr + ' et ' + pk + '.</b> Ces deux bornes appartiennent à '
+        + 'des enroulements différents, et aucune barrette ne les relie. L\'ohmmètre affiche OL : c\'est '
+        + 'le résultat normal, pas une panne.';
+      return;
+    }
+
+    val.textContent = o.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    unit.textContent = 'Ω';
+
+    var enr = ENR.filter(function (e) {
+      return (e[0] === pr && e[1] === pk) || (e[1] === pr && e[0] === pk);
+    })[0];
+
+    var txt;
+    if (f[pr] === f[pk]) {
+      txt = '<b>Barrette directe.</b> ' + pr + ' et ' + pk + ' sont pontées : l\'ohmmètre ne voit que '
+        + 'le cuivre de la barrette, donc zéro.';
+    } else if (enr) {
+      txt = '<b>Un seul enroulement.</b> ' + pr + ' et ' + pk + ' sont les deux extrémités du même '
+        + 'bobinage : c\'est la mesure de contrôle qu\'on demande à l\'élève.';
+    } else {
+      var n = Math.round((o / R) * 100) / 100;
+      txt = '<b>Plusieurs enroulements.</b> Le courant traverse le réseau formé par les barrettes ; '
+        + 'la lecture vaut ' + n.toString().replace('.', ',') + ' × R.';
+    }
+    expl.innerHTML = txt + '<span class="calc">R d\'un enroulement = 7,5 % × 400 / (√3 × 2,6) = '
+      + R.toString().replace('.', ',') + ' Ω</span>';
+  }
+
+  function couplage(k) {
+    etat = k;
+    ['none', 'y', 'd'].forEach(function (x) {
+      document.getElementById('c-' + x).setAttribute('aria-pressed', x === k ? 'true' : 'false');
+    });
+    rendu();
+  }
+  document.getElementById('c-none').addEventListener('click', function () { couplage('none'); });
+  document.getElementById('c-y').addEventListener('click', function () { couplage('y'); });
+  document.getElementById('c-d').addEventListener('click', function () { couplage('d'); });
+  document.getElementById('raz').addEventListener('click', function () { pr = null; pk = null; rendu(); });
+
+  // à l'ouverture : la mesure qui pose problème, barrettes retirées
+  pr = 'U1'; pk = 'W2';
+  rendu();
+}());
+</script>

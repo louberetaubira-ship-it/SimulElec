@@ -1,0 +1,399 @@
+<title>Repères des consignes</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --app: #F2F4F6; --surface: #FFFFFF; --surface-2: #EDF0F3; --line: #D3D9E1;
+    --ink: #141A21; --muted: #66717F; --accent: #E39A00;
+    --good: #1E9E63; --crit: #D93A3A;
+    --title: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+      --ink: #E7ECF2; --muted: #8F9BA8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+    --ink: #E7ECF2; --muted: #8F9BA8;
+  }
+
+  body {
+    margin: 0; padding-block: 28px 56px; padding-left: 20px; padding-right: 20px;
+    background: var(--app); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: var(--title); font-weight: 600; font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.04; margin: 6px 0 0; text-wrap: balance;
+  }
+  h2 { font-family: var(--title); font-weight: 600; font-size: 25px; margin: 0 0 10px; }
+  h3 { font-family: var(--title); font-weight: 600; font-size: 19px; margin: 0; }
+  p { margin: 0; }
+  .lede { max-width: 68ch; margin-top: 12px; }
+
+  .constat {
+    border-left: 3px solid var(--crit); background: var(--surface);
+    padding: 14px 18px; border-radius: 0 12px 12px 0; max-width: 74ch;
+  }
+  .constat b { color: var(--crit); }
+
+  /* -------------------------------------------------------- démonstration */
+
+  .demo { display: flex; flex-direction: column; gap: 12px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .seg .lbl {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin-right: 4px;
+  }
+  .seg button {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 12px;
+    min-height: 36px; border-radius: 9px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #1A1300; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .paire { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .volet {
+    border: 1px solid var(--line); border-radius: 13px; background: var(--surface);
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .volet .hd {
+    display: flex; align-items: baseline; gap: 8px; padding: 9px 13px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .volet.avant .hd { color: var(--crit); }
+  .volet.apres .hd { color: var(--good); }
+  .volet .hd em { font-style: normal; letter-spacing: 0; text-transform: none; color: var(--muted); font-size: 11.5px; }
+  .volet .bd { padding: 12px 13px; display: flex; flex-direction: column; gap: 11px; }
+
+  .etape { display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px; }
+  .etape .n {
+    flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--surface-2); font-family: var(--mono); font-size: 10.5px; font-weight: 600;
+    color: var(--muted); margin-top: 1px;
+  }
+  .etape .t { min-width: 0; }
+  .etape .st {
+    display: block; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 2px;
+  }
+  mark {
+    background: rgba(217, 58, 58, .16); color: var(--crit);
+    font-weight: 600; padding: 0 3px; border-radius: 3px;
+  }
+  .apres mark { background: rgba(30, 158, 99, .16); color: var(--good); }
+
+  /* la platine, réduite à ses repères */
+  .rail {
+    display: flex; gap: 7px; flex-wrap: wrap; padding: 11px 13px;
+    border-top: 1px solid var(--line); background: var(--surface-2);
+  }
+  .rail .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); width: 100%;
+  }
+  .app {
+    font-family: var(--title); font-size: 15px; font-weight: 700;
+    border: 1px solid #9AA3AD; background: #FFFFFF; color: #141A21;
+    border-radius: 4px; padding: 5px 11px; min-width: 42px; text-align: center;
+  }
+  .app[data-porte="1"] { border-style: dashed; }
+
+  /* ---------------------------------------------------------- inventaire */
+
+  .tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 640px; }
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th { font-weight: 600; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+  td code, th code { font-family: var(--mono); font-size: 11.5px; }
+  td.q { white-space: nowrap; font-family: var(--mono); font-size: 11.5px; }
+
+  .cols { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 14px 15px; display: flex; flex-direction: column; gap: 7px;
+  }
+  .card p { font-size: 13.5px; color: var(--muted); }
+  .card p b { color: var(--ink); font-weight: 600; }
+
+  .ask { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; max-width: 72ch; color: var(--muted); }
+  .ask b { color: var(--ink); }
+  .ask ul { margin: 8px 0 0; padding-left: 18px; }
+  .ask li { margin-bottom: 5px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">SimulElec · cohérence · repères</p>
+    <h1>Repères des consignes</h1>
+    <p class="lede constat">
+      <b>L'élève lit un repère qui n'est pas sur sa platine.</b> La consigne dit « referme Q1, F2 puis
+      F3 » ; la perceuse radiale porte Q1, Q2, Q3. Même chose pour le bouton de marche : la consigne
+      dit S2, le coffret porte S4. Ce n'est pas un texte à rectifier — c'est un repère écrit en dur
+      dans du code partagé par tous les TP.
+    </p>
+  </header>
+
+  <section class="demo">
+    <h2>La même consigne, sur les deux platines</h2>
+    <p style="max-width:68ch; color:var(--muted); margin-bottom:4px">
+      Change de TP : à gauche ce que l'élève lit aujourd'hui, à droite ce qu'il lira. La platine
+      rappelée en bas de chaque volet est celle du TP choisi.
+    </p>
+
+    <div class="seg" role="group" aria-label="TP affiché">
+      <span class="lbl">TP</span>
+      <button type="button" id="t-dd" aria-pressed="false">Démarrage direct</button>
+      <button type="button" id="t-pr" aria-pressed="true">Perceuse radiale</button>
+    </div>
+
+    <div class="paire">
+      <div class="volet avant">
+        <div class="hd">Aujourd'hui <em>— repères écrits en dur</em></div>
+        <div class="bd" id="bd-avant"></div>
+        <div class="rail" id="rail-avant"></div>
+      </div>
+      <div class="volet apres">
+        <div class="hd">Proposé <em>— repères lus sur le TP</em></div>
+        <div class="bd" id="bd-apres"></div>
+        <div class="rail" id="rail-apres"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Pourquoi ça arrive</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Identifiant n'est pas repère</h3>
+        <p>
+          Le simulateur nomme ses appareils <code>q1</code>, <code>f2</code>, <code>f3</code> —
+          des identifiants internes, stables d'un TP à l'autre. Le <b>repère</b>, lui, est ce qui
+          est écrit sur l'appareil : <code>F2</code> sur le démarrage direct, <code>Q2</code> sur la
+          perceuse. Les textes ont pris l'identifiant pour le repère.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Le premier TP a servi de modèle</h3>
+        <p>
+          Ces phrases ont été écrites quand il n'existait qu'un seul TP. Elles étaient justes. Le
+          deuxième TP les a rendues fausses sans que rien ne le signale : <b>aucun contrôle ne
+          comparait les textes à la platine</b>.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Les textes du TP, eux, sont bons</h3>
+        <p>
+          J'ai passé les deux TP au crible : énoncé, cahier des charges, postes, tests, mesures,
+          pannes, quiz. <b>Aucun repère inconnu.</b> Tout ce qui cloche vient des textes de
+          l'application, pas des données du TP.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Les sept endroits à corriger</h2>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>Où</th><th>Ce que lit l'élève aujourd'hui</th><th>Repères en cause</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Consignes de déconsignation</b><br><code>Deconsignation.tsx</code></td>
+            <td>« referme Q1, F2 puis F3 » · l'état « Q1 fermé · F2 fermé · F3 fermé » · « appuie sur S2 (bouton vert) »</td>
+            <td class="q">F2 F3 S2</td>
+          </tr>
+          <tr>
+            <td><b>Ligne d'aide de l'étape</b><br><code>MesureStage.tsx</code></td>
+            <td>« Referme Q1, F2 puis F3 en les cliquant. »</td>
+            <td class="q">F2 F3</td>
+          </tr>
+          <tr>
+            <td><b>Liste des étapes</b><br><code>progress.ts</code></td>
+            <td>« Refermer Q1, F2 puis F3 » · « Essai : S2 → KM1 s'enclenche et H1 s'allume »</td>
+            <td class="q">F2 F3 S2</td>
+          </tr>
+          <tr>
+            <td><b>Résumé de la consignation</b><br><code>mesures.ts</code></td>
+            <td>« fermeture de Q1, F2, F3, essai »</td>
+            <td class="q">F2 F3</td>
+          </tr>
+          <tr>
+            <td><b>Journal de l'élève</b><br><code>store.ts</code></td>
+            <td>« Séparation : Q1 ouvert, F2 et F3 retombent avec lui. » · « Q1, F2 et F3 refermés »</td>
+            <td class="q">F2 F3</td>
+          </tr>
+          <tr>
+            <td><b>Contexte du professeur virtuel</b><br><code>context.ts</code></td>
+            <td>L'état du montage et deux réponses de secours citent F2, F3, S1, S2</td>
+            <td class="q">F2 F3 S1 S2</td>
+          </tr>
+          <tr>
+            <td><b>Fiches de rappel de cours</b><br><code>cours.ts</code></td>
+            <td>Procédures et boucles de commande : « Q1 → F2 → F3 », « S1 (NF) → S2 (NO) », « sur X2:1 à X2:4 »</td>
+            <td class="q">F2 F3 S1 S2 X2</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:12px; max-width:70ch; color:var(--muted); font-size:13.5px">
+      Le bornier de commande mérite une mention : le démarrage direct l'appelle <code>X2</code>,
+      la perceuse <code>XC</code>. La fiche de cours sur le repérage envoie donc l'élève de la
+      perceuse chercher un bornier qui n'existe pas chez lui.
+    </p>
+  </section>
+
+  <section>
+    <h2>Comment je corrige</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Une fonction, pas une constante</h3>
+        <p>
+          Chaque texte demandera son repère au TP : <code>repere(tp, 'f2')</code> rend
+          <b>F2</b> ou <b>Q2</b> selon la platine. Pour les boutons, les fonctions
+          <code>startButtons</code> et <code>stopButtons</code> existent déjà et savent que la
+          marche est S2 ici, S4 là.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Les fiches de cours se neutralisent</h3>
+        <p>
+          Une fiche de cours n'est pas la description d'une platine : elle dira <b>« la protection
+          du primaire »</b>, <b>« le bouton marche »</b>, <b>« le bornier de commande »</b>. Les
+          exemples chiffrés de mesure gardent leurs repères, présentés comme un montage type.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Un contrôle qui refuse la récidive</h3>
+        <p>
+          <code>scripts/audit-reperes.ts</code> existe déjà et passe les données des TP. Je
+          l'étends aux <b>fichiers d'interface</b> : tout repère écrit en dur dans une phrase
+          destinée à l'élève fera échouer le contrôle.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="ask">
+    <b>Deux arbitrages avant que je code.</b>
+    <ul>
+      <li>
+        <b>Les fiches de cours.</b> Je propose de neutraliser les procédures (« la protection du
+        primaire » au lieu de « F2 »). L'autre option est de garder les repères et d'ajouter en
+        tête de fiche « exemple sur le montage de référence ». Plus court à faire, mais l'élève
+        de la perceuse devra transposer lui-même.
+      </li>
+      <li>
+        <b>Le vocabulaire.</b> Sur la perceuse, Q2 et Q3 sont des disjoncteurs, pas des
+        porte-fusibles. Les textes disent encore « les protections ». Je peux écrire
+        « la protection du primaire » partout, neutre et juste pour les deux TP — ou nommer
+        l'appareil réel de chaque TP. Dis-moi ce qui parle le mieux à tes élèves.
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* Les deux TP, tels qu'ils sont définis dans le simulateur. */
+  var TP = {
+    dd: {
+      nom: 'Démarrage direct un sens de marche',
+      rep: { q1: 'Q1', f2: 'F2', f3: 'F3', km1: 'KM1', f1: 'F1', t1: 'T1' },
+      marche: 'S2', arret: 'S1', voyant: 'H1', bornier: 'X2',
+      platine: ['Q1', 'KM1', 'F1', 'F2', 'T1', 'F3'],
+      porte: ['H1', 'H2', 'S2', 'S1']
+    },
+    pr: {
+      nom: 'Perceuse radiale · démarrage direct',
+      rep: { q1: 'Q1', f2: 'Q2', f3: 'Q3', km1: 'KM1', f1: 'F1', t1: 'T1' },
+      marche: 'S4', arret: 'S2', voyant: 'H1', bornier: 'XC',
+      platine: ['Q1', 'Q2', 'Q3', 'T1', 'KM1', 'F1'],
+      porte: ['H1', 'S2', 'S3', 'S4', 'S1']
+    }
+  };
+
+  /* Ce que l'application écrit aujourd'hui : les repères du premier TP, en dur. */
+  var DUR = TP.dd;
+
+  var courant = 'pr';
+
+  function etapes(t, dur) {
+    var r = dur ? DUR : t;
+    var m = function (s) { return '<mark>' + s + '</mark>'; };
+    return [
+      {
+        n: '1',
+        t: '<b>Retirer les pointes, l\'étiquette et le cadenas</b> de ' + t.rep.q1 + '.',
+        st: null
+      },
+      {
+        n: '2',
+        t: '<b>Remise sous tension</b> — referme ' + t.rep.q1 + ', ' + m(r.rep.f2) + ' puis '
+          + m(r.rep.f3) + ' en les cliquant sur la platine.',
+        st: t.rep.q1 + ' fermé · ' + m(r.rep.f2) + ' fermé · ' + m(r.rep.f3) + ' fermé'
+      },
+      {
+        n: '3',
+        t: '<b>Essai de fonctionnement</b> — appuie sur ' + m(r.marche)
+          + ' (bouton vert en porte) : ' + t.rep.km1 + ' s\'enclenche, ' + t.voyant + ' s\'allume.',
+        st: null
+      }
+    ];
+  }
+
+  function rendreVolet(id, t, dur) {
+    var bd = document.getElementById('bd-' + id);
+    bd.innerHTML = '';
+    etapes(t, dur).forEach(function (e) {
+      var d = document.createElement('div');
+      d.className = 'etape';
+      d.innerHTML = '<span class="n">' + e.n + '</span><span class="t">' + e.t
+        + (e.st ? '<span class="st">' + e.st + '</span>' : '') + '</span>';
+      bd.appendChild(d);
+    });
+
+    var rail = document.getElementById('rail-' + id);
+    rail.innerHTML = '<span class="k">Platine de ce TP · coffret de porte en pointillé</span>';
+    t.platine.forEach(function (r) {
+      var s = document.createElement('span');
+      s.className = 'app'; s.textContent = r;
+      rail.appendChild(s);
+    });
+    t.porte.forEach(function (r) {
+      var s = document.createElement('span');
+      s.className = 'app'; s.setAttribute('data-porte', '1'); s.textContent = r;
+      rail.appendChild(s);
+    });
+  }
+
+  function rendre() {
+    var t = TP[courant];
+    rendreVolet('avant', t, true);
+    rendreVolet('apres', t, false);
+    document.getElementById('t-dd').setAttribute('aria-pressed', courant === 'dd' ? 'true' : 'false');
+    document.getElementById('t-pr').setAttribute('aria-pressed', courant === 'pr' ? 'true' : 'false');
+  }
+
+  document.getElementById('t-dd').addEventListener('click', function () { courant = 'dd'; rendre(); });
+  document.getElementById('t-pr').addEventListener('click', function () { courant = 'pr'; rendre(); });
+
+  rendre();
+}());
+</script>

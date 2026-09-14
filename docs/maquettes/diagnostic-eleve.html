@@ -1,0 +1,724 @@
+<title>Dépannage à l'instrument</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --app: #F2F4F6; --surface: #FFFFFF; --surface-2: #EDF0F3; --line: #D3D9E1;
+    --ink: #141A21; --muted: #66717F; --accent: #E39A00;
+    --good: #1E9E63; --crit: #D93A3A; --warn: #D97706;
+    --title: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+      --ink: #E7ECF2; --muted: #8F9BA8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+    --ink: #E7ECF2; --muted: #8F9BA8;
+  }
+
+  body {
+    margin: 0; padding-block: 28px 56px; padding-left: 20px; padding-right: 20px;
+    background: var(--app); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: var(--title); font-weight: 600; font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.04; margin: 6px 0 0; text-wrap: balance;
+  }
+  h2 { font-family: var(--title); font-weight: 600; font-size: 25px; margin: 0 0 10px; }
+  h3 { font-family: var(--title); font-weight: 600; font-size: 18px; margin: 0; }
+  p { margin: 0; }
+  .lede { max-width: 70ch; margin-top: 12px; color: var(--muted); }
+  .lede b { color: var(--ink); }
+
+  /* ------------------------------------------------------------- l'écran */
+
+  .ecran {
+    border: 1px solid var(--line); border-radius: 15px; overflow: hidden;
+    background: var(--surface); box-shadow: 0 16px 36px rgba(16, 22, 30, .12);
+  }
+  .barre {
+    display: flex; flex-wrap: wrap; gap: 7px; align-items: center;
+    padding: 9px 13px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+  }
+  .barre .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); margin-right: 3px;
+  }
+  .barre button, .cal button, .etatbar button {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: 12px; font-weight: 600; min-height: 34px;
+    padding: 5px 11px; border-radius: 9px; cursor: pointer;
+  }
+  .barre button[aria-pressed="true"], .cal button[aria-pressed="true"] {
+    background: var(--accent); border-color: var(--accent); color: #1A1300;
+  }
+  .etatbar button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--app); }
+  .barre button:focus-visible, .cal button:focus-visible, .etatbar button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+
+  .corps { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); }
+  @media (max-width: 900px) { .corps { grid-template-columns: minmax(0, 1fr); } }
+  .col { padding: 13px; display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+  .col + .col { border-left: 1px solid var(--line); }
+  @media (max-width: 900px) { .col + .col { border-left: 0; border-top: 1px solid var(--line); } }
+
+  .etatbar { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+  .etatbar .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  /* la platine schématique */
+  .platine {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2);
+    padding: 11px; overflow-x: auto;
+  }
+  svg { width: 100%; min-width: 480px; height: auto; display: block; }
+  .app { fill: #F6F8FA; stroke: #9AA3AD; stroke-width: 1.4; rx: 4; }
+  .rep { font-family: var(--title); font-size: 13px; font-weight: 700; fill: #141A21; text-anchor: middle; }
+  .sub { font-family: var(--mono); font-size: 7.5px; fill: #66717F; text-anchor: middle; }
+  .pt { cursor: pointer; }
+  .pt .vis { fill: #E3C766; stroke: #8A6F1E; stroke-width: 1.2; }
+  .pt:hover .vis { fill: var(--accent); }
+  .pt[data-p="r"] .vis { fill: #D93A3A; stroke: #7C1F1F; }
+  .pt[data-p="k"] .vis { fill: #20262D; stroke: #000; }
+  .pt .lb { font-family: var(--mono); font-size: 7.5px; fill: #20262D; text-anchor: middle; }
+  .lien { stroke: #E4312B; stroke-width: 2; fill: none; }
+  .lien.coupe { stroke-dasharray: 3 3; opacity: .35; }
+
+  /* l'appareil */
+  .appareil {
+    border: 1px solid var(--line); border-radius: 13px; background: #E8EDE3;
+    padding: 12px 14px; color: #1B2118;
+  }
+  .appareil .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: #4C5647;
+  }
+  .appareil .v {
+    font-family: var(--mono); font-size: 32px; font-weight: 600; line-height: 1.12;
+    font-variant-numeric: tabular-nums;
+  }
+  .appareil .u { font-family: var(--mono); font-size: 12.5px; color: #4C5647; }
+  .appareil[data-bad="1"] { background: #F6E3E3; color: #5A1E1E; }
+  .appareil[data-bad="1"] .u, .appareil[data-bad="1"] .k { color: #7C2B2B; }
+
+  .cal { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pointes {
+    display: flex; flex-wrap: wrap; gap: 9px; align-items: center;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .pointes i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .pointes .r { background: #D93A3A; } .pointes .k { background: #20262D; }
+  .pointes button { margin-left: auto; }
+
+  .journal { border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+  .journal .hd {
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .journal ol {
+    margin: 0; padding: 8px 12px 10px 28px; display: flex; flex-direction: column; gap: 4px;
+    font-family: var(--mono); font-size: 11px; max-height: 170px; overflow-y: auto;
+  }
+  .journal .vide { padding: 11px 12px; font-size: 12.5px; color: var(--muted); }
+
+  .concl { border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 12px 13px; }
+  .concl h3 { margin-bottom: 8px; }
+  .concl label {
+    display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin: 9px 0 4px;
+  }
+  .concl select {
+    width: 100%; min-height: 38px; padding: 7px 9px; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: 13px;
+  }
+  .concl select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .valider {
+    margin-top: 11px; width: 100%; border: 0; border-radius: 10px; min-height: 42px;
+    font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+    background: var(--accent); color: #1A1300;
+  }
+  .valider:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+
+  .retour { margin-top: 10px; border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+  .retour[data-r="ok"] { border: 1px solid var(--good); background: rgba(30, 158, 99, .1); }
+  .retour[data-r="ko"] { border: 1px solid var(--crit); background: rgba(217, 58, 58, .08); }
+  .retour b { font-weight: 600; }
+
+  /* ------------------------------------------------------------- texte */
+  .cols { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 14px 15px; display: flex; flex-direction: column; gap: 7px;
+  }
+  .card p { font-size: 13.5px; color: var(--muted); }
+  .card p b { color: var(--ink); font-weight: 600; }
+  code { font-family: var(--mono); font-size: 12.5px; }
+  .ask { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; max-width: 72ch; color: var(--muted); }
+  .ask b { color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">SimulElec · proposition · étape maintenance</p>
+    <h1>Dépannage à l'instrument</h1>
+    <p class="lede">
+      Aucun test tout prêt, aucun bouton qui mesure à la place de l'élève. Il <b>choisit son
+      appareil</b>, <b>son calibre</b>, <b>pose ses deux pointes</b> où il veut sur la platine, lit,
+      note. Puis il conclut seul : la cause, et l'action de remise en état. Le simulateur ne juge
+      que le résultat — et compte les mesures.
+    </p>
+  </header>
+
+  <section>
+    <div class="ecran">
+      <div class="barre">
+        <span class="k">Appareils</span>
+        <button type="button" id="i-mm" aria-pressed="true">Multimètre TRMS</button>
+        <button type="button" id="i-pince" aria-pressed="false">Pince ampèremétrique</button>
+        <button type="button" id="i-ctrl" aria-pressed="false">Contrôleur d'installation</button>
+        <span style="margin-left:auto; font-size:11.5px; color:var(--muted)">Étape 11 · Maintenance</span>
+      </div>
+
+      <div class="corps">
+        <div class="col">
+          <div class="etatbar">
+            <span class="k">Installation</span>
+            <button type="button" id="e-on" aria-pressed="true">Sous tension</button>
+            <button type="button" id="e-off" aria-pressed="false">Consignée</button>
+            <span class="k" style="margin-left:8px">Bouton</span>
+            <button type="button" id="e-s4" aria-pressed="false">Maintenir S4 appuyé</button>
+          </div>
+
+          <div class="platine">
+            <svg id="pl" viewBox="0 0 700 330" role="img"
+              aria-label="Points de mesure du circuit de commande">
+              <g id="appareils"></g>
+              <g id="liens"></g>
+              <g id="points"></g>
+            </svg>
+          </div>
+
+          <p style="font-size:12.5px; color:var(--muted)">
+            Clique une borne pour la pointe rouge, une seconde pour la noire. L'ohmmètre refuse de
+            mesurer sous tension, comme un vrai appareil.
+          </p>
+        </div>
+
+        <div class="col">
+          <div class="appareil" id="app" data-bad="0">
+            <div class="k" id="a-nom">Multimètre TRMS · V~</div>
+            <div class="v" id="a-val">----</div>
+            <div class="u" id="a-unite">pose les deux pointes</div>
+          </div>
+
+          <div class="cal">
+            <span class="k" style="font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)">Calibre</span>
+            <button type="button" data-dial="V~" aria-pressed="true">V~</button>
+            <button type="button" data-dial="Ω" aria-pressed="false">Ω</button>
+            <button type="button" data-dial="•)))" aria-pressed="false">•)))</button>
+            <button type="button" data-dial="OFF" aria-pressed="false">OFF</button>
+          </div>
+
+          <div class="pointes">
+            <span><i class="r"></i> <b id="p-r">—</b></span>
+            <span><i class="k"></i> <b id="p-k">—</b></span>
+            <button type="button" id="noter">Noter cette lecture</button>
+          </div>
+
+          <div class="journal">
+            <div class="hd"><span>Journal des mesures</span><span id="j-n">0</span></div>
+            <div class="vide" id="j-vide">Aucune mesure notée.</div>
+            <ol id="j-liste" hidden></ol>
+          </div>
+
+          <div class="concl">
+            <h3>Ma conclusion</h3>
+            <label for="cause">Cause retenue</label>
+            <select id="cause">
+              <option value="">— choisis —</option>
+            </select>
+            <label for="repar">Action de remise en état</label>
+            <select id="repar">
+              <option value="">— choisis —</option>
+            </select>
+            <button type="button" class="valider" id="valider" disabled>Valider mon diagnostic</button>
+            <div id="retour"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce que le simulateur fait, et ce qu'il ne fait pas</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Il calcule, il ne raconte pas</h3>
+        <p>
+          Chaque lecture sort d'une résolution du circuit de commande réel — 24 V au secondaire,
+          la chaîne d'arrêt, l'auto-maintien, la bobine. <b>Aucune valeur n'est écrite d'avance.</b>
+          Change la panne, change l'état des boutons : les lectures suivent.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Il refuse ce qu'un appareil refuse</h3>
+        <p>
+          L'ohmmètre sous tension affiche <code>ERR</code> et ne mesure pas. Le contrôleur
+          d'isolement non plus. <b>L'élève doit consigner avant de mesurer en continuité</b> —
+          la règle de sécurité devient une contrainte du jeu, pas une phrase à lire.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Il ne souffle aucune hypothèse</h3>
+        <p>
+          Pas de liste de tests, pas de bouton « faire ce test ». L'élève décide où poser ses
+          pointes. Les causes possibles ne servent qu'à <b>formuler la conclusion</b>, une fois
+          le travail fait.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Il compte</h3>
+        <p>
+          Le journal garde chaque lecture notée. Le rapport dira <b>en combien de mesures</b> la
+          cause a été trouvée, et si la remise en état proposée était la bonne. Deux critères
+          objectifs, aucun tirage au sort.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="ask">
+    <b>Essaie avant de valider.</b> La panne injectée ici est réelle et cachée : à toi de la
+    trouver comme le ferait un élève. Un conseil de méthode si tu veux tester le comportement :
+    commence sous tension, mesure entre <code>XC:1</code> et <code>XC:7</code> pour savoir si la
+    commande est alimentée, puis descends la chaîne borne par borne. Dis-moi ensuite ce que tu
+    veux ajuster — le nombre de points de mesure offerts, la liste des actions de remise en état,
+    ou le fait de pouvoir valider sans avoir noté aucune mesure.
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------- circuit
+   *
+   * Le circuit de commande du TP, nœud par nœud. Chaque arête porte une résistance : un fil
+   * quelques centièmes d'ohm, un contact fermé un peu moins, la bobine de KM1 environ 150 Ω,
+   * le voyant beaucoup plus. Un contact ouvert n'est simplement pas une arête.
+   */
+  var R_FIL = 0.08, R_CONT = 0.04, R_BOB = 150, R_LAMPE = 2400, R_SEC = 2;
+
+  var PANNES = [
+    { id: 'a2', titre: 'Fil A2 de la bobine KM1 desserré', coupe: 'A2-XC7',
+      fix: 'Resserrer A2 et refaire la continuité A2 – XC:7.' },
+    { id: 's1', titre: 'Contact NF de l\'interrupteur de position S1 resté ouvert', ouvre: 'S1',
+      fix: 'Régler la came de S1, puis remplacer le contact NF à ouverture positive.' },
+    { id: 'l2', titre: 'Phase L2 coupée entre F1 et X1:7', coupe: 'F14-X17',
+      fix: 'Refaire la liaison F1:4 → X1:7 et réarmer F1.' },
+    { id: 'x2', titre: 'Fil XC:6 → KM1 A1 débranché', coupe: 'XC6-A1',
+      fix: 'Reconnecter XC:6 sur A1.' },
+    { id: 'f3', titre: 'Q3 déclenché (défaut sur le 24 V)', ouvre: 'Q3',
+      fix: 'Chercher le défaut d\'isolement du 24 V, puis réarmer Q3.' }
+  ];
+
+  var ACTIONS = [
+    { id: 'a2', txt: 'Resserrer le fil A2 sur la bobine et contrôler la continuité' },
+    { id: 's1', txt: 'Régler la came de S1 et remplacer le contact NF' },
+    { id: 'l2', txt: 'Refaire la liaison de puissance F1:4 → X1:7 et réarmer F1' },
+    { id: 'x2', txt: 'Reconnecter le fil XC:6 sur la borne A1 de KM1' },
+    { id: 'f3', txt: 'Chercher le défaut d\'isolement du 24 V, puis réarmer Q3' },
+    { id: 'rien', txt: 'Remplacer le contacteur KM1' }
+  ];
+
+  /* La panne du jour, tirée au hasard à l'ouverture — comme une panne injectée. */
+  var PANNE = PANNES[Math.floor(Math.random() * 4)];   // on évite l2 en démo : hors commande
+  if (PANNE.id === 'l2') PANNE = PANNES[3];
+
+  /** Arêtes : [nœud, nœud, résistance, condition d'existence]. */
+  function aretes(etat) {
+    var s4 = etat.s4, km1 = false;        // KM1 ne colle pas : c'est la panne
+    var sousT = etat.sousTension;
+    var e = [];
+    function f(a, b, id) { if (PANNE.coupe !== id) e.push([a, b, R_FIL]); }
+    function c(a, b, ferme, id) { if (ferme && PANNE.ouvre !== id) e.push([a, b, R_CONT]); }
+
+    // secondaire du transformateur : toujours présent, même hors tension
+    e.push(['T24', 'T0V', R_SEC]);
+
+    f('T24', 'Q3.1');
+    c('Q3.1', 'Q3.2', true, 'Q3');
+    f('Q3.2', 'XC1');
+    f('Q3.2', 'F1.95');
+    c('F1.95', 'F1.96', true, 'F1');
+    f('F1.96', 'XC2');
+    f('XC2', 'S1.X1');
+    c('S1.X1', 'S1.X2', etat.ecran, 'S1');
+    f('S1.X2', 'XC3');
+    f('XC3', 'XC4');
+    f('XC4', 'S2.21');
+    c('S2.21', 'S2.22', true, 'S2');
+    f('S2.22', 'S3.21');
+    c('S3.21', 'S3.22', true, 'S3');
+    f('S3.22', 'S4.13');
+    f('S3.22', 'XC5');
+    c('S4.13', 'S4.14', s4, 'S4');
+    f('S4.14', 'XC6');
+    f('XC5', 'KM1.13');
+    c('KM1.13', 'KM1.14', km1, 'KM');
+    f('KM1.14', 'KM1.A1');
+    f('XC6', 'KM1.A1', 'XC6-A1');
+    e.push(['KM1.A1', 'KM1.A2', R_BOB]);
+    f('KM1.A2', 'XC7', 'A2-XC7');
+    f('XC7', 'T0V');
+    f('XC1', 'H1.X1');
+    e.push(['H1.X1', 'H1.X2', R_LAMPE]);
+    f('H1.X2', 'XC7');
+    // liaison de puissance, isolée du reste : sert au test de la phase coupée
+    f('F1.4', 'X1.7', 'F14-X17');
+    return e;
+  }
+
+  /* ------------------------------------------------- résolution du réseau */
+
+  function noeuds(e) {
+    var s = [];
+    e.forEach(function (a) { [a[0], a[1]].forEach(function (n) { if (s.indexOf(n) < 0) s.push(n); }); });
+    return s;
+  }
+
+  function gauss(A, b) {
+    var n = b.length;
+    for (var i = 0; i < n; i++) {
+      var p = i;
+      for (var r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      if (Math.abs(A[p][i]) < 1e-12) return null;
+      var t = A[i]; A[i] = A[p]; A[p] = t;
+      var tb = b[i]; b[i] = b[p]; b[p] = tb;
+      for (var r2 = i + 1; r2 < n; r2++) {
+        var k = A[r2][i] / A[i][i];
+        for (var col = i; col < n; col++) A[r2][col] -= k * A[i][col];
+        b[r2] -= k * b[i];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for (var i2 = n - 1; i2 >= 0; i2--) {
+      var sm = b[i2];
+      for (var c2 = i2 + 1; c2 < n; c2++) sm -= A[i2][c2] * x[c2];
+      x[i2] = sm / A[i2][i2];
+    }
+    return x;
+  }
+
+  /** Nœuds atteignables depuis `depart` par les arêtes fournies. */
+  function composante(e, depart) {
+    var vus = [depart], pile = [depart];
+    while (pile.length) {
+      var cur = pile.pop();
+      e.forEach(function (a) {
+        if (a[0] === cur && vus.indexOf(a[1]) < 0) { vus.push(a[1]); pile.push(a[1]); }
+        if (a[1] === cur && vus.indexOf(a[0]) < 0) { vus.push(a[0]); pile.push(a[0]); }
+      });
+    }
+    return vus;
+  }
+
+  /**
+   * Tension lue entre deux bornes, circuit sous tension.
+   *
+   * Le voltmètre est modélisé par sa vraie impédance d'entrée, 10 MΩ entre les deux pointes :
+   * sans elle, une borne que rien n'alimente n'a aucun potentiel défini, la matrice devient
+   * singulière et la résolution échoue — alors qu'un appareil réel, lui, affiche bien quelque
+   * chose. La résolution ne porte ensuite que sur la composante des deux pointes.
+   */
+  function tension(e, a, b) {
+    var ar = e.concat([[a, b, 1e7]]);
+    var comp = composante(ar, a);
+    if (comp.indexOf('T24') < 0 || comp.indexOf('T0V') < 0) return 0;   // îlot sans source
+
+    var idx = {};
+    comp.forEach(function (nn, i) { idx[nn] = i; });
+    var n = comp.length;
+    var G = [], I = [];
+    for (var i = 0; i < n; i++) { G.push(new Array(n).fill(0)); I.push(0); }
+    ar.forEach(function (x) {
+      if (x[0] === 'T24' && x[1] === 'T0V') return;     // la source, pas une charge
+      var p = idx[x[0]], q = idx[x[1]];
+      if (p === undefined || q === undefined || p === q) return;
+      var g = 1 / x[2];
+      G[p][p] += g; G[q][q] += g; G[p][q] -= g; G[q][p] -= g;
+    });
+    [['T24', 24], ['T0V', 0]].forEach(function (s) {
+      var i = idx[s[0]];
+      G[i] = new Array(n).fill(0); G[i][i] = 1; I[i] = s[1];
+    });
+    var v = gauss(G, I);
+    if (!v) return 0;
+    return Math.abs(v[idx[a]] - v[idx[b]]);
+  }
+
+  /** Résistance entre deux nœuds, circuit hors tension. */
+  function resistance(e, a, b) {
+    var ns = noeuds(e), idx = {};
+    ns.forEach(function (n, i) { idx[n] = i; });
+    if (idx[a] === undefined || idx[b] === undefined) return null;
+    // composante connexe contenant a
+    var vus = [idx[a]], pile = [idx[a]];
+    while (pile.length) {
+      var cur = pile.pop();
+      e.forEach(function (ar) {
+        var x = idx[ar[0]], y = idx[ar[1]];
+        if (x === cur && vus.indexOf(y) < 0) { vus.push(y); pile.push(y); }
+        if (y === cur && vus.indexOf(x) < 0) { vus.push(x); pile.push(x); }
+      });
+    }
+    if (vus.indexOf(idx[b]) < 0) return null;
+    var map = {}; vus.forEach(function (v, i) { map[v] = i; });
+    var n = vus.length;
+    var G = [], I = [];
+    for (var i = 0; i < n; i++) { G.push(new Array(n).fill(0)); I.push(0); }
+    e.forEach(function (ar) {
+      var x = map[idx[ar[0]]], y = map[idx[ar[1]]];
+      if (x === undefined || y === undefined || x === y) return;
+      var g = 1 / ar[2];
+      G[x][x] += g; G[y][y] += g; G[x][y] -= g; G[y][x] -= g;
+    });
+    I[map[idx[a]]] = 1; I[map[idx[b]]] = -1;
+    var ref = map[idx[b]], m = [], rhs = [], carte = [];
+    for (var r = 0; r < n; r++) {
+      if (r === ref) continue;
+      var li = [];
+      for (var c = 0; c < n; c++) if (c !== ref) li.push(G[r][c]);
+      m.push(li); rhs.push(I[r]); carte.push(r);
+    }
+    var v2 = gauss(m, rhs);
+    if (!v2) return null;
+    var ia = carte.indexOf(map[idx[a]]);
+    return ia < 0 ? 0 : v2[ia];
+  }
+
+  /* ------------------------------------------------------------- platine */
+
+  var BORNES = [
+    { id: 'T24', app: 'T1', lb: '24', x: 60, y: 60 },
+    { id: 'T0V', app: 'T1', lb: '0V', x: 60, y: 96 },
+    { id: 'Q3.1', app: 'Q3', lb: '1', x: 152, y: 60 },
+    { id: 'Q3.2', app: 'Q3', lb: '2', x: 152, y: 96 },
+    { id: 'F1.95', app: 'F1', lb: '95', x: 244, y: 60 },
+    { id: 'F1.96', app: 'F1', lb: '96', x: 244, y: 96 },
+    { id: 'F1.4', app: 'F1', lb: '4', x: 292, y: 60 },
+    { id: 'X1.7', app: 'X1', lb: '7', x: 292, y: 96 },
+    { id: 'XC1', app: 'XC', lb: '1', x: 400, y: 178 },
+    { id: 'XC2', app: 'XC', lb: '2', x: 444, y: 178 },
+    { id: 'XC3', app: 'XC', lb: '3', x: 488, y: 178 },
+    { id: 'XC4', app: 'XC', lb: '4', x: 532, y: 178 },
+    { id: 'XC5', app: 'XC', lb: '5', x: 576, y: 178 },
+    { id: 'XC6', app: 'XC', lb: '6', x: 620, y: 178 },
+    { id: 'XC7', app: 'XC', lb: '7', x: 664, y: 178 },
+    { id: 'KM1.A1', app: 'KM1', lb: 'A1', x: 76, y: 262 },
+    { id: 'KM1.A2', app: 'KM1', lb: 'A2', x: 120, y: 262 },
+    { id: 'KM1.13', app: 'KM1', lb: '13', x: 164, y: 262 },
+    { id: 'KM1.14', app: 'KM1', lb: '14', x: 208, y: 262 },
+    { id: 'S1.X1', app: 'S1', lb: 'X1', x: 316, y: 262 },
+    { id: 'S1.X2', app: 'S1', lb: 'X2', x: 360, y: 262 },
+    { id: 'S4.13', app: 'S4', lb: '13', x: 452, y: 262 },
+    { id: 'S4.14', app: 'S4', lb: '14', x: 496, y: 262 },
+    { id: 'H1.X1', app: 'H1', lb: 'X1', x: 588, y: 262 },
+    { id: 'H1.X2', app: 'H1', lb: 'X2', x: 632, y: 262 }
+  ];
+
+  var BOITES = [
+    { rep: 'T1', sub: '24 V', x: 30, y: 34, w: 64, h: 90 },
+    { rep: 'Q3', sub: 'commande', x: 122, y: 34, w: 64, h: 90 },
+    { rep: 'F1 · X1', sub: 'thermique', x: 214, y: 34, w: 108, h: 90 },
+    { rep: 'XC · bornier commande', sub: '', x: 374, y: 150, w: 314, h: 56 },
+    { rep: 'KM1', sub: 'contacteur', x: 50, y: 234, w: 184, h: 62 },
+    { rep: 'S1', sub: 'position', x: 292, y: 234, w: 92, h: 62 },
+    { rep: 'S4', sub: 'marche', x: 428, y: 234, w: 92, h: 62 },
+    { rep: 'H1', sub: 'voyant', x: 564, y: 234, w: 92, h: 62 }
+  ];
+
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(n, at) { var e = document.createElementNS(NS, n); for (var k in at) e.setAttribute(k, at[k]); return e; }
+
+  var gApp = document.getElementById('appareils');
+  var gPts = document.getElementById('points');
+
+  BOITES.forEach(function (b) {
+    gApp.appendChild(el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, class: 'app' }));
+    var t = el('text', { x: b.x + b.w / 2, y: b.y + b.h - 20, class: 'rep' });
+    t.textContent = b.rep; gApp.appendChild(t);
+    if (b.sub) {
+      var s = el('text', { x: b.x + b.w / 2, y: b.y + b.h - 8, class: 'sub' });
+      s.textContent = b.sub; gApp.appendChild(s);
+    }
+  });
+
+  var ptEl = {};
+  BORNES.forEach(function (b) {
+    var g = el('g', { class: 'pt', 'data-id': b.id, tabindex: '0', role: 'button' });
+    g.appendChild(el('circle', { cx: b.x, cy: b.y, r: 13, fill: 'transparent' }));
+    g.appendChild(el('circle', { cx: b.x, cy: b.y, r: 6.5, class: 'vis' }));
+    var t = el('text', { x: b.x, y: b.y + 17, class: 'lb' });
+    t.textContent = b.lb; g.appendChild(t);
+    var ti = el('title', {}); ti.textContent = b.app + ' ' + b.lb; g.appendChild(ti);
+    g.addEventListener('click', function () { poser(b.id); });
+    g.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); poser(b.id); }
+    });
+    gPts.appendChild(g);
+    ptEl[b.id] = g;
+  });
+
+  function nomDe(id) {
+    var b = BORNES.filter(function (x) { return x.id === id; })[0];
+    return b ? b.app + ' ' + b.lb : id;
+  }
+
+  /* ------------------------------------------------------------- état UI */
+
+  var etat = { sousTension: true, s4: false, ecran: true };
+  var dial = 'V~';
+  var pr = null, pk = null;
+  var journal = [];
+  var fini = false;
+
+  function lire() {
+    if (!pr || !pk || dial === 'OFF') {
+      return { v: '----', u: dial === 'OFF' ? 'appareil éteint' : 'pose les deux pointes', bad: false };
+    }
+    var e = aretes(etat);
+    if (dial === 'V~') {
+      if (!etat.sousTension) return { v: '0,0', u: 'V~ · installation consignée', bad: false };
+      var u = tension(e, pr, pk);
+      if (u < 0.05) u = 0;
+      return {
+        v: u.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+        u: 'V~', bad: false
+      };
+    }
+    // ohmmètre
+    if (etat.sousTension) return { v: 'ERR', u: 'tension présente : mesure interdite', bad: true };
+    var r = resistance(e, pr, pk);
+    if (r === null) return { v: 'OL', u: dial === '•)))' ? 'Ω · pas de bip' : 'Ω · circuit ouvert', bad: false };
+    var aff = r < 10 ? r.toFixed(2) : Math.round(r);
+    return {
+      v: String(aff).replace('.', ','),
+      u: dial === '•)))' ? (r < 30 ? 'Ω · ●))) bip' : 'Ω · pas de bip') : 'Ω',
+      bad: false
+    };
+  }
+
+  function poser(id) {
+    if (pr === id) { pr = pk; pk = null; }
+    else if (pk === id) { pk = null; }
+    else if (pr === null) pr = id;
+    else if (pk === null) pk = id;
+    else { pr = id; pk = null; }
+    rendre();
+  }
+
+  function rendre() {
+    BORNES.forEach(function (b) {
+      ptEl[b.id].setAttribute('data-p', pr === b.id ? 'r' : pk === b.id ? 'k' : '');
+    });
+    document.getElementById('p-r').textContent = pr ? nomDe(pr) : '—';
+    document.getElementById('p-k').textContent = pk ? nomDe(pk) : '—';
+
+    var out = lire();
+    document.getElementById('a-nom').textContent = 'Multimètre TRMS · ' + dial;
+    document.getElementById('a-val').textContent = out.v;
+    document.getElementById('a-unite').textContent = out.u;
+    document.getElementById('app').setAttribute('data-bad', out.bad ? '1' : '0');
+    document.getElementById('noter').disabled = !pr || !pk || dial === 'OFF' || out.bad;
+
+    document.getElementById('e-on').setAttribute('aria-pressed', etat.sousTension ? 'true' : 'false');
+    document.getElementById('e-off').setAttribute('aria-pressed', etat.sousTension ? 'false' : 'true');
+    document.getElementById('e-s4').setAttribute('aria-pressed', etat.s4 ? 'true' : 'false');
+    document.querySelectorAll('.cal button').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-dial') === dial ? 'true' : 'false');
+    });
+
+    var liste = document.getElementById('j-liste'), vide = document.getElementById('j-vide');
+    document.getElementById('j-n').textContent = journal.length
+      + (journal.length > 1 ? ' mesures' : journal.length === 1 ? ' mesure' : '');
+    if (!journal.length) { vide.hidden = false; liste.hidden = true; }
+    else {
+      vide.hidden = true; liste.hidden = false; liste.innerHTML = '';
+      journal.forEach(function (j) {
+        var li = document.createElement('li'); li.textContent = j; liste.appendChild(li);
+      });
+    }
+
+    var c = document.getElementById('cause').value, r = document.getElementById('repar').value;
+    document.getElementById('valider').disabled = !c || !r || fini;
+  }
+
+  document.getElementById('noter').addEventListener('click', function () {
+    var out = lire();
+    journal.push((etat.sousTension ? 'sous tension' : 'consignée')
+      + (etat.s4 ? ' · S4 appuyé' : '')
+      + ' · ' + dial + ' · ' + nomDe(pr) + ' ↔ ' + nomDe(pk) + ' → ' + out.v + ' ' + out.u.split(' · ')[0]);
+    rendre();
+  });
+
+  document.getElementById('e-on').addEventListener('click', function () { etat.sousTension = true; rendre(); });
+  document.getElementById('e-off').addEventListener('click', function () { etat.sousTension = false; etat.s4 = false; rendre(); });
+  document.getElementById('e-s4').addEventListener('click', function () { etat.s4 = !etat.s4; rendre(); });
+  document.querySelectorAll('.cal button').forEach(function (b) {
+    b.addEventListener('click', function () { dial = b.getAttribute('data-dial'); rendre(); });
+  });
+
+  /* ------------------------------------------------------- la conclusion */
+
+  var selC = document.getElementById('cause'), selR = document.getElementById('repar');
+  PANNES.forEach(function (p) {
+    var o = document.createElement('option'); o.value = p.id; o.textContent = p.titre; selC.appendChild(o);
+  });
+  ACTIONS.forEach(function (a) {
+    var o = document.createElement('option'); o.value = a.id; o.textContent = a.txt; selR.appendChild(o);
+  });
+  selC.addEventListener('change', rendre);
+  selR.addEventListener('change', rendre);
+
+  document.getElementById('valider').addEventListener('click', function () {
+    var c = selC.value, r = selR.value;
+    var bonC = c === PANNE.id, bonR = r === PANNE.id;
+    var d = document.getElementById('retour');
+    d.setAttribute('data-r', bonC && bonR ? 'ok' : 'ko');
+    if (bonC && bonR) {
+      fini = true;
+      d.innerHTML = '<b>Diagnostic juste.</b> ' + PANNE.titre + '. Remise en état : ' + PANNE.fix
+        + '<br>Trouvé en <b>' + journal.length + ' mesure' + (journal.length > 1 ? 's' : '') + ' notée'
+        + (journal.length > 1 ? 's' : '') + '</b>.';
+    } else if (bonC) {
+      d.innerHTML = '<b>La cause est la bonne, l\'action ne l\'est pas.</b> Que faut-il faire '
+        + 'exactement sur l\'organe que tu as désigné ?';
+    } else {
+      d.innerHTML = '<b>Le montage ne dit pas ça.</b> Reprends tes lectures : une mesure au moins '
+        + 'contredit la cause que tu proposes. Descends la chaîne borne par borne.';
+    }
+    rendre();
+  });
+
+  rendre();
+}());
+</script>

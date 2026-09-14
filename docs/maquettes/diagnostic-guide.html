@@ -1,0 +1,535 @@
+<title>Diagnostic par la mesure</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --app: #F2F4F6; --surface: #FFFFFF; --surface-2: #EDF0F3; --line: #D3D9E1;
+    --ink: #141A21; --muted: #66717F; --accent: #E39A00;
+    --good: #1E9E63; --crit: #D93A3A; --warn: #D97706;
+    --title: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+      --ink: #E7ECF2; --muted: #8F9BA8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --app: #10141A; --surface: #171C23; --surface-2: #1F262F; --line: #2C343E;
+    --ink: #E7ECF2; --muted: #8F9BA8;
+  }
+
+  body {
+    margin: 0; padding-block: 28px 56px; padding-left: 20px; padding-right: 20px;
+    background: var(--app); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: var(--title); font-weight: 600; font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.04; margin: 6px 0 0; text-wrap: balance;
+  }
+  h2 { font-family: var(--title); font-weight: 600; font-size: 25px; margin: 0 0 10px; }
+  h3 { font-family: var(--title); font-weight: 600; font-size: 18px; margin: 0; }
+  p { margin: 0; }
+
+  .constat {
+    border-left: 3px solid var(--crit); background: var(--surface);
+    padding: 14px 18px; border-radius: 0 12px 12px 0; max-width: 74ch; margin-top: 12px;
+  }
+  .constat b { color: var(--crit); }
+
+  /* --------------------------------------------------------- l'écran simulé */
+
+  .ecran {
+    border: 1px solid var(--line); border-radius: 15px; overflow: hidden;
+    background: var(--surface); box-shadow: 0 16px 36px rgba(16, 22, 30, .12);
+  }
+  .barre {
+    display: flex; flex-wrap: wrap; gap: 7px; align-items: center;
+    padding: 9px 13px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+  }
+  .barre .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); margin-right: 3px;
+  }
+  .outil {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--surface); border-radius: 9px;
+    padding: 5px 10px; font-size: 12px; font-weight: 600; min-height: 34px;
+  }
+  .outil[data-on="1"] { border-color: var(--accent); background: rgba(227, 154, 0, .12); }
+  .outil i {
+    width: 12px; height: 18px; border-radius: 2px; background: #E3A21A; border: 1px solid #8A6F1E;
+    display: inline-block;
+  }
+  .outil.pince i { background: #E3A21A; border-radius: 7px 7px 2px 2px; }
+  .outil.ctrl i { background: #2C7BE5; border-color: #17427A; }
+
+  .corps { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(280px, .95fr); }
+  @media (max-width: 860px) { .corps { grid-template-columns: minmax(0, 1fr); } }
+
+  .col { padding: 13px; display: flex; flex-direction: column; gap: 11px; }
+  .col + .col { border-left: 1px solid var(--line); }
+  @media (max-width: 860px) { .col + .col { border-left: 0; border-top: 1px solid var(--line); } }
+
+  .ordre {
+    border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2);
+    padding: 11px 13px; font-size: 13.5px;
+  }
+  .ordre .t {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 4px;
+  }
+
+  .hyp {
+    border: 1px solid var(--line); border-radius: 11px; background: var(--surface);
+    overflow: hidden;
+  }
+  .hyp .tete {
+    display: flex; gap: 9px; align-items: flex-start; padding: 10px 12px;
+  }
+  .hyp .st {
+    flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+    border: 1.5px solid var(--line); font-size: 11px; font-weight: 700; margin-top: 1px;
+    font-family: var(--mono); color: var(--muted);
+  }
+  .hyp .nom { font-size: 13.5px; font-weight: 500; min-width: 0; }
+  .hyp .test {
+    border-top: 1px dashed var(--line); padding: 9px 12px;
+    display: flex; flex-direction: column; gap: 7px;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .hyp .test .cons { font-family: var(--mono); font-size: 11.5px; color: var(--ink); }
+  .hyp .test button {
+    align-self: flex-start; border: 1px solid var(--line); background: var(--surface);
+    color: var(--ink); font: inherit; font-size: 12px; font-weight: 600;
+    min-height: 34px; padding: 5px 11px; border-radius: 9px; cursor: pointer;
+  }
+  .hyp .test button:hover { border-color: var(--accent); }
+  .hyp .test button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .hyp .verdict { font-size: 12.5px; }
+  .hyp .verdict .lu {
+    font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--ink);
+  }
+
+  .hyp[data-et="elim"] { opacity: .62; }
+  .hyp[data-et="elim"] .st { border-color: var(--good); color: var(--good); }
+  .hyp[data-et="elim"] .nom { text-decoration: line-through; }
+  .hyp[data-et="conf"] { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(227, 154, 0, .18); }
+  .hyp[data-et="conf"] .st { border-color: var(--accent); background: var(--accent); color: #1A1300; }
+
+  /* l'appareil */
+  .appareil {
+    border: 1px solid var(--line); border-radius: 13px; background: #E8EDE3;
+    padding: 13px 15px; color: #1B2118;
+  }
+  .appareil .k {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: #4C5647;
+  }
+  .appareil .v {
+    font-family: var(--mono); font-size: 32px; font-weight: 600; line-height: 1.12;
+    font-variant-numeric: tabular-nums;
+  }
+  .appareil .u { font-family: var(--mono); font-size: 12.5px; color: #4C5647; }
+
+  .journal {
+    border: 1px solid var(--line); border-radius: 11px; background: var(--surface);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .journal .hd {
+    padding: 8px 12px; border-bottom: 1px solid var(--line);
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent);
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .journal ol {
+    margin: 0; padding: 8px 12px 10px 30px; display: flex; flex-direction: column; gap: 5px;
+    font-family: var(--mono); font-size: 11.5px; max-height: 230px; overflow-y: auto;
+  }
+  .journal li::marker { color: var(--muted); }
+  .journal .vide { padding: 11px 12px; font-size: 12.5px; color: var(--muted); font-family: var(--sans); }
+
+  .conclure {
+    border: 0; border-radius: 10px; min-height: 42px; padding: 8px 14px; cursor: pointer;
+    font: inherit; font-size: 13.5px; font-weight: 600;
+    background: var(--accent); color: #1A1300;
+  }
+  .conclure:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+  .conclure:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  .bilan {
+    border: 1px solid var(--good); background: rgba(30, 158, 99, .1);
+    border-radius: 11px; padding: 11px 13px; font-size: 13.5px;
+  }
+  .bilan b { color: var(--good); }
+
+  .rejouer {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    font: inherit; font-size: 12px; min-height: 34px; padding: 5px 11px; border-radius: 9px; cursor: pointer;
+  }
+
+  /* ------------------------------------------------------------- texte */
+
+  .cols { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 14px 15px; display: flex; flex-direction: column; gap: 7px;
+  }
+  .card p { font-size: 13.5px; color: var(--muted); }
+  .card p b { color: var(--ink); font-weight: 600; }
+  code { font-family: var(--mono); font-size: 12.5px; }
+
+  .ask { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; max-width: 72ch; color: var(--muted); }
+  .ask b { color: var(--ink); }
+  .ask ul { margin: 8px 0 0; padding-left: 18px; }
+  .ask li { margin-bottom: 5px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">SimulElec · proposition · étape maintenance</p>
+    <h1>Diagnostic par la mesure</h1>
+    <p class="constat">
+      <b>Aujourd'hui l'élève ne peut pas mesurer à cette étape.</b> L'étagère d'instruments est
+      grisée — « disponible aux étapes mesures » — et cinq hypothèses s'offrent en liste. Il a une
+      chance sur cinq de tomber juste sans rien démontrer. Un dépannage, ce n'est pas choisir dans
+      un menu : c'est éliminer des hypothèses, une mesure à la fois.
+    </p>
+  </header>
+
+  <section>
+    <h2>Ce que je propose</h2>
+    <p style="max-width:68ch; color:var(--muted); margin-bottom:12px">
+      Chaque hypothèse porte son <b style="color:var(--ink)">test discriminant</b> : l'appareil, le
+      calibre, les deux points, et les conditions. L'élève lance le test, lit la valeur — calculée
+      par le simulateur, pas écrite d'avance — et l'hypothèse se marque éliminée ou confirmée.
+      La conclusion ne s'ouvre qu'une fois la cause démontrée.
+    </p>
+
+    <div class="ecran">
+      <div class="barre">
+        <span class="k">Appareils</span>
+        <span class="outil" id="o-mm" data-on="1"><i></i> Multimètre TRMS</span>
+        <span class="outil pince" id="o-pince"><i></i> Pince ampèremétrique</span>
+        <span class="outil ctrl" id="o-ctrl"><i></i> Contrôleur d'installation</span>
+        <span style="margin-left:auto; font-size:11.5px; color:var(--muted)">
+          Étape 11 · Validation / maintenance
+        </span>
+      </div>
+
+      <div class="corps">
+        <div class="col">
+          <div class="ordre">
+            <span class="t">Ordre de maintenance</span>
+            Le professeur a injecté une panne. Symptôme signalé :
+            <b>rien ne se passe à l'appui sur S4, mais 24 V présents sur XC:6.</b>
+            Élimine les hypothèses par la mesure, puis conclus.
+          </div>
+          <div id="hyps" style="display:flex; flex-direction:column; gap:9px"></div>
+        </div>
+
+        <div class="col">
+          <div class="appareil" id="app">
+            <div class="k" id="a-nom">Multimètre TRMS · V~</div>
+            <div class="v" id="a-val">----</div>
+            <div class="u" id="a-unite">lance un test pour mesurer</div>
+          </div>
+
+          <div class="journal">
+            <div class="hd">
+              <span>Journal des mesures</span>
+              <span id="j-n">0</span>
+            </div>
+            <div id="j-vide" class="vide">Aucune mesure. Commence par celle qui élimine le plus d'hypothèses.</div>
+            <ol id="j-liste" hidden></ol>
+          </div>
+
+          <button type="button" class="conclure" id="conclure" disabled>
+            Conclure et réparer
+          </button>
+          <div id="bilan"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce que ça apprend</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Un test par hypothèse</h3>
+        <p>
+          Chaque cause possible a une mesure qui la tranche. L'élève apprend le geste
+          professionnel : <b>avant de démonter, on mesure</b>, et on sait d'avance ce qu'on
+          cherche à lire.
+        </p>
+      </div>
+      <div class="card">
+        <h3>La valeur vient du montage</h3>
+        <p>
+          Rien n'est écrit d'avance : la lecture sort du simulateur, avec la panne réellement
+          injectée. Si le professeur change de panne, les mêmes tests donnent d'autres valeurs
+          et <b>une autre conclusion</b>.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Le nombre de mesures compte</h3>
+        <p>
+          Le journal les compte. Un bon dépanneur trouve en <b>deux ou trois mesures</b>, pas en
+          cinq : il commence par couper la chaîne en deux. C'est un critère d'évaluation honnête
+          et mesurable, qui remplace le tirage au sort.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Hors tension ou sous tension</h3>
+        <p>
+          Certains tests se font en continuité, installation consignée ; d'autres en tension,
+          machine sous tension. La consigne le dit, et <b>le simulateur refuse</b> l'ohmmètre sur
+          un circuit sous tension — comme un vrai appareil.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div class="ask">
+    <b>Trois choix avant que je code.</b>
+    <ul>
+      <li>
+        <b>Le degré de guidage.</b> Ici, chaque hypothèse affiche son test tout prêt. Je peux
+        aussi n'afficher que l'intitulé et laisser l'élève <b>choisir lui-même ses deux points</b>
+        sur la platine, le simulateur jugeant si la mesure était discriminante. Plus exigeant,
+        plus proche du réel — et plus dur pour un CAP.
+      </li>
+      <li>
+        <b>Le coût d'une mesure inutile.</b> Faut-il pénaliser les mesures qui n'éliminent rien,
+        comme les erreurs de câblage sont comptées ? Ou seulement les compter dans le rapport
+        sans baisser la note ?
+      </li>
+      <li>
+        <b>Le droit de conclure sans avoir tout testé.</b> Je propose d'ouvrir la conclusion dès
+        qu'une hypothèse est confirmée, même si les autres n'ont pas été testées — c'est ce que
+        fait un dépanneur. L'autre option est d'exiger que toutes soient tranchées.
+      </li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* La panne injectée pour cette démonstration : le fil XC:6 → KM1 A1 est débranché. */
+  var PANNE = 'x2';
+
+  /**
+   * Les cinq hypothèses du TP, chacune avec son test discriminant.
+   * `lire(panne)` rend ce que le simulateur afficherait, selon la panne réellement injectée.
+   */
+  var HYP = [
+    {
+      id: 'a2',
+      titre: 'Fil A2 de la bobine KM1 desserré',
+      inst: 'Multimètre TRMS', dial: 'Ω',
+      cons: 'Ω · hors tension · KM1 A2 ↔ XC:7',
+      quand: 'Installation consignée, bobine déconnectée d\'un côté.',
+      lire: function (p) {
+        return p === 'a2'
+          ? { v: 'OL', u: 'Ω · circuit ouvert', conf: true }
+          : { v: '0,20', u: 'Ω', conf: false };
+      },
+      vrai: 'OL ou valeur instable : le fil ne fait plus contact.',
+      faux: 'Quelques dixièmes d\'ohm : la liaison est bonne.'
+    },
+    {
+      id: 's1',
+      titre: 'Contact NF de l\'interrupteur de position S1 resté ouvert',
+      inst: 'Multimètre TRMS', dial: 'Ω',
+      cons: 'Ω · hors tension · XC:2 ↔ XC:5, écran en place, aucun bouton actionné',
+      quand: 'La chaîne d\'arrêt doit être fermée au repos.',
+      lire: function (p) {
+        return p === 's1'
+          ? { v: 'OL', u: 'Ω · chaîne ouverte', conf: true }
+          : { v: '0,40', u: 'Ω', conf: false };
+      },
+      vrai: 'OL : la chaîne d\'arrêt est coupée quelque part.',
+      faux: 'Continuité : S1, S2 et S3 laissent passer.'
+    },
+    {
+      id: 'l2',
+      titre: 'Phase L2 coupée entre F1 et X1:7',
+      inst: 'Multimètre TRMS', dial: 'Ω',
+      cons: 'Ω · hors tension · F1:4 ↔ X1:7 int.',
+      quand: 'Installation consignée.',
+      lire: function (p) {
+        return p === 'l2'
+          ? { v: 'OL', u: 'Ω · conducteur coupé', conf: true }
+          : { v: '0,30', u: 'Ω', conf: false };
+      },
+      vrai: 'OL : le conducteur de puissance est coupé.',
+      faux: 'Continuité : la phase passe jusqu\'au bornier.'
+    },
+    {
+      id: 'x2',
+      titre: 'Fil XC:6 → KM1 A1 débranché',
+      inst: 'Multimètre TRMS', dial: 'V~',
+      cons: 'V~ · sous tension · KM1 A1 ↔ KM1 A2, S4 maintenu appuyé',
+      quand: 'Machine sous tension, appui maintenu sur le bouton de marche.',
+      lire: function (p) {
+        return p === 'x2'
+          ? { v: '0,0', u: 'V~ · bobine non alimentée', conf: true }
+          : { v: '24,0', u: 'V~', conf: false };
+      },
+      vrai: '0 V aux bornes de la bobine alors que XC:6 est à 24 V : la coupure est entre les deux.',
+      faux: '24 V : la bobine reçoit bien sa tension.'
+    },
+    {
+      id: 'f3',
+      titre: 'Q3 déclenché (défaut sur le 24 V)',
+      inst: 'Multimètre TRMS', dial: 'V~',
+      cons: 'V~ · sous tension · XC:1 ↔ XC:7',
+      quand: 'Machine sous tension, au repos.',
+      lire: function (p) {
+        return p === 'f3'
+          ? { v: '0,0', u: 'V~ · commande hors tension', conf: true }
+          : { v: '24,0', u: 'V~', conf: false };
+      },
+      vrai: '0 V sur tout le bornier alors que T1 délivre 24 V : la protection a coupé.',
+      faux: '24 V : la commande est bien alimentée.'
+    }
+  ];
+
+  var etat = {};       // id → 'elim' | 'conf'
+  var journal = [];
+  var conclu = false;
+
+  var elHyps = document.getElementById('hyps');
+
+  function mesurer(h) {
+    var out = h.lire(PANNE);
+    etat[h.id] = out.conf ? 'conf' : 'elim';
+    journal.push({
+      n: journal.length + 1,
+      cons: h.cons,
+      lu: out.v + ' ' + out.u.split(' · ')[0],
+      verdict: out.conf ? 'confirme' : 'élimine',
+      quoi: h.titre
+    });
+
+    document.getElementById('a-nom').textContent = h.inst + ' · ' + h.dial;
+    document.getElementById('a-val').textContent = out.v;
+    document.getElementById('a-unite').textContent = out.u;
+
+    ['mm', 'pince', 'ctrl'].forEach(function (k) {
+      document.getElementById('o-' + k).setAttribute('data-on', k === 'mm' ? '1' : '0');
+    });
+
+    rendre();
+  }
+
+  function rendre() {
+    elHyps.innerHTML = '';
+    HYP.forEach(function (h) {
+      var e = etat[h.id];
+      var d = document.createElement('div');
+      d.className = 'hyp';
+      if (e) d.setAttribute('data-et', e);
+
+      var tete = document.createElement('div');
+      tete.className = 'tete';
+      tete.innerHTML = '<span class="st">' + (e === 'conf' ? '!' : e === 'elim' ? '✓' : '?')
+        + '</span><span class="nom">' + h.titre + '</span>';
+      d.appendChild(tete);
+
+      var test = document.createElement('div');
+      test.className = 'test';
+      var cons = document.createElement('span');
+      cons.className = 'cons';
+      cons.textContent = h.cons;
+      test.appendChild(cons);
+
+      if (!e) {
+        var q = document.createElement('span');
+        q.textContent = h.quand;
+        test.appendChild(q);
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = 'Faire ce test';
+        b.addEventListener('click', function () { mesurer(h); });
+        test.appendChild(b);
+      } else {
+        var out = h.lire(PANNE);
+        var v = document.createElement('span');
+        v.className = 'verdict';
+        v.innerHTML = '<span class="lu">' + out.v + ' ' + out.u.split(' · ')[0] + '</span> — '
+          + (out.conf ? h.vrai : h.faux);
+        test.appendChild(v);
+      }
+      d.appendChild(test);
+      elHyps.appendChild(d);
+    });
+
+    // journal
+    var liste = document.getElementById('j-liste');
+    var vide = document.getElementById('j-vide');
+    document.getElementById('j-n').textContent = journal.length
+      + (journal.length > 1 ? ' mesures' : journal.length === 1 ? ' mesure' : '');
+    if (journal.length === 0) { vide.hidden = false; liste.hidden = true; }
+    else {
+      vide.hidden = true; liste.hidden = false;
+      liste.innerHTML = '';
+      journal.forEach(function (j) {
+        var li = document.createElement('li');
+        li.textContent = j.cons + ' → ' + j.lu + ' · ' + j.verdict;
+        liste.appendChild(li);
+      });
+    }
+
+    // conclusion
+    var confirmee = HYP.filter(function (h) { return etat[h.id] === 'conf'; })[0];
+    var btn = document.getElementById('conclure');
+    btn.disabled = !confirmee || conclu;
+    btn.textContent = conclu ? 'Panne réparée'
+      : confirmee ? 'Conclure : ' + confirmee.titre
+        : 'Conclure et réparer';
+
+    var bilan = document.getElementById('bilan');
+    bilan.innerHTML = '';
+    if (conclu && confirmee) {
+      var b = document.createElement('div');
+      b.className = 'bilan';
+      b.innerHTML = '<b>Cause démontrée en ' + journal.length + ' mesure'
+        + (journal.length > 1 ? 's' : '') + '.</b> ' + confirmee.titre
+        + '. Remise en service : reconnecter XC:6 sur A1, refaire la continuité, réessayer.';
+      bilan.appendChild(b);
+      var r = document.createElement('button');
+      r.type = 'button'; r.className = 'rejouer'; r.textContent = 'Recommencer le diagnostic';
+      r.style.marginTop = '9px';
+      r.addEventListener('click', function () { etat = {}; journal = []; conclu = false; rendre(); reset(); });
+      bilan.appendChild(r);
+    }
+  }
+
+  function reset() {
+    document.getElementById('a-nom').textContent = 'Multimètre TRMS · V~';
+    document.getElementById('a-val').textContent = '----';
+    document.getElementById('a-unite').textContent = 'lance un test pour mesurer';
+  }
+
+  document.getElementById('conclure').addEventListener('click', function () {
+    if (this.disabled) return;
+    conclu = true;
+    rendre();
+  });
+
+  rendre();
+}());
+</script>

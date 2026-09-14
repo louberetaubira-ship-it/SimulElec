@@ -1,0 +1,754 @@
+<title>Tableau de câblage en atelier</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --app: #F2F4F6;
+    --surface: #FFFFFF;
+    --surface-2: #EDF0F3;
+    --line: #D3D9E1;
+    --ink: #141A21;
+    --muted: #66717F;
+    --accent: #E39A00;
+    --good: #1E9E63;
+    --crit: #D93A3A;
+    --title: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --app: #10141A;
+      --surface: #171C23;
+      --surface-2: #1F262F;
+      --line: #2C343E;
+      --ink: #E7ECF2;
+      --muted: #8F9BA8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --app: #10141A;
+    --surface: #171C23;
+    --surface-2: #1F262F;
+    --line: #2C343E;
+    --ink: #E7ECF2;
+    --muted: #8F9BA8;
+  }
+
+  body {
+    margin: 0;
+    padding-block: 28px 56px;
+    padding-left: 20px;
+    padding-right: 20px;
+    background: var(--app);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: var(--title); font-weight: 600; font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.04; margin: 6px 0 0; text-wrap: balance; letter-spacing: .004em;
+  }
+  .lede { max-width: 66ch; margin: 10px 0 0; color: var(--muted); }
+  h2 {
+    font-family: var(--title); font-weight: 600; font-size: 24px; margin: 0 0 2px;
+    letter-spacing: .01em;
+  }
+
+  /* ------------------------------------------------------------ maquette */
+
+  .demo { display: flex; flex-direction: column; gap: 10px; }
+
+  .demobar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .demobar .lbl {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); margin-right: 2px;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--surface); }
+  .seg button {
+    border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12.5px;
+    font-weight: 600; padding: 7px 13px; min-height: 36px; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #1A1300; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .screenframe {
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    background: var(--surface); box-shadow: 0 18px 40px rgba(16, 22, 30, .13);
+  }
+  .screenframe[data-device="phone"] { max-width: 430px; margin: 0 auto; }
+
+  .screen {
+    --ws-bg: #0E1218; --ws-fg: #EDF1F6;
+    --ws-panel: #141A22; --ws-line: rgba(255, 255, 255, .15);
+    --dock-bg: #151B23; --dock-fg: #E8EDF3; --dock-line: rgba(255, 255, 255, .13);
+    --dock-row: #1C232C;
+    display: grid; grid-template-rows: auto 1fr;
+    background: var(--ws-bg); color: var(--ws-fg);
+    height: 560px; font-size: 13px;
+  }
+  .screen[data-ws="light"] {
+    --ws-bg: #E7EAEE; --ws-fg: #141A21;
+    --ws-panel: #FFFFFF; --ws-line: rgba(20, 26, 33, .16);
+    --dock-bg: #FFFFFF; --dock-fg: #141A21; --dock-line: #D3D9E1;
+    --dock-row: #F3F5F8;
+  }
+  .screenframe[data-device="phone"] .screen { height: 620px; }
+
+  /* barre haute de l'atelier */
+  .fsbar {
+    display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+    background: var(--ws-panel); border-bottom: 1px solid var(--ws-line);
+  }
+  .fsbar .ttl { font-family: var(--title); font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .fsbar .stp { font-size: 11.5px; opacity: .72; white-space: nowrap; }
+  .fsbar .ind {
+    font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+    border: 1px solid var(--ws-line); border-radius: 999px; padding: 3px 9px; white-space: nowrap;
+  }
+  .fsbar .sp { flex: 1 1 auto; }
+  .fsbar button, .zoombar button {
+    min-height: 32px; padding: 4px 10px; border-radius: 8px;
+    border: 1px solid var(--ws-line); background: transparent; color: inherit;
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .fsbar button:hover, .zoombar button:hover { border-color: var(--accent); }
+  .fsbar .quit { border-color: transparent; opacity: .8; }
+  .screenframe[data-device="phone"] .fsbar .stp,
+  .screenframe[data-device="phone"] .fsbar .ttl { display: none; }
+
+  /* corps : dock + platine */
+  .fsbody { display: grid; grid-template-columns: 318px minmax(0, 1fr); min-height: 0; }
+  .fsbody[data-dock="closed"] { grid-template-columns: 46px minmax(0, 1fr); }
+  .screenframe[data-device="phone"] .fsbody { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+
+  /* ------- le dock : le tableau de câblage */
+  .dock {
+    display: flex; flex-direction: column; min-height: 0;
+    background: var(--dock-bg); color: var(--dock-fg);
+    border-right: 1px solid var(--dock-line);
+  }
+  .screenframe[data-device="phone"] .dock {
+    order: 2; border-right: 0; border-top: 1px solid var(--dock-line);
+    max-height: 54%;
+  }
+  .dockhd {
+    display: flex; align-items: center; gap: 8px; padding: 7px 8px 7px 11px;
+    border-bottom: 1px solid var(--dock-line); flex: none;
+  }
+  .dockhd h3 {
+    font-family: var(--title); font-size: 15.5px; font-weight: 600; margin: 0;
+    flex: 1 1 auto; white-space: nowrap;
+  }
+  .dockhd button {
+    min-height: 32px; min-width: 32px; border-radius: 8px; border: 1px solid var(--dock-line);
+    background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .dockhd button:hover { border-color: var(--accent); }
+
+  .dockbd { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 9px; display: flex; flex-direction: column; gap: 9px; }
+  .dockbd::-webkit-scrollbar { width: 9px; }
+  .dockbd::-webkit-scrollbar-thumb { background: var(--dock-line); border-radius: 9px; }
+
+  .next {
+    border: 1px solid var(--accent); background: rgba(227, 154, 0, .13); border-radius: 10px;
+    padding: 6px 9px; font-family: var(--mono); font-size: 12px; font-weight: 600;
+  }
+  .next .k {
+    display: block; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+    font-weight: 600; color: var(--accent); margin-bottom: 1px;
+  }
+  .counts { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11.5px; }
+  .counts .bar { flex: 1 1 auto; height: 5px; border-radius: 999px; background: var(--dock-line); overflow: hidden; }
+  .counts .bar i { display: block; height: 100%; background: var(--good); transition: width .25s ease; }
+  .counts .err { color: var(--crit); font-weight: 600; }
+
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tools button {
+    min-height: 32px; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--dock-line);
+    background: transparent; color: inherit; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+  }
+  .tools button:disabled { opacity: .4; cursor: default; }
+  .tools button:not(:disabled):hover { border-color: var(--accent); }
+
+  .sect {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--accent); margin: 3px 0 -3px;
+  }
+  .rows { display: flex; flex-direction: column; gap: 3px; }
+  .row {
+    display: flex; align-items: center; gap: 7px; width: 100%; text-align: left;
+    border: 1px solid var(--dock-line); background: var(--dock-row); color: inherit;
+    border-radius: 8px; padding: 5px 8px; min-height: 32px;
+    font-family: var(--mono); font-size: 11.5px; cursor: pointer;
+  }
+  .row i { width: 14px; height: 4px; border-radius: 2px; flex: none; }
+  .row span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row em { font-style: normal; font-size: 9.5px; opacity: .6; flex: none; }
+  .row:hover { border-color: var(--accent); }
+  .row[data-state="done"] { opacity: .5; text-decoration: line-through; }
+  .row[data-state="next"] { border-color: var(--accent); }
+  .row[aria-pressed="true"] { border-color: var(--accent); background: rgba(227, 154, 0, .14); }
+  .row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* rail replié */
+  .rail {
+    display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 0;
+    background: var(--dock-bg); border-right: 1px solid var(--dock-line);
+  }
+  .rail button {
+    min-height: 30px; min-width: 30px; border-radius: 8px; border: 1px solid var(--dock-line);
+    background: transparent; color: var(--dock-fg); font: inherit; cursor: pointer;
+  }
+  .rail button:hover { border-color: var(--accent); }
+  .rail .vt {
+    writing-mode: vertical-rl; font-family: var(--title); font-size: 14px; font-weight: 600;
+    color: var(--dock-fg); letter-spacing: .03em; white-space: nowrap;
+  }
+  .rail .n {
+    font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--dock-fg);
+    writing-mode: vertical-rl;
+  }
+  .rail .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--accent); flex: none; }
+
+  /* platine */
+  .stage { position: relative; display: grid; min-width: 0; min-height: 0; padding: 12px; }
+  .stage svg { width: 100%; height: 100%; display: block; }
+  .zoombar {
+    position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 5px;
+    background: var(--ws-panel); border: 1px solid var(--ws-line); border-radius: 10px; padding: 4px 6px;
+  }
+  .zoombar .z { font-family: var(--mono); font-size: 11.5px; min-width: 44px; text-align: center; }
+  .flash {
+    position: absolute; left: 50%; top: 10px; transform: translateX(-50%);
+    background: var(--crit); color: #fff; font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+    padding: 5px 11px; border-radius: 999px; opacity: 0; transition: opacity .2s;
+  }
+  .flash[data-on="1"] { opacity: 1; }
+
+  .term { cursor: pointer; }
+  .term .hit { fill: transparent; }
+  .term .pin { fill: #C9CFD6; stroke: #6E7681; stroke-width: 1.2; }
+  .screen[data-ws="light"] .term .pin { fill: #FFFFFF; stroke: #8A929C; }
+  .term:hover .pin { fill: var(--accent); stroke: var(--accent); }
+  .term[data-on="1"] .pin { fill: var(--accent); stroke: #8A5C00; }
+  .term[data-pulse="1"] .pin { fill: var(--accent); stroke: var(--accent); animation: pulse .9s ease 2; }
+  @keyframes pulse { 0%, 100% { r: 6.5; } 50% { r: 10; } }
+  @media (prefers-reduced-motion: reduce) { .term[data-pulse="1"] .pin { animation: none; } }
+  .tlab { font-family: var(--mono); font-size: 8.5px; fill: #93A0AD; }
+  .screen[data-ws="light"] .tlab { fill: #66717F; }
+  .devbox { fill: #F6F8FA; stroke: #9AA3AD; stroke-width: 1.4; rx: 5; }
+  .screen[data-ws="light"] .devbox { fill: #FFFFFF; stroke: #B9C1CA; }
+  .devrep { font-family: var(--title); font-size: 15px; font-weight: 700; fill: #141A21; text-anchor: middle; }
+  .devsub { font-family: var(--mono); font-size: 7.5px; fill: #66717F; text-anchor: middle; }
+  .rail3 { fill: #AEB6BF; }
+  .screen[data-ws="light"] .rail3 { fill: #C6CCD3; }
+  .wire { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+  .wire.hl { stroke-width: 5; filter: drop-shadow(0 0 4px rgba(227, 154, 0, .9)); }
+
+  /* ------------------------------------------------------ notes de spec */
+
+  .cols { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 14px 15px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .card h3 { font-family: var(--title); font-size: 19px; font-weight: 600; margin: 0; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .card p b { color: var(--ink); font-weight: 600; }
+
+  .files { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  .files div {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline;
+    padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 13.5px;
+  }
+  .files div:last-child { border-bottom: 0; }
+  .files code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+  .files em { font-style: normal; color: var(--muted); }
+
+  .ask {
+    border-left: 3px solid var(--accent); padding: 2px 0 2px 14px;
+    max-width: 68ch; color: var(--muted);
+  }
+  .ask b { color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">SimulElec · proposition · étape câblage</p>
+    <h1>Tableau de câblage en atelier</h1>
+    <p class="lede">
+      En plein écran, l'élève perd aujourd'hui le tableau de câblage : il ne voit plus ni la liaison
+      suivante, ni ce qu'il a déjà posé. Voici le dock de gauche que je propose d'ajouter. Manipule-le
+      ci-dessous — clique une liaison attendue pour la voir s'allumer sur la platine, ou pose un fil en
+      cliquant deux bornes.
+    </p>
+  </header>
+
+  <section class="demo">
+    <div class="demobar">
+      <span class="lbl">Essayer</span>
+      <div class="seg">
+        <button type="button" id="b-dock" aria-pressed="true">Dock ouvert</button>
+        <button type="button" id="b-rail" aria-pressed="false">Replié en rail</button>
+      </div>
+      <div class="seg">
+        <button type="button" id="b-dark" aria-pressed="true">Fond sombre</button>
+        <button type="button" id="b-light" aria-pressed="false">Fond clair</button>
+      </div>
+      <div class="seg">
+        <button type="button" id="b-desk" aria-pressed="true">Écran</button>
+        <button type="button" id="b-phone" aria-pressed="false">Téléphone</button>
+      </div>
+    </div>
+
+    <div class="screenframe" id="frame" data-device="desk">
+      <div class="screen" id="screen" data-ws="dark">
+
+        <div class="fsbar">
+          <b class="ttl">Perceuse radiale · démarrage direct</b>
+          <span class="stp">Étape 5 / 11 · Câblage</span>
+          <span class="ind" id="ind">0 / 20 liaisons</span>
+          <div class="sp"></div>
+          <button type="button" id="t-undo" disabled>↶ Annuler</button>
+          <button type="button" id="t-del" disabled>× Supprimer le fil</button>
+          <button type="button">Énoncé</button>
+          <button type="button" class="quit">Quitter</button>
+        </div>
+
+        <div class="fsbody" id="body" data-dock="open">
+
+          <div class="dock" id="dock">
+            <div class="dockhd">
+              <h3>Tableau de câblage</h3>
+              <button type="button" id="collapse" aria-label="Replier le tableau">‹</button>
+            </div>
+            <div class="dockbd">
+              <div class="next" id="next"></div>
+              <div class="counts">
+                <span id="cnt">0 / 20</span>
+                <span class="bar"><i id="bar" style="width:0%"></i></span>
+                <span class="err" id="errs"></span>
+              </div>
+              <div class="tools">
+                <button type="button" id="d-stage">Effacer les fils de cette étape</button>
+                <button type="button" id="d-all">Tout recâbler</button>
+              </div>
+              <p class="sect">Liaisons attendues · <span id="rest">20</span> restantes</p>
+              <div class="rows" id="rows"></div>
+            </div>
+          </div>
+
+          <div class="rail" id="rail" hidden>
+            <button type="button" id="expand" aria-label="Déplier le tableau">›</button>
+            <span class="dot"></span>
+            <span class="n" id="railn">0 / 20</span>
+            <span class="vt">Tableau de câblage</span>
+          </div>
+
+          <div class="stage">
+            <svg id="platine" viewBox="0 0 560 640" role="img" aria-label="Platine de câblage simplifiée"></svg>
+            <div class="zoombar">
+              <button type="button">−</button>
+              <span class="z" id="zoom">112 %</span>
+              <button type="button">+</button>
+              <button type="button">Ajuster</button>
+            </div>
+            <div class="flash" id="flash"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Ce que ça change</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Un dock, pas un tiroir</h3>
+        <p>
+          Le tiroir « Énoncé » de droite recouvre la platine ; le tableau de câblage, lui, se
+          consulte <b>pendant</b> qu'on câble. Il pousse donc la platine au lieu de la masquer,
+          et la platine se réajuste toute seule à la largeur restante.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Un rail de 46 px quand on replie</h3>
+        <p>
+          Replié, il ne garde que l'essentiel : la progression et un point orange dès qu'une
+          liaison attend. Un clic le rouvre. L'élève rend la place à la platine sans perdre
+          le fil de ce qu'il fait.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Le contenu trié pour l'atelier</h3>
+        <p>
+          En haut la <b>liaison suivante</b> et la progression, puis les liaisons attendues.
+          Les deux longs paragraphes d'explication et « Recommencer le TP » restent dans la
+          colonne hors plein écran : ils n'ont rien à faire sous la main pendant le câblage.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Cliquer une ligne montre où aller</h3>
+        <p>
+          C'est le vrai gain pédagogique : une liaison cliquée fait clignoter ses deux bornes
+          sur la platine. L'élève qui ne trouve pas « XC:5 int. » n'a plus à deviner.
+          Essaie une ligne ci-dessus.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Sur téléphone, une feuille basse</h3>
+        <p>
+          Sous 900 px de large, le dock passe sous la platine en feuille rétractable :
+          la platine garde toute la largeur, ce qui est la seule dimension qui manque
+          sur un écran de téléphone en paysage.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Générique, pas réservé au câblage</h3>
+        <p>
+          <code>&lt;Workspace&gt;</code> reçoit une prop <code>dock</code> symétrique de
+          <code>drawer</code>. Les étapes Pose, Tests et Mesures pourront y mettre leur
+          propre panneau plus tard, sans nouveau code de mise en page.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Côté code</h2>
+    <div class="files">
+      <div><code>src/components/panel/Workspace.tsx</code> <em>props <code>dock</code>, <code>dockTitle</code>, état replié mémorisé dans <code>localStorage</code></em></div>
+      <div><code>src/components/panel/workspace.css</code> <em><code>.se-fsdock</code> / <code>.se-fsrail-left</code>, bascule en feuille basse sous 900 px</em></div>
+      <div><code>src/components/parcours/TpPanel.tsx</code> <em>fait suivre <code>dock</code> jusqu'au <code>&lt;Workspace&gt;</code></em></div>
+      <div><code>src/components/parcours/Cablage.tsx</code> <em>le tableau devient un composant réutilisé par la colonne <b>et</b> par le dock</em></div>
+    </div>
+  </section>
+
+  <p class="ask">
+    <b>Dis-moi si ça te va</b> — et notamment : le dock ouvert par défaut à l'entrée en plein écran,
+    ou replié en rail ? Je pars sur <b>ouvert</b> à l'étape câblage, replié ailleurs, sauf avis contraire.
+  </p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var NET = { L1: '#8B4A2B', L2: '#2B2F36', L3: '#8E979F', N: '#2C7BE5', PE: '#37B34A', C: '#E4312B', C0: '#6C4FB5' };
+
+  /* ---------------------------------------------------------- la platine */
+
+  var DEV = [
+    { id: 'Q1', x: 60, y: 150, w: 92, h: 100, sub: 'iC60N 3P C20' },
+    { id: 'KM1', x: 200, y: 150, w: 100, h: 100, sub: 'LC1D09' },
+    { id: 'F1', x: 348, y: 150, w: 100, h: 100, sub: 'LRD08' },
+    { id: 'Q2', x: 60, y: 330, w: 74, h: 100, sub: 'iC60N 2P' },
+    { id: 'T1', x: 175, y: 330, w: 140, h: 100, sub: 'ABL6TS06U' },
+    { id: 'Q3', x: 358, y: 330, w: 62, h: 100, sub: 'iC60N 1P' }
+  ];
+
+  /* lane : la goulotte où le fil chemine ; exit : par où il sort de la borne */
+  var T = {};
+  function term(id, x, y, lane, exit, lab, labdy) {
+    T[id] = { id: id, x: x, y: y, lane: lane, exit: exit, lab: lab, labdy: labdy || 0 };
+  }
+
+  // bornier X1 (9 bornes), face intérieure vers le bas
+  for (var i = 0; i < 9; i++) term('X1:' + (i + 1), 80 + i * 45, 74, 110, 'down', String(i + 1), -10);
+  // bornier XC (7 bornes), face intérieure vers le haut
+  for (var j = 0; j < 7; j++) term('XC:' + (j + 1), 125 + j * 50, 540, 480, 'up', String(j + 1), 18);
+
+  ['Q1', 'KM1', 'F1'].forEach(function (d) {
+    var b = DEV.filter(function (o) { return o.id === d; })[0];
+    [1, 3, 5].forEach(function (n, k) { term(d + ':' + n, b.x + 22 + k * 24, b.y, 110, 'up', String(n), -8); });
+    [2, 4, 6].forEach(function (n, k) { term(d + ':' + n, b.x + 22 + k * 24, b.y + b.h, 290, 'down', String(n), 13); });
+  });
+  term('F1:95', 448, 190, 290, 'right', '95', -7);
+  term('F1:96', 448, 218, 290, 'right', '96', 14);
+
+  [1, 3].forEach(function (n, k) { term('Q2:' + n, 82 + k * 26, 330, 290, 'up', String(n), -8); });
+  [2, 4].forEach(function (n, k) { term('Q2:' + n, 82 + k * 26, 430, 480, 'down', String(n), 13); });
+  ['400', '230', '0'].forEach(function (n, k) { term('T1:' + n, 200 + k * 45, 330, 290, 'up', n, -8); });
+  ['24', '0V', '48'].forEach(function (n, k) { term('T1:' + n, 200 + k * 45, 430, 480, 'down', n, 13); });
+  term('Q3:1', 389, 330, 290, 'up', '1', -8);
+  term('Q3:2', 389, 430, 480, 'down', '2', 13);
+
+  /* -------------------------------------------------- les liaisons du TP */
+
+  var W = [
+    ['X1:1', 'Q1:1', 'L1'], ['X1:2', 'Q1:3', 'L2'], ['X1:3', 'Q1:5', 'L3'],
+    ['Q1:2', 'KM1:1', 'L1'], ['Q1:4', 'KM1:3', 'L2'], ['Q1:6', 'KM1:5', 'L3'],
+    ['KM1:2', 'F1:1', 'L1'], ['KM1:4', 'F1:3', 'L2'], ['KM1:6', 'F1:5', 'L3'],
+    ['F1:2', 'X1:6', 'L1'], ['F1:4', 'X1:7', 'L2'], ['F1:6', 'X1:8', 'L3'],
+    ['X1:5', 'X1:9', 'PE'],
+    ['Q1:2', 'Q2:1', 'L1'], ['Q1:4', 'Q2:3', 'L2'],
+    ['Q2:2', 'T1:400', 'L1'], ['Q2:4', 'T1:0', 'L2'],
+    ['T1:24', 'Q3:1', 'C'], ['T1:0V', 'XC:7', 'C0'], ['Q3:2', 'XC:1', 'C']
+  ].map(function (r, k) { return { i: k, a: r[0], b: r[1], net: r[2] }; });
+
+  /** Repère lisible, comme `repereLiaison()` côté application. */
+  function rep(id) {
+    if (id.indexOf('X1:') === 0) return id + ' int.';
+    if (id.indexOf('XC:') === 0) return id + ' int.';
+    return id.replace(':', ':');
+  }
+  function label(w) { return rep(w.a) + ' → ' + rep(w.b); }
+
+  /* ------------------------------------------------- cheminement des fils */
+
+  function path(w) {
+    var a = T[w.a], b = T[w.b];
+    var off = (w.i % 4) * 7 - 10;
+    var la = a.lane + (a.exit === 'up' ? -off : off) * 0.5;
+    var lb = b.lane + (b.exit === 'up' ? -off : off) * 0.5;
+    var ax = a.exit === 'right' ? a.x + 46 : a.x;
+    var bx = b.exit === 'right' ? b.x + 46 : b.x;
+    var p = ['M', a.x, a.y];
+    if (a.exit === 'right') p.push('L', ax, a.y);
+    p.push('L', ax, la);
+    if (Math.abs(la - lb) > 2) {
+      var riser = (a.x + b.x) / 2 < 280 ? 34 : 526;
+      p.push('L', riser, la, 'L', riser, lb);
+    }
+    p.push('L', bx, lb);
+    if (b.exit === 'right') p.push('L', bx, b.y);
+    p.push('L', b.x, b.y);
+    return p.join(' ');
+  }
+
+  /* -------------------------------------------------------------- rendu */
+
+  var svg = document.getElementById('platine');
+  var NS = 'http://www.w3.org/2000/svg';
+  function el(n, at) { var e = document.createElementNS(NS, n); for (var k in at) e.setAttribute(k, at[k]); return e; }
+
+  var gWire = el('g', {});
+  var gDev = el('g', {});
+  var gTerm = el('g', {});
+
+  // rails DIN
+  [140, 320].forEach(function (y) { gDev.appendChild(el('rect', { x: 40, y: y, width: 490, height: 10, rx: 2, class: 'rail3' })); });
+  // borniers
+  [[60, 56, 440, 30, 'X1'], [105, 522, 360, 30, 'XC']].forEach(function (r) {
+    gDev.appendChild(el('rect', { x: r[0], y: r[1], width: r[2], height: r[3], class: 'devbox' }));
+    var t = el('text', { x: r[0] - 8, y: r[1] + 20, class: 'devrep', 'text-anchor': 'end' });
+    t.textContent = r[4]; gDev.appendChild(t);
+  });
+
+  DEV.forEach(function (d) {
+    gDev.appendChild(el('rect', { x: d.x, y: d.y, width: d.w, height: d.h, class: 'devbox' }));
+    var r = el('text', { x: d.x + d.w / 2, y: d.y + d.h / 2 + 1, class: 'devrep' });
+    r.textContent = d.id; gDev.appendChild(r);
+    var s = el('text', { x: d.x + d.w / 2, y: d.y + d.h / 2 + 14, class: 'devsub' });
+    s.textContent = d.sub; gDev.appendChild(s);
+  });
+
+  var termEl = {};
+  Object.keys(T).forEach(function (id) {
+    var t = T[id];
+    var g = el('g', { class: 'term', 'data-id': id, tabindex: '0', role: 'button' });
+    g.appendChild(el('circle', { cx: t.x, cy: t.y, r: 14, class: 'hit' }));
+    g.appendChild(el('circle', { cx: t.x, cy: t.y, r: 6.5, class: 'pin' }));
+    var lb = el('text', { x: t.x, y: t.y + t.labdy, class: 'tlab', 'text-anchor': 'middle' });
+    lb.textContent = t.lab; g.appendChild(lb);
+    var title = el('title', {}); title.textContent = id; g.appendChild(title);
+    gTerm.appendChild(g);
+    termEl[id] = g;
+  });
+
+  svg.appendChild(gDev); svg.appendChild(gWire); svg.appendChild(gTerm);
+
+  /* -------------------------------------------------------------- état */
+
+  var posed = [];          // indices des liaisons posées
+  var errs = 0;
+  var pick = null;         // première borne cliquée
+  var sel = null;          // ligne sélectionnée dans le tableau
+
+  var rowsEl = document.getElementById('rows');
+  var nextEl = document.getElementById('next');
+  var flashEl = document.getElementById('flash');
+  var flashT = null;
+
+  function say(msg) {
+    flashEl.textContent = msg;
+    flashEl.setAttribute('data-on', '1');
+    clearTimeout(flashT);
+    flashT = setTimeout(function () { flashEl.setAttribute('data-on', '0'); }, 1800);
+  }
+
+  function nextWire() {
+    for (var k = 0; k < W.length; k++) if (posed.indexOf(k) < 0) return W[k];
+    return null;
+  }
+
+  function drawWires() {
+    while (gWire.firstChild) gWire.removeChild(gWire.firstChild);
+    posed.forEach(function (k) {
+      var w = W[k];
+      gWire.appendChild(el('path', {
+        d: path(w), class: 'wire' + (sel === k ? ' hl' : ''), stroke: NET[w.net],
+        'stroke-dasharray': w.net === 'PE' ? '9 5' : 'none'
+      }));
+    });
+  }
+
+  function pulse(ids) {
+    ids.forEach(function (id) {
+      var g = termEl[id];
+      if (!g) return;
+      g.setAttribute('data-pulse', '1');
+      setTimeout(function () { g.removeAttribute('data-pulse'); }, 1900);
+    });
+  }
+
+  function render() {
+    var nx = nextWire();
+    var done = posed.length;
+
+    document.getElementById('ind').textContent = done + ' / ' + W.length + ' liaisons';
+    document.getElementById('cnt').textContent = done + ' / ' + W.length;
+    document.getElementById('railn').textContent = done + ' / ' + W.length;
+    document.getElementById('rest').textContent = String(W.length - done);
+    document.getElementById('bar').style.width = (done / W.length * 100) + '%';
+    document.getElementById('errs').textContent = errs ? errs + ' erreur' + (errs > 1 ? 's' : '') : '';
+    document.getElementById('t-undo').disabled = done === 0;
+    document.getElementById('t-del').disabled = sel === null || posed.indexOf(sel) < 0;
+    document.getElementById('zoom').textContent =
+      (document.getElementById('body').getAttribute('data-dock') === 'open' ? '112 %' : '138 %');
+
+    nextEl.innerHTML = '';
+    var k = document.createElement('span'); k.className = 'k';
+    if (nx) {
+      k.textContent = 'Fil suivant';
+      nextEl.appendChild(k);
+      nextEl.appendChild(document.createTextNode(label(nx) + '  (' + nx.net + ')'));
+      nextEl.style.borderColor = ''; nextEl.style.background = '';
+    } else {
+      k.textContent = 'Câblage terminé';
+      nextEl.appendChild(k);
+      nextEl.appendChild(document.createTextNode('Passe aux tests hors tension.'));
+    }
+
+    rowsEl.innerHTML = '';
+    W.forEach(function (w) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'row';
+      b.setAttribute('data-state', posed.indexOf(w.i) >= 0 ? 'done' : (nx && nx.i === w.i ? 'next' : 'todo'));
+      b.setAttribute('aria-pressed', sel === w.i ? 'true' : 'false');
+      var ic = document.createElement('i'); ic.style.background = NET[w.net];
+      var sp = document.createElement('span'); sp.textContent = label(w);
+      var em = document.createElement('em'); em.textContent = w.net;
+      b.appendChild(ic); b.appendChild(sp); b.appendChild(em);
+      b.addEventListener('click', function () {
+        sel = sel === w.i ? null : w.i;
+        pulse([w.a, w.b]);
+        render();
+      });
+      rowsEl.appendChild(b);
+    });
+
+    Object.keys(termEl).forEach(function (id) {
+      termEl[id].setAttribute('data-on', pick === id ? '1' : '0');
+    });
+
+    drawWires();
+  }
+
+  /* ------------------------------------------------------- interactions */
+
+  function clickTerm(id) {
+    if (pick === null) { pick = id; render(); return; }
+    if (pick === id) { pick = null; render(); return; }
+    var found = -1;
+    for (var k = 0; k < W.length; k++) {
+      var w = W[k];
+      if ((w.a === pick && w.b === id) || (w.b === pick && w.a === id)) { found = k; break; }
+    }
+    if (found < 0) {
+      errs++;
+      say(rep(pick) + ' → ' + rep(id) + ' : liaison hors tableau');
+    } else if (posed.indexOf(found) >= 0) {
+      say('Cette liaison est déjà posée');
+    } else {
+      posed.push(found);
+      posed.sort(function (a, b) { return a - b; });
+      sel = null;
+    }
+    pick = null;
+    render();
+  }
+
+  Object.keys(termEl).forEach(function (id) {
+    termEl[id].addEventListener('click', function () { clickTerm(id); });
+    termEl[id].addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); clickTerm(id); }
+    });
+  });
+
+  document.getElementById('t-undo').addEventListener('click', function () {
+    posed.pop(); sel = null; render();
+  });
+  document.getElementById('t-del').addEventListener('click', function () {
+    posed = posed.filter(function (k) { return k !== sel; }); sel = null; render();
+  });
+  document.getElementById('d-stage').addEventListener('click', function () {
+    posed = posed.filter(function (k) { return ['L1', 'L2', 'L3', 'PE'].indexOf(W[k].net) >= 0; });
+    sel = null; render();
+  });
+  document.getElementById('d-all').addEventListener('click', function () {
+    posed = []; errs = 0; sel = null; render();
+  });
+
+  /* ------------------------------------------------------- les bascules */
+
+  var body = document.getElementById('body');
+  var dock = document.getElementById('dock');
+  var rail = document.getElementById('rail');
+
+  function setDock(open) {
+    body.setAttribute('data-dock', open ? 'open' : 'closed');
+    dock.hidden = !open;
+    rail.hidden = open;
+    document.getElementById('b-dock').setAttribute('aria-pressed', open ? 'true' : 'false');
+    document.getElementById('b-rail').setAttribute('aria-pressed', open ? 'false' : 'true');
+    render();
+  }
+  document.getElementById('collapse').addEventListener('click', function () { setDock(false); });
+  document.getElementById('expand').addEventListener('click', function () { setDock(true); });
+  document.getElementById('b-dock').addEventListener('click', function () { setDock(true); });
+  document.getElementById('b-rail').addEventListener('click', function () { setDock(false); });
+
+  function setWs(mode) {
+    document.getElementById('screen').setAttribute('data-ws', mode);
+    document.getElementById('b-dark').setAttribute('aria-pressed', mode === 'dark' ? 'true' : 'false');
+    document.getElementById('b-light').setAttribute('aria-pressed', mode === 'light' ? 'true' : 'false');
+  }
+  document.getElementById('b-dark').addEventListener('click', function () { setWs('dark'); });
+  document.getElementById('b-light').addEventListener('click', function () { setWs('light'); });
+
+  function setDevice(d) {
+    document.getElementById('frame').setAttribute('data-device', d);
+    document.getElementById('b-desk').setAttribute('aria-pressed', d === 'desk' ? 'true' : 'false');
+    document.getElementById('b-phone').setAttribute('aria-pressed', d === 'phone' ? 'true' : 'false');
+    if (d === 'phone') setDock(true);
+  }
+  document.getElementById('b-desk').addEventListener('click', function () { setDevice('desk'); });
+  document.getElementById('b-phone').addEventListener('click', function () { setDevice('phone'); });
+
+  // état de départ : deux liaisons déjà posées, pour que l'écran s'ouvre en cours de travail
+  posed = [0, 1];
+  render();
+}());
+</script>

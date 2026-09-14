@@ -1,0 +1,1174 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dépannage — hypothèses, tests, conclusion</title>
+<style>
+  :root{
+    --app:#F5F6F8; --surface:#fff; --surface-2:#EEF1F5; --line:#D3D9E1;
+    --ink:#141A21; --muted:#66717F; --accent:#E39A00; --good:#1E9E63;
+    --warn:#D97706; --crit:#D93A3A; --cmd:#E4312B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--app);color:var(--ink);
+    font:14px/1.55 "IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 16px 56px}
+  h1{font:600 26px/1.2 "Barlow Condensed",system-ui,sans-serif;margin:0 0 4px}
+  h2{font:600 13px/1.2 "Barlow Condensed",system-ui,sans-serif;
+    text-transform:uppercase;letter-spacing:.14em;color:var(--accent);margin:0 0 10px}
+  h3{font-size:13px;margin:0 0 6px}
+  .lead{color:var(--muted);margin:0 0 20px;max-width:72ch}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+  .grid{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:16px;align-items:start}
+  @media(max-width:960px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card.on{border-color:var(--accent);box-shadow:0 0 0 3px rgba(227,154,0,.12)}
+  .card.done{opacity:.74}
+  .step{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+  .num{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
+    background:var(--surface-2);color:var(--muted);font:600 11px/1 system-ui}
+  .card.on .num{background:var(--accent);color:#fff}
+  .card.done .num{background:var(--good);color:#fff}
+  .note{background:var(--surface-2);border-radius:9px;padding:8px 10px;font-size:12.5px;
+    color:var(--muted);margin:8px 0 0}
+  .note b{color:var(--ink)}
+
+  button{font:inherit;cursor:pointer}
+  .btn{min-height:40px;border:1px solid var(--line);background:var(--surface);border-radius:9px;
+    padding:0 12px;font-size:12.5px;color:var(--ink)}
+  .btn:hover:not(:disabled){border-color:var(--muted)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .btn.full{width:100%}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  label.fld{display:block;font-size:11.5px;font-weight:500;color:var(--muted);margin:10px 0 4px}
+  select{width:100%;min-height:40px;border:1px solid var(--line);border-radius:9px;
+    background:var(--surface);color:var(--ink);padding:0 10px;font:inherit;font-size:12.5px}
+
+  /* ---- servante d'appareils, reprise de l'étape mesures ---- */
+  .tray{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  .tray .tt{font:600 11px/1.2 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.13em;color:var(--muted);display:block;margin-bottom:8px}
+  .tray .items{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+  .tray button{flex:0 0 auto;width:92px;border:1px solid var(--line);background:var(--surface);
+    border-radius:11px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:5px}
+  .tray button[aria-pressed="true"]{border-color:var(--accent);background:#FFF8EC;
+    box-shadow:0 0 0 2px rgba(227,154,0,.18)}
+  .tray .nm{font-size:10px;line-height:1.2;text-align:center;color:var(--muted)}
+  .tray button[aria-pressed="true"] .nm{color:var(--ink);font-weight:600}
+  .tray svg{width:38px;height:46px}
+
+  .dials{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .dials button{min-height:34px;border:1px solid var(--line);background:var(--surface);
+    border-radius:8px;padding:0 10px;font-size:12px;font-family:"IBM Plex Mono",monospace}
+  .dials button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{min-height:34px;border:1px solid var(--line);background:var(--surface);
+    border-radius:8px;padding:0 10px;font-size:12px}
+  .seg button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+
+  ul.hyp{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  ul.hyp li{border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+  ul.hyp label{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;font-size:12.5px;cursor:pointer}
+  ul.hyp input{margin:3px 0 0;accent-color:var(--accent);flex:0 0 auto}
+  li.out{opacity:.5} li.out .txt{text-decoration:line-through}
+  li.keep{border-color:var(--good);background:rgba(30,158,99,.07)}
+  .tag{display:inline-block;border-radius:999px;padding:1px 7px;font-size:10.5px;font-weight:600;margin-left:6px}
+  .tag.out{background:rgba(217,58,58,.12);color:var(--crit)}
+  .tag.keep{background:rgba(30,158,99,.13);color:var(--good)}
+
+  .sch{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .sch svg{display:block;width:100%;height:auto;max-height:78vh;touch-action:manipulation}
+  .pt{cursor:pointer}
+  .pt circle{fill:#fff;fill-opacity:.85;stroke:#8E979F;stroke-width:1.3;transition:.12s}
+  .pt:hover circle{stroke:var(--accent);stroke-width:2.4;fill-opacity:1}
+  .pt.zone circle{stroke:var(--accent);stroke-width:2.4;fill:#FFE2A8;fill-opacity:1}
+  .pt.r circle{fill:var(--crit);stroke:var(--crit);fill-opacity:1}
+  .pt.k circle{fill:#2B2F36;stroke:#2B2F36;fill-opacity:1}
+  /* Les styles des textes de symboles (.sym-*) viennent de la bibliothèque,
+     injectés au chargement : eux aussi doivent être identiques à l'application. */
+  .pt.sur-borne rect{opacity:.55}
+  .cadre{font:600 10px/1 "Barlow Condensed",sans-serif;text-transform:uppercase;letter-spacing:.1em}
+  .rail{font:600 10px/1 "Barlow Condensed",sans-serif;fill:var(--muted);letter-spacing:.12em}
+
+  .meter{background:#11161C;color:#E8EDF3;border-radius:12px;padding:10px 12px;margin-top:10px}
+  .meter .k{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#8B97A5}
+  .meter .v{font:600 30px/1.1 "IBM Plex Mono",monospace;margin:2px 0}
+  .meter .u{font-size:11.5px;color:#9FB0C0}
+  .meter.bad .v{color:#FF6B6B}
+
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{border-bottom:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
+  th{font:600 10.5px/1.2 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.09em;color:var(--muted)}
+  td.v{font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  tr.out td{opacity:.55}
+  .verdict{font-weight:600}
+  .verdict.out{color:var(--crit)} .verdict.keep{color:var(--good)}
+  .empty{color:var(--muted);font-size:12.5px;padding:6px 0}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+  .why{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .why h3{color:var(--accent);font:600 12px/1.2 "Barlow Condensed",sans-serif;
+    text-transform:uppercase;letter-spacing:.12em}
+  .why p{margin:0 0 8px;font-size:12.5px;color:var(--muted)}
+  .why p:last-child{margin:0}
+  .why b{color:var(--ink)}
+  .flag{border-left:3px solid var(--warn);padding-left:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Dépannage — hypothèses, tests, conclusion</h1>
+  <p class="lead">
+    Le schéma est un <b>folio à symboles normalisés CEI 60617</b>, tracés par la bibliothèque de
+    l'application — l'élève voit ici exactement ce qu'il verra dans le simulateur. Le choix de
+    l'appareil se fait dans la servante, avec son sélecteur de calibre, comme aux étapes de mesure.
+    Les valeurs sont calculées sur le réseau réel : méthode des nœuds, voltmètre modélisé par ses
+    10 MΩ. Cette page s'ouvre seule, elle ne dépend d'aucun fichier voisin.
+  </p>
+
+  <div class="grid">
+    <!-- ================================================ colonne de gauche -->
+    <div>
+      <div class="card" id="c1">
+        <div class="step"><span class="num">1</span><h3 style="margin:0">Constat</h3></div>
+        <div class="note" id="sympt"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="essai">Refaire l'essai</button>
+          <button class="btn" id="repanne">Autre panne</button>
+        </div>
+        <div class="note" id="obs" hidden></div>
+      </div>
+
+      <div class="card" id="c2">
+        <div class="step"><span class="num">2</span><h3 style="margin:0">Mes hypothèses</h3></div>
+        <p style="margin:0 0 8px;font-size:12.5px;color:var(--muted)">
+          Qu'est-ce qui pourrait produire ce symptôme ? Coche tout ce qui te paraît possible,
+          y compris ce que tu comptes écarter.
+        </p>
+        <ul class="hyp" id="hyps"></ul>
+        <div class="note" id="hn"></div>
+      </div>
+
+      <div class="card" id="c3">
+        <div class="step"><span class="num">3</span><h3 style="margin:0">Test d'hypothèse</h3></div>
+
+        <label class="fld" for="cible">Hypothèse testée</label>
+        <select id="cible"></select>
+
+        <label class="fld">Appareil</label>
+        <div class="tray">
+          <span class="tt">Appareils de mesure</span>
+          <div class="items" id="tray"></div>
+          <div class="dials" id="dials"></div>
+        </div>
+
+        <label class="fld">État de la platine</label>
+        <div class="row seg" id="etat">
+          <button data-e="on" aria-pressed="true">Sous tension</button>
+          <button data-e="off" aria-pressed="false">Consignée</button>
+          <button data-e="s4" aria-pressed="false">Marche maintenue</button>
+        </div>
+
+        <label class="fld">Points de test <span id="ptsel" class="mono" style="color:var(--ink)">— / —</span></label>
+        <p style="margin:0;font-size:12px;color:var(--muted)">
+          Clique deux bornes sur le schéma. Les bornes <b style="color:var(--accent)">entourées</b>
+          sont celles de la zone concernée par l'hypothèse — la zone, pas le point.
+        </p>
+
+        <label class="fld" for="attendu">Ce que j'attends de lire</label>
+        <select id="attendu">
+          <option value="">— annonce ta prévision —</option>
+          <option value="24">≈ 24 V (le potentiel arrive)</option>
+          <option value="0">0 V (rien n'arrive)</option>
+          <option value="cont">≈ 0 Ω (continuité)</option>
+          <option value="ol">OL (circuit ouvert)</option>
+        </select>
+
+        <button class="btn primary full" id="mesurer" style="margin-top:10px" disabled>Mesurer</button>
+        <div class="meter" id="afficheur" hidden>
+          <div class="k" id="m-k">—</div>
+          <div class="v" id="m-v">----</div>
+          <div class="u" id="m-u"></div>
+        </div>
+
+        <div id="verdict" hidden>
+          <label class="fld">Ce que j'en conclus pour cette hypothèse</label>
+          <div class="row">
+            <button class="btn" id="v-out" style="flex:1">Je l'élimine</button>
+            <button class="btn" id="v-keep" style="flex:1">Je la retiens</button>
+          </div>
+        </div>
+        <div class="note" id="retour" hidden></div>
+      </div>
+
+      <div class="card" id="c4">
+        <div class="step"><span class="num">4</span><h3 style="margin:0">Bilan des tests</h3></div>
+        <div id="bilan"></div>
+      </div>
+
+      <div class="card" id="c5">
+        <div class="step"><span class="num">5</span><h3 style="margin:0">Conclusion</h3></div>
+        <div id="c5body"></div>
+      </div>
+    </div>
+
+    <!-- ==================================================== schéma -->
+    <div>
+      <div class="sch">
+        <h2 style="margin-bottom:2px">Schéma développé — circuit de commande 24 V</h2>
+        <p style="margin:0 0 6px;font-size:11.5px;color:var(--muted)">
+          Perceuse radiale. Symboles CEI 60617, repérage équipotentiel des conducteurs en
+          <span style="color:var(--accent);font-weight:600">orange</span>, numéros de bornes sous
+          chaque contact. Les cadres pointillés disent ce qui n'est pas dans l'armoire. Un organe
+          qui coupe est tracé en rouge. Les petits cercles sur les fils sont les points de test :
+          survole-les pour lire leur repère, clique-en deux pour y poser tes pointes.
+        </p>
+        <svg id="pl" viewBox="0 0 780 800" role="img"
+             aria-label="Schéma développé du circuit de commande avec les bornes accessibles à la mesure"></svg>
+      </div>
+
+      <div class="cols" style="margin-top:14px">
+        <div class="why">
+          <h3>Pourquoi le schéma développé</h3>
+          <p>
+            C'est le document que l'élève a réellement en main quand il dépanne, et celui qu'il
+            doit apprendre à lire. Un graphe de points ne ressemble à rien de ce qu'il verra en
+            entreprise. Ici les <b>symboles sont ceux de la norme</b> — contact à ouverture 21-22,
+            contact à fermeture 13-14, bobine A1-A2, thermique 95-96 — et le repérage des
+            conducteurs est celui du bornier XC de la platine.
+          </p>
+          <p>
+            Chaque borne du schéma est un point de test cliquable : l'élève passe du schéma à la
+            mesure sans changer de représentation.
+          </p>
+        </div>
+        <div class="why">
+          <h3>La servante, comme aux étapes de mesure</h3>
+          <p>
+            Mêmes appareils, même sélecteur de calibre : multimètre TRMS, pince, contrôleur
+            d'installation, VAT, tachymètre. Choisir le mauvais calibre fait partie de
+            l'apprentissage — l'ohmmètre refuse sous tension, la pince ne se pose pas sur deux
+            bornes, le RISO est interdit circuit alimenté.
+          </p>
+          <p>
+            Dans l'application ce seront les <b>photos de la bibliothèque</b>, comme aux étapes 7
+            et 9 ; ici ce sont des dessins, la maquette n'embarque pas le pack d'images.
+          </p>
+        </div>
+      </div>
+
+      <div class="why" style="margin-top:14px">
+        <h3>Ce qui reste de la version précédente</h3>
+        <p class="flag">
+          <b>Annoncer la lecture attendue avant de mesurer.</b> Obligatoire, au-dessus du bouton.
+          C'est ce qui sépare le diagnostic du tâtonnement, et l'écart entre prévision et relevé
+          est traité comme une information, pas comme une faute.
+        </p>
+        <p class="flag">
+          <b>Compter les hypothèses qu'un test départage.</b> Une mesure bien placée en élimine
+          plusieurs d'un coup. Le simulateur sait déjà calculer la signature de chaque panne : le
+          même calcul, en direct, dit combien la mesure vient d'en séparer.
+        </p>
+        <p class="flag">
+          <b>Mettre en évidence la zone, pas le point.</b> Entourer les deux bonnes bornes
+          donnerait la réponse ; on entoure la zone liée à l'hypothèse testée. Un interrupteur
+          « aucune aide » l'éteindra en évaluation.
+        </p>
+        <p>
+          Et la question toujours ouverte : faut-il ajouter des hypothèses <b>fausses mais
+          plausibles</b> en plus des cinq pannes réelles ? L'élimination devient plus formatrice,
+          mais l'élève qui coche tout y passe plus de temps.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SYMBOLES:DEBUT — engendré par scripts/symboles.sh depuis
+     src/lib/schema/symboles.ts. Ne pas modifier à la main. -->
+<script>
+"use strict";
+var SYM = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // src/lib/schema/symboles.ts
+  var symboles_exports = {};
+  __export(symboles_exports, {
+    STYLE_SYMBOLES: () => STYLE_SYMBOLES,
+    TRAIT: () => TRAIT,
+    actBilame: () => actBilame,
+    actCame: () => actCame,
+    actChampignon: () => actChampignon,
+    actGalet: () => actGalet,
+    actMagnetique: () => actMagnetique,
+    actPoussoir: () => actPoussoir,
+    actThermique: () => actThermique,
+    bilamePuissance: () => bilamePuissance,
+    blocAppareil: () => blocAppareil,
+    bobine: () => bobine,
+    borne: () => borne,
+    bornesBloc: () => bornesBloc,
+    contactNF: () => contactNF,
+    contactNO: () => contactNO,
+    contactsPuissance: () => contactsPuissance,
+    disjoncteur: () => disjoncteur,
+    equipotentielle: () => equipotentielle,
+    lienMecanique: () => lienMecanique,
+    marqueOuverturePositive: () => marqueOuverturePositive,
+    moteur: () => moteur,
+    noeud: () => noeud,
+    sectionneurFusible: () => sectionneurFusible,
+    terre: () => terre,
+    transformateur: () => transformateur,
+    voyant: () => voyant
+  });
+  var TRAIT = {
+    /** Conducteur et organe actif. */
+    actif: "#2B2F36",
+    /** Organe qui coupe : c'est lui qu'on cherche en dépannage. */
+    coupe: "#D93A3A",
+    /** Contact au repos, non sollicité. */
+    repos: "#8E979F"
+  };
+  var E_FIL = 2.4;
+  var E_MECA = 1.3;
+  var H = 13;
+  var DECOL = 14;
+  var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  var ligne = (x1, y1, x2, y2, col, w = E_FIL) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
+  var pointille = (x1, y1, x2, y2, col) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${E_MECA}" stroke-dasharray="4 3"/>`;
+  function actBilame(x, ym, col) {
+    const b = x - 42;
+    return pointille(x - 4, ym, b + 16, ym, col) + ligne(b, ym - 8, b + 8, ym - 8, col, 1.8) + ligne(b + 8, ym - 8, b + 8, ym + 8, col, 1.8) + ligne(b + 8, ym + 8, b + 16, ym + 8, col, 1.8);
+  }
+  function actCame(x, ym, col) {
+    const p = x - 7;
+    return `<path d="M${p} ${ym} L${p - 17} ${ym - 10} L${p - 17} ${ym + 10} Z" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  }
+  function actGalet(x, ym, col) {
+    const t = x - 24;
+    return pointille(x - 4, ym, t, ym, col) + `<circle cx="${t - 7}" cy="${ym}" r="7" fill="none" stroke="${col}" stroke-width="1.8"/>`;
+  }
+  function actChampignon(x, ym, col) {
+    const t = x - 26;
+    return pointille(x - 4, ym, t, ym, col) + `<path d="M${t} ${ym - 10} a10 10 0 0 0 0 20 z" fill="none" stroke="${col}" stroke-width="1.8"/>` + ligne(t, ym - 10, t, ym + 10, col, 1.8);
+  }
+  function actPoussoir(x, ym, col) {
+    const t = x - 24;
+    return pointille(x - 4, ym, t, ym, col) + ligne(t, ym - 8, t, ym + 8, col, 1.9);
+  }
+  function marqueOuverturePositive(x, ym, col) {
+    const r = 8;
+    return `<circle cx="${x}" cy="${ym}" r="${r}" fill="#fff" stroke="${col}" stroke-width="1.5"/>` + ligne(x, ym + 4, x, ym - 3, col, 1.6) + `<path d="M${x - 3} ${ym - 2} L${x} ${ym - 6} L${x + 3} ${ym - 2} Z" fill="${col}"/>`;
+  }
+  function actMagnetique(x, y, col) {
+    const r = 5;
+    return ligne(x - r, y - r, x + r, y + r, col, 1.7) + ligne(x - r, y + r, x + r, y - r, col, 1.7);
+  }
+  function actThermique(x, y, col) {
+    return `<path d="M${x} ${y - 8} q9 0 9 5 q0 5 -9 5 q-9 0 -9 5 q0 5 9 5" fill="none" stroke="${col}" stroke-width="1.8"/>`;
+  }
+  var ACTIONNEURS = {
+    bilame: actBilame,
+    came: actCame,
+    galet: actGalet,
+    champignon: actChampignon,
+    poussoir: actPoussoir
+  };
+  var repere = (x, ym, rep, dx = 40) => `<text class="sym-rep" x="${x + dx}" y="${ym + 5}">${esc(rep)}</text>`;
+  var bornes = (x, ym, b) => {
+    if (!b) return "";
+    const t = (y, s) => `<text class="sym-brn" transform="translate(${x + 10} ${y}) rotate(-90)" text-anchor="middle">${esc(s)}</text>`;
+    return t(ym - H - 10, b[0]) + t(ym + H + 10, b[1]);
+  };
+  var equipotentielle = (x, y, n) => `<text class="sym-eq" transform="translate(${x - 11} ${y}) rotate(-90)" text-anchor="middle">${esc(n)}</text>`;
+  function contactNF(p, ouvert, o) {
+    const col = ouvert ? TRAIT.coupe : TRAIT.actif;
+    const ym = (p.y1 + p.y2) / 2;
+    const bas = ym + H;
+    return ligne(p.x, p.y1, p.x, ym - H, col) + ligne(p.x, bas, p.x, p.y2, col) + ligne(p.x - 11, bas, p.x + 11, bas, col) + ligne(p.x, ym - H, ouvert ? p.x + DECOL : p.x, bas, col) + (o.actionneur ? ACTIONNEURS[o.actionneur](p.x, ym, col) : "") + bornes(p.x, ym, o.bornes) + repere(p.x, ym, o.rep) + (o.legende ? `<text class="sym-leg" x="${p.x + 40}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function contactNO(p, ferme, o) {
+    const col = ferme ? TRAIT.actif : TRAIT.repos;
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - H, col) + ligne(p.x, ym + H, p.x, p.y2, col) + ligne(p.x, ym - H, ferme ? p.x : p.x + DECOL, ym + H, col) + (o.actionneur ? ACTIONNEURS[o.actionneur](p.x, ym, col) : "") + bornes(p.x, ym, o.bornes) + repere(p.x, ym, o.rep) + (o.legende ? `<text class="sym-leg" x="${p.x + 40}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function bobine(p, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    const h = p.y2 - p.y1 - 16;
+    return ligne(p.x, p.y1, p.x, p.y1 + 8, TRAIT.actif) + ligne(p.x, p.y2 - 8, p.x, p.y2, TRAIT.actif) + `<rect x="${p.x - 24}" y="${p.y1 + 8}" width="48" height="${h}" fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><text class="sym-brn" x="${p.x - 28}" y="${p.y1 + 16}" text-anchor="end">A1</text><text class="sym-brn" x="${p.x - 28}" y="${p.y2 - 4}" text-anchor="end">A2</text>` + repere(p.x, ym, o.rep, 32) + (o.legende ? `<text class="sym-leg" x="${p.x + 32}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function voyant(p, allume, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    const r = 17;
+    const d = r * 0.71;
+    return ligne(p.x, p.y1, p.x, ym - r, TRAIT.actif) + ligne(p.x, ym + r, p.x, p.y2, TRAIT.actif) + `<circle cx="${p.x}" cy="${ym}" r="${r}" fill="${allume ? "#FFE9A8" : "#fff"}" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/>` + ligne(p.x - d, ym - d, p.x + d, ym + d, TRAIT.actif, 2) + ligne(p.x - d, ym + d, p.x + d, ym - d, TRAIT.actif, 2) + repere(p.x, ym, o.rep, r + 10) + (o.legende ? `<text class="sym-leg" x="${p.x + r + 10}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function disjoncteur(p, ouvert, o) {
+    const col = ouvert ? TRAIT.coupe : TRAIT.actif;
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - H, col) + ligne(p.x, ym + H, p.x, p.y2, col) + ligne(p.x, ym - H, ouvert ? p.x + DECOL : p.x, ym + H, col) + actMagnetique(p.x, ym - H - 9, col) + actThermique(p.x, ym + H + 12, col) + repere(p.x, ym, o.rep, 26) + (o.legende ? `<text class="sym-leg" x="${p.x + 26}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function sectionneurFusible(p, ouvert, o) {
+    const col = ouvert ? TRAIT.coupe : TRAIT.actif;
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - H - 12, col) + `<rect x="${p.x - 6}" y="${ym - H - 12}" width="12" height="20" fill="#fff" stroke="${col}" stroke-width="1.8"/>` + ligne(p.x, ym - H + 8, p.x, ym - H, col) + ligne(p.x, ym + H, p.x, p.y2, col) + ligne(p.x, ym - H, ouvert ? p.x + DECOL : p.x, ym + H, col) + repere(p.x, ym, o.rep, 24);
+  }
+  function bilamePuissance(p, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - 9, TRAIT.actif) + ligne(p.x, ym + 9, p.x, p.y2, TRAIT.actif) + `<rect x="${p.x - 9}" y="${ym - 9}" width="18" height="18" fill="#fff" stroke="${TRAIT.actif}" stroke-width="1.8"/>` + ligne(p.x - 5, ym, p.x + 5, ym, TRAIT.actif, 1.6) + (o.rep ? repere(p.x, ym, o.rep, 18) : "");
+  }
+  function transformateur(p, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    const r = 20;
+    return ligne(p.x, p.y1, p.x, ym - r * 1.5, TRAIT.actif) + ligne(p.x, ym + r * 1.5, p.x, p.y2, TRAIT.actif) + `<circle cx="${p.x}" cy="${ym - r * 0.55}" r="${r}" fill="none" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><circle cx="${p.x}" cy="${ym + r * 0.55}" r="${r}" fill="none" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><text class="sym-val" x="${p.x + r + 6}" y="${ym - r * 0.55}">${esc(o.u1)}</text><text class="sym-val" x="${p.x + r + 6}" y="${ym + r * 0.55 + 10}">${esc(o.u2)}</text>` + repere(p.x, ym + 4, o.rep, r + 6) + (o.va ? `<text class="sym-leg" x="${p.x + r + 40}" y="${ym + 4}">${esc(o.va)}</text>` : "");
+  }
+  function moteur(cx, cy, o) {
+    const r = 20;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><text class="sym-moteur" x="${cx}" y="${cy - 1}" text-anchor="middle">M</text><text class="sym-brn" x="${cx}" y="${cy + 11}" text-anchor="middle">3 ~</text><text class="sym-rep" x="${cx}" y="${cy + r + 14}" text-anchor="middle">${esc(o.rep)}</text>`;
+  }
+  function borne(x, y, rep, cote = "g") {
+    const r = 5.5;
+    return `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="${TRAIT.actif}" stroke-width="1.7"/>` + ligne(x - r, y + r, x + r, y - r, TRAIT.actif, 1.7) + `<text class="sym-borne" x="${cote === "d" ? x + 11 : x - 11}" y="${y - 8}" text-anchor="${cote === "d" ? "start" : "end"}">${esc(rep)}</text>`;
+  }
+  function terre(x, y) {
+    return ligne(x, y - 10, x, y, TRAIT.actif, 1.8) + ligne(x - 11, y, x + 11, y, TRAIT.actif, 2) + ligne(x - 7, y + 4, x + 7, y + 4, TRAIT.actif, 1.8) + ligne(x - 3, y + 8, x + 3, y + 8, TRAIT.actif, 1.8);
+  }
+  var lienMecanique = (x1, x2, y, col = TRAIT.actif) => pointille(x1, y, x2, y, col);
+  var noeud = (x, y) => `<circle cx="${x}" cy="${y}" r="3.4" fill="${TRAIT.actif}"/>`;
+  function bornesBloc(b) {
+    const out = {};
+    const repartir = (l, f) => (l ?? []).forEach((id, i) => {
+      out[id] = f(i, (l ?? []).length);
+    });
+    repartir(b.haut, (i, n) => ({ x: b.x + b.w * (i + 1) / (n + 1), y: b.y }));
+    repartir(b.bas, (i, n) => ({ x: b.x + b.w * (i + 1) / (n + 1), y: b.y + b.h }));
+    repartir(b.gauche, (i, n) => ({ x: b.x, y: b.y + b.h * (i + 1) / (n + 1) }));
+    repartir(b.droite, (i, n) => ({ x: b.x + b.w, y: b.y + b.h * (i + 1) / (n + 1) }));
+    return out;
+  }
+  function blocAppareil(b) {
+    const p = bornesBloc(b);
+    let g = `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="3" fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/>`;
+    g += `<text class="sym-rep" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 - 2}" text-anchor="middle">${esc(b.rep)}</text>`;
+    if (b.modele) {
+      g += `<text class="sym-leg" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 14}" text-anchor="middle">${esc(b.modele)}</text>`;
+    }
+    if (b.sigle) {
+      g += `<text class="sym-val" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 30}" text-anchor="middle">${esc(b.sigle)}</text>`;
+    }
+    for (const [id, q] of Object.entries(p)) {
+      const haut = Math.abs(q.y - b.y) < 0.5;
+      const bas = Math.abs(q.y - (b.y + b.h)) < 0.5;
+      if (haut || bas) {
+        const dy = haut ? -12 : 12;
+        g += ligne(q.x, q.y, q.x, q.y + dy, TRAIT.actif) + `<text class="sym-brn" transform="translate(${q.x - 4} ${q.y + (haut ? -16 : 16)}) rotate(-90)" text-anchor="${haut ? "start" : "end"}">${esc(id)}</text>`;
+      } else {
+        const gauche = Math.abs(q.x - b.x) < 0.5;
+        const dx = gauche ? -12 : 12;
+        g += ligne(q.x, q.y, q.x + dx, q.y, TRAIT.actif) + `<text class="sym-brn" x="${q.x + (gauche ? -16 : 16)}" y="${q.y + 3}" text-anchor="${gauche ? "end" : "start"}">${esc(id)}</text>`;
+      }
+    }
+    return g;
+  }
+  function contactsPuissance(xs, y1, y2, ferme, o) {
+    const ym = (y1 + y2) / 2;
+    let g = "";
+    xs.forEach((x, i) => {
+      g += contactNO({ x, y1, y2 }, ferme, { rep: "", bornes: o.bornes?.[i] });
+    });
+    g += lienMecanique(xs[0], xs[xs.length - 1], ym, ferme ? TRAIT.actif : TRAIT.repos);
+    g += `<text class="sym-rep" x="${xs[xs.length - 1] + 40}" y="${ym + 5}">${esc(o.rep)}</text>`;
+    return g;
+  }
+  var STYLE_SYMBOLES = `
+.sym-rep{font:700 13px/1 "Barlow Condensed",system-ui,sans-serif;fill:#141A21;letter-spacing:.04em}
+.sym-leg{font:400 10px/1 "IBM Plex Sans",system-ui,sans-serif;fill:#66717F}
+.sym-brn{font:500 8.5px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#66717F}
+.sym-borne{font:600 9px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#66717F}
+.sym-eq{font:700 10px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#E39A00}
+.sym-val{font:600 9.5px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#141A21}
+.sym-moteur{font:700 15px/1 "Barlow Condensed",system-ui,sans-serif;fill:#141A21}
+`;
+  return __toCommonJS(symboles_exports);
+})();
+</script>
+<!-- SYMBOLES:FIN -->
+<script>
+/* =====================================================================
+   Réseau du circuit de commande — perceuse radiale, commande 24 V.
+   Arêtes [nœud, nœud, résistance, identifiant]. Résolution sur la seule
+   composante connexe des deux pointes ; voltmètre modélisé par ses 10 MΩ,
+   sans quoi une borne non alimentée n'a pas de potentiel défini.
+   ===================================================================== */
+var R_FIL=0.08, R_CONT=0.04, R_BOB=100, R_LAMPE=2400, R_SEC=2, R_VM=1e7, U=24;
+
+var PANNES=[
+  { id:'a2', titre:"Fil A2 de la bobine KM1 desserré", coupe:'A2-XC7', zone:'bobine',
+    symptome:"KM1 vibre et ne tient pas à l'appui sur S4.",
+    action:"Resserrer le fil sur A2 et contrôler la continuité jusqu'au 0 V" },
+  { id:'s1', titre:"Contact NF de l'interrupteur de position S1 resté ouvert", ouvre:'S1', zone:'arret',
+    symptome:"Rien ne se passe à l'appui sur S4, pourtant H1 est allumé et l'écran de protection est en place.",
+    action:"Régler la came de S1 et remplacer le contact NF à ouverture positive" },
+  { id:'x2', titre:"Fil XC:6 → KM1 A1 débranché", coupe:'XC6-A1', zone:'bobine',
+    symptome:"Rien ne se passe à l'appui sur S4, mais 24 V présents sur XC:6.",
+    action:"Reconnecter le fil de XC:6 sur la borne A1 de KM1" },
+  { id:'q3', titre:"Q3 déclenché (défaut sur le 24 V)", ouvre:'Q3', zone:'alim',
+    symptome:"H1 éteint alors que Q1 est fermé, 0 V sur tout le bornier XC, 24 V au secondaire de T1.",
+    action:"Chercher le défaut d'isolement du 24 V, puis réarmer Q3" },
+  { id:'f1', titre:"Contact 95-96 du relais thermique ouvert (F1 déclenché)", ouvre:'F1', zone:'alim',
+    symptome:"Rien ne se passe à l'appui sur S4, alors que H1 reste allumé.",
+    action:"Rechercher la surcharge, laisser refroidir et réarmer F1" }
+];
+
+var ZONES={
+  alim:  ['T24','T0V','Q3.1','Q3.2','F1.95','F1.96','XC1','XC2'],
+  arret: ['XC2','S1.X1','S1.X2','XC3','XC4','S2.21','S2.22','S3.21','S3.22','XC5'],
+  bobine:['S3.22','S4.13','S4.14','XC6','KM1.A1','KM1.A2','XC7','KM1.13','KM1.14','XC5']
+};
+
+function aretes(panne, etat){
+  var e=[], s4=(etat==='s4'), km1=false;
+  // `id != null` est indispensable : sans lui, une panne qui n'a que `ouvre`
+  // compare `undefined !== undefined` et fait disparaître toutes les liaisons
+  // anonymes du réseau — deux pannes de ce type deviennent indiscernables.
+  function f(a,b,id){ if(!(panne&&panne.coupe&&id&&panne.coupe===id)) e.push([a,b,R_FIL,id]); }
+  function c(a,b,ferme,id){ if(ferme && !(panne&&panne.ouvre===id)) e.push([a,b,R_CONT,id]); }
+
+  e.push(['T24','T0V',R_SEC,'SOURCE']);       // secondaire : présent même hors tension
+  f('T24','Q3.1');
+  c('Q3.1','Q3.2',true,'Q3');
+  f('Q3.2','XC1');                            // le voyant est pris EN AMONT du thermique
+  f('Q3.2','F1.95');
+  c('F1.95','F1.96',true,'F1');
+  f('F1.96','XC2');
+  f('XC2','S1.X1');
+  c('S1.X1','S1.X2',true,'S1');
+  f('S1.X2','XC3'); f('XC3','XC4'); f('XC4','S2.21');
+  c('S2.21','S2.22',true,'S2');
+  f('S2.22','S3.21');
+  c('S3.21','S3.22',true,'S3');
+  f('S3.22','S4.13'); f('S3.22','XC5');
+  c('S4.13','S4.14',s4,'S4');
+  f('S4.14','XC6');
+  f('XC5','KM1.13');
+  c('KM1.13','KM1.14',km1,'KM');
+  f('KM1.14','KM1.A1');
+  f('XC6','KM1.A1','XC6-A1');
+  e.push(['KM1.A1','KM1.A2',R_BOB,'BOB']);
+  f('KM1.A2','XC7','A2-XC7');
+  f('XC7','T0V');
+  f('XC1','H1.X1');
+  e.push(['H1.X1','H1.X2',R_LAMPE,'LAMPE']);
+  f('H1.X2','XC7');
+  return e;
+}
+
+/* ------------------------------------------------------- résolution */
+function gauss(A,b){
+  var n=b.length,i,r,c;
+  for(i=0;i<n;i++){
+    var p=i;
+    for(r=i+1;r<n;r++) if(Math.abs(A[r][i])>Math.abs(A[p][i])) p=r;
+    if(Math.abs(A[p][i])<1e-12) return null;
+    var t=A[i];A[i]=A[p];A[p]=t; var tb=b[i];b[i]=b[p];b[p]=tb;
+    for(r=i+1;r<n;r++){
+      var k=A[r][i]/A[i][i];
+      for(c=i;c<n;c++) A[r][c]-=k*A[i][c];
+      b[r]-=k*b[i];
+    }
+  }
+  var x=new Array(n).fill(0);
+  for(i=n-1;i>=0;i--){ var s=b[i]; for(c=i+1;c<n;c++) s-=A[i][c]*x[c]; x[i]=s/A[i][i]; }
+  return x;
+}
+function composante(e,dep){
+  var vus=[dep],pile=[dep];
+  while(pile.length){
+    var cur=pile.pop();
+    e.forEach(function(a){
+      if(a[0]===cur&&vus.indexOf(a[1])<0){vus.push(a[1]);pile.push(a[1]);}
+      if(a[1]===cur&&vus.indexOf(a[0])<0){vus.push(a[0]);pile.push(a[0]);}
+    });
+  }
+  return vus;
+}
+function tension(e,a,b){
+  var ar=e.concat([[a,b,R_VM,'VM']]);
+  var comp=composante(ar,a);
+  if(comp.indexOf('T24')<0||comp.indexOf('T0V')<0) return 0;
+  var idx={},n=comp.length,i;
+  comp.forEach(function(nn,j){idx[nn]=j;});
+  var G=[],I=[];
+  for(i=0;i<n;i++){G.push(new Array(n).fill(0));I.push(0);}
+  ar.forEach(function(x){
+    if(x[3]==='SOURCE') return;
+    var p=idx[x[0]],q=idx[x[1]];
+    if(p===undefined||q===undefined||p===q) return;
+    var g=1/x[2];
+    G[p][p]+=g;G[q][q]+=g;G[p][q]-=g;G[q][p]-=g;
+  });
+  [['T24',U],['T0V',0]].forEach(function(s){
+    var j=idx[s[0]];G[j]=new Array(n).fill(0);G[j][j]=1;I[j]=s[1];
+  });
+  var v=gauss(G,I);
+  return v?Math.abs(v[idx[a]]-v[idx[b]]):0;
+}
+function resistance(e,a,b){
+  var comp=composante(e,a);
+  if(comp.indexOf(b)<0) return null;
+  var idx={},n=comp.length,i;
+  comp.forEach(function(nn,j){idx[nn]=j;});
+  var G=[];
+  for(i=0;i<n;i++) G.push(new Array(n).fill(0));
+  e.forEach(function(x){
+    var p=idx[x[0]],q=idx[x[1]];
+    if(p===undefined||q===undefined||p===q) return;
+    var g=1/x[2];
+    G[p][p]+=g;G[q][q]+=g;G[p][q]-=g;G[q][p]-=g;
+  });
+  var ia=idx[a],ib=idx[b],I=new Array(n).fill(0);
+  I[ia]=1;I[ib]=-1;
+  var garde=[];
+  for(i=0;i<n;i++) if(i!==ib) garde.push(i);
+  var m=garde.map(function(r){return garde.map(function(c){return G[r][c];});});
+  var rhs=garde.map(function(r){return I[r];});
+  var v=gauss(m,rhs);
+  if(!v) return null;
+  var pos=garde.indexOf(ia);
+  return pos<0?0:Math.abs(v[pos]);
+}
+
+/* =====================================================================
+   Appareils de mesure — mêmes définitions que `INSTRUMENTS` du simulateur.
+   ===================================================================== */
+var APPAREILS=[
+  { id:'mm',    nom:'Multimètre TRMS',        calibres:['OFF','V~','V⎓','Ω','•))','mV','A~'] },
+  { id:'clamp', nom:'Pince ampèremétrique',   calibres:['OFF','A~','V~','Ω','Hz'] },
+  { id:'ctrl',  nom:"Contrôleur d'installation", calibres:['OFF','RISO 500 V','RPE 200 mA','ZS boucle','DDR ΔT','V~'] },
+  { id:'vat',   nom:'VAT',                    calibres:['test'] },
+  { id:'tach',  nom:'Tachymètre',             calibres:['tr/min'] }
+];
+/* Dessins : la maquette n'embarque pas le pack photo de la bibliothèque. */
+var DESSIN={
+  mm:'<rect x="6" y="3" width="26" height="40" rx="4" fill="#E3B23C" stroke="#2B2F36" stroke-width="1.5"/>'+
+     '<rect x="10" y="7" width="18" height="10" rx="2" fill="#11161C"/>'+
+     '<circle cx="19" cy="29" r="7" fill="#F6F7F9" stroke="#2B2F36" stroke-width="1.2"/>'+
+     '<line x1="19" y1="29" x2="19" y2="23" stroke="#2B2F36" stroke-width="2"/>'+
+     '<circle cx="12" cy="40" r="1.8" fill="#D93A3A"/><circle cx="26" cy="40" r="1.8" fill="#2B2F36"/>',
+  clamp:'<path d="M19 4a11 11 0 1 1-.1 0" fill="none" stroke="#2B2F36" stroke-width="3"/>'+
+     '<rect x="11" y="20" width="16" height="23" rx="3" fill="#3B7DD8" stroke="#2B2F36" stroke-width="1.5"/>'+
+     '<rect x="14" y="24" width="10" height="7" rx="1.5" fill="#11161C"/>',
+  ctrl:'<rect x="4" y="4" width="30" height="38" rx="4" fill="#D93A3A" stroke="#2B2F36" stroke-width="1.5"/>'+
+     '<rect x="8" y="8" width="22" height="11" rx="2" fill="#11161C"/>'+
+     '<circle cx="19" cy="30" r="7.5" fill="#F6F7F9" stroke="#2B2F36" stroke-width="1.2"/>'+
+     '<line x1="19" y1="30" x2="24" y2="26" stroke="#2B2F36" stroke-width="2"/>',
+  vat:'<rect x="12" y="3" width="14" height="34" rx="3" fill="#D93A3A" stroke="#2B2F36" stroke-width="1.5"/>'+
+     '<rect x="15" y="6" width="8" height="7" fill="#11161C"/>'+
+     '<circle cx="19" cy="20" r="2.4" fill="#3DFF7A"/><circle cx="19" cy="27" r="2.4" fill="#FFD84D"/>'+
+     '<line x1="19" y1="37" x2="19" y2="45" stroke="#2B2F36" stroke-width="2"/>',
+  tach:'<rect x="6" y="10" width="26" height="22" rx="4" fill="#2B2F36"/>'+
+     '<circle cx="19" cy="21" r="6" fill="#F6F7F9"/><circle cx="19" cy="21" r="2.4" fill="#D93A3A"/>'+
+     '<path d="M32 17l8-5v18l-8-5z" fill="#8E979F"/>'
+};
+
+/* =====================================================================
+   Schéma développé du circuit de commande — folio de la perceuse radiale.
+
+   Conventions reprises du dossier technique du TP :
+   · potentiel 24 V en haut, retour « com » en bas, branches descendantes ;
+   · symboles CEI 60617 : contact à ouverture (21-22) avec son actionneur,
+     contact à fermeture (13-14), bobine A1-A2 en rectangle, contacts 95-96
+     du relais thermique, voyant en cercle barré, disjoncteur ;
+   · repérage ÉQUIPOTENTIEL des conducteurs (2, 3, 4, 5, 6, 7, com) : c'est
+     ce numéro que l'élève lit sur le fil dans l'armoire ;
+   · cadres d'implantation : ce qui est sur le capot et ce qui est en porte
+     ne sont pas dans l'armoire, et le schéma doit le dire.
+
+   Les points de test sont de petits carrés POSÉS SUR le fil, pas de gros
+   ronds : le schéma doit rester un schéma, pas devenir un graphe de points.
+   ===================================================================== */
+var XM = 400, XL = 200, XK = 610;     // chaîne principale / voyant / auto-maintien
+var Y24 = 118, Y0 = 762;              // conducteur 2 (24 V) et retour com
+
+/* Bornes mesurables : id, x, y, étiquette, côté de l'étiquette. */
+var BORNES = [
+  ['T24',   XM,  34, 'T1:24', 'g'],
+  ['Q3.1',  XM,  52, 'Q3:1',  'g'],  ['Q3.2', XM,  96, 'Q3:2', 'g'],
+  ['XC1',   XL, 152, 'XC:1',  'g'],
+  ['H1.X1', XL, 452, 'H1:X1', 'g'],  ['H1.X2', XL, 524, 'H1:X2', 'g'],
+  ['F1.95', XM, 150, 'F1:95', 'g'],  ['F1.96', XM, 196, 'F1:96', 'g'],
+  ['XC2',   XM, 226, 'XC:2',  'g'],
+  ['S1.X1', XM, 256, 'S1:X1', 'g'],  ['S1.X2', XM, 302, 'S1:X2', 'g'],
+  ['XC3',   XM, 338, 'XC:3',  'g'],  ['XC4',   XM, 356, 'XC:4',  'g'],
+  ['S2.21', XM, 392, 'S2:21', 'g'],  ['S2.22', XM, 438, 'S2:22', 'g'],
+  ['S3.21', XM, 462, 'S3:21', 'g'],  ['S3.22', XM, 508, 'S3:22', 'g'],
+  ['S4.13', XM, 548, 'S4:13', 'g'],  ['S4.14', XM, 594, 'S4:14', 'g'],
+  ['XC6',   XM, 628, 'XC:6',  'g'],
+  ['XC5',   XK, 530, 'XC:5',  'd'],
+  ['KM1.13',XK, 552, 'KM1:13','d'],  ['KM1.14',XK, 598, 'KM1:14','d'],
+  ['KM1.A1',XM, 656, 'A1',    'd'],  ['KM1.A2',XM, 714, 'A2',    'd'],
+  ['XC7',   XM, 738, 'XC:7',  'd'],
+  ['T0V',   XL, Y0,  'T1:0V', 'g']
+];
+var POS = {}; BORNES.forEach(function (b) { POS[b[0]] = { x: b[1], y: b[2], l: b[3], c: b[4] }; });
+
+/* Segments de fil. Les paires occupées par un symbole sont tracées par le symbole. */
+var SEG = [
+  ['T24','Q3.1'],['Q3.1','Q3.2'],['Q3.2','XC1'],['Q3.2','F1.95'],
+  ['XC1','H1.X1'],['H1.X1','H1.X2'],['H1.X2','XC7'],
+  ['F1.95','F1.96'],['F1.96','XC2'],['XC2','S1.X1'],['S1.X1','S1.X2'],
+  ['S1.X2','XC3'],['XC3','XC4'],['XC4','S2.21'],['S2.21','S2.22'],
+  ['S2.22','S3.21'],['S3.21','S3.22'],
+  ['S3.22','S4.13'],['S3.22','XC5'],['S4.13','S4.14'],['S4.14','XC6'],
+  ['XC5','KM1.13'],['KM1.13','KM1.14'],['KM1.14','KM1.A1'],['XC6','KM1.A1'],
+  ['KM1.A1','KM1.A2'],['KM1.A2','XC7'],['XC7','T0V']
+];
+var PAR_SYMBOLE = {
+  'Q3.1|Q3.2':1,'F1.95|F1.96':1,'S1.X1|S1.X2':1,'S2.21|S2.22':1,'S3.21|S3.22':1,
+  'S4.13|S4.14':1,'KM1.13|KM1.14':1,'KM1.A1|KM1.A2':1,'H1.X1|H1.X2':1
+};
+
+/* Repérage équipotentiel : [numéro, x, y]. C'est ce que l'élève lit sur le fil. */
+/* Chaque numéro est posé sur un tronçon LIBRE du conducteur, jamais au droit
+   d'une borne ni d'un symbole : c'est là que l'électricien lit le repère. */
+var EQUIPOT = [
+  ['2', XM, 136], ['2', XL, 300],
+  ['3', XM, 244],
+  ['4', XM, 306], ['4', XM, 378],
+  ['5', XM, 452],
+  ['6', XM, 530], ['6', XK, 545],
+  ['7', XM, 646], ['7', XK, 630],
+  ['com', XL, 650]
+];
+
+/* Cadres d'implantation : ce qui n'est pas dans l'armoire. */
+var CADRES = [
+  { x: 318, y: 240, w: 262, h: 78,  t: 'Sur le capot', f: '#FDF0DC', s: '#E39A00' },
+  // Le cadre s'arrête AVANT XC:5, XC:6 et le contact d'auto-maintien de KM1 :
+  // les bornes du bornier et le contacteur sont dans l'armoire, pas en porte.
+  // C'est le bornier qui matérialise la frontière, et le schéma doit le montrer.
+  { x: 150, y: 370, w: 420, h: 240, t: 'Boîtier de commande (en porte)', f: '#E8F1FB', s: '#3B7DD8' }
+];
+
+/* --------------------------------------------------------- symboles
+   Ils viennent de `src/lib/schema/symboles.ts`, la bibliothèque de
+   l'application, empaquetée par `sh scripts/symboles.sh`. La maquette ne
+   redessine rien : l'élève doit voir le même tracé ici et dans le simulateur. */
+
+/* --------------------------------------------------------- état */
+var S={ panne:null, hyps:{}, cible:'', app:'mm', cal:1, etat:'on',
+        r:null, k:null, attendu:'', lecture:null, tests:[], conclu:{cause:'',action:''} };
+var $=function(id){return document.getElementById(id);};
+var appDef=function(){return APPAREILS.find(function(a){return a.id===S.app;});};
+var calibre=function(){var a=appDef();return a.calibres[Math.min(S.cal,a.calibres.length-1)];};
+
+function nouvellePanne(){
+  var autres=PANNES.filter(function(p){return !S.panne||p.id!==S.panne.id;});
+  S.panne=autres[Math.floor(Math.random()*autres.length)];
+  S.hyps={};S.cible='';S.r=null;S.k=null;S.attendu='';S.lecture=null;
+  S.tests=[];S.conclu={cause:'',action:''};
+  ['obs','afficheur','verdict','retour'].forEach(function(i){$(i).hidden=true;});
+  rendre();
+}
+
+/* ------------------------------------------------------- rendu du folio */
+function dessiner(){
+  var zone=null;
+  if(S.cible){ var h=PANNES.find(function(p){return p.id===S.cible;}); if(h) zone=ZONES[h.zone]; }
+  var e=aretes(S.panne,S.etat);
+  var vivante=function(a,b){
+    return e.some(function(x){return (x[0]===a&&x[1]===b)||(x[0]===b&&x[1]===a);});
+  };
+  var g='';
+
+  /* --- cadres d'implantation : ce qui n'est pas dans l'armoire --- */
+  CADRES.forEach(function(c){
+    g+='<rect x="'+c.x+'" y="'+c.y+'" width="'+c.w+'" height="'+c.h+'" rx="4" '+
+       'fill="'+c.f+'" stroke="'+c.s+'" stroke-width="1.2" stroke-dasharray="6 3"/>'+
+       '<text class="cadre" fill="'+c.s+'" text-anchor="middle" '+
+       'transform="translate('+(c.x-9)+' '+(c.y+c.h/2)+') rotate(-90)">'+c.t+'</text>';
+  });
+
+  /* --- rails : conducteur 2 en haut, com en bas --- */
+  g+='<line x1="150" y1="'+Y24+'" x2="660" y2="'+Y24+'" stroke="#2B2F36" stroke-width="3"/>'+
+     '<text class="rail" x="150" y="'+(Y24-11)+'">24 V — SECONDAIRE DE T1</text>'+
+     '<line x1="150" y1="'+Y0+'" x2="660" y2="'+Y0+'" stroke="#2B2F36" stroke-width="3"/>'+
+     '<text class="rail" x="150" y="'+(Y0+21)+'">com — RETOUR 0 V, RELIÉ À LA TERRE</text>';
+
+  /* --- fils --- */
+  SEG.forEach(function(s){
+    if(PAR_SYMBOLE[s[0]+'|'+s[1]]) return;
+    var A=POS[s[0]],B=POS[s[1]];
+    if(!A||!B) return;
+    var off=!vivante(s[0],s[1]);
+    var col=off?'#D93A3A':'#2B2F36';
+    // on descend jusqu'à l'ordonnée d'arrivée avant de traverser : un coude à
+    // mi-hauteur couperait la colonne principale
+    var d=(A.x===B.x)?'M'+A.x+' '+A.y+' L'+B.x+' '+B.y
+                     :'M'+A.x+' '+A.y+' L'+A.x+' '+B.y+' L'+B.x+' '+B.y;
+    g+='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="'+(off?2:2.4)+'" '+
+       (off?'stroke-dasharray="7 4" ':'')+'stroke-linecap="round" stroke-linejoin="round"/>';
+  });
+
+  /* --- symboles normalisés --- */
+  var P=function(a,b){return {x:POS[a].x,y1:POS[a].y,y2:POS[b].y};};
+  g+=SYM.disjoncteur(P('Q3.1','Q3.2'),!vivante('Q3.1','Q3.2'),
+       {rep:'Q3',legende:'protection du 24 V'});
+  g+=SYM.contactNF(P('F1.95','F1.96'),!vivante('F1.95','F1.96'),
+       {rep:'F1',bornes:['95','96'],actionneur:'bilame',legende:'relais thermique'});
+  g+=SYM.contactNF(P('S1.X1','S1.X2'),!vivante('S1.X1','S1.X2'),
+       {rep:'S1',bornes:['11','12'],actionneur:'came',legende:'écran de protection'});
+  g+=SYM.contactNF(P('S2.21','S2.22'),false,
+       {rep:'S2',bornes:['21','22'],actionneur:'champignon',legende:'arrêt d\'urgence'});
+  g+=SYM.contactNF(P('S3.21','S3.22'),false,
+       {rep:'S3',bornes:['21','22'],actionneur:'poussoir',legende:'arrêt'});
+  g+=SYM.contactNO(P('S4.13','S4.14'),vivante('S4.13','S4.14'),
+       {rep:'S4',bornes:['13','14'],actionneur:'poussoir',legende:'marche'});
+  g+=SYM.contactNO(P('KM1.13','KM1.14'),false,
+       {rep:'KM1',bornes:['13','14'],legende:'auto-maintien'});
+  g+=SYM.bobine(P('KM1.A1','KM1.A2'),{rep:'KM1',legende:'bobine 24 V'});
+  g+=SYM.voyant(P('H1.X1','H1.X2'),tension(e,'H1.X1','H1.X2')>1,
+       {rep:'H1',legende:'incolore'});
+
+  /* --- repérage équipotentiel, écrit le long du fil comme sur un folio --- */
+  EQUIPOT.forEach(function(c){ g+=SYM.equipotentielle(c[1],c[2],c[0]); });
+
+  /* --- bornes de bornier : le cercle barré, frontière armoire / porte --- */
+  BORNES.forEach(function(b){
+    if(b[0].indexOf('XC')!==0) return;
+    g+=SYM.borne(b[1],b[2],b[3],b[4]==='d'?'d':'g');
+  });
+
+  /* --- prise de terre du 0 V --- */
+  g+=SYM.terre(640,Y0+6);
+
+  /* --- extrémités du secondaire : les seules bornes que le folio ne nomme pas --- */
+  g+='<text class="sym-borne" x="'+(XM-14)+'" y="'+(POS['T24'].y+4)+'" text-anchor="end">T1:24</text>'+
+     '<text class="sym-borne" x="'+(XL-14)+'" y="'+(POS['T0V'].y-10)+'" text-anchor="end">T1:0V</text>';
+
+  /* --- points de test ---
+     Discrets et sans étiquette : le folio porte déjà tout le repérage utile
+     (numéros de bornes des contacts, bornes de bornier, A1/A2). Répéter
+     l'identifiant à côté de chaque point surchargeait le schéma au point de le
+     rendre illisible. La borne visée s'affiche dans le panneau et au survol. */
+  g+=BORNES.map(function(b){
+    var id=b[0],cls='pt';
+    if(zone&&zone.indexOf(id)>=0) cls+=' zone';
+    if(S.r===id) cls+=' r';
+    if(S.k===id) cls+=' k';
+    return '<g class="'+cls+'" data-id="'+id+'" role="button" tabindex="0">'+
+      '<title>'+b[3]+'</title>'+
+      '<circle cx="'+b[1]+'" cy="'+b[2]+'" r="5"/></g>';
+  }).join('');
+
+  $('pl').innerHTML=g;
+  Array.prototype.forEach.call($('pl').querySelectorAll('.pt'),function(n){
+    n.addEventListener('click',function(){poser(n.dataset.id);});
+    n.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();poser(n.dataset.id);}
+    });
+  });
+}
+
+function poser(id){
+  if(S.r===id) S.r=null;
+  else if(S.k===id) S.k=null;
+  else if(!S.r) S.r=id;
+  else if(!S.k) S.k=id;
+  else { S.r=id; S.k=null; }
+  S.lecture=null;
+  ['afficheur','verdict','retour'].forEach(function(i){$(i).hidden=true;});
+  rendre();
+}
+
+/* --------------------------------------------------------- mesure */
+function lire(){
+  var cal=calibre(), e=aretes(S.panne,S.etat), sousT=(S.etat!=='off');
+  if(cal==='OFF') return {v:'----',u:"l'appareil est sur OFF"};
+
+  if(S.app==='clamp' && cal==='A~')
+    return {v:'0.00',u:"A · la pince se serre sur un conducteur, pas sur deux bornes"};
+  if(S.app==='tach')
+    return {v:'0',u:'tr/min · le moteur est à l’arrêt'};
+  if(S.app==='vat'){
+    var uv=sousT?tension(e,S.r,S.k):0;
+    return uv>50 ? {v:'⚡ '+uv.toFixed(0),u:'V · PRÉSENCE DE TENSION',err:true}
+                 : {v:'0',u:'V · absence de tension confirmée'};
+  }
+  if(cal==='RISO 500 V'){
+    if(sousT) return {err:true,v:'ERR ⚡',u:'circuit sous tension : mesure interdite'};
+    return {v:'> 200',u:'MΩ · 500 V DC'};
+  }
+  if(cal==='RPE 200 mA'||cal==='Ω'||cal==='•))'){
+    if(sousT) return {err:true,v:'ERR ⚡',u:"tension présente : un ohmmètre ne se pose jamais là"};
+    var r=resistance(e,S.r,S.k);
+    return r===null?{v:'OL',u:'Ω · circuit ouvert',ol:true}
+                   :{v:r.toFixed(2).replace('.',','),u:'Ω',val:r};
+  }
+  if(cal==='V~'){
+    if(!sousT) return {v:'0,0',u:'V~ · installation consignée',val:0};
+    var u=tension(e,S.r,S.k);
+    return {v:u.toFixed(1).replace('.',','),u:'V~',val:u};
+  }
+  if(cal==='V⎓'||cal==='mV') return {v:'0,0',u:cal+' · circuit alternatif',val:0};
+  if(cal==='A~') return {v:'0.00',u:'A · utilise la pince'};
+  if(cal==='Hz') return {v:sousT?'50,0':'0,0',u:'Hz'};
+  if(cal==='ZS boucle'||cal==='DDR ΔT') return {v:'n/a',u:'pas de DDR sur cette platine'};
+  return {v:'--',u:''};
+}
+
+/** Hypothèses que cette lecture départage : celles qui auraient donné autre chose. */
+function departage(){
+  var cal=calibre(), ohm=(cal==='Ω'||cal==='•))'||cal==='RPE 200 mA');
+  var val=function(p){
+    var e=aretes(p,S.etat);
+    if(ohm) return S.etat==='off'?resistance(e,S.r,S.k):null;
+    return S.etat==='off'?0:tension(e,S.r,S.k);
+  };
+  var ref=val(S.panne), sep=[];
+  PANNES.forEach(function(p){
+    if(!S.hyps[p.id]) return;
+    var v=val(p);
+    var meme=(v===null&&ref===null)||(v!==null&&ref!==null&&Math.abs(v-ref)<0.05);
+    if(!meme) sep.push(p.id);
+  });
+  return sep;
+}
+function prevu(){
+  if(!S.lecture) return null;
+  var l=S.lecture, cal=calibre();
+  var ohm=(cal==='Ω'||cal==='•))'||cal==='RPE 200 mA');
+  if(S.attendu==='ol') return !!l.ol;
+  if(S.attendu==='cont') return ohm&&l.val!=null&&l.val<5;
+  if(S.attendu==='24') return !ohm&&l.val!=null&&l.val>20;
+  if(S.attendu==='0') return !ohm&&l.val!=null&&l.val<1;
+  return false;
+}
+
+/* --------------------------------------------------------- rendu */
+function rendre(){
+  $('sympt').innerHTML="Symptôme signalé par l'utilisateur : <b>"+S.panne.symptome+"</b>";
+
+  /* servante */
+  $('tray').innerHTML=APPAREILS.map(function(a){
+    return '<button type="button" data-a="'+a.id+'" aria-pressed="'+(S.app===a.id)+'">'+
+      '<svg viewBox="0 0 46 48" aria-hidden="true">'+DESSIN[a.id]+'</svg>'+
+      '<span class="nm">'+a.nom+'</span></button>';
+  }).join('');
+  Array.prototype.forEach.call($('tray').children,function(b){
+    b.addEventListener('click',function(){
+      S.app=b.dataset.a; S.cal=Math.min(1,APPAREILS.find(function(x){return x.id===S.app;}).calibres.length-1);
+      S.lecture=null; ['afficheur','verdict','retour'].forEach(function(i){$(i).hidden=true;});
+      rendre();
+    });
+  });
+  $('dials').innerHTML=appDef().calibres.map(function(c,i){
+    return '<button type="button" data-i="'+i+'" aria-pressed="'+(S.cal===i)+'">'+c+'</button>';
+  }).join('');
+  Array.prototype.forEach.call($('dials').children,function(b){
+    b.addEventListener('click',function(){
+      S.cal=+b.dataset.i; S.lecture=null;
+      ['afficheur','verdict','retour'].forEach(function(i){$(i).hidden=true;});
+      rendre();
+    });
+  });
+
+  /* hypothèses */
+  $('hyps').innerHTML=PANNES.map(function(p){
+    var t=S.tests.filter(function(x){return x.id===p.id;}).slice(-1)[0];
+    var cls=t?(t.verdict==='out'?'out':'keep'):'';
+    return '<li class="'+cls+'"><label><input type="checkbox" data-h="'+p.id+'"'+
+      (S.hyps[p.id]?' checked':'')+'><span class="txt">'+p.titre+
+      (t?'<span class="tag '+(t.verdict==='out'?'out':'keep')+'">'+
+         (t.verdict==='out'?'éliminée':'retenue')+'</span>':'')+'</span></label></li>';
+  }).join('');
+  Array.prototype.forEach.call($('hyps').querySelectorAll('input'),function(i){
+    i.addEventListener('change',function(){
+      S.hyps[i.dataset.h]=i.checked;
+      if(!i.checked&&S.cible===i.dataset.h) S.cible='';
+      rendre();
+    });
+  });
+
+  var retenues=PANNES.filter(function(p){return S.hyps[p.id];});
+  $('hn').innerHTML=retenues.length
+    ? '<b>'+retenues.length+'</b> hypothèse'+(retenues.length>1?'s':'')+
+      ' à tester. Commence par celle qui se vérifie le plus vite.'
+    : 'Aucune hypothèse retenue.';
+
+  var vivantes=retenues.filter(function(p){
+    var t=S.tests.filter(function(x){return x.id===p.id;}).slice(-1)[0];
+    return !t||t.verdict!=='out';
+  });
+  $('cible').innerHTML='<option value="">— choisis —</option>'+vivantes.map(function(p){
+    return '<option value="'+p.id+'"'+(S.cible===p.id?' selected':'')+'>'+p.titre+'</option>';
+  }).join('');
+
+  var besoinPointes=(S.app!=='tach');
+  $('ptsel').textContent=(S.r||'—')+' / '+(S.k||'—');
+  $('attendu').value=S.attendu;
+  $('mesurer').disabled=!(S.cible&&S.attendu&&(!besoinPointes||(S.r&&S.k)));
+
+  /* bilan */
+  $('bilan').innerHTML=S.tests.length===0
+    ? '<div class="empty">Aucun test réalisé.</div>'
+    : '<table><thead><tr><th>Hypothèse</th><th>Test</th><th>Attendu</th><th>Lu</th><th>Verdict</th></tr></thead><tbody>'+
+      S.tests.map(function(t){
+        var p=PANNES.find(function(x){return x.id===t.id;});
+        return '<tr class="'+(t.verdict==='out'?'out':'')+'">'+
+          '<td>'+p.titre+'</td><td class="v">'+t.test+'</td><td class="v">'+t.attendu+'</td>'+
+          '<td class="v">'+t.lu+'</td><td class="verdict '+(t.verdict==='out'?'out':'keep')+'">'+
+          (t.verdict==='out'?'éliminée':'retenue')+'</td></tr>';
+      }).join('')+'</tbody></table>';
+
+  /* conclusion */
+  var testees={}; S.tests.forEach(function(t){testees[t.id]=t.verdict;});
+  var restantes=retenues.filter(function(p){return testees[p.id]!=='out';});
+  var assez=retenues.length>=2&&S.tests.length>=1&&restantes.length<=2;
+  $('c5').classList.toggle('on',assez);
+
+  if(!assez){
+    $('c5body').innerHTML='<div class="note">La conclusion s\'ouvre quand tes tests ont réduit '+
+      'le champ : au moins deux hypothèses posées, au moins un test fait, et deux hypothèses au '+
+      'plus encore debout. '+
+      (retenues.length<2?'Pose d\'abord tes hypothèses.'
+        :S.tests.length<1?'Fais au moins un test.'
+        :'<b>'+restantes.length+'</b> hypothèses tiennent encore : continue à éliminer.')+'</div>';
+  } else {
+    $('c5body').innerHTML=
+      '<label class="fld">Cause retenue</label><select id="k-cause"><option value="">— choisis —</option>'+
+      restantes.map(function(p){return '<option value="'+p.id+'"'+(S.conclu.cause===p.id?' selected':'')+'>'+p.titre+'</option>';}).join('')+
+      '</select><label class="fld">Action de remise en état</label>'+
+      '<select id="k-act"><option value="">— choisis —</option>'+
+      PANNES.slice().sort(function(a,b){return a.action.localeCompare(b.action,'fr');})
+        .map(function(p){return '<option value="'+p.id+'"'+(S.conclu.action===p.id?' selected':'')+'>'+p.action+'</option>';}).join('')+
+      '</select><button class="btn primary full" id="k-go" style="margin-top:10px">Valider mon diagnostic</button>'+
+      '<div class="note" id="k-out" hidden></div>';
+    $('k-cause').addEventListener('change',function(){S.conclu.cause=this.value;});
+    $('k-act').addEventListener('change',function(){S.conclu.action=this.value;});
+    $('k-go').addEventListener('click',function(){
+      var o=$('k-out'); o.hidden=false;
+      if(!S.conclu.cause||!S.conclu.action){o.innerHTML='Choisis une cause <b>et</b> une action.';return;}
+      var bc=S.conclu.cause===S.panne.id, ba=S.conclu.action===S.panne.id;
+      o.innerHTML=bc&&ba
+        ? '✔ Cause et remise en état exactes, en <b>'+S.tests.length+'</b> test'+(S.tests.length>1?'s':'')+'. Tu peux intervenir.'
+        : bc ? "✘ La cause est la bonne, mais l'action proposée n'y répond pas."
+        : ba ? "✘ L'action tient debout, mais pas pour cette cause."
+             : '✘ Ni la cause ni l\'action ne conviennent. Reprends tes tests.';
+    });
+  }
+
+  $('c1').classList.add('done');
+  $('c2').classList.toggle('on',retenues.length<2);
+  $('c2').classList.toggle('done',retenues.length>=2);
+  $('c3').classList.toggle('on',retenues.length>=2&&!assez);
+
+  dessiner();
+}
+
+/* ------------------------------------------------------ événements */
+$('essai').addEventListener('click',function(){
+  var o=$('obs'); o.hidden=false;
+  o.innerHTML="Essai : "+S.panne.symptome.charAt(0).toLowerCase()+S.panne.symptome.slice(1)+
+    " Note ce que tu observes — c'est le constat, et il oriente les hypothèses.";
+});
+$('repanne').addEventListener('click',nouvellePanne);
+$('cible').addEventListener('change',function(){
+  S.cible=this.value; S.lecture=null;
+  ['afficheur','verdict','retour'].forEach(function(i){$(i).hidden=true;}); rendre();
+});
+$('attendu').addEventListener('change',function(){S.attendu=this.value;rendre();});
+Array.prototype.forEach.call($('etat').children,function(b){
+  b.addEventListener('click',function(){
+    S.etat=b.dataset.e;
+    Array.prototype.forEach.call($('etat').children,function(x){
+      x.setAttribute('aria-pressed',String(x===b));});
+    S.lecture=null; ['afficheur','verdict','retour'].forEach(function(i){$(i).hidden=true;});
+    rendre();
+  });
+});
+
+$('mesurer').addEventListener('click',function(){
+  S.lecture=lire();
+  var a=$('afficheur'); a.hidden=false;
+  a.className='meter'+(S.lecture.err?' bad':'');
+  $('m-k').textContent=appDef().nom+' · '+calibre()+
+    (S.app==='tach'?'':' · '+(S.r||'—')+' / '+(S.k||'—'));
+  $('m-v').textContent=S.lecture.v;
+  $('m-u').textContent=S.lecture.u;
+  $('verdict').hidden=!!S.lecture.err;
+  var ret=$('retour'); ret.hidden=false;
+  if(S.lecture.err){
+    ret.innerHTML="L'appareil refuse — et c'est normal : "+S.lecture.u+
+      ". Consigne l'installation, ou change de calibre.";
+    return;
+  }
+  ret.innerHTML=prevu()
+    ? "Ta prévision et ta lecture concordent : tu savais ce que tu cherchais."
+    : "<b>Écart entre ta prévision et la lecture.</b> Ce n'est pas une faute — c'est "+
+      "l'information la plus utile de la séance : le circuit ne se comporte pas comme tu le pensais.";
+});
+
+function noter(verdict){
+  var sep=departage();
+  var p=PANNES.find(function(x){return x.id===S.cible;});
+  var coherent = verdict==='out' ? sep.indexOf(S.cible)>=0 : sep.indexOf(S.cible)<0;
+  S.tests.push({
+    id:S.cible,
+    test:calibre()+' '+(S.r||'—')+'/'+(S.k||'—'),
+    attendu:$('attendu').selectedOptions[0].textContent.split(' (')[0],
+    lu:S.lecture.v+' '+S.lecture.u.split(' ')[0],
+    verdict: coherent?verdict:(verdict==='out'?'keep':'out')
+  });
+  var ret=$('retour'); ret.hidden=false;
+  var msg = coherent
+    ? "Verdict cohérent avec la mesure."
+    : "<b>La mesure ne permet pas de conclure ça.</b> Avec cette lecture, « "+p.titre+" » "+
+      (verdict==='out'?"reste possible":"est au contraire écartée")+
+      " — le bilan enregistre ce que dit la mesure, pas ce que tu espérais.";
+  var n=sep.length, tot=PANNES.filter(function(x){return S.hyps[x.id];}).length;
+  msg+="<br>Cette mesure départage <b>"+n+"</b> hypothèse"+(n>1?'s':'')+" sur "+tot+" retenues"+
+    (n>1?" — une seule vérification peut en infirmer plusieurs, c'est tout l'art.":".");
+  ret.innerHTML=msg;
+  S.cible='';S.r=null;S.k=null;S.attendu='';S.lecture=null;
+  $('afficheur').hidden=true;$('verdict').hidden=true;
+  rendre();
+}
+$('v-out').addEventListener('click',function(){noter('out');});
+$('v-keep').addEventListener('click',function(){noter('keep');});
+
+/* feuille de style des symboles, servie par la bibliothèque */
+(function(){
+  var st=document.createElement('style');
+  st.textContent=SYM.STYLE_SYMBOLES;
+  document.head.appendChild(st);
+})();
+
+nouvellePanne();
+</script>
+</body>
+</html>

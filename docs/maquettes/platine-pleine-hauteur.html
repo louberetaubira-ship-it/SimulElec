@@ -1,0 +1,453 @@
+<title>Platine pleine hauteur</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --app: #F2F4F6;
+    --surface: #FFFFFF;
+    --surface-2: #EDF0F3;
+    --line: #D3D9E1;
+    --ink: #141A21;
+    --muted: #66717F;
+    --accent: #E39A00;
+    --good: #1E9E63;
+    --crit: #D93A3A;
+    --title: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --app: #10141A; --surface: #171C23; --surface-2: #1F262F;
+      --line: #2C343E; --ink: #E7ECF2; --muted: #8F9BA8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --app: #10141A; --surface: #171C23; --surface-2: #1F262F;
+    --line: #2C343E; --ink: #E7ECF2; --muted: #8F9BA8;
+  }
+
+  body {
+    margin: 0; padding-block: 28px 56px; padding-left: 20px; padding-right: 20px;
+    background: var(--app); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0;
+  }
+  h1 {
+    font-family: var(--title); font-weight: 600; font-size: clamp(30px, 5vw, 46px);
+    line-height: 1.04; margin: 6px 0 0; text-wrap: balance;
+  }
+  .lede { max-width: 66ch; margin: 10px 0 0; color: var(--muted); }
+  h2 { font-family: var(--title); font-weight: 600; font-size: 24px; margin: 0 0 8px; }
+
+  /* ------------------------------------------------------------- commandes */
+
+  .demo { display: flex; flex-direction: column; gap: 10px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .lbl {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--surface); }
+  .seg button {
+    border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 12.5px;
+    font-weight: 600; padding: 7px 13px; min-height: 36px; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #1A1300; }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .slide { display: flex; align-items: center; gap: 8px; }
+  .slide input { accent-color: var(--accent); width: 150px; }
+  .slide output { font-family: var(--mono); font-size: 12px; min-width: 54px; font-variant-numeric: tabular-nums; }
+
+  /* ----------------------------------------------------------- écran simulé */
+
+  .frame {
+    border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+    background: var(--surface); box-shadow: 0 16px 36px rgba(16, 22, 30, .12);
+  }
+  .frame[data-device="phone"] { max-width: 400px; margin: 0 auto; }
+
+  .app { display: flex; flex-direction: column; background: #F5F6F8; color: #141A21; font-size: 12px; }
+
+  .hdr {
+    display: flex; align-items: center; gap: 8px; flex: none;
+    padding: 6px 10px; background: #fff; border-bottom: 1px solid #D3D9E1;
+  }
+  .hdr b { font-family: var(--title); font-size: 14px; }
+  .hdr .sp { flex: 1; }
+  .hdr .pct { font-family: var(--mono); font-size: 11px; color: #66717F; }
+  .steps {
+    display: flex; gap: 4px; flex: none; overflow: hidden;
+    padding: 5px 8px; background: #fff; border-bottom: 1px solid #D3D9E1;
+  }
+  .steps span {
+    font-size: 10px; padding: 3px 7px; border-radius: 7px; white-space: nowrap;
+    border: 1px solid #D3D9E1; color: #66717F;
+  }
+  .steps span.on { border-color: #E39A00; background: rgba(227, 154, 0, .12); color: #141A21; font-weight: 600; }
+
+  .cols { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: 0; flex: 1 1 auto; }
+  .frame[data-device="phone"] .cols { grid-template-columns: minmax(0, 1fr); }
+  .frame[data-device="phone"] .side { display: none; }
+
+  .side {
+    display: flex; flex-direction: column; gap: 7px; min-height: 0; overflow-y: auto;
+    padding: 9px; background: #fff; border-right: 1px solid #D3D9E1;
+  }
+  .side h4 {
+    font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+    color: #E39A00; margin: 0;
+  }
+  .ctrl { border: 1px solid #D3D9E1; border-radius: 10px; padding: 7px 8px; background: #fff; }
+  .ctrl b { display: block; font-size: 11.5px; }
+  .ctrl p { margin: 2px 0 6px; font-size: 10px; line-height: 1.35; color: #66717F; }
+  .ctrl button {
+    min-height: 28px; padding: 3px 9px; border-radius: 8px; border: 1px solid #D3D9E1;
+    background: #fff; color: #141A21; font: inherit; font-size: 10.5px; font-weight: 600; cursor: pointer;
+  }
+  .ctrl button:hover { border-color: #E39A00; }
+
+  /* la zone de travail : c'est elle que la proposition change */
+  .stage {
+    display: flex; flex-direction: column; gap: 7px; min-height: 0; padding: 9px;
+  }
+  .wswrap {
+    position: relative; display: grid; place-items: center;
+    border: 1px solid #D3D9E1; border-radius: 12px; background: #DEE2E6;
+    padding: 10px; overflow: hidden;
+  }
+  /* aujourd'hui : hauteur figée, calée sur la fenêtre */
+  .app[data-mode="avant"] .wswrap { height: var(--figee); flex: none; }
+  /* proposé : la zone prend ce qui reste */
+  .app[data-mode="apres"] .wswrap { flex: 1 1 auto; min-height: 150px; }
+
+  .wswrap svg { max-width: 100%; max-height: 100%; }
+  .zoom {
+    position: absolute; right: 8px; bottom: 8px;
+    display: flex; align-items: center; gap: 4px; padding: 3px 5px;
+    border: 1px solid #D3D9E1; border-radius: 999px; background: rgba(255, 255, 255, .94);
+    font-family: var(--mono); font-size: 10px;
+  }
+  .zoom i { font-style: normal; padding: 0 4px; font-weight: 700; }
+  .hint { flex: none; text-align: center; font-size: 10.5px; color: #66717F; }
+
+  /* le vide mesuré, visible seulement dans l'état actuel */
+  .vide {
+    flex: 1 1 auto; min-height: 0; display: grid; place-items: center;
+    border: 1px dashed rgba(217, 58, 58, .5); border-radius: 12px;
+    background: repeating-linear-gradient(135deg, rgba(217, 58, 58, .07) 0 8px, transparent 8px 16px);
+  }
+  .vide span {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 600; color: #A32B2B;
+    background: rgba(255, 255, 255, .9); padding: 2px 8px; border-radius: 999px;
+  }
+  .app[data-mode="apres"] .vide { display: none; }
+
+  /* mesure affichée sous l'écran */
+  .mesure {
+    display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline;
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  }
+  .mesure b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  /* ---------------------------------------------------------------- notes */
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .card {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+    padding: 14px 15px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .card h3 { font-family: var(--title); font-size: 19px; font-weight: 600; margin: 0; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .card p b { color: var(--ink); font-weight: 600; }
+  code { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+
+  .files { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  .files div {
+    display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline;
+    padding: 9px 14px; border-bottom: 1px solid var(--line); font-size: 13.5px;
+  }
+  .files div:last-child { border-bottom: 0; }
+  .files em { font-style: normal; color: var(--muted); }
+
+  .ask { border-left: 3px solid var(--accent); padding: 2px 0 2px 14px; max-width: 68ch; color: var(--muted); }
+  .ask b { color: var(--ink); }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">SimulElec · proposition · zone de travail</p>
+    <h1>Platine pleine hauteur</h1>
+    <p class="lede">
+      La zone de travail a aujourd'hui une hauteur figée : elle s'arrête au deux tiers de la fenêtre,
+      quelle que soit la place disponible. Aux étapes à colonne longue — Tests, Mesures — ça laisse une
+      bande grise inutilisée sous la platine. Voici ce que je propose : le cadre descend jusqu'au bas
+      de la page. Bascule entre les deux et fais varier la hauteur de fenêtre.
+    </p>
+  </header>
+
+  <section class="demo">
+    <div class="bar">
+      <span class="lbl">Comparer</span>
+      <div class="seg">
+        <button type="button" id="b-avant" aria-pressed="true">Aujourd'hui</button>
+        <button type="button" id="b-apres" aria-pressed="false">Proposé</button>
+      </div>
+      <span class="lbl">Hauteur d'écran</span>
+      <div class="slide">
+        <input type="range" id="h" min="420" max="820" step="10" value="620" aria-label="Hauteur de la fenêtre simulée">
+        <output id="hval" for="h">620 px</output>
+      </div>
+      <div class="seg">
+        <button type="button" id="b-desk" aria-pressed="true">Écran</button>
+        <button type="button" id="b-phone" aria-pressed="false">Téléphone</button>
+      </div>
+    </div>
+
+    <div class="frame" id="frame" data-device="desk">
+      <div class="app" id="app" data-mode="avant" style="height:620px">
+
+        <div class="hdr">
+          <b>Perceuse radiale · démarrage direct</b>
+          <span class="sp"></span>
+          <span class="pct">Progression 55 %</span>
+        </div>
+        <div class="steps">
+          <span>Matériel</span><span>Pose</span><span>Câblage</span>
+          <span class="on">Tests hors tension</span><span>EPI</span><span>Mesures</span>
+        </div>
+
+        <div class="cols">
+          <div class="side">
+            <h4>Contrôles à réaliser · 0 / 7</h4>
+            <div class="ctrl">
+              <b>VAT · vérification d'absence de tension</b>
+              <p>Après séparation et condamnation, vérifie le VAT sur une source connue, mesure entre
+                phases et phase-neutre à l'arrivée, puis re-vérifie le VAT.</p>
+              <button type="button">Réaliser le contrôle</button>
+            </div>
+            <div class="ctrl">
+              <b>Contrôle visuel et serrage</b>
+              <p>Repérage des conducteurs, sections 2,5 mm² puissance / 1,5 mm² commande, vert-jaune
+                réservé au PE, serrage au tournevis dynamométrique.</p>
+              <button type="button">Réaliser le contrôle</button>
+            </div>
+            <div class="ctrl">
+              <b>Continuité du conducteur de protection</b>
+              <p>Contrôleur d'installation, calibre R<sub>PE</sub> 200 mA, entre la borne PE du bornier
+                et la masse du récepteur.</p>
+              <button type="button">Réaliser le contrôle</button>
+            </div>
+            <div class="ctrl">
+              <b>Isolement 500 V</b>
+              <p>Calibre R<sub>ISO</sub> 500 V, entre chaque conducteur actif et le PE, récepteur raccordé.</p>
+              <button type="button">Réaliser le contrôle</button>
+            </div>
+            <div class="ctrl">
+              <b>Continuité de la chaîne d'arrêt</b>
+              <p>Multimètre en Ω entre XC:2 et XC:5, écran de protection en place, aucun bouton actionné :
+                le chemin doit passer par S1, S2 21-22 et S3 21-22.</p>
+              <button type="button">Réaliser le contrôle</button>
+            </div>
+            <div class="ctrl">
+              <b>Résistance des enroulements</b>
+              <p>Multimètre en Ω entre M.U1 et M.W2, barrettes de couplage retirées : les trois
+                enroulements doivent être équilibrés.</p>
+              <button type="button">Réaliser le contrôle</button>
+            </div>
+          </div>
+
+          <div class="stage">
+            <div class="wswrap">
+              <svg viewBox="0 0 300 420" role="img" aria-label="Platine de l'armoire, schématique">
+                <rect x="6" y="6" width="288" height="330" rx="6" fill="#FFFFFF" stroke="#8A929C" stroke-width="2"/>
+                <rect x="16" y="18" width="210" height="14" rx="3" fill="#2C6FB5"/>
+                <text x="22" y="29" font-family="IBM Plex Mono, monospace" font-size="8" fill="#fff">GOULOTTE 1</text>
+                <g fill="#F2F4F6" stroke="#9AA3AD" stroke-width="1.4">
+                  <rect x="28" y="46" width="48" height="46" rx="4"/>
+                  <rect x="92" y="46" width="38" height="46" rx="4"/>
+                  <rect x="144" y="46" width="28" height="46" rx="4"/>
+                  <rect x="188" y="46" width="62" height="46" rx="4"/>
+                </g>
+                <g font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" fill="#141A21" text-anchor="middle">
+                  <text x="52" y="74">Q1</text><text x="111" y="74">Q2</text>
+                  <text x="158" y="74">Q3</text><text x="219" y="74">T1</text>
+                </g>
+                <rect x="16" y="104" width="210" height="14" rx="3" fill="#2C6FB5"/>
+                <text x="22" y="115" font-family="IBM Plex Mono, monospace" font-size="8" fill="#fff">GOULOTTE 2</text>
+                <g fill="#F2F4F6" stroke="#9AA3AD" stroke-width="1.4">
+                  <rect x="40" y="132" width="52" height="48" rx="4"/>
+                  <rect x="112" y="132" width="52" height="48" rx="4"/>
+                </g>
+                <g font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" fill="#141A21" text-anchor="middle">
+                  <text x="66" y="161">KM1</text><text x="138" y="161">F1</text>
+                </g>
+                <rect x="16" y="192" width="210" height="14" rx="3" fill="#2C6FB5"/>
+                <text x="22" y="203" font-family="IBM Plex Mono, monospace" font-size="8" fill="#fff">GOULOTTE 3</text>
+                <rect x="28" y="226" width="120" height="26" rx="3" fill="#FFFFFF" stroke="#9AA3AD" stroke-width="1.4"/>
+                <rect x="160" y="226" width="98" height="26" rx="3" fill="#FFFFFF" stroke="#9AA3AD" stroke-width="1.4"/>
+                <g font-family="IBM Plex Mono, monospace" font-size="7" fill="#66717F">
+                  <text x="34" y="264">X1 · bornier puissance</text>
+                  <text x="166" y="264">XC · bornier commande</text>
+                </g>
+                <g stroke-width="2" fill="none" stroke-linecap="round">
+                  <path d="M40 92 V226" stroke="#8B4A2B"/>
+                  <path d="M52 92 V226" stroke="#2B2F36"/>
+                  <path d="M64 92 V226" stroke="#8E979F"/>
+                  <path d="M104 92 V132" stroke="#8B4A2B"/>
+                  <path d="M120 92 V132" stroke="#2B2F36"/>
+                  <path d="M200 92 V226" stroke="#E4312B"/>
+                  <path d="M212 92 V226" stroke="#E4312B"/>
+                  <path d="M88 92 V226" stroke="#37B34A" stroke-dasharray="6 4"/>
+                </g>
+                <rect x="6" y="348" width="288" height="66" rx="6" fill="none" stroke="#9AA3AD" stroke-width="1.4" stroke-dasharray="5 4"/>
+                <text x="14" y="362" font-family="IBM Plex Mono, monospace" font-size="7" fill="#66717F">RÉCEPTEURS · MOTEUR M1 HORS ARMOIRE</text>
+                <circle cx="48" cy="388" r="17" fill="#C9CFD6" stroke="#7B838D" stroke-width="1.4"/>
+                <text x="48" y="392" font-family="Barlow Condensed, sans-serif" font-size="12" font-weight="700" fill="#141A21" text-anchor="middle">M1</text>
+                <rect x="88" y="370" width="86" height="36" rx="4" fill="#FFFFFF" stroke="#9AA3AD" stroke-width="1.4"/>
+                <text x="131" y="392" font-family="IBM Plex Mono, monospace" font-size="7" fill="#66717F" text-anchor="middle">plaque à bornes</text>
+              </svg>
+              <div class="zoom"><i>−</i> 88 % <i>+</i> Ajuster</div>
+            </div>
+
+            <div class="vide"><span id="videtxt">espace perdu</span></div>
+
+            <p class="hint">Hors tension : les fils sont en place, rien n'est alimenté.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <p class="mesure">
+      Hauteur du cadre <b id="m-cadre">—</b>
+      <span>·</span> Espace perdu sous le cadre <b id="m-vide">—</b>
+      <span>·</span> Gain <b id="m-gain">—</b>
+    </p>
+  </section>
+
+  <section>
+    <h2>Ce que ça change</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Une hauteur figée devient une hauteur disponible</h3>
+        <p>
+          Aujourd'hui la zone vaut <code>clamp(340px, 62vh, 760px)</code> : elle se cale sur la
+          <b>fenêtre</b>, pas sur la place qui lui reste une fois l'en-tête, les étapes et la ligne
+          d'aide déduits. Elle prendra désormais tout le reste, avec un plancher de 300 px.
+        </p>
+      </div>
+      <div class="card">
+        <h3>La ligne d'aide reste visible</h3>
+        <p>
+          « Hors tension : les fils sont en place… » n'est pas avalée : le cadre s'arrête juste
+          au-dessus. C'est bien le <b>bas de page</b>, pas le bas d'écran.
+        </p>
+      </div>
+      <div class="card">
+        <h3>La platine grossit d'elle-même</h3>
+        <p>
+          Le zoom automatique tient déjà compte de la hauteur du cadre : un cadre plus haut donne une
+          platine plus grande, sans rien toucher. Les élèves qui n'ont jamais touché au zoom y gagnent
+          directement.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Sur téléphone, on ne change rien</h3>
+        <p>
+          En colonnes empilées, une zone qui s'étire mangerait tout l'écran et rendrait le reste de la
+          page invisible. Sous 1024 px, la hauteur figée d'aujourd'hui est conservée.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Côté code</h2>
+    <div class="files">
+      <div><code>src/components/panel/Workspace.tsx</code> <em>prop <code>fill</code> — la zone s'étire au lieu de garder sa hauteur figée</em></div>
+      <div><code>src/components/panel/workspace.css</code> <em><code>.se-ws-fill</code> ; au-dessus de 1024 px seulement</em></div>
+      <div><code>src/components/parcours/parcours.css</code> <em><code>.tp-stage</code> passe en colonne étirable</em></div>
+      <div><code>src/components/parcours/StageLayout.tsx</code> <em>le <code>Center</code> devient le conteneur de hauteur des étapes</em></div>
+    </div>
+  </section>
+
+  <p class="ask">
+    <b>Dis-moi si ça te va.</b> Une question ouverte : je garde la hauteur figée sur téléphone, où
+    l'élève fait défiler la page. Si tu préfères que la platine remplisse l'écran là aussi, dis-le —
+    mais le tableau et les boutons passeront alors sous la ligne de flottaison.
+  </p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var app = document.getElementById('app');
+  var frame = document.getElementById('frame');
+  var h = document.getElementById('h');
+  var hval = document.getElementById('hval');
+
+  /* Hauteur figée reproduite à l'identique : clamp(340px, 62vh, 760px). */
+  function figee(px) { return Math.max(340, Math.min(760, px * 0.62)); }
+
+  function mesurer() {
+    var cadre = document.querySelector('.wswrap');
+    var vide = document.querySelector('.vide');
+    var hc = Math.round(cadre.getBoundingClientRect().height);
+    var hv = app.getAttribute('data-mode') === 'avant'
+      ? Math.round(vide.getBoundingClientRect().height) : 0;
+    document.getElementById('m-cadre').textContent = hc + ' px';
+    document.getElementById('m-vide').textContent = hv + ' px';
+    document.getElementById('m-gain').textContent =
+      app.getAttribute('data-mode') === 'avant' ? '—' : '+' + hv0() + ' px';
+    document.getElementById('videtxt').textContent = hv + ' px perdus';
+  }
+
+  /* Gain = ce que valait le vide dans l'état actuel, à la même hauteur d'écran. */
+  function hv0() {
+    var total = Number(h.value);
+    var chrome = 30 + 29 + 18 + 25 + 7; // en-tête, étapes, marges de la zone, ligne d'aide
+    return Math.max(0, Math.round(total - chrome - figee(total)));
+  }
+
+  function appliquer() {
+    var px = Number(h.value);
+    app.style.height = px + 'px';
+    app.style.setProperty('--figee', figee(px) + 'px');
+    hval.textContent = px + ' px';
+    requestAnimationFrame(mesurer);
+  }
+
+  h.addEventListener('input', appliquer);
+
+  function mode(m) {
+    app.setAttribute('data-mode', m);
+    document.getElementById('b-avant').setAttribute('aria-pressed', m === 'avant' ? 'true' : 'false');
+    document.getElementById('b-apres').setAttribute('aria-pressed', m === 'apres' ? 'true' : 'false');
+    requestAnimationFrame(mesurer);
+  }
+  document.getElementById('b-avant').addEventListener('click', function () { mode('avant'); });
+  document.getElementById('b-apres').addEventListener('click', function () { mode('apres'); });
+
+  function device(d) {
+    frame.setAttribute('data-device', d);
+    document.getElementById('b-desk').setAttribute('aria-pressed', d === 'desk' ? 'true' : 'false');
+    document.getElementById('b-phone').setAttribute('aria-pressed', d === 'phone' ? 'true' : 'false');
+    // sur téléphone la hauteur figée est conservée dans les deux états
+    if (d === 'phone') mode('avant');
+    requestAnimationFrame(mesurer);
+  }
+  document.getElementById('b-desk').addEventListener('click', function () { device('desk'); });
+  document.getElementById('b-phone').addEventListener('click', function () { device('phone'); });
+
+  window.addEventListener('resize', mesurer);
+  appliquer();
+}());
+</script>

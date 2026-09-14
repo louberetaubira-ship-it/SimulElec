@@ -1,0 +1,1344 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP — Câblage et mise en service d'un variateur de vitesse</title>
+<style>
+  :root{
+    --app:#F5F6F8; --surface:#fff; --surface-2:#EEF1F5; --line:#D3D9E1;
+    --ink:#141A21; --muted:#66717F; --accent:#E39A00; --good:#1E9E63;
+    --warn:#D97706; --crit:#D93A3A; --info:#3B7DD8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--app);color:var(--ink);
+    font:14px/1.6 "IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:24px 16px 64px}
+  h1{font:600 30px/1.15 "Barlow Condensed",system-ui,sans-serif;margin:0 0 6px}
+  h2{font:600 15px/1.2 "Barlow Condensed",system-ui,sans-serif;text-transform:uppercase;
+    letter-spacing:.15em;color:var(--accent);margin:0 0 12px}
+  h3{font-size:13.5px;margin:0 0 6px}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+  .bandeau{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:20px 22px;margin-bottom:18px}
+  .bandeau .sur{font:600 11px/1 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.18em;color:var(--accent);margin-bottom:6px}
+  .bandeau p{margin:0;color:var(--muted);max-width:76ch}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:11.5px;
+    background:var(--surface-2);color:var(--muted)}
+  .chip b{color:var(--ink);font-weight:600}
+
+  section{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:20px 22px;margin-bottom:16px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:820px){.grid2,.grid3{grid-template-columns:1fr}}
+
+  .bloc{border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:var(--surface)}
+  .bloc h3{color:var(--ink)}
+  .bloc p{margin:0;font-size:12.5px;color:var(--muted)}
+  .bloc p + p{margin-top:7px}
+  .num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;
+    background:var(--accent);color:#fff;font:600 11px/1 system-ui;margin-right:7px;vertical-align:2px}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+  th{font:600 10.5px/1.2 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.09em;color:var(--muted)}
+  td.c{font-family:"IBM Plex Mono",monospace;white-space:nowrap;font-weight:600}
+  .scroll{overflow-x:auto}
+
+  .alerte{border-left:3px solid var(--crit);background:#FDF0F0;border-radius:0 10px 10px 0;
+    padding:11px 14px;margin:12px 0;font-size:12.5px}
+  .alerte b{color:var(--crit)}
+  .info{border-left:3px solid var(--info);background:#EFF5FC;border-radius:0 10px 10px 0;
+    padding:11px 14px;margin:12px 0;font-size:12.5px}
+  .note{background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted)}
+  .note b{color:var(--ink)}
+
+  button{font:inherit;cursor:pointer}
+  .btn{min-height:38px;border:1px solid var(--line);background:var(--surface);border-radius:9px;
+    padding:0 13px;font-size:12.5px;color:var(--ink)}
+  .btn:hover{border-color:var(--muted)}
+  .btn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+
+  svg{display:block;width:100%;height:auto;touch-action:manipulation}
+  .bp{cursor:pointer}
+  .bp circle{fill:#fff;fill-opacity:.9;stroke:#8E979F;stroke-width:1.3;transition:.12s}
+  .bp:hover circle{stroke:var(--accent);stroke-width:2.5;fill-opacity:1}
+  .bp.on circle{fill:var(--accent);stroke:var(--accent);fill-opacity:1}
+
+  .fiche{background:#11161C;color:#E8EDF3;border-radius:12px;padding:12px 14px;margin-top:10px;min-height:78px}
+  .fiche .k{font:600 10.5px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;
+    text-transform:uppercase;color:#8B97A5}
+  .fiche .n{font:700 17px/1.2 "IBM Plex Mono",monospace;margin:4px 0 5px}
+  .fiche .d{font-size:12.5px;color:#B9C6D2}
+  .fiche .d b{color:#FFD98A}
+
+  /* afficheur du variateur */
+  .atv{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}
+  @media(max-width:600px){.atv{grid-template-columns:1fr}}
+  .face{background:#2B2F36;border-radius:10px;padding:14px;width:186px}
+  .ecran{background:#8FA98C;border-radius:4px;padding:9px 0;text-align:center;
+    font:700 26px/1 "IBM Plex Mono",monospace;color:#15200F;letter-spacing:.08em}
+  .touches{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:11px}
+  .touches button{min-height:34px;border:0;border-radius:6px;background:#4A525C;color:#E8EDF3;
+    font-size:11.5px}
+  .touches button:hover{background:#5C6570}
+  .touches .big{grid-column:span 3;background:#E39A00;color:#fff;font-weight:600}
+
+  .seq{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .seq li{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12.5px;
+    display:flex;gap:9px;align-items:baseline}
+  .seq li.fait{border-color:var(--good);background:rgba(30,158,99,.07)}
+  .seq li.cour{border-color:var(--accent);background:#FFF8EC}
+  .seq .cd{font-family:"IBM Plex Mono",monospace;font-weight:700;min-width:38px}
+  .seq .vl{margin-left:auto;font-family:"IBM Plex Mono",monospace;color:var(--muted)}
+  .seq li.fait .vl{color:var(--good);font-weight:600}
+
+
+  /* ---- platine ---- */
+  .grid-pl{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);gap:18px;align-items:start}
+  @media(max-width:900px){.grid-pl{grid-template-columns:1fr}}
+  .pl-tit{font:600 9.5px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;
+    text-transform:uppercase;fill:#66717F}
+  .pl-gou{font:500 8px/1 "IBM Plex Sans",sans-serif;fill:#A3ACB7}
+  .pl-rep{font:700 11px/1 "IBM Plex Mono",monospace;fill:#141A21;text-anchor:middle}
+  .pl-sub{font:400 8px/1 "IBM Plex Sans",sans-serif;fill:#66717F;text-anchor:middle}
+  .pl-num{font:600 7.5px/1 "IBM Plex Mono",monospace;fill:#4A535E;text-anchor:middle}
+  .pl-fn{font:500 7px/1 "IBM Plex Sans",sans-serif;fill:#66717F;text-anchor:middle}
+  .pl-w{transition:opacity .15s,stroke-width .15s}
+  .plb circle{r:4.6}
+  .pl-grp{border:1px solid var(--line);border-radius:11px;padding:9px 11px;margin-bottom:9px}
+  .pl-gt{font:600 11px/1.2 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.1em;color:var(--ink)}
+  .pl-gt span{color:var(--muted);font-weight:400;letter-spacing:0;text-transform:none}
+  .pl-gd{font-size:11px;color:var(--muted);margin:2px 0 7px}
+  .pl-r{display:flex;gap:8px;align-items:center;width:100%;text-align:left;border:0;
+    background:transparent;border-radius:7px;padding:5px 6px;font-size:11.5px;color:var(--ink)}
+  .pl-r:hover{background:var(--surface-2)}
+  .pl-r.on{background:#FFF3DC;box-shadow:inset 0 0 0 1px var(--accent)}
+  .pl-r.off{opacity:.38}
+  .pl-r i{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+  .pl-r b{font-family:"IBM Plex Mono",monospace;min-width:34px}
+  .pl-r span{color:var(--muted);flex:1;font-family:"IBM Plex Mono",monospace;font-size:10.5px}
+  .pl-r em{font-style:normal;color:var(--muted);font-size:10.5px}
+
+  .src{font-size:11.5px;color:var(--muted)}
+  .src a{color:var(--info)}
+  footer{margin-top:22px;font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bandeau">
+    <div class="sur">Travaux pratiques · Bac Pro MELEC · Terminale</div>
+    <h1>Câblage et mise en service d'un variateur de vitesse</h1>
+    <p>
+      Le premier TP du catalogue où l'élève ne câble pas seulement : il <b>paramètre</b>. Un moteur
+      asynchrone piloté par un variateur ne démarre pas parce que le câblage est juste — il démarre
+      parce que la plaque signalétique a été entrée dans l'appareil. C'est la compétence
+      <b>C6 · Régler, paramétrer les matériels</b>, que jusqu'ici aucun TP du simulateur n'évalue.
+    </p>
+    <div class="chips">
+      <span class="chip"><b>Durée</b> 2 × 4 h</span>
+      <span class="chip"><b>Compétences</b> C4 · C5 · C6 · C7 · C8</span>
+      <span class="chip"><b>Unités</b> U31 · U32</span>
+      <span class="chip"><b>Support</b> Altivar ATV320 + moteur asynchrone</span>
+      <span class="chip"><b>Habilitation</b> B1V / BR</span>
+    </div>
+  </div>
+
+  <!-- ================================================== 1. le TP -->
+  <section>
+    <h2>1 · Le TP en une page</h2>
+    <div class="grid2">
+      <div>
+        <div class="bloc" style="margin-bottom:12px">
+          <h3>Situation professionnelle</h3>
+          <p>
+            Le convoyeur de l'atelier d'expédition démarre trop brutalement : les colis glissent et
+            le disjoncteur de tête déclenche une fois sur trois au démarrage. L'entreprise décide de
+            remplacer le démarrage direct par un <b>variateur de vitesse</b>, et de donner à
+            l'opérateur un sélecteur trois positions <b>arrière – arrêt – avant</b>.
+          </p>
+          <p>
+            Tu reçois le coffret, le variateur, le dossier technique et la plaque signalétique du
+            moteur. Tu câbles, tu paramètres, tu mets en service, puis tu rédiges le procès-verbal
+            d'essai.
+          </p>
+        </div>
+        <div class="bloc">
+          <h3>Ce que l'élève produit</h3>
+          <p>
+            Un coffret câblé et repéré · un variateur paramétré d'après la plaque moteur · un relevé
+            de mesures (tension réseau, courant absorbé, fréquence de sortie, vitesse) · un
+            procès-verbal de mise en service · et, en séance 2, un diagnostic de panne argumenté.
+          </p>
+        </div>
+      </div>
+      <div>
+        <div class="bloc" style="margin-bottom:12px">
+          <h3>Cahier des charges</h3>
+          <div class="scroll">
+            <table>
+              <tbody>
+                <tr><td class="c">Moteur</td><td>asynchrone triphasé 230/400 V, couplage étoile sur réseau 400 V</td></tr>
+                <tr><td class="c">Marche</td><td>deux sens, par sélecteur S3 à trois positions (2 – 0 – 1)</td></tr>
+                <tr><td class="c">Vitesse</td><td>réglable de 10 à 50 Hz, accélération 3 s, décélération 3 s</td></tr>
+                <tr><td class="c">Arrêt d'urgence</td><td>coup de poing S0, <b>catégorie 0</b> : coupure de l'alimentation du variateur</td></tr>
+                <tr><td class="c">Signalisation</td><td>H1 sous tension · H2 défaut variateur, par le relais R1</td></tr>
+                <tr><td class="c">Commande</td><td>TBT 24 V par transformateur T1 400/24 V</td></tr>
+                <tr><td class="c">Protection moteur</td><td>par le variateur (I²t), pas de relais thermique</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="info">
+          <b>Le point qui change tout par rapport aux TP précédents.</b> Il n'y a
+          <b>pas de relais thermique</b> : c'est le variateur qui protège le moteur, par calcul
+          continu de I²t. Encore faut-il lui avoir dit quel courant surveiller — c'est le paramètre
+          <span class="mono">ItH</span>. Un variateur bien câblé mais mal paramétré ne protège rien.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== 2. matériel -->
+  <section>
+    <h2>2 · Choix du matériel — et une décision à prendre</h2>
+    <div class="alerte">
+      <b>À trancher avant de figer le TP.</b> La page que tu m'as donnée décrit un
+      <b>ATV312</b>. Or l'ATV312 est <b>arrêté depuis décembre 2017</b>, remplacé par l'ATV320 —
+      et ta progression MELEC mobilise déjà « variateur ATV320 + SoMove » en Première semaine 20
+      et en Terminale semaine 5. J'ai donc construit ce TP sur l'<b>ATV320</b>.
+      Si ton plateau a des ATV312, dis-le-moi : le folio est identique à une différence près,
+      décisive, expliquée ci-dessous.
+    </div>
+    <div class="grid2">
+      <div class="bloc">
+        <h3>ATV320 — ce qu'il apporte</h3>
+        <p>
+          Deux entrées de sécurité <b>STOA / STOB</b> réalisant la fonction <b>STO</b> (Safe Torque
+          Off, CEI 61800-5-2) : le couple est supprimé sans couper l'alimentation, ce qui permet un
+          arrêt d'urgence de <b>catégorie 1</b> — arrêt contrôlé, puis coupure.
+        </p>
+        <p>
+          <b>Ce que la STO ne fait pas</b> : elle n'assure ni sectionnement ni isolement. On ne
+          travaille jamais sur le moteur au seul titre de la STO — on consigne.
+        </p>
+      </div>
+      <div class="bloc">
+        <h3>ATV312 — ce qui manque</h3>
+        <p>
+          Son bornier de contrôle ne comporte <b>aucune entrée de sécurité</b> : R1A/R1B/R1C,
+          R2A/R2C, COM, AI1-AI3, AOV/AOC, +24 et LI1 à LI6, rien d'autre. L'arrêt d'urgence ne peut
+          donc être que de <b>catégorie 0</b> : il coupe le contacteur de ligne.
+        </p>
+        <p>
+          C'est ce que fait le schéma d'electrotoile, et c'est correct. Mais il faut le dire à
+          l'élève : ce n'est pas un choix de style, c'est la conséquence d'un appareil sans STO.
+        </p>
+      </div>
+    </div>
+    <div class="note" style="margin-top:12px">
+      <b>Dimensionnement.</b> La puissance du moteur doit rester entre <b>20 % et 115 %</b> du
+      calibre du variateur. En dessous de 20 %, la protection thermique intégrée ne suit plus et une
+      protection externe redevient nécessaire — c'est écrit dans le manuel, et c'est une question
+      d'examen toute trouvée.
+    </div>
+  </section>
+
+  <!-- ================================================== 3. schéma -->
+  <section>
+    <h2>3 · Le folio — clique une borne</h2>
+    <p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">
+      Symboles CEI 60617, tracés par la bibliothèque du simulateur : l'élève verra exactement le
+      même dessin dans l'application. Chaque borne est cliquable — sa fonction s'affiche dessous.
+    </p>
+    <svg id="folio" viewBox="0 0 1100 620" role="img"
+         aria-label="Schéma de puissance et de commande du variateur, bornes cliquables"></svg>
+    <div class="fiche" id="fiche">
+      <div class="k">Borne</div>
+      <div class="n">—</div>
+      <div class="d">Clique une borne du schéma pour lire sa fonction.</div>
+    </div>
+  </section>
+
+  <!-- ================================================== 4. platine -->
+  <section>
+    <h2>4 · Le câblage sur la platine — clique un fil</h2>
+    <p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">
+      Le folio dit <b>ce qui est relié</b> ; la platine dit <b>par où passe le fil</b>. Ici, la
+      même installation vue comme l'élève la trouve sur le plateau : appareils sur rail,
+      goulottes, borniers. Un fil ne traverse jamais un appareil en diagonale — il descend dans
+      la goulotte, court à l'horizontale, et remonte. Clique un fil de la fiche, ou une borne du
+      dessin.
+    </p>
+    <div class="grid-pl">
+      <div>
+        <svg id="platine" viewBox="0 0 600 880" role="img"
+             aria-label="Platine du TP variateur : appareils sur rail, goulottes, borniers et cheminement des fils"></svg>
+      </div>
+      <div>
+        <div class="row" style="margin-bottom:10px">
+          <button class="btn" id="pl-tout" aria-pressed="true">Tous les fils</button>
+          <button class="btn" id="pl-rien">Masquer — à toi de câbler</button>
+          <button class="btn" id="pl-pas">Pas à pas ▶</button>
+        </div>
+        <div class="fiche" id="pl-fiche">
+          <div class="k">Fil</div>
+          <div class="n">—</div>
+          <div class="d">Clique une ligne de la fiche de câblage, ou une borne sur la platine.</div>
+        </div>
+        <div id="pl-liste" style="margin-top:12px"></div>
+        <div class="note" style="margin-top:12px">
+          <b>L'ordre n'est pas libre.</b> Le conducteur de protection se câble en premier et se
+          déconnecte en dernier : c'est lui qui protège pendant que le reste est encore ouvert.
+          Ensuite la puissance amont, la sortie moteur, l'alimentation de la commande, la commande,
+          puis les liaisons extérieures. Le bouton <b>Pas à pas</b> suit exactement cet ordre.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== 5. commande 2 fils -->
+  <section>
+    <h2>5 · La commande deux fils — manœuvre le sélecteur</h2>
+    <div class="grid2">
+      <div>
+        <p style="margin:0 0 10px;font-size:12.5px;color:var(--muted)">
+          En commande deux fils, c'est l'<b>état</b> de l'entrée qui commande la marche : entrée
+          fermée, le moteur tourne ; entrée ouverte, il s'arrête. Le paramètre
+          <span class="mono">tCC = 2C</span> le configure, et c'est le réglage d'usine.
+        </p>
+        <div class="row" id="sel" style="margin-bottom:12px">
+          <span style="font-size:12.5px;color:var(--muted)">Sélecteur S3 :</span>
+          <button class="btn" data-p="2">2 · arrière</button>
+          <button class="btn" data-p="0" aria-pressed="true">0 · arrêt</button>
+          <button class="btn" data-p="1">1 · avant</button>
+        </div>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Entrée</th><th>État</th><th>Effet</th></tr></thead>
+            <tbody id="lit"></tbody>
+          </table>
+        </div>
+        <div class="alerte" id="piege" hidden></div>
+      </div>
+      <div>
+        <svg id="deuxfils" viewBox="0 0 420 300" role="img"
+             aria-label="Câblage de la commande deux fils sur les entrées logiques"></svg>
+        <div class="note" style="margin-top:10px">
+          <b>Le piège du retour de tension.</b> En mode « niveau »
+          (<span class="mono">tCt = LEL</span>), si le sélecteur est resté sur <b>avant</b> pendant
+          la coupure, le moteur repart tout seul dès le retour de tension. Le mode
+          « transition » (<span class="mono">tCt = trn</span>) l'interdit : il faut repasser par
+          zéro. La CEI/EN 60204-1 exige qu'une machine ne redémarre pas d'elle-même.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== 5. paramétrage -->
+  <section>
+    <h2>6 · Le paramétrage — entre la plaque moteur</h2>
+    <div class="atv">
+      <div class="face">
+        <div class="ecran" id="ecran">bFr</div>
+        <div class="touches">
+          <button id="t-moins">▼</button>
+          <button id="t-esc">ESC</button>
+          <button id="t-plus">▲</button>
+          <button class="big" id="t-ok">ENT — valider</button>
+        </div>
+      </div>
+      <div>
+        <div class="note" style="margin-bottom:10px">
+          <b>Plaque du moteur de ce TP :</b> 0,75 kW · 230/400 V · 3,4/1,95 A · 50 Hz ·
+          1410 min⁻¹ · cos φ 0,79. Couplage <b>étoile</b> sur le réseau 400 V, donc le courant de
+          ligne est <b>1,95 A</b>.
+        </div>
+        <ol class="seq" id="seq"></ol>
+        <div class="note" id="bilan" style="margin-top:10px" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== 6. sécurité -->
+  <section>
+    <h2>7 · Les quatre points durs de sécurité</h2>
+    <div class="grid2">
+      <div class="bloc">
+        <h3><span class="num">1</span>Quinze minutes, et on vérifie</h3>
+        <p>
+          Après coupure, les condensateurs du bus continu restent chargés.
+          Le manuel impose d'<b>attendre 15 minutes</b>, puis de <b>mesurer entre PA/+ et PC/−</b>
+          et de vérifier que la tension est <b>inférieure à 42 V continus</b>.
+        </p>
+        <p>
+          Et surtout : <b>les voyants du variateur ne sont pas un indicateur fiable</b> d'absence de
+          tension du bus. On mesure, on ne regarde pas.
+        </p>
+      </div>
+      <div class="bloc">
+        <h3><span class="num">2</span>Jamais de coupure entre variateur et moteur</h3>
+        <p>
+          Aucun organe de coupure ne s'insère entre la sortie du variateur et le moteur : ouvrir sous
+          charge la sortie d'un onduleur, c'est une surtension garantie et un variateur détruit.
+          Le contacteur se met <b>en amont</b>, jamais en aval.
+        </p>
+      </div>
+      <div class="bloc">
+        <h3><span class="num">3</span>Le contacteur de ligne ne sert pas à démarrer</h3>
+        <p>
+          Manœuvrer le contacteur de ligne, c'est recharger les condensateurs à chaque fois. Le
+          constructeur limite ces manœuvres à <b>moins d'une par minute</b>. On démarre par les
+          entrées logiques, pas en ouvrant et fermant l'alimentation.
+        </p>
+      </div>
+      <div class="bloc">
+        <h3><span class="num">4</span>L'arrêt d'urgence ne passe pas par une entrée logique</h3>
+        <p>
+          La CEI/EN 60204-1 (art. 9.2.3.4.2) exige que l'arrêt d'urgence soit de catégorie 0 ou 1,
+          qu'il <b>prévale sur toutes les autres fonctions</b>, et que la machine ne redémarre pas au
+          déverrouillage. Une entrée logique de variateur ne garantit rien de tout cela : on coupe le
+          contacteur de ligne (catégorie 0), ou l'on utilise la STO (catégorie 1).
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================== 7. déroulé -->
+  <section>
+    <h2>8 · Déroulé et évaluation</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Étape</th><th>Ce que fait l'élève</th><th>Compétence</th><th>Unité</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="c">1 · Analyse</td><td>Lire le dossier, relever la plaque moteur, repérer les risques propres au variateur</td><td class="c">C1</td><td>U2</td></tr>
+          <tr><td class="c">2 · Matériel</td><td>Choisir le calibre du variateur d'après le moteur, justifier l'absence de relais thermique</td><td class="c">C3</td><td>U2</td></tr>
+          <tr><td class="c">3 · Pose</td><td>Implanter le variateur, respecter les dégagements de ventilation</td><td class="c">C4</td><td>U31</td></tr>
+          <tr><td class="c">4 · Câblage puissance</td><td>Réseau → Q1 → KM1 → variateur → moteur, câble moteur blindé, mise à la terre</td><td class="c">C4</td><td>U31</td></tr>
+          <tr><td class="c">5 · Câblage commande</td><td>T1, arrêt d'urgence, KM1, sélecteur S3 sur LI1/LI2, relais R1 vers H2</td><td class="c">C4</td><td>U31</td></tr>
+          <tr><td class="c">6 · Contrôles hors tension</td><td>Continuité du PE, isolement, contrôle du couplage moteur</td><td class="c">C5</td><td>U31</td></tr>
+          <tr><td class="c">7 · Paramétrage</td><td>bFr, plaque moteur, ItH, rampes, LSP/HSP, tCC</td><td class="c"><b>C6</b></td><td>U31</td></tr>
+          <tr><td class="c">8 · Mise en service</td><td>Essai dans les deux sens, mesures, procès-verbal</td><td class="c">C7</td><td>U31</td></tr>
+          <tr><td class="c">9 · Dépannage</td><td>Panne injectée : hypothèses, tests à l'instrument, conclusion</td><td class="c">C8</td><td>U32</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:12px">
+      <b>Ce que ce TP apporte au catalogue.</b> C6 n'était évaluée nulle part : tous les TP existants
+      s'arrêtent au câblage et à la mise en service. Et les pannes possibles changent de nature — à
+      côté des fils débranchés, il y a désormais le <b>défaut de paramétrage</b> : un ItH mal réglé,
+      une rampe trop courte, un tCC en trois fils. Le montage est juste, et rien ne marche.
+    </div>
+  </section>
+
+  <section>
+    <h2>9 · Ce que je te propose de trancher</h2>
+    <div class="grid3">
+      <div class="bloc">
+        <h3>ATV320 ou ATV312 ?</h3>
+        <p>J'ai bâti sur l'ATV320 — ta progression, produit courant, STO. Dis-moi si le plateau a des ATV312.</p>
+      </div>
+      <div class="bloc">
+        <h3>Pannes de paramétrage ?</h3>
+        <p>Faut-il injecter des pannes de réglage en plus des pannes de câblage ? C'est nouveau pour le simulateur.</p>
+      </div>
+      <div class="bloc">
+        <h3>Référence de vitesse ?</h3>
+        <p>Vitesse fixe par paramètre, ou potentiomètre sur AI1 ? Le second ajoute une mesure analogique.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="src">
+      Sources vérifiées :
+      <a href="https://electrotoile.eu/demarreur-variateur-vitesse.php">electrotoile — démarreur variateur de vitesse</a> ·
+      <a href="https://media.automation24.com/manual/fr/ATV320_Installation_manual_FR_NVE41290_06.pdf">ATV320, guide d'installation NVE41290</a> ·
+      <a href="https://fra-connect.mo.cloudinary.net/PRODUCT/DOCUMENT/1887/NVE21771.pdf">ATV320, guide de démarrage rapide NVE21771</a> ·
+      <a href="https://sti.passtek.net/systemes/sympact/Constituants%20Sympact/ATV%20Schneider/ATV312_Guide_Rapide.pdf">ATV312, guide de démarrage rapide</a> ·
+      <a href="https://www.aboveair.com/wp-content/uploads/2019/09/VFD_ATV312_programming_manual.pdf">ATV312, guide de programmation</a> ·
+      <a href="https://igate.alamedaelectric.com/Modicon%20Documents/AC%20Drive%20ATV31%20Install%20Manual.pdf">Altivar 31, manuel d'installation</a> ·
+      <a href="https://www.se.com/fr/fr/faqs/FA20237/">Schneider — commande 2 fils / 3 fils</a> ·
+      <a href="https://www.idec.com/fr-eu/solutions/securite/loi/iso-iec/iec60204">CEI/EN 60204-1 — catégories d'arrêt</a> ·
+      <a href="https://www.easyelec.com/equivalences-substitutions-schneider-electric/12493-schneider-atv312h055n4-atv312-altivar-0-55kw-3606480077470.html">arrêt de commercialisation ATV312</a>
+    </div>
+  </footer>
+</div>
+
+<!-- SYMBOLES:DEBUT -->
+<script>"use strict";
+var SYM = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+  // src/lib/schema/symboles.ts
+  var symboles_exports = {};
+  __export(symboles_exports, {
+    STYLE_SYMBOLES: () => STYLE_SYMBOLES,
+    TRAIT: () => TRAIT,
+    actBilame: () => actBilame,
+    actCame: () => actCame,
+    actChampignon: () => actChampignon,
+    actGalet: () => actGalet,
+    actMagnetique: () => actMagnetique,
+    actPoussoir: () => actPoussoir,
+    actThermique: () => actThermique,
+    bilamePuissance: () => bilamePuissance,
+    blocAppareil: () => blocAppareil,
+    bobine: () => bobine,
+    borne: () => borne,
+    bornesBloc: () => bornesBloc,
+    contactNF: () => contactNF,
+    contactNO: () => contactNO,
+    contactsPuissance: () => contactsPuissance,
+    disjoncteur: () => disjoncteur,
+    equipotentielle: () => equipotentielle,
+    lienMecanique: () => lienMecanique,
+    marqueOuverturePositive: () => marqueOuverturePositive,
+    moteur: () => moteur,
+    noeud: () => noeud,
+    sectionneurFusible: () => sectionneurFusible,
+    terre: () => terre,
+    transformateur: () => transformateur,
+    voyant: () => voyant
+  });
+  var TRAIT = {
+    /** Conducteur et organe actif. */
+    actif: "#2B2F36",
+    /** Organe qui coupe : c'est lui qu'on cherche en dépannage. */
+    coupe: "#D93A3A",
+    /** Contact au repos, non sollicité. */
+    repos: "#8E979F"
+  };
+  var E_FIL = 2.4;
+  var E_MECA = 1.3;
+  var H = 13;
+  var DECOL = 14;
+  var esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  var ligne = (x1, y1, x2, y2, col, w = E_FIL) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
+  var pointille = (x1, y1, x2, y2, col) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${E_MECA}" stroke-dasharray="4 3"/>`;
+  function actBilame(x, ym, col) {
+    const b = x - 42;
+    return pointille(x - 4, ym, b + 16, ym, col) + ligne(b, ym - 8, b + 8, ym - 8, col, 1.8) + ligne(b + 8, ym - 8, b + 8, ym + 8, col, 1.8) + ligne(b + 8, ym + 8, b + 16, ym + 8, col, 1.8);
+  }
+  function actCame(x, ym, col) {
+    const p = x - 7;
+    return `<path d="M${p} ${ym} L${p - 17} ${ym - 10} L${p - 17} ${ym + 10} Z" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  }
+  function actGalet(x, ym, col) {
+    const t = x - 24;
+    return pointille(x - 4, ym, t, ym, col) + `<circle cx="${t - 7}" cy="${ym}" r="7" fill="none" stroke="${col}" stroke-width="1.8"/>`;
+  }
+  function actChampignon(x, ym, col) {
+    const t = x - 26;
+    return pointille(x - 4, ym, t, ym, col) + `<path d="M${t} ${ym - 10} a10 10 0 0 0 0 20 z" fill="none" stroke="${col}" stroke-width="1.8"/>` + ligne(t, ym - 10, t, ym + 10, col, 1.8);
+  }
+  function actPoussoir(x, ym, col) {
+    const t = x - 24;
+    return pointille(x - 4, ym, t, ym, col) + ligne(t, ym - 8, t, ym + 8, col, 1.9);
+  }
+  function marqueOuverturePositive(x, ym, col) {
+    const r = 8;
+    return `<circle cx="${x}" cy="${ym}" r="${r}" fill="#fff" stroke="${col}" stroke-width="1.5"/>` + ligne(x, ym + 4, x, ym - 3, col, 1.6) + `<path d="M${x - 3} ${ym - 2} L${x} ${ym - 6} L${x + 3} ${ym - 2} Z" fill="${col}"/>`;
+  }
+  function actMagnetique(x, y, col) {
+    const r = 5;
+    return ligne(x - r, y - r, x + r, y + r, col, 1.7) + ligne(x - r, y + r, x + r, y - r, col, 1.7);
+  }
+  function actThermique(x, y, col) {
+    return `<path d="M${x} ${y - 8} q9 0 9 5 q0 5 -9 5 q-9 0 -9 5 q0 5 9 5" fill="none" stroke="${col}" stroke-width="1.8"/>`;
+  }
+  var ACTIONNEURS = {
+    bilame: actBilame,
+    came: actCame,
+    galet: actGalet,
+    champignon: actChampignon,
+    poussoir: actPoussoir
+  };
+  var repere = (x, ym, rep, dx = 40) => `<text class="sym-rep" x="${x + dx}" y="${ym + 5}">${esc(rep)}</text>`;
+  var bornes = (x, ym, b) => {
+    if (!b) return "";
+    const t = (y, s) => `<text class="sym-brn" transform="translate(${x + 10} ${y}) rotate(-90)" text-anchor="middle">${esc(s)}</text>`;
+    return t(ym - H - 10, b[0]) + t(ym + H + 10, b[1]);
+  };
+  var equipotentielle = (x, y, n) => `<text class="sym-eq" transform="translate(${x - 11} ${y}) rotate(-90)" text-anchor="middle">${esc(n)}</text>`;
+  function contactNF(p, ouvert, o) {
+    const col = ouvert ? TRAIT.coupe : TRAIT.actif;
+    const ym = (p.y1 + p.y2) / 2;
+    const bas = ym + H;
+    return ligne(p.x, p.y1, p.x, ym - H, col) + ligne(p.x, bas, p.x, p.y2, col) + ligne(p.x - 11, bas, p.x + 11, bas, col) + ligne(p.x, ym - H, ouvert ? p.x + DECOL : p.x, bas, col) + (o.actionneur ? ACTIONNEURS[o.actionneur](p.x, ym, col) : "") + bornes(p.x, ym, o.bornes) + repere(p.x, ym, o.rep) + (o.legende ? `<text class="sym-leg" x="${p.x + 40}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function contactNO(p, ferme, o) {
+    const col = ferme ? TRAIT.actif : TRAIT.repos;
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - H, col) + ligne(p.x, ym + H, p.x, p.y2, col) + ligne(p.x, ym - H, ferme ? p.x : p.x + DECOL, ym + H, col) + (o.actionneur ? ACTIONNEURS[o.actionneur](p.x, ym, col) : "") + bornes(p.x, ym, o.bornes) + repere(p.x, ym, o.rep) + (o.legende ? `<text class="sym-leg" x="${p.x + 40}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function bobine(p, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    const h = p.y2 - p.y1 - 16;
+    return ligne(p.x, p.y1, p.x, p.y1 + 8, TRAIT.actif) + ligne(p.x, p.y2 - 8, p.x, p.y2, TRAIT.actif) + `<rect x="${p.x - 24}" y="${p.y1 + 8}" width="48" height="${h}" fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><text class="sym-brn" x="${p.x - 28}" y="${p.y1 + 16}" text-anchor="end">A1</text><text class="sym-brn" x="${p.x - 28}" y="${p.y2 - 4}" text-anchor="end">A2</text>` + repere(p.x, ym, o.rep, 32) + (o.legende ? `<text class="sym-leg" x="${p.x + 32}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function voyant(p, allume, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    const r = 17;
+    const d = r * 0.71;
+    return ligne(p.x, p.y1, p.x, ym - r, TRAIT.actif) + ligne(p.x, ym + r, p.x, p.y2, TRAIT.actif) + `<circle cx="${p.x}" cy="${ym}" r="${r}" fill="${allume ? "#FFE9A8" : "#fff"}" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/>` + ligne(p.x - d, ym - d, p.x + d, ym + d, TRAIT.actif, 2) + ligne(p.x - d, ym + d, p.x + d, ym - d, TRAIT.actif, 2) + repere(p.x, ym, o.rep, r + 10) + (o.legende ? `<text class="sym-leg" x="${p.x + r + 10}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function disjoncteur(p, ouvert, o) {
+    const col = ouvert ? TRAIT.coupe : TRAIT.actif;
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - H, col) + ligne(p.x, ym + H, p.x, p.y2, col) + ligne(p.x, ym - H, ouvert ? p.x + DECOL : p.x, ym + H, col) + actMagnetique(p.x, ym - H - 9, col) + actThermique(p.x, ym + H + 12, col) + repere(p.x, ym, o.rep, 26) + (o.legende ? `<text class="sym-leg" x="${p.x + 26}" y="${ym + 19}">${esc(o.legende)}</text>` : "");
+  }
+  function sectionneurFusible(p, ouvert, o) {
+    const col = ouvert ? TRAIT.coupe : TRAIT.actif;
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - H - 12, col) + `<rect x="${p.x - 6}" y="${ym - H - 12}" width="12" height="20" fill="#fff" stroke="${col}" stroke-width="1.8"/>` + ligne(p.x, ym - H + 8, p.x, ym - H, col) + ligne(p.x, ym + H, p.x, p.y2, col) + ligne(p.x, ym - H, ouvert ? p.x + DECOL : p.x, ym + H, col) + repere(p.x, ym, o.rep, 24);
+  }
+  function bilamePuissance(p, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    return ligne(p.x, p.y1, p.x, ym - 9, TRAIT.actif) + ligne(p.x, ym + 9, p.x, p.y2, TRAIT.actif) + `<rect x="${p.x - 9}" y="${ym - 9}" width="18" height="18" fill="#fff" stroke="${TRAIT.actif}" stroke-width="1.8"/>` + ligne(p.x - 5, ym, p.x + 5, ym, TRAIT.actif, 1.6) + (o.rep ? repere(p.x, ym, o.rep, 18) : "");
+  }
+  function transformateur(p, o) {
+    const ym = (p.y1 + p.y2) / 2;
+    const r = 20;
+    return ligne(p.x, p.y1, p.x, ym - r * 1.5, TRAIT.actif) + ligne(p.x, ym + r * 1.5, p.x, p.y2, TRAIT.actif) + `<circle cx="${p.x}" cy="${ym - r * 0.55}" r="${r}" fill="none" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><circle cx="${p.x}" cy="${ym + r * 0.55}" r="${r}" fill="none" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><text class="sym-val" x="${p.x + r + 6}" y="${ym - r * 0.55}">${esc(o.u1)}</text><text class="sym-val" x="${p.x + r + 6}" y="${ym + r * 0.55 + 10}">${esc(o.u2)}</text>` + repere(p.x, ym + 4, o.rep, r + 6) + (o.va ? `<text class="sym-leg" x="${p.x + r + 40}" y="${ym + 4}">${esc(o.va)}</text>` : "");
+  }
+  function moteur(cx, cy, o) {
+    const r = 20;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/><text class="sym-moteur" x="${cx}" y="${cy - 1}" text-anchor="middle">M</text><text class="sym-brn" x="${cx}" y="${cy + 11}" text-anchor="middle">3 ~</text><text class="sym-rep" x="${cx}" y="${cy + r + 14}" text-anchor="middle">${esc(o.rep)}</text>`;
+  }
+  function borne(x, y, rep, cote = "g") {
+    const r = 5.5;
+    return `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="${TRAIT.actif}" stroke-width="1.7"/>` + ligne(x - r, y + r, x + r, y - r, TRAIT.actif, 1.7) + `<text class="sym-borne" x="${cote === "d" ? x + 11 : x - 11}" y="${y - 8}" text-anchor="${cote === "d" ? "start" : "end"}">${esc(rep)}</text>`;
+  }
+  function terre(x, y) {
+    return ligne(x, y - 10, x, y, TRAIT.actif, 1.8) + ligne(x - 11, y, x + 11, y, TRAIT.actif, 2) + ligne(x - 7, y + 4, x + 7, y + 4, TRAIT.actif, 1.8) + ligne(x - 3, y + 8, x + 3, y + 8, TRAIT.actif, 1.8);
+  }
+  var lienMecanique = (x1, x2, y, col = TRAIT.actif) => pointille(x1, y, x2, y, col);
+  var noeud = (x, y) => `<circle cx="${x}" cy="${y}" r="3.4" fill="${TRAIT.actif}"/>`;
+  function bornesBloc(b) {
+    const out = {};
+    const repartir = (l, f) => (l ?? []).forEach((id, i) => {
+      out[id] = f(i, (l ?? []).length);
+    });
+    repartir(b.haut, (i, n) => ({ x: b.x + b.w * (i + 1) / (n + 1), y: b.y }));
+    repartir(b.bas, (i, n) => ({ x: b.x + b.w * (i + 1) / (n + 1), y: b.y + b.h }));
+    repartir(b.gauche, (i, n) => ({ x: b.x, y: b.y + b.h * (i + 1) / (n + 1) }));
+    repartir(b.droite, (i, n) => ({ x: b.x + b.w, y: b.y + b.h * (i + 1) / (n + 1) }));
+    return out;
+  }
+  function blocAppareil(b) {
+    const p = bornesBloc(b);
+    let g = `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="3" fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/>`;
+    g += `<text class="sym-rep" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 - 2}" text-anchor="middle">${esc(b.rep)}</text>`;
+    if (b.modele) {
+      g += `<text class="sym-leg" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 14}" text-anchor="middle">${esc(b.modele)}</text>`;
+    }
+    if (b.sigle) {
+      g += `<text class="sym-val" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 30}" text-anchor="middle">${esc(b.sigle)}</text>`;
+    }
+    for (const [id, q] of Object.entries(p)) {
+      const haut = Math.abs(q.y - b.y) < 0.5;
+      const bas = Math.abs(q.y - (b.y + b.h)) < 0.5;
+      if (haut || bas) {
+        const dy = haut ? -12 : 12;
+        g += ligne(q.x, q.y, q.x, q.y + dy, TRAIT.actif) + `<text class="sym-brn" transform="translate(${q.x - 4} ${q.y + (haut ? -16 : 16)}) rotate(-90)" text-anchor="${haut ? "start" : "end"}">${esc(id)}</text>`;
+      } else {
+        const gauche = Math.abs(q.x - b.x) < 0.5;
+        const dx = gauche ? -12 : 12;
+        g += ligne(q.x, q.y, q.x + dx, q.y, TRAIT.actif) + `<text class="sym-brn" x="${q.x + (gauche ? -16 : 16)}" y="${q.y + 3}" text-anchor="${gauche ? "end" : "start"}">${esc(id)}</text>`;
+      }
+    }
+    return g;
+  }
+  function contactsPuissance(xs, y1, y2, ferme, o) {
+    const ym = (y1 + y2) / 2;
+    let g = "";
+    xs.forEach((x, i) => {
+      g += contactNO({ x, y1, y2 }, ferme, { rep: "", bornes: o.bornes?.[i] });
+    });
+    g += lienMecanique(xs[0], xs[xs.length - 1], ym, ferme ? TRAIT.actif : TRAIT.repos);
+    g += `<text class="sym-rep" x="${xs[xs.length - 1] + 40}" y="${ym + 5}">${esc(o.rep)}</text>`;
+    return g;
+  }
+  var STYLE_SYMBOLES = `
+.sym-rep{font:700 13px/1 "Barlow Condensed",system-ui,sans-serif;fill:#141A21;letter-spacing:.04em}
+.sym-leg{font:400 10px/1 "IBM Plex Sans",system-ui,sans-serif;fill:#66717F}
+.sym-brn{font:500 8.5px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#66717F}
+.sym-borne{font:600 9px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#66717F}
+.sym-eq{font:700 10px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#E39A00}
+.sym-val{font:600 9.5px/1 "IBM Plex Mono",ui-monospace,monospace;fill:#141A21}
+.sym-moteur{font:700 15px/1 "Barlow Condensed",system-ui,sans-serif;fill:#141A21}
+`;
+  return __toCommonJS(symboles_exports);
+})();
+</script>
+<!-- SYMBOLES:FIN -->
+<script>
+(function(){
+  var st=document.createElement('style');
+  st.textContent=SYM.STYLE_SYMBOLES+
+    '.folio-rail{font:600 10px/1 "Barlow Condensed",sans-serif;fill:#66717F;letter-spacing:.12em;text-transform:uppercase}';
+  document.head.appendChild(st);
+})();
+var $=function(i){return document.getElementById(i);};
+
+/* ==================================================================== folio
+   Puissance à gauche, commande à droite, comme sur un folio de dossier
+   technique. Les bornes portent leur fonction : c'est le cœur du TP. */
+var BORNES = {
+  'R/L1': ['Entrée réseau, phase 1', 'Alimentation triphasée du variateur, <b>en amont</b> de tout. Protégée par Q1 et coupée par KM1.'],
+  'S/L2': ['Entrée réseau, phase 2', 'Alimentation triphasée. L’ordre des phases à l’entrée n’a <b>aucune importance</b> : le sens de rotation se règle par les entrées logiques, pas en croisant deux fils.'],
+  'T/L3': ['Entrée réseau, phase 3', 'Alimentation triphasée. Le variateur redresse puis reconstitue un triphasé à fréquence variable.'],
+  'U/T1': ['Sortie vers le moteur, phase U', 'Sortie de l’onduleur. <b>Aucun organe de coupure</b> ne s’insère entre ici et le moteur.'],
+  'V/T2': ['Sortie vers le moteur, phase V', 'Sortie de l’onduleur. Câble <b>blindé</b>, blindage relié à la terre aux deux extrémités (CEM).'],
+  'W/T3': ['Sortie vers le moteur, phase W', 'Sortie de l’onduleur. Croiser deux de ces fils inverserait le sens — mais ce n’est pas ainsi qu’on procède avec un variateur.'],
+  'PA/+': ['Bus continu, pôle +', 'Point de mesure de la <b>décharge des condensateurs</b>. Après coupure : attendre 15 min, puis vérifier moins de 42 V continus entre PA/+ et PC/−.'],
+  'PC/-': ['Bus continu, pôle −', 'Second point de la mesure de décharge. Ne jamais court-circuiter PA/+ et PC/−.'],
+  'PB': ['Résistance de freinage', 'Avec PA/+, raccorde la résistance de freinage quand l’application le demande. Non utilisée dans ce TP.'],
+  'PE': ['Terre de protection', 'Obligatoire, et <b>première borne câblée</b>. Un variateur injecte des courants de fuite : la mise à la terre n’est pas une formalité.'],
+  '+24': ['Sortie 24 V du variateur', 'Alimente les entrées logiques. C’est elle que le sélecteur S3 aiguille vers LI1 ou LI2.'],
+  'COM': ['Commun des entrées / sorties', 'Référence 0 V des entrées logiques et analogiques.'],
+  'LI1': ['Entrée logique 1 — marche avant', 'En commande deux fils (<span class="mono">tCC = 2C</span>), l’<b>état</b> de LI1 commande la marche avant. Fermée : le moteur tourne.'],
+  'LI2': ['Entrée logique 2 — marche arrière', 'Affectée par défaut à l’inversion de sens (<span class="mono">rrS</span>). Fermée : marche arrière.'],
+  'AI1': ['Entrée analogique 1', 'Référence de vitesse externe : potentiomètre 0-10 V ou signal 4-20 mA. Non câblée si la vitesse est fixée par paramètre.'],
+  'R1A': ['Relais R1, contact commun', 'Relais de <b>défaut variateur</b> : son contact s’ouvre dès qu’un défaut est détecté ou que le variateur est hors tension. C’est lui qui allume H2.'],
+  'R1C': ['Relais R1, contact', 'Avec R1A, forme le contact de signalisation du défaut. On ne câble jamais l’arrêt d’urgence dessus.'],
+  'STOA': ['Entrée de sécurité STOA', 'Avec STOB, réalise la fonction <b>STO</b> (CEI 61800-5-2) : suppression sûre du couple. Attention : la STO <b>n’assure pas le sectionnement</b>.'],
+  'STOB': ['Entrée de sécurité STOB', 'Seconde voie de la fonction STO. Les deux voies sont surveillées : c’est ce qui lui donne son niveau de sécurité.']
+};
+
+function folio(){
+  var g='';
+  var L=SYM.TRAIT.actif;
+  /* --- bloc variateur --- */
+  var v={x:330,y:210,w:210,h:120,rep:'U1',modele:'Altivar ATV320',sigle:'~ / = / ~',
+         haut:['R/L1','S/L2','T/L3'],bas:['U/T1','V/T2','W/T3'],
+         gauche:['PA/+','PC/-'],droite:['R1A','R1C']};
+  var pv=SYM.bornesBloc(v);
+
+  /* --- colonne puissance : réseau, Q1, KM1 --- */
+  var xs=[pv['R/L1'].x,pv['S/L2'].x,pv['T/L3'].x];
+  g+='<text class="folio-rail" x="300" y="36" text-anchor="end">Réseau 3 × 400 V + PE</text>';
+  xs.forEach(function(x,i){
+    g+='<line x1="'+x+'" y1="40" x2="'+x+'" y2="74" stroke="'+L+'" stroke-width="2.4"/>';
+    g+='<text class="sym-brn" transform="translate('+(x-5)+' 56) rotate(-90)" text-anchor="middle">L'+(i+1)+'</text>';
+  });
+  xs.forEach(function(x){ g+=SYM.disjoncteur({x:x,y1:74,y2:122},false,{rep:''}); });
+  g+='<text class="sym-rep" x="'+(xs[2]+40)+'" y="102">Q1</text>'+
+     '<text class="sym-leg" x="'+(xs[2]+40)+'" y="116">disjoncteur de tête</text>';
+  g+=SYM.lienMecanique(xs[0],xs[2],98,L);
+  g+=SYM.contactsPuissance(xs,140,186,false,{rep:'KM1',bornes:[['1','2'],['3','4'],['5','6']]});
+  xs.forEach(function(x){ g+='<line x1="'+x+'" y1="122" x2="'+x+'" y2="140" stroke="'+L+'" stroke-width="2.4"/>'; });
+
+  g+=SYM.blocAppareil(v);
+
+  /* --- sortie vers le moteur --- */
+  var xm=[pv['U/T1'].x,pv['V/T2'].x,pv['W/T3'].x];
+  xm.forEach(function(x){ g+='<line x1="'+x+'" y1="342" x2="'+x+'" y2="400" stroke="'+L+'" stroke-width="2.4"/>'; });
+  g+='<line x1="'+xm[0]+'" y1="400" x2="'+xm[2]+'" y2="400" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<line x1="'+((xm[0]+xm[2])/2)+'" y1="400" x2="'+((xm[0]+xm[2])/2)+'" y2="438" stroke="'+L+'" stroke-width="2.4"/>';
+  g+=SYM.moteur((xm[0]+xm[2])/2,458,{rep:'M1'});
+  g+='<text class="sym-leg" x="'+((xm[0]+xm[2])/2)+'" y="518" text-anchor="middle">câble blindé, blindage à la terre aux deux bouts</text>';
+
+  /* --- conducteur de protection : il descend du réseau et dessert les deux
+         masses, celle du variateur et celle du moteur. Première borne câblée. --- */
+  g+='<line x1="250" y1="40" x2="250" y2="462" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<line x1="250" y1="348" x2="'+(v.x+24)+'" y2="348" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<line x1="'+(v.x+24)+'" y1="330" x2="'+(v.x+24)+'" y2="348" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<line x1="250" y1="458" x2="'+((xm[0]+xm[2])/2-22)+'" y2="458" stroke="'+L+'" stroke-width="2.4"/>';
+  g+=SYM.terre(250,478);
+  g+='<text class="sym-brn" transform="translate(244 200) rotate(-90)" text-anchor="middle">PE</text>';
+
+  /* --- commande : rails et organes --- */
+  var XC=790, Y1=140, Y0=530;
+  g+='<line x1="600" y1="'+Y1+'" x2="1000" y2="'+Y1+'" stroke="'+L+'" stroke-width="3"/>'+
+     '<text class="folio-rail" x="600" y="'+(Y1-11)+'">24 V — secondaire de T1</text>'+
+     '<line x1="600" y1="'+Y0+'" x2="1000" y2="'+Y0+'" stroke="'+L+'" stroke-width="3"/>'+
+     '<text class="folio-rail" x="600" y="'+(Y0+21)+'">com — retour 0 V</text>';
+  g+=SYM.contactNF({x:XC,y1:Y1+30,y2:Y1+76},false,
+      {rep:'S0',bornes:['21','22'],actionneur:'champignon',legende:'arrêt d\'urgence'});
+  g+='<line x1="'+XC+'" y1="'+(Y1)+'" x2="'+XC+'" y2="'+(Y1+30)+'" stroke="'+L+'" stroke-width="2.4"/>';
+  g+=SYM.contactNO({x:XC,y1:Y1+116,y2:Y1+162},false,
+      {rep:'S2',bornes:['13','14'],actionneur:'poussoir',legende:'marche'});
+  g+='<line x1="'+XC+'" y1="'+(Y1+76)+'" x2="'+XC+'" y2="'+(Y1+116)+'" stroke="'+L+'" stroke-width="2.4"/>';
+  g+=SYM.bobine({x:XC,y1:Y1+202,y2:Y1+256},{rep:'KM1',legende:'contacteur de ligne'});
+  g+='<line x1="'+XC+'" y1="'+(Y1+162)+'" x2="'+XC+'" y2="'+(Y1+202)+'" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<line x1="'+XC+'" y1="'+(Y1+256)+'" x2="'+XC+'" y2="'+Y0+'" stroke="'+L+'" stroke-width="2.4"/>';
+
+  /* --- voyant de défaut, piloté par le relais R1 --- */
+  var XV=930;
+  g+='<line x1="'+XV+'" y1="'+Y1+'" x2="'+XV+'" y2="'+(Y1+60)+'" stroke="'+L+'" stroke-width="2.4"/>';
+  g+=SYM.contactNO({x:XV,y1:Y1+60,y2:Y1+106},false,{rep:'R1',bornes:['R1A','R1C'],legende:'défaut variateur'});
+  g+=SYM.voyant({x:XV,y1:Y1+146,y2:Y1+206},false,{rep:'H2',legende:'défaut'});
+  g+='<line x1="'+XV+'" y1="'+(Y1+106)+'" x2="'+XV+'" y2="'+(Y1+146)+'" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<line x1="'+XV+'" y1="'+(Y1+206)+'" x2="'+XV+'" y2="'+Y0+'" stroke="'+L+'" stroke-width="2.4"/>';
+
+  /* --- bornes cliquables --- */
+  var pts=[];
+  Object.keys(pv).forEach(function(id){ pts.push([id,pv[id].x,pv[id].y]); });
+  pts.push(['PE',250,400]);
+  pts.push(['+24',636,Y1+300]); pts.push(['COM',636,Y1+328]);
+  pts.push(['LI1',688,Y1+300]); pts.push(['LI2',688,Y1+328]);
+  pts.push(['AI1',636,Y1+356]);
+  pts.push(['STOA',688,Y1+356]); pts.push(['STOB',688,Y1+384]);
+  // bornier de contrôle, dessiné à part sous la commande
+  g+='<rect x="608" y="'+(Y1+280)+'" width="128" height="124" rx="4" fill="#F7F9FB" '+
+     'stroke="'+SYM.TRAIT.repos+'" stroke-width="1.2" stroke-dasharray="5 3"/>'+
+     '<text class="sym-leg" x="608" y="'+(Y1+272)+'">bornier de contrôle U1</text>';
+  pts.forEach(function(p){
+    if(p[0]==='+24'||p[0]==='COM'||p[0]==='LI1'||p[0]==='LI2'||p[0]==='AI1'||p[0]==='STOA'||p[0]==='STOB'){
+      g+='<text class="sym-brn" x="'+(p[1]+9)+'" y="'+(p[2]+3)+'">'+p[0]+'</text>';
+    }
+  });
+  g+=pts.map(function(p){
+    return '<g class="bp" data-b="'+p[0]+'" role="button" tabindex="0">'+
+      '<title>'+p[0]+'</title><circle cx="'+p[1]+'" cy="'+p[2]+'" r="5.5"/></g>';
+  }).join('');
+
+  $('folio').innerHTML=g;
+  Array.prototype.forEach.call($('folio').querySelectorAll('.bp'),function(n){
+    var voir=function(){
+      Array.prototype.forEach.call($('folio').querySelectorAll('.bp'),function(m){m.classList.remove('on');});
+      n.classList.add('on');
+      var d=BORNES[n.dataset.b];
+      $('fiche').innerHTML='<div class="k">'+(d?d[0]:'Borne')+'</div>'+
+        '<div class="n">'+n.dataset.b+'</div><div class="d">'+(d?d[1]:'—')+'</div>';
+    };
+    n.addEventListener('click',voir);
+    n.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();voir();}
+    });
+  });
+}
+
+/* ============================================================ commande 2 fils */
+var pos='0';
+function deuxFils(){
+  var L=SYM.TRAIT.actif, G=SYM.TRAIT.repos;
+  var av=(pos==='1'), ar=(pos==='2');
+  var g='';
+  g+='<text class="sym-brn" x="30" y="40">+24 V</text>';
+  g+='<line x1="30" y1="52" x2="30" y2="250" stroke="'+L+'" stroke-width="2.4"/>';
+  // sélecteur : deux contacts commandés ensemble
+  g+=SYM.contactNO({x:130,y1:80,y2:126},av,{rep:'',bornes:['1','2']});
+  g+=SYM.contactNO({x:230,y1:80,y2:126},ar,{rep:'',bornes:['3','4']});
+  g+=SYM.lienMecanique(130,230,103,(av||ar)?L:G);
+  g+='<text class="sym-rep" x="270" y="107">S3</text>';
+  g+='<text class="sym-leg" x="270" y="121">sélecteur 2-0-1</text>';
+  g+='<line x1="30" y1="80" x2="230" y2="80" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<line x1="130" y1="126" x2="130" y2="196" stroke="'+(av?L:G)+'" stroke-width="2.4"/>';
+  g+='<line x1="230" y1="126" x2="230" y2="226" stroke="'+(ar?L:G)+'" stroke-width="2.4"/>';
+  g+='<text class="sym-brn" x="140" y="192">LI1</text>';
+  g+='<text class="sym-brn" x="240" y="222">LI2</text>';
+  // bornier du variateur
+  g+='<rect x="90" y="196" width="200" height="60" rx="3" fill="#fff" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<text class="sym-rep" x="190" y="222" text-anchor="middle">U1</text>';
+  g+='<text class="sym-leg" x="190" y="240" text-anchor="middle">entrées logiques</text>';
+  g+='<line x1="30" y1="250" x2="90" y2="250" stroke="'+L+'" stroke-width="2.4"/>';
+  g+='<text class="sym-brn" x="34" y="266">COM</text>';
+  $('deuxfils').innerHTML=g;
+
+  var lignes=[
+    ['LI1', av?'fermée':'ouverte', av?'marche avant':'—'],
+    ['LI2', ar?'fermée':'ouverte', ar?'marche arrière':'—']
+  ];
+  $('lit').innerHTML=lignes.map(function(l){
+    var actif=l[1]==='fermée';
+    return '<tr><td class="c">'+l[0]+'</td><td'+(actif?' style="color:var(--good);font-weight:600"':'')+'>'+
+      l[1]+'</td><td>'+l[2]+'</td></tr>';
+  }).join('');
+
+  var p=$('piege');
+  if(av||ar){
+    p.hidden=false;
+    p.innerHTML='<b>Le moteur tourne — et il le fera encore au retour de tension.</b> '+
+      'Le sélecteur est maintenu sur « '+(av?'avant':'arrière')+' ». En mode niveau, une coupure '+
+      'suivie d\'un retour de tension relance le moteur sans que personne n\'ait rien demandé. '+
+      'C\'est exactement ce que la CEI/EN 60204-1 veut empêcher.';
+  } else {
+    p.hidden=true;
+  }
+}
+
+/* ============================================================ paramétrage */
+var PARAMS=[
+  ['bFr','Fréquence standard du moteur','50',' Hz'],
+  ['nPr','Puissance nominale, plaque','0.75',' kW'],
+  ['UnS','Tension nominale, plaque','400',' V'],
+  ['nCr','Courant nominal, plaque (couplage étoile)','1.95',' A'],
+  ['FrS','Fréquence nominale, plaque','50',' Hz'],
+  ['nSP','Vitesse nominale, plaque','1410',' min⁻¹'],
+  ['ItH','Courant de protection thermique','1.95',' A'],
+  ['ACC','Rampe d\'accélération','3',' s'],
+  ['dEC','Rampe de décélération','3',' s'],
+  ['LSP','Vitesse minimale','10',' Hz'],
+  ['HSP','Vitesse maximale','50',' Hz'],
+  ['tCC','Type de commande','2C','']
+];
+var iP=0, valide=[];
+function param(){
+  $('ecran').textContent = iP<PARAMS.length ? PARAMS[iP][0] : 'rdY';
+  $('seq').innerHTML=PARAMS.map(function(p,i){
+    var cls = valide[i] ? 'fait' : (i===iP ? 'cour' : '');
+    return '<li class="'+cls+'"><span class="cd">'+p[0]+'</span><span>'+p[1]+'</span>'+
+      '<span class="vl">'+(valide[i] ? p[2]+p[3] : '—')+'</span></li>';
+  }).join('');
+  var b=$('bilan');
+  if(iP>=PARAMS.length){
+    b.hidden=false;
+    b.innerHTML='<b>rdY — le variateur est prêt.</b> Douze paramètres, et pas un de plus pour une '+
+      'mise en service simple. Les trois qui comptent le plus : <span class="mono">nCr</span> et '+
+      '<span class="mono">ItH</span>, sans lesquels le moteur n\'est pas protégé, et '+
+      '<span class="mono">tCC</span>, qui décide de la façon dont on commande la marche.';
+  } else { b.hidden=true; }
+}
+
+/* ------------------------------------------------------------ événements */
+Array.prototype.forEach.call($('sel').children,function(b){
+  if(b.tagName!=='BUTTON') return;
+  b.addEventListener('click',function(){
+    pos=b.dataset.p;
+    Array.prototype.forEach.call($('sel').children,function(x){
+      if(x.tagName==='BUTTON') x.setAttribute('aria-pressed',String(x===b));
+    });
+    deuxFils();
+  });
+});
+$('t-ok').addEventListener('click',function(){
+  if(iP>=PARAMS.length) return;
+  valide[iP]=true; iP++; param();
+});
+$('t-esc').addEventListener('click',function(){ iP=0; valide=[]; param(); });
+$('t-plus').addEventListener('click',function(){ if(iP<PARAMS.length-1){iP++;param();} });
+$('t-moins').addEventListener('click',function(){ if(iP>0){iP--;param();} });
+
+folio(); deuxFils(); param();
+
+/* ================================================================== platine
+   Vue physique de l'armoire. Règle de tracé : un fil descend dans la goulotte,
+   court à l'horizontale, remonte — il ne traverse jamais un appareil. Chaque
+   fil occupe sa propre ligne dans la goulotte, comme un vrai toron. */
+var PT = {};
+function bp(id, x, y, ex){ PT[id] = { x:x, y:y, ex:ex||0 }; }
+
+var CL = { L1:'#8B4A2B', L2:'#2B2F36', L3:'#8E979F', PE:'#37B34A', CM:'#E4312B', NE:'#2C7BE5' };
+var CNOM = { L1:'brun', L2:'noir', L3:'gris', PE:'vert-jaune', CM:'rouge', NE:'bleu clair' };
+
+/* ---- appareils du rail de tête -------------------------------------- */
+var RAIL = [
+  { id:'Q1',  x:46,  w:54, y:88, h:72, nom:'iC60N 3P C16',
+    haut:[['1',55],['3',73],['5',91]], bas:[['2',55],['4',73],['6',91]] },
+  { id:'KM1', x:116, w:72, y:88, h:72, nom:'LC1D09 · 24 V',
+    haut:[['A1',124],['1',140],['3',158],['5',176]],
+    bas:[['A2',124],['2',140],['4',158],['6',176]] },
+  { id:'Q2',  x:220, w:36, y:88, h:72, nom:'2P 2 A',
+    haut:[['1',229],['3',247]], bas:[['2',229],['4',247]] },
+  { id:'T1',  x:272, w:80, y:88, h:82, nom:'400/24 V · 63 VA',
+    haut:[['0p',292,'0'],['400',332,'400']], bas:[['0s',292,'0'],['24',332,'24']] },
+  { id:'Q3',  x:368, w:18, y:88, h:72, nom:'1P 1 A',
+    haut:[['1',377]], bas:[['2',377]] }
+];
+RAIL.forEach(function(d){
+  d.haut.forEach(function(t){ bp(d.id+':'+t[0], t[1], d.y); });
+  d.bas.forEach(function(t){ bp(d.id+':'+t[0], t[1], d.y+d.h); });
+});
+
+/* ---- variateur -------------------------------------------------------- */
+var VAR = { x:46, y:228, w:240, h:164 };
+[['R/L1',76],['S/L2',106],['T/L3',136]].forEach(function(t){ bp('U1:'+t[0], t[1], VAR.y); });
+[['U/T1',76],['V/T2',106],['W/T3',136],['PE',176]].forEach(function(t){ bp('U1:'+t[0], t[1], VAR.y+VAR.h); });
+var CTRL = [
+  ['+24', 212, 266, 318], ['COM', 212, 300, 0], ['AI1', 212, 334, 0],
+  ['LI1', 258, 266, 326], ['LI2', 258, 300, 334],
+  ['R1C', 258, 334, 342], ['R1A', 258, 362, 350]
+];
+CTRL.forEach(function(t){ bp('U1:'+t[0], t[1], t[2], t[3]); });
+
+/* ---- borniers et barrette de terre ------------------------------------ */
+var X1F = ['L1','L2','L3','PE','U','V','W','PE'];
+var X2F = ['24V','KM1','R1C','0V','+24','LI1','LI2','rés.'];
+for (var i = 0; i < 8; i++){
+  bp('X1:' + (i+1), 55 + i*18, 452);   bp('X1:' + (i+1) + 'e', 55 + i*18, 504);
+  bp('X2:' + (i+1), 215 + i*18, 452);  bp('X2:' + (i+1) + 'e', 215 + i*18, 504);
+}
+[386,414,442,470].forEach(function(x,k){ bp('PE' + (k+1), x, 468); });
+[55,73,91,109].forEach(function(x,k){ bp('RES:' + (k+1), x, 566); });
+
+/* ---- hors armoire ----------------------------------------------------- */
+[['W2',104,672],['U2',148,672],['V2',192,672],
+ ['U1',104,710],['V1',148,710],['W1',192,710]].forEach(function(t){ bp('M1:'+t[0], t[1], t[2]); });
+bp('M1:PE', 64, 780);
+[['S0:21',318],['S0:22',342],['S2:13',378],['S2:14',402],
+ ['S3:C',438],['S3:1',458],['S3:2',478],['H2:X1',514],['H2:X2',538]]
+  .forEach(function(t){ bp(t[0], t[1], 640); });
+
+/* ---- la fiche de câblage ---------------------------------------------- *
+ * r = suite de tronçons : vertical vers y, horizontal vers x, alternés.    */
+var GRP = [
+  ['A', 'Conducteur de protection', 'Câblé en premier, déconnecté en dernier.'],
+  ['B', 'Puissance amont', 'Du bornier au variateur, en passant par Q1 et KM1.'],
+  ['C', 'Sortie moteur', 'Câble blindé. Aucun organe de coupure ici.'],
+  ['D', 'Alimentation de la commande', 'Repiquage en aval de Q1, protection propre du transformateur.'],
+  ['E', 'Circuit de commande', '24 V — le pupitre ne reçoit jamais le 400 V.'],
+  ['F', 'Liaisons extérieures', 'Ce qui sort de l\'armoire : moteur et pupitre.']
+];
+
+var FILS = [
+  /* --- A : terre --- */
+  { id:'A0', g:'A', rep:'PE', a:'RES:4', b:'X1:4e', c:'PE', s:'2,5', r:[],
+    d:'Conducteur de protection du réseau, à l\'arrivée sur le bornier. C\'est le premier fil serré et le dernier déposé.' },
+  { id:'A1', g:'A', rep:'PE', a:'X1:4',   b:'PE1',     c:'PE', s:'2,5', r:[408],
+    d:'Arrivée du conducteur de protection du réseau, reprise sur la barrette de terre de l\'armoire.' },
+  { id:'A2', g:'A', rep:'PE', a:'PE2',    b:'U1:PE',   c:'PE', s:'2,5', r:[405.5],
+    d:'Masse du variateur. Un variateur injecte des courants de fuite par les capacités du filtre : sans cette liaison, la carcasse peut monter en potentiel.' },
+  { id:'A3', g:'A', rep:'PE', a:'X1:8',   b:'PE3',     c:'PE', s:'2,5', r:[410.5],
+    d:'Départ de la terre vers le moteur, repris sur la barrette.' },
+
+  /* --- B : puissance amont --- */
+  { id:'B0a', g:'B', rep:'1L1', a:'RES:1', b:'X1:1e', c:'L1', s:'2,5', r:[], d:'Arrivée du réseau sur le bornier, phase 1.' },
+  { id:'B0b', g:'B', rep:'1L2', a:'RES:2', b:'X1:2e', c:'L2', s:'2,5', r:[], d:'Arrivée du réseau sur le bornier, phase 2.' },
+  { id:'B0c', g:'B', rep:'1L3', a:'RES:3', b:'X1:3e', c:'L3', s:'2,5', r:[], d:'Arrivée du réseau sur le bornier, phase 3.' },
+  { id:'B1', g:'B', rep:'1L1', a:'X1:1', b:'Q1:1', c:'L1', s:'2,5', r:[430.5,392,50],
+    d:'Arrivée réseau phase 1 jusqu\'à la tête de la platine. Le fil monte par la goulotte verticale de droite.' },
+  { id:'B2', g:'B', rep:'1L2', a:'X1:2', b:'Q1:3', c:'L2', s:'2,5', r:[433,398,54], d:'Arrivée réseau phase 2.' },
+  { id:'B3', g:'B', rep:'1L3', a:'X1:3', b:'Q1:5', c:'L3', s:'2,5', r:[435.5,404,58], d:'Arrivée réseau phase 3.' },
+  { id:'B4', g:'B', rep:'2L1', a:'Q1:2', b:'KM1:1', c:'L1', s:'2,5', r:[182,104,38], d:'Aval du disjoncteur de tête vers le contacteur de ligne.' },
+  { id:'B5', g:'B', rep:'2L2', a:'Q1:4', b:'KM1:3', c:'L2', s:'2,5', r:[184.2,108,42], d:'Aval du disjoncteur de tête vers le contacteur de ligne.' },
+  { id:'B6', g:'B', rep:'2L3', a:'Q1:6', b:'KM1:5', c:'L3', s:'2,5', r:[186.4,112,46], d:'Aval du disjoncteur de tête vers le contacteur de ligne.' },
+  { id:'B7', g:'B', rep:'3L1', a:'KM1:2', b:'U1:R/L1', c:'L1', s:'2,5', r:[188.6],
+    d:'Entrée réseau du variateur. L\'ordre des phases n\'a aucune importance ici : le sens se règle par LI1 / LI2.' },
+  { id:'B8', g:'B', rep:'3L2', a:'KM1:4', b:'U1:S/L2', c:'L2', s:'2,5', r:[190.8], d:'Entrée réseau du variateur.' },
+  { id:'B9', g:'B', rep:'3L3', a:'KM1:6', b:'U1:T/L3', c:'L3', s:'2,5', r:[193], d:'Entrée réseau du variateur.' },
+
+  /* --- C : sortie moteur --- */
+  { id:'C1', g:'C', rep:'4U', a:'U1:U/T1', b:'X1:5', c:'L1', s:'1,5 bl.', r:[398],
+    d:'Sortie de l\'onduleur. Câble blindé, blindage repris à la terre aux deux extrémités : c\'est une exigence de compatibilité électromagnétique, pas une option.' },
+  { id:'C2', g:'C', rep:'4V', a:'U1:V/T2', b:'X1:6', c:'L2', s:'1,5 bl.', r:[400.5], d:'Sortie de l\'onduleur, phase V.' },
+  { id:'C3', g:'C', rep:'4W', a:'U1:W/T3', b:'X1:7', c:'L3', s:'1,5 bl.', r:[403], d:'Sortie de l\'onduleur, phase W.' },
+
+  /* --- D : alimentation de la commande --- */
+  { id:'D1', g:'D', rep:'2L1', a:'Q1:2', b:'Q2:1', c:'L1', s:'1,5', r:[195.2,410,62],
+    d:'Repiquage en aval de Q1 : la commande reste protégée par la tête de platine.' },
+  { id:'D2', g:'D', rep:'2L2', a:'Q1:4', b:'Q2:3', c:'L2', s:'1,5', r:[197.4,416,66], d:'Seconde phase du primaire — le transformateur est alimenté phase / phase, jamais par le neutre.' },
+  { id:'D3', g:'D', rep:'5L1', a:'Q2:2', b:'T1:0p', c:'L1', s:'1,5', r:[199.6,422,70], d:'Primaire du transformateur, borne 0.' },
+  { id:'D4', g:'D', rep:'5L2', a:'Q2:4', b:'T1:400', c:'L2', s:'1,5', r:[201.8,428,74],
+    d:'Primaire du transformateur, prise 400 V. Se tromper de prise n\'est pas refusé au câblage : la faute se découvre à la mesure ou à l\'essai.' },
+  { id:'D5', g:'D', rep:'10', a:'T1:24', b:'Q3:1', c:'CM', s:'1,5', r:[204,434,78], d:'Secondaire 24 V vers sa propre protection.' },
+
+  /* --- E : commande --- */
+  { id:'E1', g:'E', rep:'11', a:'Q3:2', b:'X2:1', c:'CM', s:'1,5', r:[206.2,294,413], d:'24 V protégé, départ vers le pupitre.' },
+  { id:'E2', g:'E', rep:'12', a:'X2:2', b:'KM1:A1', c:'CM', s:'1,5', r:[415.5,310,208.4,204,82], d:'Retour du pupitre sur la bobine du contacteur de ligne.' },
+  { id:'E3', g:'E', rep:'0', a:'KM1:A2', b:'T1:0s', c:'NE', s:'1,5', r:[210.6], d:'Retour 0 V de la bobine.' },
+  { id:'E4', g:'E', rep:'0', a:'T1:0s', b:'X2:4', c:'NE', s:'1,5', r:[212.8,302,418], d:'0 V commun du pupitre.' },
+  { id:'E5', g:'E', rep:'20', a:'U1:+24', b:'X2:5', c:'CM', s:'1,5', r:[420.5],
+    d:'Sortie 24 V du variateur : c\'est elle, et non le 24 V du transformateur, qui alimente les entrées logiques.' },
+  { id:'E6', g:'E', rep:'21', a:'U1:LI1', b:'X2:6', c:'CM', s:'1,5', r:[423], d:'Entrée logique 1 — marche avant.' },
+  { id:'E7', g:'E', rep:'22', a:'U1:LI2', b:'X2:7', c:'CM', s:'1,5', r:[425.5], d:'Entrée logique 2 — marche arrière.' },
+  { id:'E8', g:'E', rep:'13', a:'U1:R1C', b:'X2:3', c:'CM', s:'1,5', r:[428], d:'Contact du relais de défaut vers le voyant H2.' },
+  { id:'E9', g:'E', rep:'11', a:'U1:R1A', b:'Q3:2', c:'CM', s:'1,5', r:[215], d:'Alimentation du contact de défaut en 24 V.' },
+
+  /* --- F : extérieur --- */
+  { id:'F1', g:'F', rep:'4U', a:'X1:5e', b:'M1:U1', c:'L1', s:'1,5 bl.', r:[516,36,746], d:'Moteur, phase U — sur la rangée basse de la plaque à bornes.' },
+  { id:'F2', g:'F', rep:'4V', a:'X1:6e', b:'M1:V1', c:'L2', s:'1,5 bl.', r:[518.8,32,752], d:'Moteur, phase V.' },
+  { id:'F3', g:'F', rep:'4W', a:'X1:7e', b:'M1:W1', c:'L3', s:'1,5 bl.', r:[521.6,28,758], d:'Moteur, phase W.' },
+  { id:'F4', g:'F', rep:'PE', a:'X1:8e', b:'M1:PE', c:'PE', s:'2,5', r:[524.4,24,786], d:'Masse du moteur.' },
+  { id:'F5', g:'F', rep:'11', a:'X2:1e', b:'S0:21', c:'CM', s:'1,5', r:[527.2], d:'24 V au pupitre, sur le contact à ouverture de l\'arrêt d\'urgence.' },
+  { id:'F6', g:'F', rep:'12a', a:'S0:22', b:'S2:13', c:'CM', s:'1,5', r:[626], d:'Liaison interne au pupitre : l\'arrêt d\'urgence est en série, en amont du bouton de marche.' },
+  { id:'F7', g:'F', rep:'12', a:'S2:14', b:'X2:2e', c:'CM', s:'1,5', r:[530.4], d:'Retour du bouton de marche vers la bobine KM1.' },
+  { id:'F8', g:'F', rep:'13', a:'X2:3e', b:'H2:X1', c:'CM', s:'1,5', r:[533.2], d:'Voyant de défaut variateur.' },
+  { id:'F9', g:'F', rep:'0', a:'H2:X2', b:'X2:4e', c:'NE', s:'1,5', r:[536], d:'Retour 0 V du voyant.' },
+  { id:'F10', g:'F', rep:'20', a:'X2:5e', b:'S3:C', c:'CM', s:'1,5', r:[538.8], d:'24 V du variateur au commun du sélecteur de sens.' },
+  { id:'F11', g:'F', rep:'21', a:'S3:1', b:'X2:6e', c:'CM', s:'1,5', r:[541.6], d:'Position 1 du sélecteur — marche avant.' },
+  { id:'F12', g:'F', rep:'22', a:'S3:2', b:'X2:7e', c:'CM', s:'1,5', r:[544.4], d:'Position 2 du sélecteur — marche arrière.' }
+];
+
+function chemin(f){
+  var A = PT[f.a], B = PT[f.b];
+  if (!A || !B) return '';
+  var x = A.x, y = A.y, p = 'M' + x + ' ' + y;
+  if (A.ex){ x = A.ex; p += 'L' + x + ' ' + y; }
+  for (var i = 0; i < f.r.length; i++){
+    if (i % 2 === 0){ y = f.r[i]; } else { x = f.r[i]; }
+    p += 'L' + x + ' ' + y;
+  }
+  if (B.ex){ p += 'L' + B.ex + ' ' + y + 'L' + B.ex + ' ' + B.y; }
+  else { p += 'L' + B.x + ' ' + y; }
+  p += 'L' + B.x + ' ' + B.y;
+  return p;
+}
+
+function appareil(o){
+  var s = '<g>';
+  s += '<rect x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + o.h +
+       '" rx="3" fill="#E9EDF2" stroke="#98A3B0" stroke-width="1.3"/>';
+  s += '<rect x="' + (o.x + 3) + '" y="' + (o.y + o.h / 2 - 7) + '" width="' + (o.w - 6) +
+       '" height="14" rx="2" fill="#F7F9FB" stroke="#C6CDD6" stroke-width="1"/>';
+  s += '<text class="pl-rep" x="' + (o.x + o.w / 2) + '" y="' + (o.y + o.h / 2 + 4) + '">' + o.id + '</text>';
+  if (o.nom && o.w >= 34)
+    s += '<text class="pl-sub" x="' + (o.x + o.w / 2) + '" y="' + (o.y + o.h - 7) + '">' + o.nom + '</text>';
+  return s + '</g>';
+}
+
+function platine(){
+  var g = '';
+  /* --- enveloppe et goulottes --- */
+  g += '<rect x="18" y="22" width="564" height="538" rx="10" fill="#FFFFFF" stroke="#AEB7C2" stroke-width="2"/>';
+  g += '<text class="pl-tit" x="20" y="14">Armoire</text>';
+  [[32,86],[180,218],[396,442],[514,550]].forEach(function(q){
+    g += '<rect x="30" y="' + q[0] + '" width="540" height="' + (q[1] - q[0]) +
+         '" rx="3" fill="#EDF0F4" stroke="#D8DEE6" stroke-width="1"/>';
+  });
+  g += '<text class="pl-gou" x="34" y="30">goulotte</text>';
+
+  /* --- rail DIN --- */
+  g += '<rect x="36" y="118" width="528" height="12" rx="2" fill="#DCE1E8" stroke="#C0C8D2" stroke-width="1"/>';
+
+  /* --- appareils --- */
+  RAIL.forEach(function(d){ g += appareil(d); });
+
+  /* --- variateur --- */
+  g += '<rect x="' + VAR.x + '" y="' + VAR.y + '" width="' + VAR.w + '" height="' + VAR.h +
+       '" rx="5" fill="#E4E8EE" stroke="#8B96A3" stroke-width="1.6"/>';
+  g += '<rect x="' + (VAR.x + 10) + '" y="' + (VAR.y + 14) + '" width="70" height="34" rx="3" ' +
+       'fill="#8FA98C" stroke="#6E8A6B" stroke-width="1"/>';
+  g += '<text class="pl-rep" x="' + (VAR.x + 45) + '" y="' + (VAR.y + 36) + '">U1</text>';
+  g += '<text class="pl-sub" x="' + (VAR.x + 10) + '" y="' + (VAR.y + 64) + '" text-anchor="start">Altivar ATV320</text>';
+  g += '<text class="pl-sub" x="' + (VAR.x + 10) + '" y="' + (VAR.y + 78) + '" text-anchor="start">0,75 kW · 3 × 400 V</text>';
+  g += '<rect x="196" y="250" width="80" height="126" rx="3" fill="#F5F7FA" stroke="#B4BDC8" ' +
+       'stroke-width="1" stroke-dasharray="4 3"/>';
+  g += '<text class="pl-gou" x="196" y="245">bornier de contrôle</text>';
+
+  /* --- borniers --- */
+  function bornier(id, x0, fns, xs){
+    var s = '<rect x="' + (x0 - 9) + '" y="452" width="' + (8 * 18) + '" height="52" rx="3" ' +
+            'fill="#F2F4F7" stroke="#98A3B0" stroke-width="1.2"/>';
+    for (var i = 0; i < 8; i++){
+      var x = x0 + i * 18;
+      if (i) s += '<line x1="' + (x - 9) + '" y1="452" x2="' + (x - 9) + '" y2="504" stroke="#C6CDD6" stroke-width="1"/>';
+      s += '<text class="pl-num" x="' + x + '" y="471">' + (i + 1) + '</text>';
+      s += '<text class="pl-fn" x="' + x + '" y="491">' + fns[i] + '</text>';
+    }
+    s += '<text class="pl-tit" x="' + (x0 - 9) + '" y="446" text-anchor="start">' + id + '</text>';
+    return s;
+  }
+  g += bornier('X1 — puissance', 55, X1F);
+  g += bornier('X2 — commande', 215, X2F);
+
+  /* --- barrette de terre --- */
+  g += '<rect x="366" y="468" width="200" height="18" rx="3" fill="#DCF0DE" stroke="#37B34A" stroke-width="1.4"/>';
+  g += '<text class="pl-tit" x="366" y="462" text-anchor="start">Barrette de terre</text>';
+
+  /* --- hors armoire --- */
+  g += '<rect x="42" y="566" width="84" height="26" rx="4" fill="#F2F4F7" stroke="#98A3B0" stroke-width="1.2"/>';
+  g += '<text class="pl-sub" x="84" y="604">Réseau 3 × 400 V + PE</text>';
+  g += '<text class="pl-tit" x="250" y="604" text-anchor="start">Hors armoire</text>';
+  g += '<rect x="46" y="630" width="204" height="180" rx="8" fill="#FFFFFF" stroke="#AEB7C2" stroke-width="1.6"/>';
+  g += '<text class="pl-rep" x="148" y="622">M1 — moteur asynchrone</text>';
+  g += '<rect x="80" y="656" width="136" height="70" rx="4" fill="#F2F4F7" stroke="#98A3B0" stroke-width="1.2"/>';
+  [['W2',104],['U2',148],['V2',192]].forEach(function(t){
+    g += '<text class="pl-fn" x="' + t[1] + '" y="666">' + t[0] + '</text>'; });
+  [['U1',104],['V1',148],['W1',192]].forEach(function(t){
+    g += '<text class="pl-fn" x="' + t[1] + '" y="724">' + t[0] + '</text>'; });
+  g += '<line x1="104" y1="672" x2="148" y2="672" stroke="#66717F" stroke-width="3"/>';
+  g += '<line x1="148" y1="672" x2="192" y2="672" stroke="#66717F" stroke-width="3"/>';
+  g += '<text class="pl-sub" x="148" y="750">couplage étoile — 400 V / 690 V</text>';
+  g += '<text class="pl-sub" x="148" y="764">barrettes sur la rangée haute</text>';
+  g += '<text class="pl-fn" x="64" y="794">PE</text>';
+
+  g += '<rect x="290" y="620" width="272" height="190" rx="8" fill="#FFFFFF" stroke="#AEB7C2" stroke-width="1.6"/>';
+  g += '<text class="pl-rep" x="426" y="612">Pupitre</text>';
+  [['S0:21',318],['S0:22',342],['S2:13',378],['S2:14',402],['S3:C',438],['S3:1',458],
+   ['S3:2',478],['H2:X1',514],['H2:X2',538]].forEach(function(t){
+    var n = t[0].split(':')[1];
+    g += '<text class="pl-fn" x="' + t[1] + '" y="656">' + n + '</text>';
+  });
+  /* organes, vus de face, au repos */
+  g += '<circle cx="330" cy="748" r="19" fill="#D93A3A" stroke="#9E2A2A" stroke-width="2"/>';
+  g += '<circle cx="330" cy="748" r="11" fill="#E85A5A" stroke="none"/>';
+  g += '<text class="pl-sub" x="330" y="784">S0 · arrêt d\'urgence</text>';
+  g += '<circle cx="394" cy="748" r="13" fill="#1E9E63" stroke="#137A4C" stroke-width="2"/>';
+  g += '<text class="pl-sub" x="394" y="784">S2 · marche</text>';
+  g += '<rect x="446" y="735" width="26" height="26" rx="4" fill="#2B2F36"/>';
+  g += '<line x1="459" y1="748" x2="459" y2="736" stroke="#F5F6F8" stroke-width="2.5"/>';
+  g += '<text class="pl-sub" x="459" y="784">S3 · sens</text>';
+  g += '<circle cx="526" cy="748" r="12" fill="#F2F4F7" stroke="#98A3B0" stroke-width="2"/>';
+  g += '<text class="pl-sub" x="526" y="784">H2 · défaut</text>';
+  [[330,748,318],[330,748,342],[394,748,378],[394,748,402],[459,748,438],[459,748,458],
+   [459,748,478],[526,748,514],[526,748,538]].forEach(function(t){
+    g += '<line x1="' + t[2] + '" y1="662" x2="' + t[2] + '" y2="' + (t[1] - 22) +
+         '" stroke="#C6CDD6" stroke-width="1" stroke-dasharray="3 3"/>';
+  });
+
+  /* --- fils --- */
+  var w = '';
+  FILS.forEach(function(f){
+    var d = chemin(f);
+    w += '<path class="pl-w" id="w-' + f.id + '" data-w="' + f.id + '" d="' + d + '" fill="none" ' +
+         'stroke="' + CL[f.c] + '" stroke-width="' + (f.s.charAt(0) === '2' ? 2.6 : 2) + '" ' +
+         'stroke-linejoin="round" stroke-linecap="round"' +
+         (f.c === 'PE' ? ' stroke-dasharray="7 4"' : '') + '/>';
+  });
+  g += '<g id="pl-fils">' + w + '</g>';
+
+  /* --- bornes cliquables --- */
+  var b = '';
+  Object.keys(PT).forEach(function(id){
+    var p = PT[id];
+    b += '<g class="bp plb" data-t="' + id + '" role="button" tabindex="0"><title>' + id +
+         '</title><circle cx="' + p.x + '" cy="' + p.y + '" r="4.6"/></g>';
+  });
+  g += b;
+
+  /* --- étiquettes de bornes du rail --- */
+  RAIL.forEach(function(d){
+    d.haut.forEach(function(t){
+      g += '<text class="pl-num" x="' + t[1] + '" y="' + (d.y - 5) + '">' + (t[2] || t[0]) + '</text>'; });
+    d.bas.forEach(function(t){
+      g += '<text class="pl-num" x="' + t[1] + '" y="' + (d.y + d.h + 13) + '">' + (t[2] || t[0]) + '</text>'; });
+  });
+  [['R/L1',76],['S/L2',106],['T/L3',136]].forEach(function(t){
+    g += '<text class="pl-num" x="' + t[1] + '" y="' + (VAR.y - 6) + '">' + t[0] + '</text>'; });
+  [['U/T1',76],['V/T2',106],['W/T3',136],['PE',176]].forEach(function(t){
+    g += '<text class="pl-num" x="' + t[1] + '" y="' + (VAR.y + VAR.h + 14) + '">' + t[0] + '</text>'; });
+  CTRL.forEach(function(t){
+    g += '<text class="pl-num" x="' + (t[1] + (t[1] === 212 ? -8 : 8)) + '" y="' + (t[2] + 3) + '" ' +
+         'text-anchor="' + (t[1] === 212 ? 'end' : 'start') + '">' + t[0] + '</text>'; });
+
+  $('platine').innerHTML = g;
+}
+
+/* ---- interaction ------------------------------------------------------ */
+var plMode = 'tout', plSel = null, plPas = -1;
+var ORD = FILS.slice().sort(function(a, b){
+  var ga = 'ABCDEF'.indexOf(a.g), gb = 'ABCDEF'.indexOf(b.g);
+  return ga - gb || FILS.indexOf(a) - FILS.indexOf(b);
+});
+
+function liste(){
+  var h = '';
+  GRP.forEach(function(q){
+    var fs = FILS.filter(function(f){ return f.g === q[0]; });
+    h += '<div class="pl-grp"><div class="pl-gt">' + q[1] +
+         ' <span>' + fs.length + ' fils</span></div><div class="pl-gd">' + q[2] + '</div>';
+    fs.forEach(function(f){
+      h += '<button class="pl-r" data-f="' + f.id + '">' +
+           '<i style="background:' + CL[f.c] + '"></i>' +
+           '<b>' + f.rep + '</b>' +
+           '<span>' + f.a.replace(':', ' · ') + ' → ' + f.b.replace(/e$/, '').replace(':', ' · ') + '</span>' +
+           '<em>' + f.s + '</em></button>';
+    });
+    h += '</div>';
+  });
+  $('pl-liste').innerHTML = h;
+}
+
+function fiche(html){ $('pl-fiche').innerHTML = html; }
+
+function majPl(){
+  var vus = {};
+  if (plMode === 'tout') FILS.forEach(function(f){ vus[f.id] = 1; });
+  if (plMode === 'pas') for (var i = 0; i <= plPas && i < ORD.length; i++) vus[ORD[i].id] = 1;
+  FILS.forEach(function(f){
+    var el = document.getElementById('w-' + f.id);
+    if (!el) return;
+    var v = !!vus[f.id];
+    el.style.display = v ? '' : 'none';
+    el.style.opacity = (!plSel || plSel === f.id) ? 1 : 0.13;
+    el.style.strokeWidth = (plSel === f.id) ? 4.4 : (f.s.charAt(0) === '2' ? 2.6 : 2);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.pl-r'), function(b){
+    b.classList.toggle('on', b.dataset.f === plSel);
+    b.classList.toggle('off', !vus[b.dataset.f]);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.plb'), function(b){
+    var f = plSel && FILS.filter(function(x){ return x.id === plSel; })[0];
+    b.classList.toggle('on', !!f && (f.a === b.dataset.t || f.b === b.dataset.t));
+  });
+  $('pl-tout').setAttribute('aria-pressed', String(plMode === 'tout'));
+  $('pl-rien').setAttribute('aria-pressed', String(plMode === 'rien'));
+  $('pl-pas').setAttribute('aria-pressed', String(plMode === 'pas'));
+}
+
+function choisirFil(id){
+  plSel = (plSel === id) ? null : id;
+  var f = FILS.filter(function(x){ return x.id === id; })[0];
+  if (f && plSel){
+    fiche('<div class="k">Fil ' + f.rep + ' · ' + f.s + ' mm² ' + CNOM[f.c] + '</div>' +
+          '<div class="n">' + f.a.replace(':', ' · ') + '  →  ' + f.b.replace(/e$/, '').replace(':', ' · ') + '</div>' +
+          '<div class="d">' + f.d + '</div>');
+  } else {
+    fiche('<div class="k">Fil</div><div class="n">—</div>' +
+          '<div class="d">Clique une ligne de la fiche de câblage, ou une borne sur la platine.</div>');
+  }
+  majPl();
+}
+
+function choisirBorne(t){
+  var fs = FILS.filter(function(f){ return f.a === t || f.b === t; });
+  plSel = null;
+  fiche('<div class="k">Borne</div><div class="n">' + t.replace(':', ' · ') + '</div>' +
+        '<div class="d">' + (fs.length
+          ? fs.length + ' fil' + (fs.length > 1 ? 's' : '') + ' : <b>' +
+            fs.map(function(f){ return f.rep; }).join('</b>, <b>') + '</b>. ' +
+            (fs.length > 2 ? 'Trois conducteurs sur une borne : c\'est un de trop, il faut un pontage.' : '')
+          : 'Aucun fil sur cette borne dans ce TP — elle reste libre.') + '</div>');
+  majPl();
+}
+
+liste();
+platine();
+majPl();
+
+$('pl-tout').addEventListener('click', function(){ plMode = 'tout'; plSel = null; majPl(); });
+$('pl-rien').addEventListener('click', function(){ plMode = 'rien'; plSel = null; majPl(); });
+$('pl-pas').addEventListener('click', function(){
+  if (plMode !== 'pas'){ plMode = 'pas'; plPas = -1; }
+  plPas++;
+  if (plPas >= ORD.length){ plMode = 'tout'; plPas = -1; plSel = null; majPl(); return; }
+  var f = ORD[plPas];
+  plSel = f.id;
+  fiche('<div class="k">Étape ' + (plPas + 1) + ' / ' + ORD.length + ' · fil ' + f.rep +
+        ' · ' + f.s + ' mm² ' + CNOM[f.c] + '</div>' +
+        '<div class="n">' + f.a.replace(':', ' · ') + '  →  ' + f.b.replace(/e$/, '').replace(':', ' · ') + '</div>' +
+        '<div class="d">' + f.d + '</div>');
+  majPl();
+});
+$('pl-liste').addEventListener('click', function(e){
+  var b = e.target.closest('.pl-r');
+  if (b) choisirFil(b.dataset.f);
+});
+$('platine').addEventListener('click', function(e){
+  var b = e.target.closest('.plb');
+  if (b) choisirBorne(b.dataset.t);
+});
+
+</script>
+</body>
+</html>

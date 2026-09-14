@@ -358,12 +358,105 @@ export function terre(x: number, y: number): string {
 }
 
 /** Trait mécanique reliant des contacts manœuvrés ensemble. */
-export const lienMecanique = (x1: number, x2: number, y: number, col = TRAIT.actif): string =>
+export const lienMecanique = (x1: number, x2: number, y: number, col: string = TRAIT.actif): string =>
   pointille(x1, y, x2, y, col);
 
 /** Point de jonction électrique. */
 export const noeud = (x: number, y: number): string =>
   `<circle cx="${x}" cy="${y}" r="3.4" fill="${TRAIT.actif}"/>`;
+
+/**
+ * Bloc appareil à bornes nommées — variateur, automate, démarreur.
+ *
+ * Un variateur ne se dessine pas comme un organe de coupure : c'est une boîte
+ * dont seules comptent les bornes, leur nom et leur fonction. Le symbole
+ * normalisé d'un convertisseur de fréquence est d'ailleurs un rectangle portant
+ * le sigle de la conversion — on garde le rectangle et on nomme les bornes,
+ * c'est ce que l'élève retrouvera sur le folio du constructeur.
+ */
+export interface BlocAppareil {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rep: string;
+  /** Désignation commerciale, écrite dans le bloc. */
+  modele?: string;
+  /** Sigle de fonction (« ~ / = / ~ » pour un convertisseur de fréquence). */
+  sigle?: string;
+  /** Bornes du haut, réparties régulièrement. */
+  haut?: string[];
+  /** Bornes du bas. */
+  bas?: string[];
+  /** Bornes du flanc gauche. */
+  gauche?: string[];
+  /** Bornes du flanc droit. */
+  droite?: string[];
+}
+
+/** Position de chaque borne d'un bloc, pour y raccorder des fils ou y poser une pointe. */
+export function bornesBloc(b: BlocAppareil): Record<string, { x: number; y: number }> {
+  const out: Record<string, { x: number; y: number }> = {};
+  const repartir = (l: string[] | undefined, f: (i: number, n: number) => { x: number; y: number }) =>
+    (l ?? []).forEach((id, i) => { out[id] = f(i, (l ?? []).length); });
+  repartir(b.haut, (i, n) => ({ x: b.x + (b.w * (i + 1)) / (n + 1), y: b.y }));
+  repartir(b.bas, (i, n) => ({ x: b.x + (b.w * (i + 1)) / (n + 1), y: b.y + b.h }));
+  repartir(b.gauche, (i, n) => ({ x: b.x, y: b.y + (b.h * (i + 1)) / (n + 1) }));
+  repartir(b.droite, (i, n) => ({ x: b.x + b.w, y: b.y + (b.h * (i + 1)) / (n + 1) }));
+  return out;
+}
+
+export function blocAppareil(b: BlocAppareil): string {
+  const p = bornesBloc(b);
+  let g = `<rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="3" `
+    + `fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/>`;
+  g += `<text class="sym-rep" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 - 2}" text-anchor="middle">${esc(b.rep)}</text>`;
+  if (b.modele) {
+    g += `<text class="sym-leg" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 14}" text-anchor="middle">${esc(b.modele)}</text>`;
+  }
+  if (b.sigle) {
+    g += `<text class="sym-val" x="${b.x + b.w / 2}" y="${b.y + b.h / 2 + 30}" text-anchor="middle">${esc(b.sigle)}</text>`;
+  }
+  // amorces de bornes : un court trait sortant, et le repère lu le long du fil
+  for (const [id, q] of Object.entries(p)) {
+    const haut = Math.abs(q.y - b.y) < 0.5;
+    const bas = Math.abs(q.y - (b.y + b.h)) < 0.5;
+    if (haut || bas) {
+      const dy = haut ? -12 : 12;
+      g += ligne(q.x, q.y, q.x, q.y + dy, TRAIT.actif)
+        + `<text class="sym-brn" transform="translate(${q.x - 4} ${q.y + (haut ? -16 : 16)}) rotate(-90)" `
+        + `text-anchor="${haut ? 'start' : 'end'}">${esc(id)}</text>`;
+    } else {
+      const gauche = Math.abs(q.x - b.x) < 0.5;
+      const dx = gauche ? -12 : 12;
+      g += ligne(q.x, q.y, q.x + dx, q.y, TRAIT.actif)
+        + `<text class="sym-brn" x="${q.x + (gauche ? -16 : 16)}" y="${q.y + 3}" `
+        + `text-anchor="${gauche ? 'end' : 'start'}">${esc(id)}</text>`;
+    }
+  }
+  return g;
+}
+
+/**
+ * Contacts de puissance d'un contacteur : trois contacts à fermeture reliés par
+ * le trait mécanique qui dit qu'ils sont manœuvrés ensemble.
+ */
+export function contactsPuissance(
+  xs: readonly number[],
+  y1: number,
+  y2: number,
+  ferme: boolean,
+  o: { rep: string; bornes?: [string, string][] },
+): string {
+  const ym = (y1 + y2) / 2;
+  let g = '';
+  xs.forEach((x, i) => {
+    g += contactNO({ x, y1, y2 }, ferme, { rep: '', bornes: o.bornes?.[i] });
+  });
+  g += lienMecanique(xs[0], xs[xs.length - 1], ym, ferme ? TRAIT.actif : TRAIT.repos);
+  g += `<text class="sym-rep" x="${xs[xs.length - 1] + 40}" y="${ym + 5}">${esc(o.rep)}</text>`;
+  return g;
+}
 
 /** Feuille de style des textes du schéma, à inclure dans le SVG ou la page. */
 export const STYLE_SYMBOLES = `
