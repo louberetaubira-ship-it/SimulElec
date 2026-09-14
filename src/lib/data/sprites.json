@@ -26,7 +26,7 @@
   },
   "rcd2p": {
     "w": 52,
-    "h": 118,
+    "h": 123,
     "states": true
   },
   "rcd4p": {
@@ -120,13 +120,13 @@
     "states": false
   },
   "kontakt": {
-    "w": 60,
-    "h": 90,
+    "w": 65,
+    "h": 112,
     "states": false
   },
   "therm": {
-    "w": 60,
-    "h": 69,
+    "w": 65,
+    "h": 65,
     "states": false
   },
   "motorcb": {
@@ -170,8 +170,8 @@
     "states": true
   },
   "kontaktaux": {
-    "w": 60,
-    "h": 90,
+    "w": 65,
+    "h": 112,
     "states": false
   },
   "fuse1pn": {
@@ -185,8 +185,13 @@
     "states": false
   },
   "mcb1pn": {
-    "w": 26,
+    "w": 52,
     "h": 123,
+    "states": false
+  },
+  "gv2l": {
+    "w": 65,
+    "h": 129,
     "states": false
   }
 }

@@ -172,7 +172,7 @@ export const TP_VARIATEUR: TpDefinition = {
     { id: 'q1', label: 'Q1 · Disjoncteur moteur GV2ME08', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
     { id: 'f3', label: 'Q3 · Disjoncteur phase + neutre 2 A', key: 'mcb1pn', rail: 0, x: 200, rep: 'Q3' },
-    { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 240, rep: 'T1' },
+    { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 262, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur de ligne', key: 'kontaktaux', rail: 1, x: 46, rep: 'KM1' },
     // 325 mm de haut : l'ATV320 book descend sous son rail au lieu d'être centré
     // dessus, sinon il remonterait dans la goulotte qui longe ce même rail.
