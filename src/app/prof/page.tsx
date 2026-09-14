@@ -17,8 +17,10 @@ import {
 import { listTps, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
 import { DIPLOMAS, type CompetenceEval, type DiplomaId, type Mastery } from '@/lib/data/competences';
+import { STAGE_COUNT } from '@/lib/sim/progress';
 
-const STAGES = 8;
+/** Nombre d'étapes du parcours : il a changé, et la valeur était figée ici. */
+const STAGES = STAGE_COUNT - 1;
 
 const STATUS_STYLE: Record<string, string> = {
   en_cours: 'bg-[#FEF3E2] text-[#D97706]',

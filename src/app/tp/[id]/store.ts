@@ -22,8 +22,8 @@ import {
 } from '@/lib/sim/mesures';
 import {
   aideAllowed, AIDE_MAX_EVALUATION, buildEvaluation, buildReport, computeScore, coursForStage,
-  initialState, modeOf, netOfTerminal, nextLiaison, normalizeState, requiredLiaisons,
-  stageSatisfied, STAGE_COUNT, STAGES,
+  initialState, modeOf, netOfTerminal, nextLiaison, normalizeState, prepQuestions, requiredLiaisons,
+  ETAPE, MAX_STAGE_PREVIEW, stageSatisfied, STAGE_COUNT, STAGES,
 } from '@/lib/sim/progress';
 import type { CoursId } from '@/lib/data/cours';
 import { DEFAULT_DIPLOMA, fallbackStudent, type Student } from '@/lib/student';
@@ -59,7 +59,7 @@ export interface MesState {
 const initialMes = (): MesState => ({ inst: null, dial: 0, probes: { r: null, k: null }, clamp: null, pick: null, log: [], marcheMaintenue: false, vise: '', prevision: '' });
 
 /** Raison d'une ouverture automatique de l'aide. */
-export type AideReason = 'cablage' | 'materiel' | 'mesure' | 'diagnostic' | null;
+export type AideReason = 'cablage' | 'preparation' | 'materiel' | 'mesure' | 'diagnostic' | null;
 
 /* ------------------------------------------------------- défaire / refaire */
 
@@ -177,6 +177,7 @@ interface ParcoursState {
   goStage: (i: number) => void;
   complete: (i: number) => void;
 
+  answerPrep: (questionId: string, index: number) => void;
   choose: (posteId: string, index: number) => void;
   selectSlot: (slotId: string) => void;
   selectDevice: (slotId: string) => void;
@@ -350,16 +351,16 @@ export const useParcours = create<ParcoursState>((set, get) => {
     const stage = st.stage;
 
     // ---- séparation (étape 6) : Q1 ouvert met toute la platine hors tension
-    if (stage === 6 && st.cons.sep !== !sim.q1) {
+    if (stage === ETAPE.EPI && st.cons.sep !== !sim.q1) {
       patch(s => ({ ...s, cons: { ...s.cons, sep: !sim.q1 } }));
     }
-    if (stage === 6 && !sim.q1 && (sim.f2 || sim.f3)) {
+    if (stage === ETAPE.EPI && !sim.q1 && (sim.f2 || sim.f3)) {
       set(s => ({ sim: { ...s.sim, f2: false, f3: false, km1: false } }));
       mlog(`Séparation : ${repereSlot(tp, 'q1')} ouvert, ${repereSlot(tp, 'f2')} et ${repereSlot(tp, 'f3')} retombent avec lui.`);
     }
 
     // ---- déconsignation (étape 8)
-    if (stage === 8) {
+    if (stage === ETAPE.MISE_EN_SERVICE) {
       const d = st.decons;
       const close = d.unlock && sim.q1 && sim.f2 && sim.f3;
       const essai = (d.close || close) && sim.km1;
@@ -371,7 +372,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     }
 
     // ---- VAT pendant la consignation
-    if (stage === 6 && mes.inst === 'vat' && r && k) {
+    if (stage === ETAPE.EPI && mes.inst === 'vat' && r && k) {
       const c = st.cons;
       const pair = (a: string, b: string) => (r === a && k === b) || (r === b && k === a);
       if (pair('RES.L1', 'RES.N') || pair('RES.L1', 'RES.PE')) {
@@ -398,7 +399,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     if (out.bad) mlog('⚠ Mesure de résistance sous tension : ERR, le fusible de l\'appareil grille.');
 
     // ---- validation d'une mesure attendue
-    if ((stage === 7 || stage === 9) && mes.inst) {
+    if ((stage === ETAPE.HORS || stage === ETAPE.SOUS) && mes.inst) {
       const wireId = mes.clamp != null ? (() => { const w = clampWire(); return w ? `${w.a}>${w.b}` : undefined; })() : undefined;
       const partial = {
         instrument: mes.inst, dial, a: r ?? undefined, b: k ?? undefined, wire: wireId, value: out.value,
@@ -611,7 +612,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { st, tp } = get();
       if (i < 0 || i >= STAGE_COUNT) return;
       if (i > st.stage && !st.done[i - 1]) { say('Termine d\'abord l\'étape précédente.'); return; }
-      if (!tp.playable && i > 3) { say('Ce TP est en cours de finalisation : le parcours s\'arrête à la pose.'); return; }
+      if (!tp.playable && i > MAX_STAGE_PREVIEW) { say('Ce TP est en cours de finalisation : le parcours s\'arrête à la pose.'); return; }
       set({ selTerminal: null, selSlot: null, selDevice: null, aideOpen: false, aideFiche: null, selWire: null, wireMenu: null });
       patch(s => ({ ...s, stage: i }));
     },
@@ -620,6 +621,18 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { st } = get();
       if (!st.done[i]) say(`Étape validée : ${STAGES[i]}`);
       patch(s => ({ ...s, done: { ...s.done, [i]: true } }));
+    },
+
+    /** Préparation : l'élève répond à une question d'identification ou de fonction. */
+    answerPrep(questionId, index) {
+      const { tp } = get();
+      patch(s => ({ ...s, prep: { ...s.prep, [questionId]: index } }));
+      const q = prepQuestions(tp).find(x => x.id === questionId);
+      if (q && q.answer !== index) {
+        const n = get().badChoices + 1;
+        set({ badChoices: n });
+        if (n >= 2) autoAide('preparation');
+      }
     },
 
     choose(posteId, index) {
@@ -660,13 +673,13 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { tp, st, selTerminal, mes } = get();
 
       // ---- étapes de mesure : on pose une pointe de touche
-      if (st.stage >= 6 && mes.pick && mes.pick !== 'clamp') {
+      if (st.stage >= ETAPE.EPI && mes.pick && mes.pick !== 'clamp') {
         const which = mes.pick;
         set(s => ({ mes: { ...s.mes, probes: { ...s.mes.probes, [which]: id }, pick: which === 'r' ? 'k' : null } }));
         evaluate();
         return;
       }
-      if (st.stage !== 4) return;
+      if (st.stage !== ETAPE.CABLAGE) return;
 
       if (!selTerminal) { set({ selTerminal: id }); return; }
       if (selTerminal === id) { set({ selTerminal: null }); return; }
@@ -852,7 +865,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     enterStage(stage) {
       const { st, sim } = get();
       // à l'arrivée sur la consignation, l'installation est en service : c'est l'élève qui sépare
-      if (stage === 6 && !st.cons.lock && !st.cons.vatRef2 && !st.decons.unlock && !sim.q1) {
+      if (stage === ETAPE.EPI && !st.cons.lock && !st.cons.vatRef2 && !st.decons.unlock && !sim.q1) {
         set({ sim: { ...sim, q1: true, f2: true, f3: true } });
         say('L\'installation est en service : c\'est à toi de la consigner.');
       }
@@ -936,7 +949,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       };
       patch(s => ({ ...s, readings: [...s.readings, entry] }));
       mlog(`Relevé : ${dial} = ${entry.display}`);
-      if (out.bad || ((st.stage === 7 || st.stage === 9) && !entry.expectedId)) autoAide('mesure');
+      if (out.bad || ((st.stage === ETAPE.HORS || st.stage === ETAPE.SOUS) && !entry.expectedId)) autoAide('mesure');
       if (attemptId && !offline) {
         void addMeasurement(attemptId, measurementOf(entry)).catch(() => set({ offline: true }));
       }
@@ -956,7 +969,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     deviceClick(slotId) {
       const { sim, tp, st } = get();
-      if (st.stage < 5) return;
+      if (st.stage < ETAPE.CABLAGE) return;
       if (slotId === 'q1' && st.cons.lock) { say(`${repereSlot(tp, 'q1')} est condamné par un cadenas : impossible de manœuvrer.`); return; }
       if (slotId === 'q1') { const r = toggleQ1(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
       if (slotId === 'f2') {
@@ -1000,7 +1013,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const r = tick(sim, tp, dt);
       set({ sim: r.state });
       if (r.message) { say(r.message); mlog(r.message); }
-      if (st.stage >= 8) evaluate();
+      if (st.stage >= ETAPE.HORS) evaluate();
     },
 
     ensureFault() {

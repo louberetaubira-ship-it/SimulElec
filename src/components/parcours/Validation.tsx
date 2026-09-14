@@ -3,7 +3,7 @@
 import React from 'react';
 import type { AttemptState, Prevision, TpDefinition } from '@/lib/types';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
-import { buildEvaluation, buildReport, scoreLines } from '@/lib/sim/progress';
+import { buildEvaluation, buildReport, ETAPE, scoreLines } from '@/lib/sim/progress';
 import { readingLabel } from '@/lib/sim/mesures';
 import { startButtons } from '@/lib/sim/engine';
 import {
@@ -340,7 +340,7 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
   const s = useParcours();
   const { tp, st, sim, mes } = s;
   const injected = tp.faults.find(f => f.id === st.fault);
-  const finished = !!st.done[10];
+  const finished = !!st.done[ETAPE.VALIDATION];
   const wires = React.useMemo(() => panelWires(tp, st, sim), [tp, st, sim]);
   const marche = startButtons(tp)[0]?.rep ?? 'le bouton de marche';
   const porte = conclusionOuverte(st);

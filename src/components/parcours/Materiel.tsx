@@ -3,9 +3,25 @@
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import { spriteUrl } from '@/lib/data/catalogue';
+import { svgForKey } from '@/components/panel/svg';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { goodChoices, materielComplete } from '@/lib/sim/progress';
 import { Center, Side } from './StageLayout';
+
+/**
+ * Vignette d'une option : la photo du pack quand elle existe, sinon le dessin
+ * vectoriel de l'appareil — le même que sur la platine. Sans cela, un appareil
+ * dessiné (sectionneur GK1, contacteur LC1 D50, relais CAD 32) apparaissait en
+ * image cassée à l'étape matériel.
+ */
+function Vignette({ itemKey }: { itemKey: string }) {
+  const vector = svgForKey(itemKey);
+  if (vector) return <span className="grid h-[52px] w-[40px] flex-none place-items-center">{vector}</span>;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={spriteUrl(itemKey)} alt="" className="h-[52px]" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
+  );
+}
 
 interface Props {
   tp: TpDefinition;
@@ -57,8 +73,7 @@ export default function Materiel({ tp, st, onChoose, onNext }: Props) {
                         onClick={() => onChoose(p.id, i)}
                         className={`flex min-h-touch items-center gap-2 rounded-[10px] border p-2 text-left ${tone}`}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={spriteUrl(o.key)} alt="" className="h-[52px]" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
+                        <Vignette itemKey={o.key} />
                         <span>
                           <b className="block text-[12px]">{o.ref}</b>
                           <span className="block text-[10.5px] leading-tight text-muted">{o.spec}</span>

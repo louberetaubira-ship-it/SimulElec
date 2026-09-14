@@ -26,6 +26,7 @@
 import type { AttemptState, Fault, TpDefinition } from '../types';
 import { pupitreOf } from '../scene/geometry';
 import { isLatched, type SimState } from './engine';
+import { CATALOGUE_BY_KEY } from '../data/catalogue';
 
 /** Une branche du réseau : deux nœuds et une résistance. */
 export interface Arete {
@@ -97,6 +98,39 @@ export function resistanceDeclaree(tp: Pick<TpDefinition, 'tests'>, motif: RegEx
 }
 
 /** Effet d'une panne sur le réseau, tel que le TP le déclare. */
+/**
+ * Contacts auxiliaires d'un contacteur ou d'un relais, déduits du repérage
+ * normalisé EN 50005 : la DIZAINE numérote la voie, les UNITÉS disent la nature
+ * du contact — 1-2 à ouverture, 3-4 à fermeture, 5-6 à ouverture temporisé,
+ * 7-8 à fermeture temporisé. C'est ce qui est gravé sur l'appareil, donc ce que
+ * l'élève lit ; rien n'est déclaré en plus dans le TP.
+ *
+ * Les bornes de puissance (1, 3, 5 / 2, 4, 6, sans dizaine) et les bornes de
+ * bobine (A1, A2) sont écartées.
+ */
+function contactsAuxiliaires(
+  it: { terminals: readonly { id: string }[] } | undefined,
+): { a: string; b: string; voie: string; ouverture: boolean }[] {
+  if (!it) return [];
+  const voies = new Map<string, Set<string>>();
+  for (const t of it.terminals) {
+    const m = /^([1-9])([1-8])$/.exec(t.id);
+    if (!m) continue;
+    const l = voies.get(m[1]) ?? new Set<string>();
+    l.add(m[2]);
+    voies.set(m[1], l);
+  }
+  const out: { a: string; b: string; voie: string; ouverture: boolean }[] = [];
+  for (const [dizaine, unites] of Array.from(voies)) {
+    for (const [u1, u2, ouverture] of [['1', '2', true], ['3', '4', false], ['5', '6', true], ['7', '8', false]] as const) {
+      if (unites.has(u1) && unites.has(u2)) {
+        out.push({ a: `#.${dizaine}${u1}`, b: `#.${dizaine}${u2}`, voie: `${dizaine}${u1}`, ouverture });
+      }
+    }
+  }
+  return out;
+}
+
 export const effetDe = (f: Fault | undefined): EffetPanne =>
   f ? { coupe: f.coupe, ouvre: f.ouvre } : {};
 
@@ -123,8 +157,18 @@ export function reseauCommande(
     const id = cle(a, b);
     if (!coupee(id)) e.push({ a, b, r: R.FIL, id, nature: 'fil' });
   };
+  /**
+   * Bornes réellement raccordées. Un appareil a souvent des contacts de réserve —
+   * un CAD 32 en porte cinq, le montage n'en utilise que trois. Un contact que
+   * personne n'a câblé ne fait pas partie du circuit : il n'a pas à figurer au
+   * folio, et une pointe posée dessus ne doit rien trouver.
+   */
+  const cablees = new Set<string>();
+  for (const w of st.wires) { cablees.add(w.a); cablees.add(w.b); }
+
   /** Contact : il n'est dans le réseau que fermé, et la panne peut le forcer ouvert. */
   const contact = (a: string, b: string, ferme: boolean, organe: string) => {
+    if (!cablees.has(a) || !cablees.has(b)) return;
     if (ferme && !ouvert(organe)) {
       e.push({ a, b, r: R.CONTACT, id: `${organe}:${a}-${b}`, nature: 'contact' });
     }
@@ -193,9 +237,27 @@ export function reseauCommande(
       contact(`${id}.95`, `${id}.96`, !sim.f1trip, 'f1');
       contact(`${id}.97`, `${id}.98`, sim.f1trip, 'f1-no');
     }
-    if (slot.key?.startsWith('kontakt') || id === 'km1' || id === 'km2') {
-      contact(`${id}.13`, `${id}.14`, sim.km1, `${id}-am`);
+    // ---- contacteurs et relais auxiliaires : bobine + contacts déduits du repérage
+    const it = slot.key ? CATALOGUE_BY_KEY[slot.key] : undefined;
+    const aBobine = !!it && it.kind === 'contactor' && it.terminals.some(t => t.id === 'A1');
+    if (aBobine || id === 'km1' || id === 'km2') {
+      // Le simulateur ne connaît qu'un seul appareil enclenché : KM1. Tous les
+      // autres — second contacteur d'un inverseur, relais d'une séquence câblée —
+      // sont AU REPOS, et leurs contacts se lisent dans cette position. C'est
+      // exactement ce qu'on mesure sur une platine consignée.
+      const colle = id === 'km1' ? sim.km1 : false;
       e.push({ a: `${id}.A1`, b: `${id}.A2`, r: rBobine, id: `${id}-bobine`, nature: 'charge' });
+      for (const c of contactsAuxiliaires(it)) {
+        contact(c.a.replace('#', id), c.b.replace('#', id), c.ouverture ? !colle : colle, `${id}-${c.voie}`);
+      }
+      if (!it) contact(`${id}.13`, `${id}.14`, colle, `${id}-am`);
+    }
+    // ---- capteur de position à galet : au repos, le galet n'est pas actionné.
+    // Le simulateur n'anime pas le passage du mobile : la séquence se raisonne sur
+    // le folio et se contrôle à l'ohmmètre, appareil par appareil.
+    if (slot.key === 'limitswitch') {
+      contact(`${id}.11`, `${id}.12`, true, `${id}`);
+      contact(`${id}.11`, `${id}.14`, false, `${id}-no`);
     }
   }
 

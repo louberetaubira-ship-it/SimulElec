@@ -3,7 +3,7 @@ import type { CoursFiche } from '../data/cours';
 import { coursPrompt } from '../data/cours';
 import { diplomaName, type Student } from '../student';
 import { isControlLive, isRunning, type SimState } from './engine';
-import { nextLiaison, requiredLiaisons, STAGES } from './progress';
+import { ETAPE, nextLiaison, requiredLiaisons, STAGES } from './progress';
 import { repereSlot } from './reperes';
 import { EPI, mesureDone, mesuresFor, readingLabel } from './mesures';
 
@@ -37,7 +37,7 @@ export function buildContext(
   if (tp.motor) lines.push(`Moteur : ${Object.entries(tp.plaque).map(([k, v]) => `${k} ${v}`).join(', ')}.`);
   lines.push(`Cahier des charges : ${tp.cahierDesCharges.map(c => `${c.k} = ${c.v}`).join(' ; ')}.`);
 
-  if (st.stage === 2) {
+  if (st.stage === ETAPE.MATERIEL) {
     const choix = tp.postes.map(p => {
       const i = st.choices[p.id];
       const o = i != null ? p.options[i] : null;
@@ -48,24 +48,24 @@ export function buildContext(
     lines.push(`Bonnes réponses, à NE PAS révéler : ${bonnes}.`);
   }
 
-  if (st.stage === 3) {
+  if (st.stage === ETAPE.POSE) {
     const poses = tp.slots.filter(s => st.placed[s.id]).map(s => s.id);
     lines.push(`Appareils posés : ${poses.join(', ') || 'aucun'} ; erreurs de pose : ${st.poseErrors}.`);
   }
 
-  if (st.stage === 4) {
+  if (st.stage === ETAPE.CABLAGE) {
     const req = requiredLiaisons(tp).length;
     const n = nextLiaison(tp, st);
     lines.push(`Liaisons réalisées : ${st.wires.length}/${req}, refus : ${st.wireErrors}.`);
     lines.push(`Prochaine liaison du tableau, à NE PAS donner telle quelle : ${n ? `${n.a} → ${n.b} (${n.net})` : 'aucune, le câblage est complet'}.`);
   }
 
-  if (st.stage === 5) {
+  if (st.stage === ETAPE.TESTS) {
     const faits = Object.keys(st.tests);
     lines.push(`Tests réalisés : ${faits.join(', ') || 'aucun'} sur ${tp.tests.map(t => t.id).join(', ')}.`);
   }
 
-  if (st.stage >= 6) {
+  if (st.stage >= ETAPE.EPI) {
     const manquants = EPI.filter(e => e.req && !st.epi[e.id]).map(e => e.name);
     lines.push(`EPI cochés : ${Object.keys(st.epi).filter(k => st.epi[k]).join(', ') || 'aucun'}${manquants.length ? ` ; manque : ${manquants.join(', ')}` : ' ; équipement complet'}.`);
     const c = st.cons;
@@ -78,7 +78,7 @@ export function buildContext(
     lines.push(`Déconsignation : cadenas ${d.unlock ? 'retiré' : 'en place'}, appareils ${d.close ? 'refermés' : 'ouverts'}, essai ${d.essai ? 'concluant' : 'non fait'}.`);
   }
 
-  if (st.stage >= 7) {
+  if (st.stage >= ETAPE.HORS) {
     for (const s of ['horsTension', 'sousTension'] as const) {
       const list = mesuresFor(tp, s);
       if (!list.length) continue;
@@ -89,7 +89,7 @@ export function buildContext(
     lines.push(`Dernières lectures d'instrument : ${last || 'aucune'}.`);
   }
 
-  if (st.stage >= 8) {
+  if (st.stage >= ETAPE.MISE_EN_SERVICE) {
     lines.push(
       `État du montage : ${repereSlot(tp, 'q1')} ${sim.q1 ? 'fermé' : 'ouvert'}, ` +
       `${repereSlot(tp, 'f2')} ${sim.f2 ? 'fermé' : 'ouvert'}, ${repereSlot(tp, 'f3')} ${sim.f3 ? 'fermé' : 'ouvert'}, ` +
@@ -99,7 +99,7 @@ export function buildContext(
     );
   }
 
-  if (st.stage === 10 && st.fault && !st.fixed) {
+  if (st.stage === ETAPE.VALIDATION && st.fault && !st.fixed) {
     const f = tp.faults.find(x => x.id === st.fault);
     if (f) lines.push(`PANNE INJECTÉE — SECRÈTE, ne jamais la nommer, guider vers la mesure qui la révèle : ${f.title}. Symptôme signalé : ${f.symptom}.`);
     if (st.diagnosis) lines.push(`Hypothèse de l'élève : ${tp.faults.find(x => x.id === st.diagnosis)?.title ?? st.diagnosis} (${st.diagTries} essai(s)).`);

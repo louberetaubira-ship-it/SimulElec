@@ -15,6 +15,7 @@ import { aideLeft, coursForStage, modeOf, STAGES } from '@/lib/sim/progress';
 import { useParcours } from '@/app/tp/[id]/store';
 
 const REASON_TEXT: Record<string, string> = {
+  preparation: 'Deux réponses fausses : la fiche te redonne la fonction de chaque organe.',
   cablage: 'Trois liaisons refusées : reprends la règle avant de continuer.',
   materiel: 'Deux choix faux : la fiche te redonne la méthode de choix.',
   mesure: 'Cette mesure n\'est pas celle attendue : revois la règle et la position de l\'appareil.',

@@ -1,5 +1,5 @@
 import type {
-  AttemptState, Bareme, BaremeOverride, EvaluationMode, Liaison, TpDefinition,
+  AttemptState, Bareme, BaremeOverride, EvaluationMode, Liaison, PrepQuestion, TpDefinition,
 } from '../types';
 import { isRunning, startButtons, type SimState } from './engine';
 import { listeMiseSousTension, repereSlot } from './reperes';
@@ -11,31 +11,55 @@ import {
 } from '../data/competences';
 
 export const STAGES = [
-  'Choix du TP', 'Énoncé', 'Matériel', 'Pose', 'Câblage', 'Tests hors tension',
+  'Choix du TP', 'Énoncé', 'Préparation', 'Matériel', 'Pose', 'Câblage', 'Tests hors tension',
   'EPI & consignation', 'Mesures hors tension', 'Déconsignation & mise en service',
   'Mesures sous tension', 'Validation / maintenance',
 ] as const;
 
+/**
+ * Index des étapes, nommés.
+ *
+ * Ils ont longtemps été écrits en chiffres partout — et le jour où une étape
+ * s'est insérée au milieu, chacun de ces chiffres est devenu faux en silence.
+ * Une étape se désigne maintenant par son nom ; insérer la suivante ne demandera
+ * que de compléter ce bloc et les tables indexées par étape.
+ */
+export const ETAPE = {
+  CHOIX: 0,
+  ENONCE: 1,
+  PREPARATION: 2,
+  MATERIEL: 3,
+  POSE: 4,
+  CABLAGE: 5,
+  TESTS: 6,
+  EPI: 7,
+  HORS: 8,
+  MISE_EN_SERVICE: 9,
+  SOUS: 10,
+  VALIDATION: 11,
+} as const;
+
 /** Libellés courts pour le stepper mobile. */
 export const STAGES_SHORT = [
-  'Choix', 'Énoncé', 'Matériel', 'Pose', 'Câblage', 'Tests',
+  'Choix', 'Énoncé', 'Préparation', 'Matériel', 'Pose', 'Câblage', 'Tests',
   'EPI', 'Mes. hors tension', 'Déconsignation', 'Mes. sous tension', 'Validation',
 ] as const;
 
 export const STAGE_SLUGS = [
-  'choix', 'enonce', 'materiel', 'pose', 'cablage', 'tests',
+  'choix', 'enonce', 'preparation', 'materiel', 'pose', 'cablage', 'tests',
   'epi', 'mesures-hors-tension', 'mise-en-service', 'mesures-sous-tension', 'validation',
 ] as const;
 
 export const STAGE_COUNT = STAGES.length;
 
-/** Dernière étape accessible pour un TP non jouable (énoncé, matériel, pose). */
-export const MAX_STAGE_PREVIEW = 3;
+/** Dernière étape accessible pour un TP non jouable (énoncé, préparation, matériel, pose). */
+export const MAX_STAGE_PREVIEW = ETAPE.POSE;
 
 export function initialState(): AttemptState {
   return {
     stage: 0,
     done: {},
+    prep: {},
     choices: {},
     placed: {},
     wires: [],
@@ -68,6 +92,8 @@ export function normalizeState(raw: Partial<AttemptState> | null | undefined): A
     ...base,
     ...raw,
     done: raw.done ?? base.done,
+    // étape de préparation ajoutée après coup : une tentative plus ancienne n'en a pas
+    prep: raw.prep ?? base.prep,
     choices: raw.choices ?? base.choices,
     placed: raw.placed ?? base.placed,
     wires: raw.wires ?? base.wires,
@@ -102,17 +128,18 @@ export function normalizeState(raw: Partial<AttemptState> | null | undefined): A
  * Un TP peut préciser cette liste dans `TP_COURS`.
  */
 export const STAGE_COURS: CoursId[][] = [
-  ['diagnostic'],                                             // 0 choix du TP
-  ['plaque-moteur', 'loi-ohm-puissance'],                     // 1 énoncé
-  ['plaque-moteur', 'contacteur', 'calibre-protection'],      // 2 matériel
-  ['borniers', 'regles-cablage'],                             // 3 pose
-  ['contacteur', 'borniers', 'regles-cablage'],               // 4 câblage
-  ['tests-hors-tension', 'transfo-commande'],                 // 5 tests hors tension
-  ['epi-habilitation', 'consignation'],                       // 6 EPI & consignation
-  ['tests-hors-tension', 'mesure-tension'],                   // 7 mesures hors tension
-  ['deconsignation', 'contacteur'],                           // 8 déconsignation & mise en service
-  ['mesure-tension', 'mesure-courant', 'vitesse-glissement'], // 9 mesures sous tension
-  ['diagnostic', 'contacteur'],                               // 10 validation / maintenance
+  ['diagnostic'],                                             // 0  choix du TP
+  ['plaque-moteur', 'loi-ohm-puissance'],                     // 1  énoncé
+  ['contacteur', 'transfo-commande', 'plaque-moteur'],        // 2  préparation
+  ['plaque-moteur', 'contacteur', 'calibre-protection'],      // 3  matériel
+  ['borniers', 'regles-cablage'],                             // 4  pose
+  ['contacteur', 'borniers', 'regles-cablage'],               // 5  câblage
+  ['tests-hors-tension', 'transfo-commande'],                 // 6  tests hors tension
+  ['epi-habilitation', 'consignation'],                       // 7  EPI & consignation
+  ['tests-hors-tension', 'mesure-tension'],                   // 8  mesures hors tension
+  ['deconsignation', 'contacteur'],                           // 9  déconsignation & mise en service
+  ['mesure-tension', 'mesure-courant', 'vitesse-glissement'], // 10 mesures sous tension
+  ['diagnostic', 'contacteur'],                               // 11 validation / maintenance
 ];
 
 /** Précisions par TP : étape → fiches (remplace la valeur par défaut). */
@@ -175,7 +202,7 @@ export function coursForStage(tpId: string, stage: number): CoursId[] {
  * Sans surcharge, la notation est strictement identique à la notation historique.
  */
 export const DEFAULT_BAREME: Bareme = {
-  poids: { materiel: 15, pose: 10, cablage: 20, tests: 5, epi: 15, hors: 10, sous: 15, diag: 5, quiz: 5 },
+  poids: { preparation: 10, materiel: 10, pose: 10, cablage: 20, tests: 5, epi: 15, hors: 10, sous: 10, diag: 5, quiz: 5 },
   coutErreurPose: 2,
   coutErreurCablage: 2,
   coutFilRetire: 0.25,
@@ -186,7 +213,7 @@ export const DEFAULT_BAREME: Bareme = {
 
 /** Libellés des poids, pour l'éditeur de barème du professeur. */
 export const BAREME_LABELS: Record<keyof Bareme['poids'], string> = {
-  materiel: 'Choix du matériel', pose: 'Pose sur la platine', cablage: 'Câblage',
+  preparation: 'Préparation de l\'opération', materiel: 'Choix du matériel', pose: 'Pose sur la platine', cablage: 'Câblage',
   tests: 'Tests hors tension', epi: 'EPI et consignation', hors: 'Mesures hors tension',
   sous: 'Mesures sous tension', diag: 'Maintenance corrective', quiz: 'Questions de validation',
 };
@@ -198,6 +225,7 @@ export function resolveBareme(over?: BaremeOverride | null): Bareme {
   const p = over.poids ?? {};
   return {
     poids: {
+      preparation: num(p.preparation, DEFAULT_BAREME.poids.preparation),
       materiel: num(p.materiel, DEFAULT_BAREME.poids.materiel),
       pose: num(p.pose, DEFAULT_BAREME.poids.pose),
       cablage: num(p.cablage, DEFAULT_BAREME.poids.cablage),
@@ -389,20 +417,41 @@ export const mesuresRestantes = (tp: TpDefinition, st: AttemptState, stage: 'hor
 
 export const validationComplete = (st: AttemptState) => st.fixed && st.diagnosis != null && st.quiz != null;
 
+// ---------------------------------------------------------------- préparation
+
+/**
+ * Questions de préparation d'un TP : identifier les organes du schéma, puis dire
+ * la fonction de chacun. Un TP qui n'en déclare pas passe l'étape sans rien
+ * demander — la préparation est une addition, pas une barrière rétroactive.
+ */
+export function prepQuestions(tp: TpDefinition): PrepQuestion[] {
+  const p = tp.preparation;
+  return p ? [...p.identification, ...p.fonctions] : [];
+}
+
+/** Réponses justes à la préparation. */
+export const goodPrep = (tp: TpDefinition, st: AttemptState): number =>
+  prepQuestions(tp).filter(q => st.prep?.[q.id] === q.answer).length;
+
+/** Toutes les questions ont-elles reçu une réponse (juste ou non) ? */
+export const preparationComplete = (tp: TpDefinition, st: AttemptState): boolean =>
+  prepQuestions(tp).every(q => st.prep?.[q.id] != null);
+
 /** L'étape `stage` est-elle satisfaite par l'état courant ? */
 export function stageSatisfied(tp: TpDefinition, st: AttemptState, sim: SimState, stage: number): boolean {
   switch (stage) {
-    case 0:
-    case 1: return true;
-    case 2: return materielComplete(tp, st);
-    case 3: return poseComplete(tp, st);
-    case 4: return wiringComplete(tp, st);
-    case 5: return testsComplete(tp, st);
-    case 6: return epiConsComplete(st);
-    case 7: return horsTensionComplete(tp, st);
-    case 8: return deconsComplete(st);
-    case 9: return sousTensionComplete(tp, st);
-    case 10: return validationComplete(st);
+    case ETAPE.CHOIX:
+    case ETAPE.ENONCE: return true;
+    case ETAPE.PREPARATION: return preparationComplete(tp, st);
+    case ETAPE.MATERIEL: return materielComplete(tp, st);
+    case ETAPE.POSE: return poseComplete(tp, st);
+    case ETAPE.CABLAGE: return wiringComplete(tp, st);
+    case ETAPE.TESTS: return testsComplete(tp, st);
+    case ETAPE.EPI: return epiConsComplete(st);
+    case ETAPE.HORS: return horsTensionComplete(tp, st);
+    case ETAPE.MISE_EN_SERVICE: return deconsComplete(st);
+    case ETAPE.SOUS: return sousTensionComplete(tp, st);
+    case ETAPE.VALIDATION: return validationComplete(st);
     default: return false;
   }
 }
@@ -428,7 +477,11 @@ export function scoreLines(tp: TpDefinition, st: AttemptState, bareme?: Bareme):
 
   const clamp = (v: number, max: number) => Math.max(0, Math.min(max, Math.round(v)));
 
+  const nPrep = Math.max(1, prepQuestions(tp).length);
+  const prepOk = goodPrep(tp, st);
+
   return [
+    { key: 'preparation', label: 'Préparation de l\'opération', points: clamp(prepOk / nPrep * w.preparation, w.preparation), max: w.preparation, detail: prepQuestions(tp).length === 0 ? 'pas de préparation sur ce TP' : `${prepOk} / ${prepQuestions(tp).length} réponses justes` },
     { key: 'materiel', label: 'Choix du matériel', points: clamp(ok / nPostes * w.materiel, w.materiel), max: w.materiel, detail: `${ok} / ${tp.postes.length} références justes` },
     { key: 'pose', label: 'Pose sur la platine', points: clamp(w.pose - st.poseErrors * b.coutErreurPose, w.pose), max: w.pose, detail: `${st.poseErrors} erreur${st.poseErrors > 1 ? 's' : ''} de pose` },
     { key: 'cablage', label: 'Câblage', points: clamp(wired / Math.max(1, req) * w.cablage - st.wireErrors * b.coutErreurCablage - correctionPenalty(st, b), w.cablage), max: w.cablage, detail: `${wired} / ${req} liaisons · ${st.wireErrors} refus · ${st.wiresRemoved ?? 0} fil${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} retiré${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} · ${st.resets ?? 0} remise${(st.resets ?? 0) > 1 ? 's' : ''} à zéro` },
@@ -469,18 +522,22 @@ function stageReached(st: AttemptState, stage: number): boolean {
 function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bareme): number | undefined {
   if (!stageReached(st, stage)) return undefined;
   switch (stage) {
-    case 0:
-    case 1:
+    case ETAPE.CHOIX:
+    case ETAPE.ENONCE:
       return 1;
-    case 2: {
+    case ETAPE.PREPARATION: {
+      const n = prepQuestions(tp).length;
+      return n === 0 ? 1 : clamp01(goodPrep(tp, st) / n);
+    }
+    case ETAPE.MATERIEL: {
       const n = tp.postes.length;
       return n === 0 ? 1 : clamp01(goodChoices(tp, st) / n);
     }
-    case 3: {
+    case ETAPE.POSE: {
       const n = Math.max(1, tp.slots.length);
       return clamp01(1 - st.poseErrors / n);
     }
-    case 4: {
+    case ETAPE.CABLAGE: {
       const req = requiredLiaisons(tp).length;
       if (req === 0) return 1;
       const done = requiredLiaisons(tp).filter(l => isWired(st, l)).length;
@@ -490,33 +547,33 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
       const corr = Math.min(pen.correctionMax, (st.wiresRemoved ?? 0) * pen.filRetire + (st.resets ?? 0) * pen.reset);
       return clamp01(done / req - st.wireErrors * pen.erreurCablage - corr);
     }
-    case 5: {
+    case ETAPE.TESTS: {
       const n = tp.tests.length;
       if (n === 0) return 1;
       return clamp01(tp.tests.filter(t => st.tests[t.id] != null).length / n);
     }
-    case 6: {
+    case ETAPE.EPI: {
       const c = st.cons;
       const steps = [c.sep, c.lock, c.ident, c.vatRef, c.vat.length >= 3, c.vatRef2];
       const ordered = steps.filter(Boolean).length / steps.length;
       const epiPart = epiOk(st) ? 1 : Object.values(st.epi).filter(Boolean).length / 6;
-      return clamp01(0.65 * ordered + 0.35 * clamp01(epiPart) - errReadings(st, 6) * 0.1);
+      return clamp01(0.65 * ordered + 0.35 * clamp01(epiPart) - errReadings(st, ETAPE.EPI) * 0.1);
     }
-    case 7: {
+    case ETAPE.HORS: {
       const list = mesuresFor(tp, 'horsTension');
       if (list.length === 0) return 1;
       const ok = list.filter(m => mesureDone(st, m.id)).length;
-      return clamp01(ok / list.length - errReadings(st, 7) * 0.15);
+      return clamp01(ok / list.length - errReadings(st, ETAPE.HORS) * 0.15);
     }
-    case 8:
+    case ETAPE.MISE_EN_SERVICE:
       return st.decons.essai ? 1 : st.decons.close ? 0.5 : 0.2;
-    case 9: {
+    case ETAPE.SOUS: {
       const list = mesuresFor(tp, 'sousTension');
       if (list.length === 0) return 1;
       const ok = list.filter(m => mesureDone(st, m.id)).length;
-      return clamp01(ok / list.length - errReadings(st, 9) * 0.15);
+      return clamp01(ok / list.length - errReadings(st, ETAPE.SOUS) * 0.15);
     }
-    case 10: {
+    case ETAPE.VALIDATION: {
       const tries = Math.max(1, st.diagTries);
       const diag = !st.fixed ? 0 : tries === 1 ? 1 : tries === 2 ? 0.7 : 0.4;
       const nQuiz = tp.quiz.length;

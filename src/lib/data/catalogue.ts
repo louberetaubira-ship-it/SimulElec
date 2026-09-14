@@ -106,6 +106,96 @@ export const CATALOGUE: CatalogueItem[] = [
   // I²t du variateur qui garde le moteur. Il ne reste au SCPD qu'à couper le
   // court-circuit côté réseau. 45 × 89 × 97 mm (fiche Schneider).
   item({ key: 'gv2l', dims: { largeur: 45, hauteur: 89, profondeur: 97, source: 'fiche' }, name: 'Disjoncteur moteur magnétique GV2L08 · 4 A', ref: 'GV2L08', brand: 'Schneider', kind: 'motorcb', family: 'Disjoncteurs', modules: 2.5, poles: 3, In: 4, terminals: [...top3(['1', '3', '5']), ...bot3(['2', '4', '6'])] }),
+  // ---- Départ-moteur de forte puissance (TD wagonnet, M1 de 22 kW) ----
+  //
+  // Ces quatre appareils sont DESSINÉS : le pack photo n'en contient aucun, et
+  // aucune photo approchante ne conviendrait — un corps de sectionneur GK1 ne
+  // ressemble pas à un porte-fusible modulaire, et l'élève doit voir le bon
+  // organe. Les proportions du dessin sont celles de la fiche constructeur.
+  //
+  // Sectionneur porte-fusibles TeSys GK1 ES : 3 pôles 50 A, cartouches 14 × 51,
+  // DEUX contacts de précoupure — ce sont eux qui coupent la commande avant la
+  // puissance quand on ouvre le sectionneur. 97 × 97 × 89,5 mm (fiche Schneider).
+  vector({
+    key: 'gk1es', name: 'Sectionneur porte-fusibles 3P 50 A · cartouches 14 × 51 · 2 précoupures',
+    ref: 'GK1 ES', brand: 'Schneider', kind: 'main', family: 'Sectionnement',
+    dims: { largeur: 97, hauteur: 97, profondeur: 89.5, source: 'fiche' },
+    poles: 3, In: 50, ...tailleSprite(97, 97),
+    terminals: [
+      { id: '1', fx: 0.206, fy: 0.10 }, { id: '3', fx: 0.485, fy: 0.10 }, { id: '5', fx: 0.763, fy: 0.10 },
+      { id: '2', fx: 0.206, fy: 0.90 }, { id: '4', fx: 0.485, fy: 0.90 }, { id: '6', fx: 0.763, fy: 0.90 },
+      { id: '13', fx: 0.93, fy: 0.24 }, { id: '14', fx: 0.93, fy: 0.42 },
+      { id: '23', fx: 0.93, fy: 0.60 }, { id: '24', fx: 0.93, fy: 0.78 },
+    ],
+  }),
+  // Contacteur LC1 D50, bobine 24 V. Deux exemplaires accouplés et verrouillés
+  // mécaniquement forment le contacteur-INVERSEUR LC2 D50 : la fonction inverseur
+  // vient du câblage croisé de deux phases, pas d'un appareil particulier.
+  // 75 × 127 × 119 mm (fiche LC1D50M7).
+  vector({
+    key: 'lc1d50', name: 'Contacteur tripolaire 22 kW · bobine 24 V', ref: 'LC1 D50 B7',
+    brand: 'Schneider', kind: 'contactor', family: 'Industriel',
+    dims: { largeur: 75, hauteur: 127, profondeur: 119, source: 'fiche' },
+    poles: 3, In: 50, coil: 24, ...tailleSprite(75, 127),
+    terminals: [
+      { id: '1', fx: 0.207, fy: 0.08 }, { id: '3', fx: 0.487, fy: 0.08 }, { id: '5', fx: 0.767, fy: 0.08 },
+      { id: '2', fx: 0.207, fy: 0.92 }, { id: '4', fx: 0.487, fy: 0.92 }, { id: '6', fx: 0.767, fy: 0.92 },
+      { id: 'A1', fx: 0.133, fy: 0.21 }, { id: 'A2', fx: 0.867, fy: 0.79 },
+      { id: '13', fx: 0.32, fy: 0.55 }, { id: '14', fx: 0.32, fy: 0.63 },
+      { id: '21', fx: 0.68, fy: 0.55 }, { id: '22', fx: 0.68, fy: 0.63 },
+    ],
+  }),
+  // Le même, équipé du bloc additif LAD N11 (1 F + 1 O) clipsé en face avant :
+  // il n'élargit pas l'appareil, il occupe la fenêtre centrale. 26 × 48 × 42 mm.
+  vector({
+    key: 'lc1d50n', name: 'Contacteur tripolaire 22 kW · bobine 24 V + bloc LAD N11', ref: 'LC1 D50 B7 + LAD N11',
+    brand: 'Schneider', kind: 'contactor', family: 'Industriel',
+    dims: { largeur: 75, hauteur: 127, profondeur: 119, source: 'fiche' },
+    poles: 3, In: 50, coil: 24, ...tailleSprite(75, 127),
+    terminals: [
+      { id: '1', fx: 0.207, fy: 0.08 }, { id: '3', fx: 0.487, fy: 0.08 }, { id: '5', fx: 0.767, fy: 0.08 },
+      { id: '2', fx: 0.207, fy: 0.92 }, { id: '4', fx: 0.487, fy: 0.92 }, { id: '6', fx: 0.767, fy: 0.92 },
+      { id: 'A1', fx: 0.133, fy: 0.21 }, { id: 'A2', fx: 0.867, fy: 0.79 },
+      { id: '13', fx: 0.32, fy: 0.55 }, { id: '14', fx: 0.32, fy: 0.63 },
+      { id: '21', fx: 0.68, fy: 0.55 }, { id: '22', fx: 0.68, fy: 0.63 },
+      { id: '53', fx: 0.50, fy: 0.42 }, { id: '54', fx: 0.50, fy: 0.50 },
+    ],
+  }),
+  // Relais thermique LRD 3357, zone 37…50 A, classe 10 A : il se monte SOUS le
+  // contacteur et s'enfiche dessus par trois barrettes. 75 × 123 × 121 mm (fiche).
+  vector({
+    key: 'lrd3357', name: 'Relais de protection thermique 37…50 A · classe 10 A', ref: 'LRD 3357',
+    brand: 'Schneider', kind: 'thermal', family: 'Industriel',
+    dims: { largeur: 75, hauteur: 123, profondeur: 121, source: 'fiche' },
+    poles: 3, range: [37, 50], ...tailleSprite(75, 123),
+    terminals: [
+      { id: '1', fx: 0.227, fy: 0.07 }, { id: '3', fx: 0.507, fy: 0.07 }, { id: '5', fx: 0.787, fy: 0.07 },
+      { id: '2', fx: 0.22, fy: 0.85 }, { id: '4', fx: 0.50, fy: 0.85 }, { id: '6', fx: 0.78, fy: 0.85 },
+      { id: '95', fx: 0.12, fy: 0.95 }, { id: '96', fx: 0.26, fy: 0.95 },
+      { id: '97', fx: 0.88, fy: 0.95 }, { id: '98', fx: 0.74, fy: 0.95 },
+    ],
+  }),
+  // Contacteur auxiliaire CAD 32 (3 F + 2 O), bobine 24 V, équipé de son bloc
+  // temporisé LAD T0 (travail, 0,1 à 3 s) clipsé en face avant. Repérage EN 50005 :
+  // les unités 5-6 désignent le contact à OUVERTURE retardé, 7-8 le contact à
+  // FERMETURE retardé — c'est 67-68 qui se ferme à la fin de la temporisation.
+  // 45 × 77 × 84 mm (fiche CAD32B7) ; le LAD T0 n'a pas de cote publiée.
+  vector({
+    key: 'cad32', name: 'Contacteur auxiliaire 3 F + 2 O · bobine 24 V + bloc temporisé LAD T0', ref: 'CAD 32 B7 + LAD T0',
+    brand: 'Schneider', kind: 'contactor', family: 'Industriel',
+    dims: { largeur: 45, hauteur: 77, profondeur: 84, source: 'fiche' },
+    poles: 0, coil: 24, ...tailleSprite(45, 77),
+    terminals: [
+      { id: 'A1', fx: 0.156, fy: 0.10 }, { id: 'A2', fx: 0.156, fy: 0.90 },
+      { id: '11', fx: 0.333, fy: 0.10 }, { id: '12', fx: 0.333, fy: 0.90 },
+      { id: '21', fx: 0.511, fy: 0.10 }, { id: '22', fx: 0.511, fy: 0.90 },
+      { id: '33', fx: 0.689, fy: 0.10 }, { id: '34', fx: 0.689, fy: 0.90 },
+      { id: '43', fx: 0.867, fy: 0.10 }, { id: '44', fx: 0.867, fy: 0.90 },
+      { id: '53', fx: 0.06, fy: 0.42 }, { id: '54', fx: 0.06, fy: 0.58 },
+      { id: '55', fx: 0.94, fy: 0.27 }, { id: '56', fx: 0.94, fy: 0.73 },
+      { id: '67', fx: 0.94, fy: 0.43 }, { id: '68', fx: 0.94, fy: 0.57 },
+    ],
+  }),
   // ---- Différentiels ----
   item({ key: 'rcd2p', dims: { largeur: 36, hauteur: 85, profondeur: 44, source: 'fiche' }, name: 'Interrupteur différentiel 2P 40 A 30 mA', ref: 'Acti9 iID 2P 40A 30mA type AC · A9R11240', brand: 'Schneider', kind: 'rcd', family: 'Différentiels', modules: 2, poles: 2, In: 40,
     terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),

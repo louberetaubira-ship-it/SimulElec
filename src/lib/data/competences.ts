@@ -140,19 +140,80 @@ export const DOMAIN_TO_COMPETENCES: Record<DiplomaId, Partial<Record<Domain, str
   },
 };
 
-/** Domaines mobilisés par chaque étape du parcours « platine » (11 étapes). */
+/**
+ * ACTIVITÉS PROFESSIONNELLES du référentiel.
+ *
+ * Une compétence dit ce que l'élève doit savoir faire ; l'activité dit DANS QUEL
+ * MOMENT du métier il le fait. Les deux figurent au référentiel et l'élève doit
+ * pouvoir situer son travail dans l'un comme dans l'autre : préparer une
+ * opération (A1) et la réaliser (A2) ne s'évaluent ni au même moment ni sur les
+ * mêmes critères.
+ *
+ * Les codes A1 à A5 sont ceux du Bac Pro MELEC ; les autres diplômes découpent
+ * leurs activités autrement, mais les cinq moments — préparer, réaliser, mettre
+ * en service, maintenir, communiquer — leur sont communs.
+ */
+export type ActiviteId = 'A1' | 'A2' | 'A3' | 'A4' | 'A5';
+
+export interface Activite { code: ActiviteId; label: string; detail: string }
+
+export const ACTIVITES: Activite[] = [
+  { code: 'A1', label: 'Préparation des opérations',
+    detail: 'Analyser le dossier, identifier les matériels, choisir les solutions, préparer le chantier.' },
+  { code: 'A2', label: 'Réalisation',
+    detail: 'Implanter, poser, raccorder, dans le respect des règles de l\'art et de la prévention.' },
+  { code: 'A3', label: 'Mise en service',
+    detail: 'Contrôler, régler, paramétrer, essayer et livrer l\'installation en fonctionnement.' },
+  { code: 'A4', label: 'Maintenance',
+    detail: 'Diagnostiquer un dysfonctionnement, remplacer un matériel, remettre en service.' },
+  { code: 'A5', label: 'Communication',
+    detail: 'Rendre compte entre professionnels et auprès du client ou de l\'usager.' },
+];
+
+export const ACTIVITE_BY_ID: Record<ActiviteId, Activite> =
+  Object.fromEntries(ACTIVITES.map((a) => [a.code, a])) as Record<ActiviteId, Activite>;
+
+/** Activité dominante de chaque étape du parcours « platine » (12 étapes). */
+export const PLATINE_STAGE_ACTIVITE: ActiviteId[] = [
+  'A1', // 0  choix du TP
+  'A1', // 1  énoncé
+  'A1', // 2  préparation
+  'A1', // 3  matériel
+  'A2', // 4  pose
+  'A2', // 5  câblage
+  'A2', // 6  tests hors tension
+  'A3', // 7  EPI & consignation
+  'A3', // 8  mesures hors tension
+  'A3', // 9  déconsignation & mise en service
+  'A3', // 10 mesures sous tension
+  'A4', // 11 validation / maintenance
+];
+
+/** Activité dominante de chaque étape du parcours « dimensionnement PV ». */
+export const PV_STAGE_ACTIVITE: ActiviteId[] = [
+  'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A5',
+];
+
+export function activiteOfStage(kind: 'platine' | 'dimensionnement', stage: number): Activite | null {
+  const table = kind === 'dimensionnement' ? PV_STAGE_ACTIVITE : PLATINE_STAGE_ACTIVITE;
+  const code = table[stage];
+  return code ? ACTIVITE_BY_ID[code] : null;
+}
+
+/** Domaines mobilisés par chaque étape du parcours « platine » (12 étapes). */
 export const PLATINE_STAGE_DOMAINS: Domain[][] = [
-  ['analyse'],                       // 0 choix du TP
-  ['analyse', 'normes'],             // 1 énoncé
-  ['choix'],                         // 2 matériel
-  ['pose', 'organisation'],          // 3 pose
-  ['cablage'],                       // 4 câblage
-  ['controle'],                      // 5 tests hors tension
-  ['securite', 'organisation'],      // 6 EPI & consignation
-  ['mesure', 'controle'],            // 7 mesures hors tension
-  ['miseEnService', 'reglage'],      // 8 déconsignation & mise en service
-  ['mesure'],                        // 9 mesures sous tension
-  ['diagnostic', 'remplacement', 'documents', 'communication'], // 10 validation / maintenance
+  ['analyse'],                       // 0  choix du TP
+  ['analyse', 'normes'],             // 1  énoncé
+  ['analyse', 'documents'],          // 2  préparation : identifier et donner la fonction
+  ['choix'],                         // 3  matériel
+  ['pose', 'organisation'],          // 4  pose
+  ['cablage'],                       // 5  câblage
+  ['controle'],                      // 6  tests hors tension
+  ['securite', 'organisation'],      // 7  EPI & consignation
+  ['mesure', 'controle'],            // 8  mesures hors tension
+  ['miseEnService', 'reglage'],      // 9  déconsignation & mise en service
+  ['mesure'],                        // 10 mesures sous tension
+  ['diagnostic', 'remplacement', 'documents', 'communication'], // 11 validation / maintenance
 ];
 
 /** Domaines mobilisés par chaque étape du parcours « dimensionnement PV » (11 étapes). */

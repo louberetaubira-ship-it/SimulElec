@@ -1,8 +1,8 @@
 /**
  * Catalogue FOURNI avec l'application.
  *
- * Seize TP, du va-et-vient d'habitation au dimensionnement photovoltaïque. Trois
- * d'entre eux — démarrage direct, perceuse radiale, variateur — sont les TP de
+ * Dix-sept TP, du va-et-vient d'habitation au dimensionnement photovoltaïque.
+ * Trois d'entre eux — démarrage direct, perceuse radiale, variateur — sont les TP de
  * RÉFÉRENCE : ils portent un folio de commande complet et servent de gabarit de
  * structure (postes, liaisons, mesures attendues, barème) aux TP que le
  * professeur crée dans le studio ou fait générer.
@@ -30,6 +30,7 @@ import { TP_ETOILE_TRIANGLE } from './etoile-triangle';
 import { TP_INVERSION } from './inversion';
 import { TP_POMPE_RELEVAGE } from './pompe-relevage';
 import { TP_AUTOMATE_M221 } from './automate-m221';
+import { TP_WAGONNET } from './wagonnet';
 import { TP_PV_RESEAU } from './pv-reseau';
 import { TP_PV_BATTERIE } from './pv-batterie';
 import { TP_PV_DIMENSIONNEMENT } from './pv-dimensionnement';
@@ -49,6 +50,7 @@ export const TPS: TpDefinition[] = [
   TP_ETOILE_TRIANGLE,
   TP_INVERSION,
   TP_POMPE_RELEVAGE,
+  TP_WAGONNET,
   TP_VARIATEUR,
   TP_AUTOMATE_M221,
   // ---- photovoltaïque
@@ -66,6 +68,6 @@ export function tpById(id: string): TpDefinition | undefined {
 export {
   TP_DEMARRAGE_DIRECT, TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_VA_ET_VIENT, TP_CHAUFFE_EAU,
   TP_TABLEAU_LOGEMENT, TP_ECLAIRAGE_TERTIAIRE, TP_ECLAIRAGE_BAES, TP_TABLEAU_REPARTITION,
-  TP_ETOILE_TRIANGLE, TP_INVERSION, TP_POMPE_RELEVAGE, TP_AUTOMATE_M221,
+  TP_ETOILE_TRIANGLE, TP_INVERSION, TP_POMPE_RELEVAGE, TP_WAGONNET, TP_AUTOMATE_M221,
   TP_PV_RESEAU, TP_PV_BATTERIE, TP_PV_DIMENSIONNEMENT,
 };

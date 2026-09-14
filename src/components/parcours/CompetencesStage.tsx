@@ -10,7 +10,7 @@
 
 import React from 'react';
 import {
-  competencesForStage, DOMAIN_LABEL, domainsOfStage, type DiplomaId,
+  activiteOfStage, competencesForStage, DOMAIN_LABEL, domainsOfStage, type DiplomaId,
 } from '@/lib/data/competences';
 import { diplomaShort } from '@/lib/student';
 
@@ -61,6 +61,10 @@ export default function CompetencesStage({
 
   const comps = React.useMemo(() => competencesForStage(diploma, kind, stage), [diploma, kind, stage]);
   const domains = React.useMemo(() => domainsOfStage(kind, stage), [kind, stage]);
+  // L'activité dit DANS QUEL MOMENT du métier l'élève travaille : préparer une
+  // opération et la réaliser ne s'évaluent ni au même moment ni sur les mêmes
+  // critères. Elle se lit donc à côté des compétences, pas à leur place.
+  const activite = React.useMemo(() => activiteOfStage(kind, stage), [kind, stage]);
 
   if (comps.length === 0) return null;
 
@@ -85,6 +89,14 @@ export default function CompetencesStage({
         <span className="font-title text-[10.5px] font-semibold uppercase tracking-[.12em] text-accent">
           Évalué ici
         </span>
+        {activite && (
+          <span
+            title={`${activite.code} — ${activite.label}`}
+            className="rounded-md border border-accent/40 bg-accent/10 px-1.5 py-0.5 font-mono-num text-[10.5px] font-semibold text-accent"
+          >
+            {activite.code} {activite.label}
+          </span>
+        )}
         <span className="flex flex-wrap gap-1">
           {comps.map(c => (
             <span
@@ -124,6 +136,11 @@ export default function CompetencesStage({
             </article>
           ))}
           <p className="m-0 text-[11px] text-muted sm:col-span-2 xl:col-span-3">
+            {activite && (
+              <>
+                Activité <b className="text-ink">{activite.code} · {activite.label}</b> — {activite.detail}{' '}
+              </>
+            )}
             Domaines travaillés : {domains.map(d => DOMAIN_LABEL[d]).join(' · ')}. Ces compétences sont
             celles du référentiel {diplomaShort(diploma)}.
           </p>

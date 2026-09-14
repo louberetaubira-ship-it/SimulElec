@@ -11,7 +11,7 @@ import type { DiplomaId } from './data/competences';
 export interface Bareme {
   /** Points attribués à chaque ligne de note (total 100 par défaut). */
   poids: {
-    materiel: number; pose: number; cablage: number; tests: number; epi: number;
+    preparation: number; materiel: number; pose: number; cablage: number; tests: number; epi: number;
     hors: number; sous: number; diag: number; quiz: number;
   };
   /** Points retirés par erreur de pose. */
@@ -291,6 +291,36 @@ export interface FolioDef {
   cadres?: FolioCadre[];
 }
 
+/**
+ * Une question de l'étape de PRÉPARATION.
+ *
+ * Avant de poser le premier appareil, l'élève doit savoir lire le dossier :
+ * reconnaître les organes du schéma sous leur repère, et dire ce que chacun
+ * fait. Ce sont deux gestes distincts — identifier n'est pas comprendre — d'où
+ * les deux listes de `PreparationDef`.
+ *
+ * `why` n'est pas un corrigé caché : il s'affiche dès que l'élève a répondu,
+ * juste ou faux, comme le `why` d'une option de l'étape matériel.
+ */
+export interface PrepQuestion {
+  id: string;
+  /** Ce qu'on demande : « À quoi correspond le repère Q1 ? », « Rôle du sectionneur ? ». */
+  invite: string;
+  /** Repère ou organe concerné, affiché en tête de la question. */
+  rep?: string;
+  options: string[];
+  answer: number;
+  why: string;
+}
+
+/** Les deux temps de la préparation : identifier, puis donner la fonction. */
+export interface PreparationDef {
+  /** Identifier les éléments du schéma sous leur repère. */
+  identification: PrepQuestion[];
+  /** Donner la fonction de chaque équipement. */
+  fonctions: PrepQuestion[];
+}
+
 export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string }
 export interface Poste { id: string; name: string; need: string; options: PosteOption[] }
 
@@ -460,6 +490,8 @@ export interface TpDefinition {
   situation: string;
   plaque: Record<string, string>;
   cahierDesCharges: { k: string; v: string }[];
+  /** Préparation (activité A1) : identification des organes et fonction de chacun. */
+  preparation?: PreparationDef;
   postes: Poste[];
   rails: number[];               // y de chaque rail (unités logiques, 560×920)
   slots: Slot[];
@@ -541,6 +573,8 @@ export type AutoEval = Record<string, 'acquis' | 'enCours' | 'nonAcquis'>;
 export interface AttemptState {
   stage: number;
   done: Record<number, boolean>;
+  /** Réponses de l'étape de préparation : identifiant de question → index choisi. */
+  prep: Record<string, number>;
   choices: Record<string, number>;
   placed: Record<string, boolean>;
   wires: { a: string; b: string; net: NetKind }[];

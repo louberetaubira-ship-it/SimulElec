@@ -253,6 +253,142 @@ export function LockSvg() {
 }
 
 /** Rendu vectoriel associé à une clé de catalogue, s'il y en a un. */
+/* ------------------------------------------------------ appareils du TD wagonnet
+ *
+ * Quatre organes de commande industrielle que le pack photo ne contient pas.
+ * Chaque dessin est tracé dans un viewBox aux PROPORTIONS RÉELLES de l'appareil
+ * (les mêmes millimètres que `dims` dans le catalogue), pour que la platine reste
+ * à l'échelle et que les bornes tombent en face des vis.
+ */
+
+/** Sectionneur porte-fusibles GK1 ES — 3 cartouches 14 × 51, 2 précoupures. 97 × 97 mm. */
+export function Gk1Svg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 97 97" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4A5058" /><stop offset=".5" stopColor="#32383F" /><stop offset="1" stopColor="#23282E" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="95" height="95" rx="3" fill={`url(#${gid})`} stroke="#171B20" />
+      {/* trois tiroirs porte-cartouches, un par pôle */}
+      {[0, 1, 2].map((i) => (
+        <g key={i}>
+          <rect x={9 + i * 27} y="20" width="22" height="57" rx="2.5" fill="#20252B" stroke="#12151A" />
+          <rect x={12 + i * 27} y="27" width="16" height="43" rx="8" fill="#C9CDD2" stroke="#8B9197" />
+          <rect x={12 + i * 27} y="27" width="16" height="6" fill="#8E949B" />
+          <rect x={12 + i * 27} y="64" width="16" height="6" fill="#8E949B" />
+          <path d={`M${16 + i * 27} 44h8`} stroke="#6E747B" strokeWidth="1.2" />
+        </g>
+      ))}
+      {/* bornes de puissance, vis-étrier */}
+      {[0, 1, 2].map((i) => (
+        <g key={`b${i}`} fill="#D7B36A" stroke="#8E7635">
+          <rect x={13 + i * 27} y="5" width="14" height="10" rx="1.5" />
+          <rect x={13 + i * 27} y="82" width="14" height="10" rx="1.5" />
+        </g>
+      ))}
+      {/* contacts de précoupure : ils coupent la commande AVANT la puissance */}
+      <rect x="86" y="20" width="8" height="57" rx="2" fill="#1B1F24" stroke="#12151A" />
+      <text x="90" y="49" textAnchor="middle" fill="#9AA1A8" fontSize="6" fontFamily={COND}>13</text>
+    </svg>
+  );
+}
+
+/** Contacteur tripolaire LC1 D50 — 75 × 127 mm. Deux accouplés font l'inverseur LC2 D50. */
+export function Lc1D50Svg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 75 127" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3C424A" /><stop offset=".45" stopColor="#2A3037" /><stop offset="1" stopColor="#1E2329" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="73" height="125" rx="3" fill={`url(#${gid})`} stroke="#14181D" />
+      {/* bornes de puissance 1/3/5 en haut, 2/4/6 en bas */}
+      {[0, 1, 2].map((i) => (
+        <g key={i} fill="#D7B36A" stroke="#8E7635">
+          <rect x={8 + i * 21} y="5" width="15" height="11" rx="1.5" />
+          <rect x={8 + i * 21} y="111" width="15" height="11" rx="1.5" />
+        </g>
+      ))}
+      {/* fenêtre centrale : bloc de contacts auxiliaires */}
+      <rect x="10" y="44" width="55" height="40" rx="2" fill="#171B20" stroke="#0E1115" />
+      <rect x="14" y="49" width="47" height="14" rx="1.5" fill="#2E343B" />
+      <text x="37.5" y="59" textAnchor="middle" fill="#9AA1A8" fontSize="8" fontFamily={COND}>LC1 D50</text>
+      <rect x="14" y="67" width="20" height="12" rx="1.5" fill="#D7B36A" stroke="#8E7635" />
+      <rect x="41" y="67" width="20" height="12" rx="1.5" fill="#D7B36A" stroke="#8E7635" />
+      {/* bornes de bobine A1 / A2, en angle */}
+      <rect x="4" y="22" width="12" height="10" rx="1.5" fill="#D7B36A" stroke="#8E7635" />
+      <rect x="59" y="95" width="12" height="10" rx="1.5" fill="#D7B36A" stroke="#8E7635" />
+    </svg>
+  );
+}
+
+/** Relais thermique LRD 3357 — zone 37…50 A, classe 10 A. 75 × 123 mm. */
+export function Lrd3357Svg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 75 123" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3A4048" /><stop offset="1" stopColor="#1F242A" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="14" width="73" height="95" rx="3" fill={`url(#${gid})`} stroke="#14181D" />
+      {/* barrettes d'enfichage sous le contacteur */}
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x={12 + i * 21} y="1" width="10" height="16" rx="1.5" fill="#C08A3E" stroke="#7E5A24" />
+      ))}
+      {/* bornes de sortie vers le moteur */}
+      {[0, 1, 2].map((i) => (
+        <rect key={`b${i}`} x={9 + i * 21} y="99" width="15" height="11" rx="1.5" fill="#D7B36A" stroke="#8E7635" />
+      ))}
+      {/* molette de réglage du courant, bouton test et bouton de réarmement */}
+      <circle cx="24" cy="48" r="13" fill="#20252B" stroke="#12151A" />
+      <circle cx="24" cy="48" r="8.5" fill="#2F6FB5" stroke="#1B4A80" />
+      <path d="M24 41v7" stroke="#DCE6F5" strokeWidth="1.6" />
+      <text x="24" y="70" textAnchor="middle" fill="#9AA1A8" fontSize="7" fontFamily={MONO}>37-50A</text>
+      <rect x="45" y="38" width="9" height="9" rx="1.5" fill="#B33A32" stroke="#7C2620" />
+      <rect x="58" y="38" width="9" height="9" rx="1.5" fill="#2F8F5B" stroke="#1D6640" />
+      {/* contacts auxiliaires 95-96 (O) et 97-98 (F) */}
+      <rect x="3" y="112" width="12" height="9" rx="1.5" fill="#D7B36A" stroke="#8E7635" />
+      <rect x="60" y="112" width="12" height="9" rx="1.5" fill="#D7B36A" stroke="#8E7635" />
+    </svg>
+  );
+}
+
+/** Contacteur auxiliaire CAD 32 — 3 F + 2 O, bobine 24 V, + bloc temporisé LAD T0. 45 × 77 mm. */
+export function Cad32Svg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 45 77" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#3C424A" /><stop offset=".5" stopColor="#2A3037" /><stop offset="1" stopColor="#1E2329" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="43" height="75" rx="2.5" fill={`url(#${gid})`} stroke="#14181D" />
+      {/* cinq voies de contacts, bornes en haut et en bas */}
+      {[0, 1, 2, 3, 4].map((i) => (
+        <g key={i} fill="#D7B36A" stroke="#8E7635">
+          <rect x={4 + i * 8} y="4" width="6" height="8" rx="1" />
+          <rect x={4 + i * 8} y="65" width="6" height="8" rx="1" />
+        </g>
+      ))}
+      {/* bloc temporisé clipsé en face avant : molette de réglage 0,1…3 s */}
+      <rect x="7" y="24" width="31" height="28" rx="2" fill="#171B20" stroke="#0E1115" />
+      <circle cx="22.5" cy="38" r="8.5" fill="#20252B" stroke="#12151A" />
+      <circle cx="22.5" cy="38" r="5.5" fill="#C9A227" stroke="#8C7018" />
+      <path d="M22.5 33v5" stroke="#1B1F24" strokeWidth="1.4" />
+      <text x="22.5" y="57" textAnchor="middle" fill="#9AA1A8" fontSize="6" fontFamily={MONO}>0,1-3s</text>
+      <text x="22.5" y="20" textAnchor="middle" fill="#9AA1A8" fontSize="6" fontFamily={COND}>CAD 32</text>
+    </svg>
+  );
+}
+
 export function svgForKey(key: string): React.ReactNode | null {
   switch (key) {
     case 'pvpanel': return <PvPanelSvg />;
@@ -263,6 +399,10 @@ export function svgForKey(key: string): React.ReactNode | null {
     case 'battery': return <BatterySvg />;
     case 'agcp': return <AgcpSvg />;
     case 'plc': return <PlcSvg />;
+    case 'gk1es': return <Gk1Svg />;
+    case 'lc1d50': return <Lc1D50Svg />;
+    case 'lrd3357': return <Lrd3357Svg />;
+    case 'cad32': return <Cad32Svg />;
     default: return null;
   }
 }

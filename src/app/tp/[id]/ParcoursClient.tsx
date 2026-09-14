@@ -3,11 +3,12 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import type { TpDefinition } from '@/lib/types';
-import { MAX_STAGE_PREVIEW, modeChosen, STAGE_COUNT, STAGES } from '@/lib/sim/progress';
+import { ETAPE, MAX_STAGE_PREVIEW, modeChosen, STAGE_COUNT, STAGES } from '@/lib/sim/progress';
 import { Toast } from '@/components/ui';
 import Stepper from '@/components/parcours/Stepper';
 import ChoixTp from '@/components/parcours/ChoixTp';
 import Enonce from '@/components/parcours/Enonce';
+import Preparation from '@/components/parcours/Preparation';
 import Materiel from '@/components/parcours/Materiel';
 import Pose from '@/components/parcours/Pose';
 import Cablage from '@/components/parcours/Cablage';
@@ -78,7 +79,7 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
 
   // boucle de simulation : à partir de la déconsignation
   React.useEffect(() => {
-    if (st.stage < 8) return;
+    if (st.stage < ETAPE.HORS) return;
     const id = setInterval(() => useParcours.getState().advance(0.1), 100);
     return () => clearInterval(id);
   }, [st.stage]);
@@ -92,9 +93,9 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
 
   // injection de la panne à l'entrée de la dernière étape
   React.useEffect(() => {
-    if (st.stage === 10 && !st.done[10]) s.ensureFault();
+    if (st.stage === ETAPE.VALIDATION && !st.done[ETAPE.VALIDATION]) s.ensureFault();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [st.stage, st.done[10]]);
+  }, [st.stage, st.done[ETAPE.VALIDATION]]);
 
   const next = (from: number) => { complete(from); goStage(from + 1); };
   const doneCount = Object.values(st.done).filter(Boolean).length;
@@ -106,44 +107,46 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
   const stage = (() => {
     if (!ready) return null;
     switch (st.stage) {
-      case 0:
+      case ETAPE.CHOIX:
         return (
           <ChoixTp
             tpId={tp.id}
-            onSelect={id => { if (id === tp.id) next(0); else router.push(`/tp/${id}`); }}
+            onSelect={id => { if (id === tp.id) next(ETAPE.CHOIX); else router.push(`/tp/${id}`); }}
           />
         );
-      case 1:
-        return <Enonce tp={tp} onNext={() => next(1)} />;
-      case 2:
-        return <Materiel tp={tp} st={st} onChoose={s.choose} onNext={() => next(2)} />;
-      case 3:
+      case ETAPE.ENONCE:
+        return <Enonce tp={tp} onNext={() => next(ETAPE.ENONCE)} />;
+      case ETAPE.PREPARATION:
+        return <Preparation tp={tp} st={st} onAnswer={s.answerPrep} onNext={() => next(ETAPE.PREPARATION)} />;
+      case ETAPE.MATERIEL:
+        return <Materiel tp={tp} st={st} onChoose={s.choose} onNext={() => next(ETAPE.MATERIEL)} />;
+      case ETAPE.POSE:
         return (
           <Pose
             tp={tp} st={st}
             onPlace={s.selectDevice}
-            onNext={() => next(3)}
+            onNext={() => next(ETAPE.POSE)}
             preview={!tp.playable}
           />
         );
-      case 4:
+      case ETAPE.CABLAGE:
         return (
           <Cablage
             tp={tp} st={st} wires={wires}
             selTerminal={s.selTerminal} onTerminalClick={s.clickTerminal}
-            onAssist={s.assist} onNext={() => next(4)}
+            onAssist={s.assist} onNext={() => next(ETAPE.CABLAGE)}
           />
         );
-      case 5:
-        return <TestsHorsTension tp={tp} st={st} wires={wires} onRunTest={s.runTest} onNext={() => next(5)} />;
-      case 6:
-        return <EpiConsignation onNext={() => next(6)} />;
-      case 7:
-        return <MesuresHorsTension onNext={() => next(7)} />;
-      case 8:
-        return <Deconsignation onNext={() => next(8)} />;
-      case 9:
-        return <MesuresSousTension onNext={() => next(9)} />;
+      case ETAPE.TESTS:
+        return <TestsHorsTension tp={tp} st={st} wires={wires} onRunTest={s.runTest} onNext={() => next(ETAPE.TESTS)} />;
+      case ETAPE.EPI:
+        return <EpiConsignation onNext={() => next(ETAPE.EPI)} />;
+      case ETAPE.HORS:
+        return <MesuresHorsTension onNext={() => next(ETAPE.HORS)} />;
+      case ETAPE.MISE_EN_SERVICE:
+        return <Deconsignation onNext={() => next(ETAPE.MISE_EN_SERVICE)} />;
+      case ETAPE.SOUS:
+        return <MesuresSousTension onNext={() => next(ETAPE.SOUS)} />;
       default:
         return <Validation onFinish={() => void s.finish()} />;
     }
