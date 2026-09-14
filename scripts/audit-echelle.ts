@@ -31,10 +31,7 @@ const TOLERANCE = 0.04;
  * oubli au bout de trois mois.
  */
 const EXCEPTIONS: Record<string, string> = {
-  atv320:
-    'Format book : 45 × 325 mm, soit 65 × 471 px à l\'échelle — deux fois et demie '
-    + 'l\'écart entre deux rails. Dessiné hors échelle tant que la hauteur de '
-    + 'l\'armoire n\'est pas revue pour ce TP.',
+  // (vide) — tout appareil hors échelle doit apparaître ici AVEC sa raison.
 };
 
 let ko = 0;
