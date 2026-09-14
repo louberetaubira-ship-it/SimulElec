@@ -46,6 +46,64 @@ export const DUCT_XS: [number, number] = [
 
 export const ductY = (i: number): number => (DUCTS_H[i][0] + DUCTS_H[i][1]) / 2;
 
+/* ------------------------------------------------------- scène d'un TP
+ *
+ * L'armoire n'a pas toujours la même hauteur. Un appareil de 325 mm — un
+ * variateur format book, par exemple — occupe 471 px à l'échelle de la platine :
+ * il ne rentre pas dans les 720 px d'origine avec un rail de tête et deux
+ * borniers. Plutôt que de le dessiner hors échelle, le TP déclare la hauteur
+ * d'armoire dont il a besoin, et tout le reste suit : le bloc récepteurs
+ * descend, la scène s'allonge, et les goulottes se replacent sur les rails.
+ *
+ * Les goulottes ne sont plus des constantes : une goulotte se pose AU-DESSUS de
+ * chaque rail, à 104 px de son sommet, et une dernière sous le rail du bas. Des
+ * rails écartés emmènent donc leurs goulottes avec eux.
+ */
+
+/** Écart entre le sommet d'un rail et le haut de sa goulotte. */
+const DUCT_AVANT = 104;
+/** Hauteur d'une goulotte. */
+const DUCT_EP = 28;
+/** Écart entre le sommet du dernier rail et la goulotte de pied. */
+const DUCT_PIED = 92;
+/** Jeu entre le bas de l'armoire et le haut du bloc récepteurs. */
+const JEU_RECV = 14;
+
+export interface SceneGeom {
+  /** Hauteur de l'armoire (cadre `.se-cab`). */
+  cabH: number;
+  /** y du haut du bloc récepteurs, et sa hauteur. */
+  recvY: number;
+  recvH: number;
+  /** Hauteur totale de la scène : armoire + jeu + récepteurs. */
+  panelH: number;
+  /** y du haut de chaque rail DIN. */
+  rails: readonly number[];
+  /** Goulottes horizontales, déduites des rails. */
+  ducts: readonly (readonly [number, number])[];
+}
+
+/** Goulottes d'une platine : une par rail, plus celle de pied. */
+export function ductsOf(rails: readonly number[]): [number, number][] {
+  const d: [number, number][] = rails.map((r) => [r - DUCT_AVANT, r - DUCT_AVANT + DUCT_EP]);
+  const bas = rails[rails.length - 1] + DUCT_PIED;
+  d.push([bas, bas + DUCT_EP]);
+  return d;
+}
+
+/**
+ * Géométrie de la scène d'un TP. Sans déclaration, c'est la platine d'origine :
+ * armoire de 720 px, récepteurs à 734, scène de 920.
+ */
+export function sceneOf(tp: Pick<TpDefinition, 'rails' | 'armoire'>): SceneGeom {
+  const rails = tp.rails && tp.rails.length ? tp.rails : RAILS;
+  const cabH = tp.armoire ?? CAB_H;
+  const recvY = cabH + JEU_RECV;
+  return { cabH, recvY, recvH: RECV_H, panelH: recvY + RECV_H, rails, ducts: ductsOf(rails) };
+}
+
+
+
 /* ------------------------------------------------- colonne de droite */
 
 /** Colonne « porte / annexe » : x ∈ [432, 550]. */
@@ -252,7 +310,9 @@ export function slotGeom(tp: Pick<TpDefinition, 'rails'>, slot: Slot, item: Cata
   const w = slot.w ?? (small ? SMALL_W : item.w);
   const h = slot.h ?? (small ? Math.round((item.h * SMALL_W) / item.w) : item.h);
   const onRail = slot.rail !== null && slot.rail !== undefined && slot.rail < rails.length;
-  const y = onRail ? rails[slot.rail as number] + RAIL_H / 2 - h / 2 : (slot.y ?? ANNEX_Y);
+  const y = onRail
+    ? rails[slot.rail as number] + RAIL_H / 2 - h / 2 + (slot.dy ?? 0)
+    : (slot.y ?? ANNEX_Y);
   return { x: slot.x, y, w, h };
 }
 

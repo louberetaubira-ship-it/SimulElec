@@ -163,14 +163,20 @@ export const TP_VARIATEUR: TpDefinition = {
       ],
     },
   ],
-  rails: [150, 346, 542],
+  // Rails écartés et armoire relevée : l'ATV320 mesure 325 mm de haut, soit 471 px
+  // à l'échelle de la platine. Entre son rail et le suivant il faut la hauteur de
+  // l'appareil PLUS la goulotte du rail du dessous — ce que 196 px ne donnaient pas.
+  rails: [150, 470, 1010],
+  armoire: 1180,
   slots: [
     { id: 'q1', label: 'Q1 · Disjoncteur moteur GV2ME08', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
     { id: 'f3', label: 'Q3 · Disjoncteur phase + neutre 2 A', key: 'mcb1pn', rail: 0, x: 200, rep: 'Q3' },
     { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 240, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur de ligne', key: 'kontaktaux', rail: 1, x: 46, rep: 'KM1' },
-    { id: 'u1', label: 'U1 · Variateur ATV320', key: 'atv320', rail: 1, x: 150, rep: 'U1' },
+    // 325 mm de haut : l'ATV320 book descend sous son rail au lieu d'être centré
+    // dessus, sinon il remonterait dans la goulotte qui longe ce même rail.
+    { id: 'u1', label: 'U1 · Variateur ATV320', key: 'atv320', rail: 1, x: 150, rep: 'U1', dy: 162 },
     ...X1(46),
     ...X2B,
   ],

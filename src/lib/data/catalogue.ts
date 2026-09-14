@@ -180,21 +180,30 @@ export const CATALOGUE: CatalogueItem[] = [
   // ATV320U07N4B : 45 x 325 x 245 mm, 0,75 kW, 380-500 V triphase, 3,6 A en ligne
   // sous 380 V, 2,3 A de sortie a 4 kHz, sortie 0,1 a 599 Hz (fiche produit Schneider).
   vector({
-    key: 'atv320', dims: { largeur: 45, hauteur: 325, profondeur: 245, source: 'fiche' }, name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW', ref: 'ATV320U07N4B',
-    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 7, poles: 3, w: 190, h: 180,
-    // Dessiné plus large que l'échelle stricte (45 mm de façade) : à l'échelle, les
-    // dix-sept bornes se chevauchent et l'élève ne lit plus ni les repères ni les
-    // points de connexion. Pas de 25 px en haut, 27 px en bas — les étiquettes de
-    // quatre caractères (R/L1, U/T1) font 22 px de large. Même compromis que l'automate.
+    key: 'atv320', name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW', ref: 'ATV320U07N4B',
+    dims: { largeur: 45, hauteur: 325, profondeur: 245, source: 'fiche' },
+    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 2.5, poles: 3, w: 65, h: 471,
+    // À l'échelle : 45 × 325 mm font 65 × 471 px. L'armoire de ce TP a été
+    // relevée pour le loger — un format book EST un appareil très haut, et c'est
+    // une information que l'élève doit voir.
+    //
+    // Les bornes de contrôle sont rangées EN COLONNE sur la face, et non en
+    // ligne : sur 65 px de large, sept étiquettes côte à côte seraient illisibles,
+    // alors que la hauteur ne manque pas. C'est d'ailleurs ainsi que se présente
+    // le bornier de contrôle d'un variateur au format book.
     terminals: [
-      // bornier de contrôle, en haut
-      { id: '+24', fx: 0.0947, fy: 0.035 }, { id: 'COM', fx: 0.2263, fy: 0.035 }, { id: 'LI1', fx: 0.3579, fy: 0.035 }, { id: 'LI2', fx: 0.4895, fy: 0.035 },
-      { id: 'AI1', fx: 0.6211, fy: 0.035 }, { id: 'R1A', fx: 0.7895, fy: 0.035 }, { id: 'R1C', fx: 0.9211, fy: 0.035 },
+      // bornier de puissance, entrée réseau en haut
+      { id: 'R/L1', fx: 0.18, fy: 0.018 }, { id: 'S/L2', fx: 0.50, fy: 0.018 }, { id: 'T/L3', fx: 0.82, fy: 0.018 },
       // bus continu, sur le flanc gauche
-      { id: 'PA+', fx: 0.058, fy: 0.42 }, { id: 'PC-', fx: 0.058, fy: 0.58 },
-      // bornier de puissance, en bas
-      { id: 'R/L1', fx: 0.0842, fy: 0.965 }, { id: 'S/L2', fx: 0.2263, fy: 0.965 }, { id: 'T/L3', fx: 0.3684, fy: 0.965 }, { id: 'PE', fx: 0.5105, fy: 0.965 },
-      { id: 'U/T1', fx: 0.6526, fy: 0.965 }, { id: 'V/T2', fx: 0.7947, fy: 0.965 }, { id: 'W/T3', fx: 0.9368, fy: 0.965 },
+      { id: 'PA+', fx: 0.10, fy: 0.30 }, { id: 'PC-', fx: 0.10, fy: 0.36 },
+      // bornier de contrôle, en colonne
+      { id: '+24', fx: 0.70, fy: 0.24 }, { id: 'COM', fx: 0.70, fy: 0.30 },
+      { id: 'LI1', fx: 0.70, fy: 0.36 }, { id: 'LI2', fx: 0.70, fy: 0.42 },
+      { id: 'AI1', fx: 0.70, fy: 0.48 },
+      { id: 'R1A', fx: 0.70, fy: 0.56 }, { id: 'R1C', fx: 0.70, fy: 0.62 },
+      // terre et sortie moteur, en bas
+      { id: 'PE', fx: 0.10, fy: 0.90 },
+      { id: 'U/T1', fx: 0.18, fy: 0.982 }, { id: 'V/T2', fx: 0.50, fy: 0.982 }, { id: 'W/T3', fx: 0.82, fy: 0.982 },
     ],
   }),
   // ---- Photovoltaïque et branchement (dessins SVG) ----

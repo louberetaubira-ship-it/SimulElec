@@ -119,6 +119,13 @@ export interface Slot {
   y?: number;              // annexe : position absolue
   w?: number;              // annexe : taille imposée
   h?: number;
+  /**
+   * Décalage vertical par rapport au centrage sur le rail. Un appareil modulaire
+   * n'en a pas besoin : il est centré. Un appareil **book** (variateur, démarreur)
+   * descend bien plus bas que haut ; sans ce décalage il remonterait dans la
+   * goulotte qui longe son propre rail.
+   */
+  dy?: number;
   /** Repère affiché (Q1, KM1, T1, DDR1, PV1…). */
   rep?: string;
   /** Repérage court affiché sous une borne de bornier (« 1 », « 2 »…). */
@@ -474,6 +481,13 @@ export interface TpDefinition {
   trafo?: TrafoDef;
   /** Variateur de vitesse : supprime la pointe de démarrage et impose la rampe. */
   variateur?: VariateurDef;
+  /**
+   * Hauteur de l'armoire, en unités de platine. 720 par défaut — la platine
+   * d'origine. Un TP la relève quand un appareil ne tient pas autrement : un
+   * variateur format book fait 471 px à l'échelle, et il lui faut de la place
+   * sans quoi il faudrait le dessiner plus petit qu'il n'est.
+   */
+  armoire?: number;
   /** Folio du circuit de commande, dessiné à l'étape de dépannage. */
   folio?: FolioDef;
   /**
