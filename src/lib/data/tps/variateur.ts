@@ -66,14 +66,15 @@ export const TP_VARIATEUR: TpDefinition = {
     { k: 'Réseau', v: '3 × 400 V + PE, 50 Hz, arrivée sur bornier X1' },
     { k: 'Variateur', v: 'Altivar ATV320U07N4B · 0,75 kW · 380-500 V triphasé · sortie 0,1 à 599 Hz' },
     { k: 'Force motrice', v: 'moteur asynchrone triphasé 0,75 kW, 4 pôles, couplage étoile sur 400 V' },
-    { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1 400/24 V · 63 VA, primaire protégé par Q2, secondaire par Q3' },
+    { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1 400/24 V, primaire protégé par Q2 bipolaire phase / phase, secondaire par Q3 sectionneur porte-fusibles PHASE + NEUTRE : le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V. Une cartouche ne se réarme pas, elle se remplace.' },
     { k: 'Primaire de T1', v: 'prises 0 · 230 · 400. Alimentation en 400 V ENTRE DEUX PHASES : raccorder sur 0 et 400, la prise 230 reste libre.' },
     { k: 'Contacteur de ligne', v: 'KM1 alimente le variateur. Moins d\'UNE manœuvre par minute : ce n\'est pas lui qui sert à démarrer et arrêter la machine au quotidien.' },
     { k: 'Ordre de marche', v: 'LI1 reçoit le 24 V du VARIATEUR (borne +24) par le contact auxiliaire 53-54 de KM1. Ne jamais mélanger ce 24 V avec celui de T1 : ce sont deux sources distinctes.' },
     { k: 'Sortie moteur', v: 'câble blindé, blindage repris à la terre aux DEUX extrémités. AUCUN organe de coupure entre le variateur et le moteur.' },
-    { k: 'Protection du moteur', v: 'pas de relais thermique. C\'est le paramètre ItH du variateur, réglé à In = 1,9 A, qui assure la protection I²t.' },
+    { k: 'Protection de tête', v: 'Q1 disjoncteur moteur magnétothermique GV2ME08, réglé sur le courant de LIGNE du variateur, soit 3,6 A. Un seul appareil pour trois fonctions : sectionnement cadenassable, protection contre les courts-circuits (magnétique) et contre les surcharges de la ligne (thermique). Il remplace à lui seul le sectionneur porte-fusibles et le relais thermique d\'une platine classique.' },
+    { k: 'Protection du moteur', v: 'AUCUN relais thermique en sortie. Le thermique de Q1 ne voit que l\'entrée du variateur ; le moteur est protégé par le paramètre ItH, réglé à In = 1,9 A, qui assure la protection I²t.' },
     { k: 'Bus continu', v: 'après coupure : attendre 15 minutes, puis vérifier moins de 42 V continus entre PA/+ et PC/− avant d\'intervenir.' },
-    { k: 'Rail 1', v: 'Q1 · Q2 · Q3 · T1' },
+    { k: 'Rail 1', v: 'Q1 disjoncteur moteur · Q2 · Q3 · T1' },
     { k: 'Rail 2', v: 'KM1 (avec bloc de contacts auxiliaires) · U1 variateur' },
     { k: 'Rail 3', v: 'X1 bornier puissance · X2 bornier commande (7 bornes)' },
     { k: 'Pupitre', v: 'S0 arrêt d\'urgence à verrouillage · S1 arrêt · S2 marche · H1 voyant incolore « sous tension » · H2 voyant blanc « variateur prêt », piloté par le relais R1' },
@@ -100,12 +101,12 @@ export const TP_VARIATEUR: TpDefinition = {
     },
     {
       id: 'q1',
-      name: 'Q1 · Protection de tête',
-      need: 'Protéger l\'alimentation du variateur, qui appelle 3,6 A en ligne sous 380 V',
+      name: 'Q1 · Protection et sectionnement de tête',
+      need: 'Sectionner la platine et protéger l\'alimentation du variateur, qui appelle 3,6 A en ligne sous 380 V',
       options: [
-        { key: 'mcb3p', ref: 'iC60N 3P C6', spec: '6 A · courbe C · 3 pôles', ok: true, why: 'Calibre juste au-dessus des 3,6 A appelés par le variateur. Un variateur n\'a pas de pointe de démarrage : inutile de surcalibrer.' },
-        { key: 'mcb3p', ref: 'iC60N 3P C20', spec: '20 A · courbe C', why: 'Cinq fois le courant appelé : les conducteurs d\'alimentation ne sont plus protégés.' },
-        { key: 'mcb3p', ref: 'iC60N 3P C2', spec: '2 A · courbe C', why: 'Calibre inférieur au courant de ligne : déclenchement dès la mise sous tension, à la charge du condensateur du bus.' },
+        { key: 'motorcb', ref: 'GV2ME08 réglé à 3,6 A', spec: 'disjoncteur moteur magnétothermique · plage 2,5 – 4 A · Icc 100 kA', ok: true, why: 'Un disjoncteur moteur réunit dans un seul appareil ce qui demandait autrefois deux organes : le déclencheur magnétique remplace le sectionneur porte-fusibles, le déclencheur thermique remplace le relais thermique — et il est cadenassable, donc consignable. Réglé sur le courant de LIGNE du variateur (3,6 A), il protège le câble d\'alimentation.' },
+        { key: 'motorcb', ref: 'GV2ME08 réglé à 1,9 A', spec: 'réglé sur le courant du moteur', why: 'La faute classique. Le thermique de Q1 mesure ce qui entre dans le VARIATEUR, pas ce qui sort vers le moteur : 3,6 A d\'un côté, 1,9 A de l\'autre. Réglé à 1,9 A il déclencherait en pleine charge. Le moteur, lui, est protégé par le paramètre ItH.' },
+        { key: 'motorcb', ref: 'GV2L08', spec: 'disjoncteur moteur magnétique SEUL · Irm 51 A', half: true, why: 'C\'est la référence du tableau des associations du guide d\'installation ATV320, où seul un dispositif de protection contre les courts-circuits est exigé. Elle convient, mais sans déclencheur thermique elle ne protège pas le câble d\'alimentation contre une surcharge.' },
       ],
     },
     {
@@ -139,6 +140,16 @@ export const TP_VARIATEUR: TpDefinition = {
       ],
     },
     {
+      id: 'f3',
+      name: 'Q3 · Protection et sectionnement du 24 V',
+      need: 'Protéger le circuit de commande 24 V (bobine + deux voyants ≈ 0,4 A) et pouvoir le sectionner',
+      options: [
+        { key: 'fuse1pn', ref: 'Multi 9 STI 10,3 × 38 · cartouche 2 A', spec: 'sectionneur porte-fusibles phase + neutre · 1 module', ok: true, why: 'Le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V : les deux conducteurs de la commande sont ouverts d\'un seul geste. C\'est l\'appareil de la platine de l\'établissement. Retiens qu\'une cartouche ne se réarme pas — elle fond, on la remplace, et on cherche d\'abord pourquoi.' },
+        { key: 'mcb1p', ref: 'iC60N 1P C2', spec: 'disjoncteur 1 pôle · 2 A', half: true, why: 'Protège bien le conducteur actif et se réarme, mais ne sectionne pas le 0 V : pour intervenir il reste un conducteur raccordé au secondaire.' },
+        { key: 'fuse1pn', ref: 'Multi 9 STI · cartouche 16 A', spec: 'même appareil, cartouche 16 A', why: 'Quarante fois le courant du circuit : la cartouche ne fondra jamais avant que le fil de 1,5 mm² n\'ait chauffé. Le calibre se choisit sur le courant à protéger, pas sur la taille de la cartouche.' },
+      ],
+    },
+    {
       id: 'x',
       name: 'X1 / X2 · Borniers et câble moteur',
       need: 'X1 : réseau et départ moteur ; X2 : commande vers le pupitre',
@@ -151,9 +162,9 @@ export const TP_VARIATEUR: TpDefinition = {
   ],
   rails: [150, 346, 542],
   slots: [
-    { id: 'q1', label: 'Q1 · Disjoncteur de tête', key: 'mcb3p', rail: 0, x: 46, rep: 'Q1' },
+    { id: 'q1', label: 'Q1 · Disjoncteur moteur GV2ME08', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
-    { id: 'f3', label: 'Q3 · Secondaire 24 V', key: 'mcb1p', rail: 0, x: 200, rep: 'Q3' },
+    { id: 'f3', label: 'Q3 · Sectionneur porte-fusibles phase + neutre', key: 'fuse1pn', rail: 0, x: 200, rep: 'Q3' },
     { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 0, x: 240, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur de ligne', key: 'kontaktaux', rail: 1, x: 46, rep: 'KM1' },
     { id: 'u1', label: 'U1 · Variateur ATV320', key: 'atv320', rail: 1, x: 150, rep: 'U1' },
@@ -174,7 +185,7 @@ export const TP_VARIATEUR: TpDefinition = {
     L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
     L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
     L('t1.24', 'f3.1', 'C'),
-    L('t1.0V', 'x2_4.a', 'C0'), L('x2_4.a', 'x1_5.a', 'PE'),
+    L('t1.0V', 'f3.N', 'C0'), L('f3.N2', 'x2_4.a', 'C0'), L('x2_4.a', 'x1_5.a', 'PE'),
     // ---- commande 24 V : chaîne d'arrêt, auto-maintien, bobine ----
     L('f3.2', 'x2_1.a', 'C'), L('f3.2', 'x2_5.a', 'C'),
     L('x2_2.a', 'km1.13', 'C'), L('x2_3.a', 'km1.A1', 'C'), L('km1.14', 'km1.A1', 'C'),
@@ -238,6 +249,7 @@ export const TP_VARIATEUR: TpDefinition = {
     't1.48': { net: 'TAP-SEC-48', live: 'f2' },
     // protection du secondaire (Q3)
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
+    'f3.N': { net: 'C0', live: 'always' }, 'f3.N2': { net: 'C0', live: 'always' },
     // bornier de commande X2
     'x2_1.a': { net: 'C', live: 'ctl' }, 'x2_1.b': { net: 'C', live: 'ctl' },
     'x2_2.a': { net: 'C', live: 'ctl' }, 'x2_2.b': { net: 'C', live: 'ctl' },
@@ -333,10 +345,10 @@ export const TP_VARIATEUR: TpDefinition = {
       coupe: 'u1.V/T2>x1_7.a', action: 'Refaire la liaison U1 V/T2 → X1:7 et acquitter le défaut',
     },
     {
-      id: 'f3', title: 'Q3 déclenché (défaut sur le 24 V)',
+      id: 'f3', title: 'Cartouche de Q3 fondue (défaut sur le 24 V)',
       symptom: 'H1 éteint alors que Q1 est fermé, 0 V sur tout le bornier X2, 24 V au secondaire de T1.',
-      fix: 'Chercher le défaut d\'isolement du circuit 24 V, puis réarmer Q3.',
-      ouvre: 'f3', action: 'Chercher le défaut d\'isolement du 24 V, puis réarmer Q3',
+      fix: 'Chercher le défaut d\'isolement du circuit 24 V, puis REMPLACER la cartouche — un fusible ne se réarme pas.',
+      ouvre: 'f3', action: 'Chercher le défaut d\'isolement du 24 V, puis remplacer la cartouche de Q3',
     },
   ],
   quiz: [
@@ -373,6 +385,24 @@ export const TP_VARIATEUR: TpDefinition = {
       answer: 1,
     },
     {
+      q: 'Le moteur appelle 1,9 A, le variateur appelle 3,6 A en ligne. Sur quelle valeur règles-tu le thermique du disjoncteur moteur Q1 ?',
+      options: [
+        '1,9 A, le courant du moteur',
+        '3,6 A, le courant de ligne du variateur — c\'est le seul courant que Q1 traverse',
+        'La moyenne des deux',
+      ],
+      answer: 1,
+    },
+    {
+      q: 'Quelles fonctions un disjoncteur moteur réunit-il dans un seul appareil ?',
+      options: [
+        'La commande et la signalisation',
+        'Le sectionnement cadenassable, la protection contre les courts-circuits et la protection contre les surcharges — ce que faisaient le sectionneur porte-fusibles et le relais thermique',
+        'La variation de vitesse et la protection',
+      ],
+      answer: 1,
+    },
+    {
       q: 'Dans ce montage, l\'arrêt du convoyeur ouvre le contacteur de ligne. Quel type d\'arrêt obtient-on ?',
       options: [
         'Un arrêt sur la rampe de décélération dEC',
@@ -406,7 +436,13 @@ export const TP_VARIATEUR: TpDefinition = {
     retour: 't1.0V', repRetour: 'T1:0V',
     tete: {
       type: 'disjoncteur', a: 'f3.1', b: 'f3.2',
-      rep: 'Q3', legende: 'protection du 24 V', conducteur: '2',
+      rep: 'Q3', legende: 'pôle protégé · cartouche 2 A', conducteur: '2',
+    },
+    // Q3 est un PHASE + NEUTRE : son second pôle sectionne le 0 V. Sans ce
+    // dessin, l'élève croirait le retour raccordé en permanence au secondaire.
+    pied: {
+      type: 'disjoncteur', a: 'f3.N', b: 'f3.N2',
+      rep: 'Q3', legende: 'pôle neutre · sectionnement du 0 V',
     },
     colonnes: [
       {

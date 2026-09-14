@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
 import { addTeacher, listAllowlist, removeTeacher, type TeacherAllowEntry } from '@/lib/db/allowlist';
 import type { ProfileRow } from '@/lib/db/types';
+import ImagesTp from './ImagesTp';
 import {
   Champ,
   Chiffre,
@@ -255,6 +256,8 @@ export default function AdminPage() {
           Ajouter à la liste blanche
         </button>
       </Panneau>
+
+      <ImagesTp admin={profile.role === 'admin'} />
 
       <Message error={err} ok={ok} />
     </main>

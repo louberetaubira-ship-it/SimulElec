@@ -234,6 +234,13 @@ export interface FolioDef {
   railBas: string;
   /** Organe placé au-dessus du rail du haut (la protection du secondaire). */
   tete?: FolioElement;
+  /**
+   * Organe placé SOUS le rail du bas, sur le conducteur de retour. C'est là que
+   * se dessine le pôle neutre d'une protection phase + neutre : un appareil 1P+N
+   * coupe les DEUX conducteurs de la commande, et le folio doit le montrer —
+   * sinon l'élève croit que le 0 V reste raccordé au secondaire quoi qu'il arrive.
+   */
+  pied?: FolioElement;
   /** Nœud d'arrivée du secondaire, au sommet, et son repère lisible. */
   source: string;
   repSource: string;

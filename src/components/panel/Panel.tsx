@@ -9,7 +9,7 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  MTERM, MT2, NET_COLOR, PANEL_H, PANEL_W, PE_GLAND, RES,
+  MTERM, MT2, PANEL_H, PANEL_W, PE_GLAND, RES,
   pupitreOf, pupitreTerminals, recvBox, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
@@ -81,11 +81,6 @@ export interface PanelProps {
   /** Le composant ne se met pas lui-même à l'échelle (il est dans un `<Workspace>` zoomable). */
   fixedScale?: boolean;
 }
-
-const LEGEND: { net: NetKind; label: string }[] = [
-  { net: 'L1', label: 'L1' }, { net: 'L2', label: 'L2' }, { net: 'L3', label: 'L3' },
-  { net: 'N', label: 'N' }, { net: 'PE', label: 'PE' }, { net: 'C', label: '24 V' }, { net: 'C0', label: '0 V' },
-];
 
 /** Décalage du repère d'une borne (95/96 à gauche, 97/98 à droite). */
 function markOffset(id: string, fy: number): { dx: number; dy: number } {
@@ -329,12 +324,6 @@ export default function Panel(props: PanelProps) {
       {tp.scene === 'hab' ? <div className="se-tab" /> : null}
       {/* bloc récepteurs, sous la platine */}
       <Recv annex={tp.annex} items={recvItems} catalogue={items} />
-      <div className="se-legend">
-        {LEGEND.map((l) => (
-          <span key={l.net}><span style={{ color: NET_COLOR[l.net] }}>■</span> {l.label} </span>
-        ))}
-      </div>
-
       <Ducts scene={tp.scene} cover={cover} />
       <Rails rails={tp.rails && tp.rails.length ? tp.rails : undefined} />
       <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} />

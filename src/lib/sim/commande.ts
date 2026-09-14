@@ -180,7 +180,15 @@ export function reseauCommande(
   const rBobine = resistanceDeclaree(tp, /bobine/i) ?? R.BOBINE;
   for (const slot of tp.slots) {
     const id = slot.id;
-    if (id === 'f3') contact(`${id}.1`, `${id}.2`, sim.f3 && sim.fault !== 'f3', 'f3');
+    if (id === 'f3') {
+      contact(`${id}.1`, `${id}.2`, sim.f3 && sim.fault !== 'f3', 'f3');
+      // Protection PHASE + NEUTRE : le second pôle sectionne le conducteur de
+      // retour en même temps que le premier coupe l'actif. Il ne porte pas de
+      // cartouche — un défaut ne le fait pas fondre — mais il s'ouvre avec
+      // l'appareil, et l'élève doit retrouver ce sectionnement à l'ohmmètre.
+      const pn = tp.slots.find(x => x.id === id)?.key;
+      if (pn === 'fuse1pn' || pn === 'mcb2p') contact(`${id}.N`, `${id}.N2`, sim.f3, `${id}-n`);
+    }
     if (id === 'f1') {
       contact(`${id}.95`, `${id}.96`, !sim.f1trip, 'f1');
       contact(`${id}.97`, `${id}.98`, sim.f1trip, 'f1-no');

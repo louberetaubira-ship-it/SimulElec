@@ -173,5 +173,10 @@
     "w": 60,
     "h": 90,
     "states": false
+  },
+  "fuse1pn": {
+    "w": 26,
+    "h": 121,
+    "states": false
   }
 }

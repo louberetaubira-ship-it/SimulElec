@@ -25,6 +25,13 @@ function vector(
 export const CATALOGUE: CatalogueItem[] = [
   // ---- Disjoncteurs modulaires ----
   item({ key: 'mcb1p', name: 'Disjoncteur 1P C2', ref: 'iC60N 1P C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 1, In: 2, terminals: one() }),
+  // Sectionneur porte-fusibles PHASE + NEUTRE, 1 module, cartouche 10,3 × 38 — c'est
+  // l'appareil réellement posé sur la platine de l'établissement (Multi 9 STI). Un
+  // fusible ne se réarme pas : il fond et se remplace, et c'est ce que l'élève doit
+  // comprendre. Bornes N et 1 en haut, N et 2 en bas, comme sur l'appareil.
+  item({ key: 'fuse1pn', name: 'Sectionneur porte-fusibles phase + neutre · 10,3 × 38', ref: 'Multi 9 STI 10,3 × 38', brand: 'Merlin Gerin', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 2,
+    terminals: [{ id: 'N', fx: 0.28, fy: 0.06 }, { id: '1', fx: 0.72, fy: 0.06 },
+      { id: 'N2', fx: 0.28, fy: 0.94 }, { id: '2', fx: 0.72, fy: 0.94 }] }),
   item({ key: 'mcb2p', name: 'Disjoncteur 2P C16', ref: 'Genrod 1P+N C16', brand: 'Genrod', kind: 'mcb', family: 'Disjoncteurs', modules: 2, poles: 2, In: 16,
     terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
   // Bipolaire PHASE / PHASE : bornes 1-3 / 2-4, comme sur un primaire de transformateur pris
@@ -118,19 +125,20 @@ export const CATALOGUE: CatalogueItem[] = [
   // sous 380 V, 2,3 A de sortie a 4 kHz, sortie 0,1 a 599 Hz (fiche produit Schneider).
   vector({
     key: 'atv320', name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW', ref: 'ATV320U07N4B',
-    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 3, poles: 3, w: 76, h: 180,
+    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 7, poles: 3, w: 190, h: 180,
+    // Dessiné plus large que l'échelle stricte (45 mm de façade) : à l'échelle, les
+    // dix-sept bornes se chevauchent et l'élève ne lit plus ni les repères ni les
+    // points de connexion. Pas de 25 px en haut, 27 px en bas — les étiquettes de
+    // quatre caractères (R/L1, U/T1) font 22 px de large. Même compromis que l'automate.
     terminals: [
-      // bornier de controle
-      { id: '+24', fx: 0.10, fy: 0.04 }, { id: 'COM', fx: 0.22, fy: 0.04 },
-      { id: 'LI1', fx: 0.34, fy: 0.04 }, { id: 'LI2', fx: 0.46, fy: 0.04 },
-      { id: 'AI1', fx: 0.58, fy: 0.04 },
-      { id: 'R1A', fx: 0.76, fy: 0.04 }, { id: 'R1C', fx: 0.88, fy: 0.04 },
-      // bus continu, sur le flanc
-      { id: 'PA+', fx: 0.04, fy: 0.42 }, { id: 'PC-', fx: 0.04, fy: 0.56 },
-      // bornier de puissance
-      { id: 'R/L1', fx: 0.08, fy: 0.96 }, { id: 'S/L2', fx: 0.20, fy: 0.96 }, { id: 'T/L3', fx: 0.32, fy: 0.96 },
-      { id: 'PE', fx: 0.46, fy: 0.96 },
-      { id: 'U/T1', fx: 0.62, fy: 0.96 }, { id: 'V/T2', fx: 0.74, fy: 0.96 }, { id: 'W/T3', fx: 0.86, fy: 0.96 },
+      // bornier de contrôle, en haut
+      { id: '+24', fx: 0.0947, fy: 0.035 }, { id: 'COM', fx: 0.2263, fy: 0.035 }, { id: 'LI1', fx: 0.3579, fy: 0.035 }, { id: 'LI2', fx: 0.4895, fy: 0.035 },
+      { id: 'AI1', fx: 0.6211, fy: 0.035 }, { id: 'R1A', fx: 0.7895, fy: 0.035 }, { id: 'R1C', fx: 0.9211, fy: 0.035 },
+      // bus continu, sur le flanc gauche
+      { id: 'PA+', fx: 0.058, fy: 0.42 }, { id: 'PC-', fx: 0.058, fy: 0.58 },
+      // bornier de puissance, en bas
+      { id: 'R/L1', fx: 0.0842, fy: 0.965 }, { id: 'S/L2', fx: 0.2263, fy: 0.965 }, { id: 'T/L3', fx: 0.3684, fy: 0.965 }, { id: 'PE', fx: 0.5105, fy: 0.965 },
+      { id: 'U/T1', fx: 0.6526, fy: 0.965 }, { id: 'V/T2', fx: 0.7947, fy: 0.965 }, { id: 'W/T3', fx: 0.9368, fy: 0.965 },
     ],
   }),
   // ---- Photovoltaïque et branchement (dessins SVG) ----

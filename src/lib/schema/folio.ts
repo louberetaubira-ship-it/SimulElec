@@ -163,6 +163,7 @@ export function rendreFolio(
     const depart = c.depuis ? (yDe(c.depuis) ?? Y_HAUT) : Y_HAUT;
     colonnes.push({ c, places: placer(c, depart) });
   }
+  const hPied = f.pied ? (f.pied.h ?? HAUTEUR[f.pied.type]) + 26 : 0;
   const yBas = Math.max(
     ...colonnes.flatMap(({ places }) => places.map(p => p.y2)),
   ) + MARGE_BAS;
@@ -264,8 +265,21 @@ export function rendreFolio(
     points.push({ id: f.tete.a, x: X0, y: 48, rep: f.tete.a });
     if (f.tete.b) points.push({ id: f.tete.b, x: X0, y: tete[0].y2, rep: f.tete.b });
   }
-  points.push({ id: f.retour, x: railG + 40, y: yBas, rep: f.repRetour });
-  g += `<text class="folio-borne" x="${railG + 26}" y="${yBas - 10}" text-anchor="end">${f.repRetour}</text>`;
+  // pied : pôle neutre de la protection phase + neutre, sous le rail de retour.
+  if (f.pied) {
+    const y1 = yBas + 26;
+    const y2 = y1 + (f.pied.h ?? HAUTEUR[f.pied.type]);
+    g += fil(X0, yBas, X0, y1, coupe(f.retour, f.pied.a))
+      + symbole({ el: f.pied, x: X0, y1, y2 }, vivante)
+      + fil(X0, y2, X0, y2 + 22, false)
+      + `<text class="folio-borne" x="${X0 - 14}" y="${y2 + 20}" text-anchor="end">${f.repRetour}</text>`;
+    points.push({ id: f.pied.a, x: X0, y: y1, rep: f.pied.a });
+    if (f.pied.b) points.push({ id: f.pied.b, x: X0, y: y2, rep: f.pied.b });
+    points.push({ id: f.retour, x: X0, y: y2 + 22, rep: f.repRetour });
+  } else {
+    points.push({ id: f.retour, x: railG + 40, y: yBas, rep: f.repRetour });
+    g += `<text class="folio-borne" x="${railG + 26}" y="${yBas - 10}" text-anchor="end">${f.repRetour}</text>`;
+  }
   g += S.terre(railD - 40, yBas + 6);
 
   // points de mesure : discrets, le folio porte déjà tout le repérage utile
@@ -286,7 +300,7 @@ export function rendreFolio(
   return {
     svg: decalage ? `<g transform="translate(${decalage} 0)">${g}</g>` : g,
     largeur,
-    hauteur: yBas + 40,
+    hauteur: yBas + 40 + hPied,
     points: points
       .filter(p => vus.delete(p.id))
       .map(p => ({ ...p, x: p.x + decalage })),

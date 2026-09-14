@@ -4,6 +4,8 @@ import { TPS } from '@/lib/data/tps';
 import { spriteUrl } from '@/lib/data/catalogue';
 import { FAMILY_LABEL, tpSprites } from '@/components/parcours/tpSprites';
 import TpsProfesseur from './TpsProfesseur';
+import { createClient } from '@/lib/supabase/server';
+import { getTpImages } from '@/lib/db/tpImages';
 
 export const metadata: Metadata = {
   title: 'Catalogue des TP · SimulElec',
@@ -19,7 +21,11 @@ const SCENE_LABEL: Record<string, string> = {
 
 const FAMILIES: ('ind' | 'hab' | 'ter' | 'pv')[] = ['ind', 'hab', 'ter', 'pv'];
 
-export default function CataloguePage() {
+export default async function CataloguePage() {
+  // Image de couverture posée par l'administrateur, s'il y en a une : elle
+  // remplace le montage automatique des photos d'appareils.
+  const images = await getTpImages(createClient());
+
   return (
     <div className="mx-auto max-w-[1080px] px-4 py-8">
       <header className="mb-6">
@@ -50,11 +56,16 @@ export default function CataloguePage() {
                   data-tp={tp.id}
                   className="flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition-transform hover:-translate-y-0.5"
                 >
-                  <div className="flex h-[96px] items-center justify-center gap-2 rounded-xl bg-[var(--surface-2)]">
-                    {tpSprites(tp.id).map((k, i) => (
+                  <div className="flex h-[96px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--surface-2)]">
+                    {images[tp.id] ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img key={`${k}-${i}`} src={spriteUrl(k)} alt="" className="max-h-[80px] max-w-[120px] object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
-                    ))}
+                      <img src={images[tp.id]} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      tpSprites(tp.id).map((k, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img key={`${k}-${i}`} src={spriteUrl(k)} alt="" className="max-h-[80px] max-w-[120px] object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
+                      ))
+                    )}
                   </div>
                   <div className="flex flex-wrap items-baseline gap-2">
                     <h3 className="text-[20px] font-bold">{tp.title}</h3>

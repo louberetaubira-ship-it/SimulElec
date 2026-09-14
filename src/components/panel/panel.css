@@ -230,7 +230,6 @@
   font-size: 7px; font-weight: 700; color: #20262D; background: #fff; border: 1px solid #9AA3AD;
   border-radius: 3px; padding: 1px 6px; font-family: var(--font-mono), monospace; white-space: nowrap;
 }
-.se-legend { position: absolute; left: 14px; top: 4px; font-size: 7.5px; font-weight: 700; letter-spacing: .06em; color: #20262D; z-index: 5; }
 
 /* ---- mesures / consignation ---- */
 .se-probe {
