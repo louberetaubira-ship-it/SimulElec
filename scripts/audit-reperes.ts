@@ -21,7 +21,10 @@ import type { TpDefinition } from '../src/lib/types';
  * une référence commerciale (iC60N C20, LRD08, GV2ME) ou un code de compétence (C5) n'est pas
  * un repère, et les ramasser noierait le contrôle sous les faux positifs.
  */
-const FORME = /\b(Q\d{1,2}|KM\d{1,2}|KA\d{1,2}|F\d{1,2}|T\d{1,2}|S\d{1,2}|H\d{1,2}|X\d{1,2}|M\d{1,2})\b/g;
+// Un repère est un mot ISOLÉ. « T2 » dans « V/T2 » n'est pas un appareil : c'est
+// la seconde moitié du marquage d'une borne de variateur (R/L1, S/L2, U/T1…).
+// Sans cette garde, l'audit réclamait un appareil « T2 » sur la platine.
+const FORME = /(?<![\w/-])(Q\d{1,2}|KM\d{1,2}|KA\d{1,2}|F\d{1,2}|T\d{1,2}|S\d{1,2}|H\d{1,2}|X\d{1,2}|M\d{1,2})\b/g;
 
 /**
  * Repères qui ne désignent pas un appareil de la platine et n'ont donc pas à y figurer :

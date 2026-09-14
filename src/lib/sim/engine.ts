@@ -235,10 +235,21 @@ export function toggleF3(s: SimState, tp?: Rep): ActionResult {
   };
 }
 
-export function resetF1(s: SimState, tp?: Rep): ActionResult {
-  const r = rep(tp, 'f1');
-  if (!s.f1trip) return { state: s, message: `${r} est réglé à In — rien à réarmer.` };
-  return { state: { ...s, f1trip: false, heat: 0 }, message: `${r} réarmé.` };
+export function resetF1(s: SimState, tp?: Rep & Pick<TpDefinition, 'variateur'>): ActionResult {
+  const vsd = tp?.variateur;
+  const r = vsd && tp?.slots ? repereSlot({ slots: tp.slots }, vsd.slot) : rep(tp, 'f1');
+  if (!s.f1trip) {
+    return {
+      state: s,
+      message: vsd
+        ? `${r} n'affiche aucun défaut — rien à acquitter.`
+        : `${r} est réglé à In — rien à réarmer.`,
+    };
+  }
+  return {
+    state: { ...s, f1trip: false, heat: 0 },
+    message: vsd ? `Défaut acquitté sur ${r}.` : `${r} réarmé.`,
+  };
 }
 
 export function setCoupling(s: SimState, coupling: Coupling, tp?: Rep): ActionResult {
@@ -385,14 +396,25 @@ export function tick(state: SimState, tp: TpDefinition, dt: number): ActionResul
 
   if (on) s.t += dt; else s.t = 0;
 
+  // Un variateur n'appelle PAS de pointe de démarrage : il part à fréquence nulle
+  // et monte en rampe, le moteur reste à son courant nominal pendant toute la
+  // montée. C'est la différence physique la plus visible avec le démarrage direct.
+  const vsd = tp.variateur;
+
   let target = on ? In * (0.3 + 0.7 * s.load) * kc : 0;
-  if (on && s.t < 1.4) target = Math.max(target, In * 6 * kc * Math.exp(-s.t * 3.2));
+  if (!vsd && on && s.t < 1.4) target = Math.max(target, In * 6 * kc * Math.exp(-s.t * 3.2));
   if (on && oneLegLost) target *= 1.6;
   s.I = lerp(s.I, target, on ? 4.2 : 3.5, dt);
   if (s.I > s.peak) s.peak = s.I;
 
-  const nTarget = on ? (oneLegLost ? ns * 0.55 : ns * (1 - 0.04 * s.load)) : 0;
-  s.n = lerp(s.n, nTarget, on ? 0.75 : 0.55, dt);
+  // Avec un variateur, la vitesse atteinte est celle de la consigne (HSP), pas
+  // celle du réseau : ns est ramené au rapport HSP / FrS.
+  const kf = vsd ? vsd.hsp / vsd.frs : 1;
+  const nTarget = on ? (oneLegLost ? ns * 0.55 : ns * kf * (1 - 0.04 * s.load)) : 0;
+  // La rampe est linéaire et dure ACC secondes de 0 à FrS : on la traduit en
+  // constante de temps équivalente plutôt que de changer le modèle d'intégration.
+  const kRamp = vsd ? (on ? 2.2 / vsd.acc : 2.2 / vsd.dec) : (on ? 0.75 : 0.55);
+  s.n = lerp(s.n, nTarget, kRamp, dt);
   if (!on && s.n < 5) s.n = 0;
   if (!on && s.I < 0.02) s.I = 0;
 
@@ -403,9 +425,16 @@ export function tick(state: SimState, tp: TpDefinition, dt: number): ActionResul
       s.f1trip = true;
       s.km1 = false;
       s.heat = 0;
-      message = s.coupling === 'D'
-        ? `${repereSlot(tp, 'f1')} déclenche : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
-        : `${repereSlot(tp, 'f1')} déclenche : surcharge du moteur.`;
+      // Avec un variateur il n'y a pas de relais thermique : c'est la protection
+      // I²t interne qui coupe, et elle le dit par son code de défaut OLF.
+      const prot = vsd ? repereSlot(tp, vsd.slot) : repereSlot(tp, 'f1');
+      message = vsd
+        ? (s.coupling === 'D'
+          ? `${prot} affiche OLF : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
+          : `${prot} affiche OLF — surcharge moteur détectée par la protection I²t.`)
+        : (s.coupling === 'D'
+          ? `${repereSlot(tp, 'f1')} déclenche : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
+          : `${repereSlot(tp, 'f1')} déclenche : surcharge du moteur.`);
     }
   } else if (s.heat > 0) {
     s.heat = Math.max(0, s.heat - dt * 0.5);

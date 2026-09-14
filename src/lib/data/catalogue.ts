@@ -68,6 +68,9 @@ export const CATALOGUE: CatalogueItem[] = [
   item({ key: 'kontakt', name: 'Contacteur LC1D09 bobine 230 V', ref: 'LC1D09P7', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 230,
     terminals: [{ id: 'A1', fx: 0.08, fy: 0.07 }, { id: '1', fx: 0.3, fy: 0.07 }, { id: '3', fx: 0.52, fy: 0.07 }, { id: '5', fx: 0.74, fy: 0.07 }, { id: '13', fx: 0.93, fy: 0.07 },
       { id: 'A2', fx: 0.08, fy: 0.93 }, { id: '2', fx: 0.3, fy: 0.93 }, { id: '4', fx: 0.52, fy: 0.93 }, { id: '6', fx: 0.74, fy: 0.93 }, { id: '14', fx: 0.93, fy: 0.93 }] }),
+  item({ key: 'kontaktaux', name: 'Contacteur LC1D09 bobine 24 V + bloc LADN11', ref: 'LC1D09B7 + LADN11', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 24,
+    terminals: [{ id: 'A1', fx: 0.08, fy: 0.07 }, { id: '1', fx: 0.3, fy: 0.07 }, { id: '3', fx: 0.52, fy: 0.07 }, { id: '5', fx: 0.74, fy: 0.07 }, { id: '13', fx: 0.93, fy: 0.07 }, { id: '53', fx: 0.93, fy: 0.3 },
+      { id: 'A2', fx: 0.08, fy: 0.93 }, { id: '2', fx: 0.3, fy: 0.93 }, { id: '4', fx: 0.52, fy: 0.93 }, { id: '6', fx: 0.74, fy: 0.93 }, { id: '14', fx: 0.93, fy: 0.93 }, { id: '54', fx: 0.93, fy: 0.7 }] }),
   item({ key: 'therm', name: 'Relais thermique LRD08', ref: 'LRD08', brand: 'Schneider', kind: 'thermal', family: 'Industriel', modules: 2.5, poles: 3, range: [2.5, 4],
     terminals: [{ id: '1', fx: 0.3, fy: 0.08 }, { id: '3', fx: 0.52, fy: 0.08 }, { id: '5', fx: 0.74, fy: 0.08 },
       { id: '95', fx: 0.08, fy: 0.92 }, { id: '96', fx: 0.2, fy: 0.6 }, { id: '2', fx: 0.3, fy: 0.92 }, { id: '4', fx: 0.52, fy: 0.92 }, { id: '6', fx: 0.74, fy: 0.92 }, { id: '97', fx: 0.92, fy: 0.92 }, { id: '98', fx: 0.8, fy: 0.6 }] }),
@@ -109,6 +112,26 @@ export const CATALOGUE: CatalogueItem[] = [
   vector({
     key: 'plc', name: 'Automate Modicon M221 · 16 E/S relais', ref: 'TM221CE16R', brand: 'Schneider',
     kind: 'plc', family: 'Automatisme', modules: 11, poles: 0, w: PLC.w, h: PLC.h, terminals: PLC_TERMINALS,
+  }),
+  // ---- Variation de vitesse ----
+  // ATV320U07N4B : 45 x 325 x 245 mm, 0,75 kW, 380-500 V triphase, 3,6 A en ligne
+  // sous 380 V, 2,3 A de sortie a 4 kHz, sortie 0,1 a 599 Hz (fiche produit Schneider).
+  vector({
+    key: 'atv320', name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW', ref: 'ATV320U07N4B',
+    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 3, poles: 3, w: 76, h: 180,
+    terminals: [
+      // bornier de controle
+      { id: '+24', fx: 0.10, fy: 0.04 }, { id: 'COM', fx: 0.22, fy: 0.04 },
+      { id: 'LI1', fx: 0.34, fy: 0.04 }, { id: 'LI2', fx: 0.46, fy: 0.04 },
+      { id: 'AI1', fx: 0.58, fy: 0.04 },
+      { id: 'R1A', fx: 0.76, fy: 0.04 }, { id: 'R1C', fx: 0.88, fy: 0.04 },
+      // bus continu, sur le flanc
+      { id: 'PA+', fx: 0.04, fy: 0.42 }, { id: 'PC-', fx: 0.04, fy: 0.56 },
+      // bornier de puissance
+      { id: 'R/L1', fx: 0.08, fy: 0.96 }, { id: 'S/L2', fx: 0.20, fy: 0.96 }, { id: 'T/L3', fx: 0.32, fy: 0.96 },
+      { id: 'PE', fx: 0.46, fy: 0.96 },
+      { id: 'U/T1', fx: 0.62, fy: 0.96 }, { id: 'V/T2', fx: 0.74, fy: 0.96 }, { id: 'W/T3', fx: 0.86, fy: 0.96 },
+    ],
   }),
   // ---- Photovoltaïque et branchement (dessins SVG) ----
   vector({

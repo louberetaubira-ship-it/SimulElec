@@ -17,10 +17,12 @@
 import type { TpDefinition } from '@/lib/types';
 import { TP_DEMARRAGE_DIRECT } from './demarrage-direct';
 import { TP_PERCEUSE_RADIALE } from './perceuse-radiale';
+import { TP_VARIATEUR } from './variateur';
 
 export const TPS: TpDefinition[] = [
   TP_DEMARRAGE_DIRECT,
   TP_PERCEUSE_RADIALE,
+  TP_VARIATEUR,
 ];
 
 export const TP_BY_ID: Record<string, TpDefinition> = Object.fromEntries(TPS.map((t) => [t.id, t]));
@@ -29,4 +31,4 @@ export function tpById(id: string): TpDefinition | undefined {
   return TP_BY_ID[id];
 }
 
-export { TP_DEMARRAGE_DIRECT, TP_PERCEUSE_RADIALE };
+export { TP_DEMARRAGE_DIRECT, TP_PERCEUSE_RADIALE, TP_VARIATEUR };

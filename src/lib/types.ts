@@ -126,6 +126,28 @@ export interface Liaison {
 }
 
 /**
+ * Variateur de vitesse. Ce que le moteur de simulation doit savoir d'un
+ * convertisseur de fréquence pour ne pas le traiter comme un démarrage direct :
+ * il n'y a **pas de pointe de démarrage** — le variateur démarre à fréquence
+ * nulle et monte en rampe — et la vitesse atteinte est fixée par la fréquence
+ * de consigne, pas par le réseau.
+ */
+export interface VariateurDef {
+  /** Identifiant du slot du variateur (`u1`). */
+  slot: string;
+  /** Fréquence nominale du moteur, paramètre `FrS` (Hz). */
+  frs: number;
+  /** Petite vitesse, paramètre `LSP` (Hz). */
+  lsp: number;
+  /** Grande vitesse, paramètre `HSP` (Hz) : c'est la consigne de ce TP. */
+  hsp: number;
+  /** Rampe d'accélération, paramètre `ACC` (s de 0 à FrS). */
+  acc: number;
+  /** Rampe de décélération, paramètre `dEC` (s). */
+  dec: number;
+}
+
+/**
  * Transformateur de commande à prises (ABL6TS…). Le rapport de transformation est
  * fixé par les spires : `U2 = Uprise_secondaire × Uréseau / Uprise_primaire`. Se
  * tromper de prise ne bloque rien au câblage — ça se paie à l'essai.
@@ -311,7 +333,14 @@ export interface TerminalNet {
    * silencieusement reliée à la terre, et une faute de câblage dessus passerait inaperçue.
    */
   net: NetKind | 'U' | 'V' | 'W' | 'M2' | 'M' | 'I0' | 'I1' | 'I2' | 'Q0' | 'Q1' | 'Q2'
-    | 'TAP-PRI-230' | 'TAP-SEC-48';
+    | 'TAP-PRI-230' | 'TAP-SEC-48'
+    // Réseaux propres au variateur de vitesse. L'entrée réseau du variateur
+    // (VAR1-3) n'est PAS le même potentiel que sa sortie moteur (U V W) : entre
+    // les deux il y a un redresseur, un bus continu et un onduleur. Et son 24 V
+    // interne (P24 / P0) est une source distincte de celle du transformateur de
+    // commande : les mettre en commun, c'est relier deux alimentations.
+    | 'VAR1' | 'VAR2' | 'VAR3' | 'BUS+' | 'BUS-'
+    | 'P24' | 'P0' | 'LI1' | 'LI2' | 'AI1' | 'RES-X2';
   /** Condition de présence de tension : 'always' | 'q1' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off'. */
   live: 'always' | 'q1' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
 }
@@ -411,6 +440,8 @@ export interface TpDefinition {
   interPosition?: InterPosition;
   /** Transformateur de commande à prises : permet de simuler l'erreur de prise. */
   trafo?: TrafoDef;
+  /** Variateur de vitesse : supprime la pointe de démarrage et impose la rampe. */
+  variateur?: VariateurDef;
   /** Folio du circuit de commande, dessiné à l'étape de dépannage. */
   folio?: FolioDef;
   /**

@@ -181,6 +181,45 @@ export function PlcSvg() {
   );
 }
 
+/**
+ * Variateur de vitesse Altivar ATV320, format « book ».
+ *
+ * Dessin vectoriel et non photo : le pack de la bibliothèque ne contient que des
+ * ATV312 / ATV58, et coller la photo d'un ATV312 sous l'étiquette d'un ATV320
+ * serait une supposition. Le tracé reprend la face avant réelle — afficheur à
+ * quatre caractères, molette de navigation, deux borniers — et les bornes portent
+ * exactement les repères gravés sur l'appareil.
+ *
+ * Caractéristiques de l'ATV320U07N4B : 45 × 325 × 245 mm, 0,75 kW, 380-500 V
+ * triphasé, 3,6 A en ligne sous 380 V, 2,3 A de sortie à 4 kHz, 0,1 à 599 Hz.
+ */
+export function Atv320Svg() {
+  return (
+    <svg viewBox="0 0 76 180" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+      <rect x="2" y="8" width="72" height="164" rx="4" fill="#3F464E" stroke="#232930" />
+      <rect x="6" y="12" width="64" height="156" rx="3" fill="#4A525B" />
+      {/* ailettes de refroidissement */}
+      {Array.from({ length: 9 }, (_, i) => (
+        <line key={`f${i}`} x1="9" y1={120 + i * 5} x2="67" y2={120 + i * 5} stroke="#3A4148" strokeWidth="1.4" />
+      ))}
+      {/* face avant : afficheur et navigation */}
+      <rect x="12" y="20" width="52" height="60" rx="3" fill="#20262C" stroke="#171C21" />
+      <rect x="17" y="26" width="42" height="17" rx="2" fill="#8FA98C" stroke="#6E8A6B" />
+      <text x="38" y="39" textAnchor="middle" fontFamily={MONO} fontSize="10" fontWeight="700" fill="#15200F">rdY</text>
+      <circle cx="38" cy="60" r="10" fill="#5A636D" stroke="#2C3238" strokeWidth="1.2" />
+      <circle cx="38" cy="60" r="4" fill="#E39A00" />
+      <text x="21" y="52" fontFamily={MONO} fontSize="4.5" fill="#C9CFD5">ESC</text>
+      <text x="50" y="52" fontFamily={MONO} fontSize="4.5" fill="#C9CFD5">ENT</text>
+      <text x="38" y="90" textAnchor="middle" fontFamily={COND} fontSize="7" fontWeight="700" fill="#EDEFF2">ATV320U07N4B</text>
+      <text x="38" y="99" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#B6BEC7">0,75 kW · 3 × 400 V</text>
+      <text x="38" y="108" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#B6BEC7">0,1 – 599 Hz</text>
+      {/* repères des borniers */}
+      <text x="6" y="6" fontFamily={MONO} fontSize="4.5" fill="#66717F">contrôle</text>
+      <text x="6" y="178" fontFamily={MONO} fontSize="4.5" fill="#66717F">puissance · bus continu à gauche</text>
+    </svg>
+  );
+}
+
 /** Moteur asynchrone 3~ hors armoire (ventilateur animé au-delà de 40 tr/min). */
 export function MotorSvg({ rpm = 0, label = 'M1 · 1,5 kW · 400 V Y' }: { rpm?: number; label?: string }) {
   const mb = React.useId(), cap = React.useId();
@@ -264,6 +303,7 @@ export function svgForKey(key: string): React.ReactNode | null {
     case 'battery': return <BatterySvg />;
     case 'agcp': return <AgcpSvg />;
     case 'plc': return <PlcSvg />;
+    case 'atv320': return <Atv320Svg />;
     default: return null;
   }
 }
