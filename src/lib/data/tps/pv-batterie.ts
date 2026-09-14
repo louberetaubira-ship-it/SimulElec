@@ -264,7 +264,9 @@ export const TP_PV_BATTERIE: TpDefinition = {
   nets: {
     // ---- champ photovoltaïque : sous tension dès qu'il fait jour
     ...stringNets(1, 6),
-    'MT.X1': { net: 'PE', live: 'always' }, 'MT.X2': { net: 'PE', live: 'always' },
+    // La seconde borne du piquet de terre n'est pas raccordée dans ce TP : on ne
+    // la déclare pas, sinon elle passerait pour équipotentielle à la terre.
+    'MT.X1': { net: 'PE', live: 'always' },
     // ---- bornier continu
     'x2_1.a': { net: 'V', live: 'always' }, 'x2_1.b': { net: 'V', live: 'always' },
     'x2_2.a': { net: 'C0', live: 'always' }, 'x2_2.b': { net: 'C0', live: 'always' },
@@ -376,19 +378,19 @@ export const TP_PV_BATTERIE: TpDefinition = {
       id: 'x2',
       title: 'Câble DC+ de la batterie non serré dans l\'onduleur-chargeur',
       symptom: 'Q1, Q3, DDR1 et Q2 sont fermés, 26 V se lisent aux bornes du parc, mais l\'onduleur ne démarre pas et H1 reste éteint.',
-      fix: 'Consigner le champ, ouvrir Q3, reprendre le sertissage et le serrage de la cosse + côté onduleur, puis refermer dans l\'ordre.',
+      fix: 'Consigner le champ, ouvrir Q3, reprendre le sertissage et le serrage de la cosse + côté onduleur, puis refermer dans l\'ordre.', coupe: 'bat.+>f2.1+', action: 'Reprendre le sertissage et le serrage de la cosse + du câble batterie',
     },
     {
       id: 'a2',
       title: 'Chute de tension sur le câble batterie (section ou serrage insuffisants)',
       symptom: 'L\'onduleur démarre, appelle son courant, puis se coupe aussitôt en sous-tension : le cycle recommence en boucle.',
-      fix: 'Contrôler la section (50 mm² pour 136 A), la longueur et le couple de serrage des cosses, puis refaire l\'essai en charge.',
+      fix: 'Contrôler la section (50 mm² pour 136 A), la longueur et le couple de serrage des cosses, puis refaire l\'essai en charge.', coupe: 'ond.DC+>f2.2+', action: 'Contrôler la section, la longueur et le serrage des cosses du câble batterie',
     },
     {
       id: 's1',
       title: 'Le BMS a ouvert son contact de sécurité (parc en sous-tension)',
       symptom: 'Rien ne démarre : la tension du parc est basse, le voyant du BMS clignote et le contact de validation vers l\'onduleur est ouvert.',
-      fix: 'Recharger le parc par le régulateur, contrôler les seuils déclarés dans l\'onduleur et le câblage du bus de communication.',
+      fix: 'Recharger le parc par le régulateur, contrôler les seuils déclarés dans l\'onduleur et le câblage du bus de communication.', coupe: 'bat.−>f2.3−', action: 'Recharger le parc, puis contrôler les seuils et le câblage du BMS',
     },
   ],
   quiz: [

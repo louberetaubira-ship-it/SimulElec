@@ -234,9 +234,9 @@ export const TP_CHAUFFE_EAU: TpDefinition = {
     },
   ],
   faults: [
-    { id: 'x2', title: 'Fil X1:8 → A1 débranché', symptom: 'Le contacteur ne colle jamais, pourtant 230 V sont présents en X1:7 et le contact HC se ferme.', fix: 'Reconnecter le retour du contact heures creuses sur la borne A1 de la bobine.' },
-    { id: 'a2', title: 'Neutre de la bobine (A2) desserré', symptom: 'KM1 vibre, claque et ne tient pas : le chauffe-eau ne chauffe pas.', fix: 'Resserrer A2 sur la sortie neutre du différentiel et refaire la continuité.' },
-    { id: 'f3', title: 'Q2 (commande 2 A) déclenché', symptom: 'Aucune tension en X1:7, le contacteur reste ouvert même en marche forcée.', fix: 'Rechercher le court-circuit du circuit de commande, puis réarmer Q2.' },
+    { id: 'x2', title: 'Fil X1:8 → A1 débranché', symptom: 'Le contacteur ne colle jamais, pourtant 230 V sont présents en X1:7 et le contact HC se ferme.', fix: 'Reconnecter le retour du contact heures creuses sur la borne A1 de la bobine.', coupe: 'x1_8.a>km1.A1', action: 'Reconnecter le retour du contact heures creuses sur la borne A1' },
+    { id: 'a2', title: 'Neutre de la bobine (A2) desserré', symptom: 'KM1 vibre, claque et ne tient pas : le chauffe-eau ne chauffe pas.', fix: 'Resserrer A2 sur la sortie neutre du différentiel et refaire la continuité.', coupe: 'km1.A2>f2.N2', action: 'Resserrer le neutre de la bobine et contrôler la continuité' },
+    { id: 'f3', title: 'Q2 (commande 2 A) déclenché', symptom: 'Aucune tension en X1:7, le contacteur reste ouvert même en marche forcée.', fix: 'Rechercher le court-circuit du circuit de commande, puis réarmer Q2.', ouvre: 'f3', action: 'Chercher le court-circuit du circuit de commande, puis réarmer Q2' },
   ],
   quiz: [
     { q: 'Que pilote le contact heures creuses du compteur ?', options: ['La résistance directement', 'La bobine du contacteur jour-nuit', 'Le disjoncteur différentiel'], answer: 1 },

@@ -275,9 +275,9 @@ export const TP_ECLAIRAGE_TERTIAIRE: TpDefinition = {
     },
   ],
   faults: [
-    { id: 'x2', title: 'Fil X1:9 → KM1 A1 débranché', symptom: 'L\'appui sur le bouton marche reste sans effet, alors que 230 V sont bien présents sur X1:9.', fix: 'Reconnecter le retour de commande sur la borne A1 de la bobine de KM1.' },
-    { id: 'a2', title: 'Neutre de la bobine (KM1 A2) mal serré', symptom: 'KM1 claque sans rester collé, l\'éclairage clignote à chaque appui.', fix: 'Resserrer A2 sur X1:13 et refaire la continuité A2 – neutre du différentiel.' },
-    { id: 's1', title: 'Contact NC du bouton d\'arrêt général S1 (21-22) resté ouvert', symptom: 'Aucune commande n\'agit — ni le bouton marche, ni le détecteur, ni la dérogation — mais 230 V sont présents sur X1:8.', fix: 'Remplacer le bloc de contact NC de S1 : la boucle de commande est coupée en amont de tous les organes.' },
+    { id: 'x2', title: 'Fil X1:9 → KM1 A1 débranché', symptom: 'L\'appui sur le bouton marche reste sans effet, alors que 230 V sont bien présents sur X1:9.', fix: 'Reconnecter le retour de commande sur la borne A1 de la bobine de KM1.', coupe: 'x1_9.a>km1.A1', action: 'Reconnecter le retour de commande sur la borne A1 de KM1' },
+    { id: 'a2', title: 'Neutre de la bobine (KM1 A2) mal serré', symptom: 'KM1 claque sans rester collé, l\'éclairage clignote à chaque appui.', fix: 'Resserrer A2 sur X1:13 et refaire la continuité A2 – neutre du différentiel.', coupe: 'km1.A2>x1_13.a', action: 'Resserrer A2 et contrôler la continuité jusqu\'au neutre' },
+    { id: 's1', title: 'Contact NC du bouton d\'arrêt général S1 (21-22) resté ouvert', symptom: 'Aucune commande n\'agit — ni le bouton marche, ni le détecteur, ni la dérogation — mais 230 V sont présents sur X1:8.', fix: 'Remplacer le bloc de contact NC de S1 : la boucle de commande est coupée en amont de tous les organes.', ouvre: 'S1', action: 'Remplacer le bloc de contact du bouton d\'arrêt général' },
   ],
   quiz: [
     { q: 'Pourquoi choisir un contacteur de catégorie AC-7a pour des luminaires LED ?', options: ['Pour supporter le courant d\'appel des drivers', 'Pour réduire la consommation', 'Pour éviter le bruit de la bobine'], answer: 0 },

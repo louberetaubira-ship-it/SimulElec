@@ -8,8 +8,10 @@
  *
  *     npx tsx scripts/audit-encombrement.ts
  */
-import { CATALOGUE_BY_KEY } from '@/lib/data/catalogue';
-import { glandOf, motorOf, resOf, sceneOf, slotGeom, tbOf } from '@/lib/scene/geometry';
+import { CATALOGUE_COMPLET as CATALOGUE_BY_KEY } from './catalogue-complet';
+import {
+  ANNEX_H, ANNEX_X, DUCT_L, DUCT_R, glandOf, motorOf, resOf, sceneOf, slotGeom, tbOf,
+} from '@/lib/scene/geometry';
 import { TPS } from '@/lib/data/tps';
 
 let ko = 0;
@@ -21,9 +23,10 @@ for (const tp of TPS) {
   const boxes = tp.slots
     .map((s) => ({ s, it: CATALOGUE_BY_KEY[s.key] }))
     .filter((b) => b.it)
-    .map((b) => ({ id: b.s.id, ...slotGeom(tp, b.s, b.it) }));
+    .map((b) => ({ id: b.s.id, annexe: b.s.rail === null, ...slotGeom(tp, b.s, b.it) }));
 
   console.log(`\n${tp.id} — armoire ${geo.cabH} px, rails ${geo.rails.join(' · ')}`);
+  const avant = ko;
 
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
@@ -33,9 +36,22 @@ for (const tp of TPS) {
       }
     }
   }
+  // Les goulottes horizontales ne courent que dans l'armoire, entre les deux
+  // goulottes verticales. Un organe de la colonne annexe — coffret de porte,
+  // flotteur de la fosse — est HORS armoire : il ne peut mordre ni goulotte ni
+  // rail, et sa hauteur se juge sur la colonne, pas sur le cadre.
+  const DANS_ARMOIRE = { x: DUCT_L[0], w: DUCT_R[1] - DUCT_L[0] };
   for (const b of boxes) {
+    if (b.annexe) {
+      if (b.y < 0 || b.y + b.h > ANNEX_H) {
+        ko++; console.log(`  ✗ ${b.id} (${b.y}..${b.y + b.h}) sort de la colonne annexe (0..${ANNEX_H})`);
+      }
+      if (b.x < ANNEX_X) { ko++; console.log(`  ✗ ${b.id} (x ${b.x}) empiète sur l'armoire (colonne à partir de ${ANNEX_X})`); }
+      continue;
+    }
     if (b.y + b.h > geo.cabH) { ko++; console.log(`  ✗ ${b.id} déborde de l'armoire (${b.y + b.h} > ${geo.cabH})`); }
     if (b.y < 0) { ko++; console.log(`  ✗ ${b.id} sort par le haut`); }
+    if (!chevauche(b, DANS_ARMOIRE)) continue;
     for (const [d0, d1] of geo.ducts) {
       if (b.y < d1 && d0 < b.y + b.h) {
         ko++; console.log(`  ✗ ${b.id} (${b.y}..${b.y + b.h}) mord la goulotte ${d0}..${d1}`);
@@ -57,7 +73,7 @@ for (const tp of TPS) {
   for (const [nom, y] of [['arrivée réseau', res.y], ['presse-étoupe', gl.y]] as const) {
     if (y > geo.cabH || y < geo.cabH - 60) { ko++; console.log(`  ✗ ${nom} décrochée du bas de l'armoire (y ${y}, armoire ${geo.cabH})`); }
   }
-  if (!ko) console.log('  ✓ rien ne se chevauche, rien ne déborde, moteur hors armoire');
+  if (ko === avant) console.log('  ✓ rien ne se chevauche, rien ne déborde, moteur hors armoire');
 }
 
 console.log(ko === 0 ? '\nEncombrement correct sur tous les TP.' : `\n${ko} conflit(s) d'encombrement.`);

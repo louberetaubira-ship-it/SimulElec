@@ -255,7 +255,9 @@ export const TP_PV_RESEAU: TpDefinition = {
     // ---- champ photovoltaïque : sous tension dès qu'il fait jour
     ...stringNets(1, 6),
     ...stringNets(7, 12),
-    'MT.X1': { net: 'PE', live: 'always' }, 'MT.X2': { net: 'PE', live: 'always' },
+    // La seconde borne du piquet de terre n'est pas raccordée dans ce TP : on ne
+    // la déclare pas, sinon elle passerait pour équipotentielle à la terre.
+    'MT.X1': { net: 'PE', live: 'always' },
     // ---- bornier continu
     'x2_1.a': { net: 'V', live: 'always' }, 'x2_1.b': { net: 'V', live: 'always' },
     'x2_2.a': { net: 'C0', live: 'always' }, 'x2_2.b': { net: 'C0', live: 'always' },
@@ -290,10 +292,10 @@ export const TP_PV_RESEAU: TpDefinition = {
     'cpt.3': { net: 'N', live: 'always' }, 'cpt.4': { net: 'N', live: 'always' },
     'agcp.1': { net: 'L1', live: 'always' }, 'agcp.2': { net: 'L1', live: 'always' },
     'agcp.3': { net: 'N', live: 'always' }, 'agcp.4': { net: 'N', live: 'always' },
-    // ---- charges du logement
-    'CE.X1': { net: 'L1', live: 'always' }, 'CE.X2': { net: 'N', live: 'always' },
-    'R1.X1': { net: 'L1', live: 'always' }, 'R1.X2': { net: 'N', live: 'always' },
-    'E1.X1': { net: 'L1', live: 'always' }, 'E1.X2': { net: 'N', live: 'always' },
+    // ---- charges du logement : figurées, pas câblées dans ce TP.
+    // Leurs bornes ne sont donc DÉCLARÉES SUR AUCUN RÉSEAU : les déclarer sur le
+    // neutre rendait une borne en l'air équipotentielle au neutre, et une pointe
+    // posée dessus aurait donné une continuité qui n'existe pas.
   },
   tests: [
     ...BASE_TESTS,
@@ -361,19 +363,19 @@ export const TP_PV_RESEAU: TpDefinition = {
       id: 'x2',
       title: 'Conducteur DC− non serré dans le bornier de l\'onduleur',
       symptom: 'Q1, Q2 et DDR1 sont fermés, 228 V se lisent au coffret continu, mais l\'onduleur ne se couple jamais et H1 reste éteint.',
-      fix: 'Reprendre le serrage de la borne DC− de l\'onduleur, puis contrôler la tension entre DC+ et DC− à son entrée.',
+      fix: 'Reprendre le serrage de la borne DC− de l\'onduleur, puis contrôler la tension entre DC+ et DC− à son entrée.', coupe: 'q1.4−>ond.DC−', action: 'Reprendre le serrage de la borne DC− de l\'onduleur',
     },
     {
       id: 'a2',
       title: 'Neutre alternatif mal serré sur l\'onduleur',
       symptom: 'L\'onduleur démarre, se couple une seconde puis se découple aussitôt, en boucle : la tension réseau qu\'il mesure s\'effondre à chaque couplage.',
-      fix: 'Resserrer la borne N de l\'onduleur et contrôler la continuité du neutre jusqu\'au différentiel.',
+      fix: 'Resserrer la borne N de l\'onduleur et contrôler la continuité du neutre jusqu\'au différentiel.', coupe: 'ond.N>f2.N2', action: 'Resserrer la borne N de l\'onduleur et contrôler la continuité du neutre',
     },
     {
       id: 'f3',
       title: 'Différentiel DDR1 déclenché par un défaut d\'isolement côté alternatif',
       symptom: 'La manette de DDR1 paraît en position fermée, mais aucune tension n\'est mesurée en aval : l\'onduleur ne peut pas se coupler.',
-      fix: 'Rechercher le défaut d\'isolement du départ alternatif, puis réarmer franchement le différentiel après l\'avoir ouvert.',
+      fix: 'Rechercher le défaut d\'isolement du départ alternatif, puis réarmer franchement le différentiel après l\'avoir ouvert.', ouvre: 'f3', action: 'Chercher le défaut d\'isolement du départ alternatif, puis réarmer le différentiel',
     },
   ],
   quiz: [

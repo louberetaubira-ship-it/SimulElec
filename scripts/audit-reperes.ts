@@ -24,7 +24,10 @@ import type { TpDefinition } from '../src/lib/types';
 // Un repère est un mot ISOLÉ. « T2 » dans « V/T2 » n'est pas un appareil : c'est
 // la seconde moitié du marquage d'une borne de variateur (R/L1, S/L2, U/T1…).
 // Sans cette garde, l'audit réclamait un appareil « T2 » sur la platine.
-const FORME = /(?<![\w/-])(Q\d{1,2}|KM\d{1,2}|KA\d{1,2}|F\d{1,2}|T\d{1,2}|S\d{1,2}|H\d{1,2}|X\d{1,2}|M\d{1,2})\b/g;
+// Le lookahead final écarte les REPÈRES DE BORNE d'un automate : « Q0.0 », « I0.2 »
+// contiennent « Q0 » et « I0 », qui ne sont pas des repères d'appareil. Sans lui,
+// l'audit réclamait un appareil « Q0 » sur une platine qui n'en a pas.
+const FORME = /(?<![\w/-])(Q\d{1,2}|KM\d{1,2}|KA\d{1,2}|F\d{1,2}|T\d{1,2}|S\d{1,2}|H\d{1,2}|X\d{1,2}|M\d{1,2})\b(?!\.\d)/g;
 
 /**
  * Repères qui ne désignent pas un appareil de la platine et n'ont donc pas à y figurer :

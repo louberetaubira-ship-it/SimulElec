@@ -285,9 +285,9 @@ export const TP_TABLEAU_REPARTITION: TpDefinition = {
     },
   ],
   faults: [
-    { id: 'x2', title: 'Fil X1:13 → KM1 A1 débranché', symptom: 'L\'éclairage des circulations ne démarre plus, alors que 230 V sont présents sur X1:13 et que les prises fonctionnent.', fix: 'Reconnecter le retour de commande sur la borne A1 de la bobine de KM1.' },
-    { id: 's1', title: 'Contact NC du bouton d\'arrêt S1 (21-22) resté ouvert', symptom: 'Aucun appui sur le bouton marche n\'agit, pourtant 230 V sont bien mesurés sur X1:11 en sortie de Q3.', fix: 'Remplacer le bloc de contact NC de S1 : la boucle de commande est coupée dès son origine.' },
-    { id: 'f3', title: 'Q3 (circuit de commande) déclenché', symptom: 'Plus aucune commande d\'éclairage et 0 V sur X1:11, alors que les prises et le reste du tableau restent alimentés.', fix: 'Rechercher le défaut du circuit de commande (bobine ou conducteur en court-circuit), puis réarmer Q3.' },
+    { id: 'x2', title: 'Fil X1:13 → KM1 A1 débranché', symptom: 'L\'éclairage des circulations ne démarre plus, alors que 230 V sont présents sur X1:13 et que les prises fonctionnent.', fix: 'Reconnecter le retour de commande sur la borne A1 de la bobine de KM1.', coupe: 'x1_13.a>km1.A1', action: 'Reconnecter le retour de commande sur la borne A1 de KM1' },
+    { id: 's1', title: 'Contact NC du bouton d\'arrêt S1 (21-22) resté ouvert', symptom: 'Aucun appui sur le bouton marche n\'agit, pourtant 230 V sont bien mesurés sur X1:11 en sortie de Q3.', fix: 'Remplacer le bloc de contact NC de S1 : la boucle de commande est coupée dès son origine.', ouvre: 'S1', action: 'Remplacer le bloc de contact du bouton d\'arrêt' },
+    { id: 'f3', title: 'Q3 (circuit de commande) déclenché', symptom: 'Plus aucune commande d\'éclairage et 0 V sur X1:11, alors que les prises et le reste du tableau restent alimentés.', fix: 'Rechercher le défaut du circuit de commande (bobine ou conducteur en court-circuit), puis réarmer Q3.', ouvre: 'f3', action: 'Chercher le défaut du circuit de commande, puis réarmer Q3' },
   ],
   quiz: [
     { q: 'Quelles conditions assurent la sélectivité entre deux différentiels en cascade ?', options: ['Même sensibilité pour les deux appareils', 'Sensibilité amont au moins 3 fois plus grande ET appareil amont retardé (type S)', 'Un calibre amont plus élevé suffit'], answer: 1 },

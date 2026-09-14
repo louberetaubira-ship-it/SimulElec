@@ -290,9 +290,9 @@ export const TP_ECLAIRAGE_BAES: TpDefinition = {
     },
   ],
   faults: [
-    { id: 'x2', title: 'Fil X1:13 → KM1 A1 débranché', symptom: 'L\'éclairage normal ne s\'allume plus, ni au bouton marche ni au détecteur, alors que 230 V sont présents sur X1:13. Les BAES, eux, restent éteints et chargés.', fix: 'Reconnecter le retour de commande sur la borne A1 de la bobine de KM1.' },
-    { id: 'a2', title: 'Neutre de la bobine (KM1 A2) mal serré', symptom: 'KM1 claque sans tenir : l\'éclairage normal clignote à chaque appui sur le bouton marche.', fix: 'Resserrer A2 sur X1:15 et contrôler la continuité A2 – neutre du différentiel.' },
-    { id: 'f3', title: 'Q2 (commande et télécommande) déclenché', symptom: 'Plus aucune commande d\'éclairage et 0 V sur la ligne de télécommande, mais les blocs restent alimentés et chargés par Q1.', fix: 'Chercher le défaut du circuit dédié (télécommande ou bobine en court-circuit), puis réarmer Q2.' },
+    { id: 'x2', title: 'Fil X1:13 → KM1 A1 débranché', symptom: 'L\'éclairage normal ne s\'allume plus, ni au bouton marche ni au détecteur, alors que 230 V sont présents sur X1:13. Les BAES, eux, restent éteints et chargés.', fix: 'Reconnecter le retour de commande sur la borne A1 de la bobine de KM1.', coupe: 'x1_13.a>km1.A1', action: 'Reconnecter le retour de commande sur la borne A1 de KM1' },
+    { id: 'a2', title: 'Neutre de la bobine (KM1 A2) mal serré', symptom: 'KM1 claque sans tenir : l\'éclairage normal clignote à chaque appui sur le bouton marche.', fix: 'Resserrer A2 sur X1:15 et contrôler la continuité A2 – neutre du différentiel.', coupe: 'km1.A2>x1_15.a', action: 'Resserrer A2 et contrôler la continuité jusqu\'au neutre' },
+    { id: 'f3', title: 'Q2 (commande et télécommande) déclenché', symptom: 'Plus aucune commande d\'éclairage et 0 V sur la ligne de télécommande, mais les blocs restent alimentés et chargés par Q1.', fix: 'Chercher le défaut du circuit dédié (télécommande ou bobine en court-circuit), puis réarmer Q2.', ouvre: 'f3', action: 'Chercher le défaut du circuit dédié, puis réarmer Q2' },
   ],
   quiz: [
     { q: 'Où prend-on l\'alimentation d\'un BAES ?', options: ['En aval de la protection du circuit d\'éclairage qu\'il secourt, en amont de sa commande', 'Sur le circuit des prises de courant', 'Directement en amont du disjoncteur général'], answer: 0 },

@@ -252,9 +252,9 @@ export const TP_VA_ET_VIENT: TpDefinition = {
     },
   ],
   faults: [
-    { id: 'x2', title: 'Fil X1:9 → KA1 borne 1 débranché', symptom: 'Aucun appui de poussoir n\'allume le séjour, pourtant la commande est sous tension en X1:8.', fix: 'Reconnecter le retour des poussoirs sur la borne 1 (bobine) du télérupteur.' },
-    { id: 'a2', title: 'Neutre de la bobine (KA1 borne 3) mal serré', symptom: 'Le télérupteur claque sans basculer, la lampe du séjour clignote.', fix: 'Resserrer le neutre de la bobine sur la sortie neutre du différentiel.' },
-    { id: 'f3', title: 'Q2 (commande 2 A) déclenché', symptom: 'Les poussoirs sont sans effet et aucune tension n\'est mesurée en X1:8.', fix: 'Chercher le défaut du circuit de commande (bobine ou poussoir en court-circuit), puis réarmer Q2.' },
+    { id: 'x2', title: 'Fil X1:9 → KA1 borne 1 débranché', symptom: 'Aucun appui de poussoir n\'allume le séjour, pourtant la commande est sous tension en X1:8.', fix: 'Reconnecter le retour des poussoirs sur la borne 1 (bobine) du télérupteur.', coupe: 'x1_9.a>km1.1', action: 'Reconnecter le retour des poussoirs sur la borne 1 du télérupteur' },
+    { id: 'a2', title: 'Neutre de la bobine (KA1 borne 3) mal serré', symptom: 'Le télérupteur claque sans basculer, la lampe du séjour clignote.', fix: 'Resserrer le neutre de la bobine sur la sortie neutre du différentiel.', coupe: 'km1.3>f2.N2', action: 'Resserrer le neutre de la bobine et contrôler la continuité' },
+    { id: 'f3', title: 'Q2 (commande 2 A) déclenché', symptom: 'Les poussoirs sont sans effet et aucune tension n\'est mesurée en X1:8.', fix: 'Chercher le défaut du circuit de commande (bobine ou poussoir en court-circuit), puis réarmer Q2.', ouvre: 'f3', action: 'Chercher le défaut du circuit de commande, puis réarmer Q2' },
   ],
   quiz: [
     { q: 'Combien de conducteurs relient les deux interrupteurs d\'un va-et-vient ?', options: ['Un seul', 'Deux navettes', 'Trois navettes'], answer: 1 },

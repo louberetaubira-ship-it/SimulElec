@@ -128,6 +128,14 @@ export interface Slot {
   dy?: number;
   /** Repère affiché (Q1, KM1, T1, DDR1, PV1…). */
   rep?: string;
+  /**
+   * Bloc auxiliaire clipsé sur un autre appareil (LADN11 sur un contacteur,
+   * bloc de contacts sur un bouton). Sur une vraie platine il ne porte pas de
+   * repère à lui : il est marqué comme l'appareil qui le porte. Le slot existe
+   * séparément parce que ses bornes se câblent, mais le repère est légitimement
+   * en double — d'où cette déclaration, qui dit lequel il prolonge.
+   */
+  auxDe?: string;
   /** Repérage court affiché sous une borne de bornier (« 1 », « 2 »…). */
   mark?: string;
   /** Conducteur repéré sous le repère (« L1 », « N », « PE », « U »…). */

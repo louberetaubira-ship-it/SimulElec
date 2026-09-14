@@ -12,7 +12,7 @@
  * elle est donc explicitement tolérée.
  */
 import { TPS } from '@/lib/data/tps';
-import { CATALOGUE_BY_KEY } from '@/lib/data/catalogue';
+import { CATALOGUE_COMPLET as CATALOGUE_BY_KEY } from './catalogue-complet';
 import { sceneContext, annexTerminals, recvTerminals } from '@/lib/scene/route';
 import { MTERM, MT2, RES, pupitreOf, pupitreTerminals, resIds, term } from '@/lib/scene/geometry';
 
@@ -79,8 +79,19 @@ for (const tp of TPS) {
 
   // 7. repères des appareils : doublons ?
   const reps = new Map<string, string>();
+  const ids = new Set(tp.slots.map((s) => s.id));
   for (const s of tp.slots) {
     if (!s.rep) continue;
+    // Un bloc auxiliaire clipsé porte le repère de l'appareil qui le reçoit : c'est
+    // ce qu'on lit sur la platine. Encore faut-il qu'il dise lequel, et que ce soit
+    // bien le sien — sinon le doublon reste une faute.
+    if (s.auxDe) {
+      if (!ids.has(s.auxDe)) pb.push(`${s.id} se déclare bloc auxiliaire de « ${s.auxDe} », qui n'existe pas`);
+      else if (tp.slots.find((o) => o.id === s.auxDe)?.rep !== s.rep) {
+        pb.push(`${s.id} porte « ${s.rep} » mais ${s.auxDe} porte « ${tp.slots.find((o) => o.id === s.auxDe)?.rep} »`);
+      }
+      continue;
+    }
     if (reps.has(s.rep)) pb.push(`repère « ${s.rep} » porté par ${reps.get(s.rep)} ET ${s.id}`);
     reps.set(s.rep, s.id);
   }

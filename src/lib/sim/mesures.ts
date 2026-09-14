@@ -180,6 +180,31 @@ const barrettesDe = (poses: readonly Pose[] | undefined): [string, string][] =>
  * que si une barrette la relie. Sans cet argument — audits, appels historiques — on considère
  * qu'aucune barrette n'est posée, donc que seuls les enroulements conduisent.
  */
+/**
+ * Borne de la plaque à bornes atteinte depuis ce point par le seul câble moteur.
+ *
+ * On ne suit que les liaisons **posées par l'installateur** (`prewired`) : ce sont
+ * les conducteurs du câble, qui existent avant le TP. Suivre les fils de l'élève
+ * ferait remonter la mesure jusque dans l'armoire, à travers des contacts ouverts.
+ */
+function borneMoteurAuBout(tp: TpDefinition, p: string | null): string | null {
+  if (!p) return null;
+  if (estBorneMoteur(p)) return p;
+  const vus = new Set([p]);
+  const file = [p];
+  while (file.length) {
+    const cur = file.shift() as string;
+    for (const l of tp.liaisons) {
+      if (!l.prewired) continue;
+      const suite = l.a === cur ? l.b : l.b === cur ? l.a : null;
+      if (!suite || vus.has(suite)) continue;
+      if (estBorneMoteur(suite)) return suite;
+      vus.add(suite); file.push(suite);
+    }
+  }
+  return null;
+}
+
 export function ohms(
   tp: TpDefinition,
   sim: SimState,
@@ -197,8 +222,13 @@ export function ohms(
   // d'un contact ouvert la tension est nulle, et pourtant mesurer là est interdit.
   if (reseau && isControlLive(sim) && dansReseau(reseau, a) && dansReseau(reseau, b)) return 'ERR';
 
-  if (estBorneMoteur(a) && estBorneMoteur(b)) {
-    const r = resistancePlaque(resistanceEnroulement(tp), barrettesDe(poses), a as string, b as string);
+  // Les deux pointes peuvent être posées sur la plaque à bornes elle-même, ou au
+  // bout du câble moteur, sur le bornier X1 : c'est le même enroulement, mesuré
+  // deux fils plus loin. Un contrôle au bornier est justement ce qu'on demande à
+  // l'élève quand la plaque est inaccessible — moteur immergé, machine en place.
+  const ma = borneMoteurAuBout(tp, a), mb = borneMoteurAuBout(tp, b);
+  if (ma && mb) {
+    const r = resistancePlaque(resistanceEnroulement(tp), barrettesDe(poses), ma, mb);
     return r == null ? 'OL' : r;
   }
 

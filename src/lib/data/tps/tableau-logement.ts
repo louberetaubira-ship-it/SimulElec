@@ -284,9 +284,9 @@ export const TP_TABLEAU_LOGEMENT: TpDefinition = {
     },
   ],
   faults: [
-    { id: 'x2', title: 'Fil X1:10 → TL1 borne 1 débranché', symptom: 'Aucun bouton poussoir n\'allume l\'éclairage, pourtant la commande est sous tension en X1:9.', fix: 'Reconnecter le retour des poussoirs sur la borne 1 (bobine) du télérupteur.' },
-    { id: 'a2', title: 'Neutre de la bobine du télérupteur mal serré', symptom: 'Le télérupteur claque sans basculer, le point lumineux clignote.', fix: 'Resserrer le neutre de la bobine sur la sortie neutre de ID1.' },
-    { id: 'f3', title: 'Q3 (commande 2 A) déclenché', symptom: 'Les poussoirs sont sans effet et aucune tension n\'est mesurée en X1:9.', fix: 'Rechercher le défaut du circuit de commande, puis réarmer Q3.' },
+    { id: 'x2', title: 'Fil X1:10 → TL1 borne 1 débranché', symptom: 'Aucun bouton poussoir n\'allume l\'éclairage, pourtant la commande est sous tension en X1:9.', fix: 'Reconnecter le retour des poussoirs sur la borne 1 (bobine) du télérupteur.', coupe: 'x1_10.a>km1.1', action: 'Reconnecter le retour des poussoirs sur la borne 1 du télérupteur', },
+    { id: 'a2', title: 'Neutre de la bobine du télérupteur mal serré', symptom: 'Le télérupteur claque sans basculer, le point lumineux clignote.', fix: 'Resserrer le neutre de la bobine sur la sortie neutre de ID1.', coupe: 'km1.3>f2.2', action: 'Resserrer le neutre de la bobine et contrôler la continuité', },
+    { id: 'f3', title: 'Q3 (commande 2 A) déclenché', symptom: 'Les poussoirs sont sans effet et aucune tension n\'est mesurée en X1:9.', fix: 'Rechercher le défaut du circuit de commande, puis réarmer Q3.', ouvre: 'f3', action: 'Chercher le défaut du circuit de commande, puis réarmer Q3', },
   ],
   quiz: [
     { q: 'Pourquoi l\'AGCP est-il différentiel 500 mA sélectif ?', options: ['Pour protéger les personnes', 'Pour laisser déclencher d\'abord les 30 mA du tableau', 'Pour limiter la puissance souscrite'], answer: 1 },
