@@ -165,8 +165,8 @@
     "states": false
   },
   "mcb2ph": {
-    "w": 52,
-    "h": 120,
+    "w": 55,
+    "h": 121,
     "states": true
   },
   "kontaktaux": {
@@ -182,6 +182,11 @@
   "trafoleg": {
     "w": 118,
     "h": 147,
+    "states": false
+  },
+  "mcb1pn": {
+    "w": 26,
+    "h": 121,
     "states": false
   }
 }

@@ -89,7 +89,7 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
       name: 'F2 · Protection du primaire',
       need: 'Protéger le primaire 400 V de T1 (I1 ≈ 0,16 A) et les conducteurs 1,5 mm²',
       options: [
-        { key: 'mcb2ph', ref: 'iC60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire pour couper les deux phases du primaire, calibre adapté au transformateur.' },
+        { key: 'mcb2ph', ref: 'C60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire pour couper les deux phases du primaire, calibre adapté au transformateur.' },
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', why: 'Un seul pôle coupé : la seconde phase du primaire reste sous tension.' },
         { key: 'mcb2ph', ref: 'iC60N 2P C20', spec: '20 A · courbe C', why: 'Calibre sans rapport avec le primaire : ni le transformateur ni les fils ne sont protégés.' },
       ],
@@ -101,7 +101,7 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
       options: [
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', ok: true, why: 'Un seul pôle : le 0 V est relié à la terre, on ne coupe que le conducteur actif.' },
         { key: 'mcb1p', ref: 'iC60N 1P C16', spec: '16 A · courbe C', why: 'Trop élevé pour du 1,5 mm² de commande.' },
-        { key: 'mcb2p', ref: 'iC60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne, mais couper le 0 V mis à la terre n\'a pas d\'intérêt et coûte un module.' },
+        { key: 'mcb2p', ref: 'C60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne, mais couper le 0 V mis à la terre n\'a pas d\'intérêt et coûte un module.' },
       ],
     },
     {

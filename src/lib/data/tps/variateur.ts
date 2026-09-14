@@ -66,11 +66,11 @@ export const TP_VARIATEUR: TpDefinition = {
     { k: 'Réseau', v: '3 × 400 V + PE, 50 Hz, arrivée sur bornier X1' },
     { k: 'Variateur', v: 'Altivar ATV320U07N4B · 0,75 kW · 380-500 V triphasé · sortie 0,1 à 599 Hz' },
     { k: 'Force motrice', v: 'moteur asynchrone triphasé 0,75 kW, 4 pôles, couplage étoile sur 400 V' },
-    { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1 400/24 V, primaire protégé par Q2 bipolaire phase / phase, secondaire par Q3 sectionneur porte-fusibles PHASE + NEUTRE : le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V. Une cartouche ne se réarme pas, elle se remplace.' },
+    { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1, primaire protégé par Q2 Schneider C60N C2 bipolaire PHASE / PHASE (bornes 1-3 / 2-4, pas de neutre), secondaire par Q3 Schneider C60N C2 PHASE + NEUTRE : le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V. Les deux conducteurs de la commande s\'ouvrent d\'un seul geste.' },
     { k: 'Transformateur T1', v: 'Legrand 042872 · 100 VA · 50/60 Hz · classe I · IP2X · EN 61558-2-6. Primaire à prises 0 · 230 · 400, secondaire BI-TENSION livré avec ses barrettes de couplage.' },
     { k: 'Primaire de T1', v: 'trois bornes marquées 0 · 230 · 400 (la face en compte cinq, deux logements restent borgnes). Alimentation en 400 V ENTRE DEUX PHASES : raccorder sur 0 et 400, la prise 230 reste libre.' },
     { k: 'Secondaire de T1', v: 'DEUX enroulements de 24 V, quatre bornes marquées 0 · 0 · 24 · 24 (0a · 0b · 24a · 24b au simulateur) et une borne de terre. Pour 24 V : deux barrettes, 0a-0b et 24a-24b — les enroulements sont en PARALLÈLE. Pour 48 V il n\'en faudrait qu\'une, 0b-24a, en SÉRIE. Dans les deux cas la sortie se prend sur 0a et 24b.' },
-    { k: 'Fusible du secondaire', v: 'le calibre est gravé sur la face du transformateur : T4A en 24 V, T2A en 48 V. 100 VA sous 24 V font 4,17 A — la cartouche de Q3 est donc de 4 A.' },
+    { k: 'Calibre de Q3', v: 'le circuit de commande appelle environ 0,4 A (bobine 24 V et deux voyants) : un calibre 2 A protège le 1,5 mm² sans déclencher. À ne pas confondre avec le fusible gravé sur T1 — T4A en 24 V — qui, lui, protège le transformateur et non le départ.' },
     { k: 'Contacteur de ligne', v: 'KM1 alimente le variateur. Moins d\'UNE manœuvre par minute : ce n\'est pas lui qui sert à démarrer et arrêter la machine au quotidien.' },
     { k: 'Ordre de marche', v: 'LI1 reçoit le 24 V du VARIATEUR (borne +24) par le contact auxiliaire 53-54 de KM1. Ne jamais mélanger ce 24 V avec celui de T1 : ce sont deux sources distinctes.' },
     { k: 'Sortie moteur', v: 'câble blindé, blindage repris à la terre aux DEUX extrémités. AUCUN organe de coupure entre le variateur et le moteur.' },
@@ -145,11 +145,11 @@ export const TP_VARIATEUR: TpDefinition = {
     {
       id: 'f3',
       name: 'Q3 · Protection et sectionnement du 24 V',
-      need: 'Protéger le secondaire 24 V du transformateur et pouvoir le sectionner. Le calibre est gravé sur la face de T1 : T4A en 24 V',
+      need: 'Protéger le circuit de commande 24 V — bobine et deux voyants, environ 0,4 A — et pouvoir le sectionner',
       options: [
-        { key: 'fuse1pn', ref: 'Multi 9 STI 10,3 × 38 · cartouche 4 A', spec: 'sectionneur porte-fusibles phase + neutre · 1 module', ok: true, why: 'Le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V : les deux conducteurs de la commande sont ouverts d\'un seul geste. C\'est l\'appareil de la platine de l\'établissement. Retiens qu\'une cartouche ne se réarme pas — elle fond, on la remplace, et on cherche d\'abord pourquoi.' },
-        { key: 'mcb1p', ref: 'iC60N 1P C4', spec: 'disjoncteur 1 pôle · 4 A', half: true, why: 'Protège bien le conducteur actif et se réarme, mais ne sectionne pas le 0 V : pour intervenir il reste un conducteur raccordé au secondaire.' },
-        { key: 'fuse1pn', ref: 'Multi 9 STI · cartouche 16 A', spec: 'même appareil, cartouche 16 A', why: 'Quarante fois le courant du circuit : la cartouche ne fondra jamais avant que le fil de 1,5 mm² n\'ait chauffé. Le calibre se choisit sur le courant à protéger, pas sur la taille de la cartouche.' },
+        { key: 'mcb1pn', ref: 'Schneider C60N 1P+N C2', spec: 'disjoncteur phase + neutre · 2 A · courbe C · 1 module', ok: true, why: 'Le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V : les deux conducteurs de la commande s\'ouvrent d\'un seul geste. 2 A protègent le 1,5 mm² sans déclencher sur les 0,4 A du circuit.' },
+        { key: 'mcb1p', ref: 'Schneider C60N 1P C2', spec: 'disjoncteur unipolaire · 2 A', half: true, why: 'Protège bien le conducteur actif, mais ne sectionne pas le 0 V : pour intervenir il reste un conducteur raccordé au secondaire du transformateur.' },
+        { key: 'fuse1pn', ref: 'Merlin Gerin Multi 9 STI 10,3 × 38', spec: 'sectionneur porte-fusibles phase + neutre · cartouche 4 A', half: true, why: 'Protège et sectionne les deux conducteurs, et c\'est un appareil qu\'on rencontre sur les platines d\'atelier. Mais une cartouche ne se réarme pas : elle fond, on la remplace, et le dépannage s\'en trouve rallongé.' },
       ],
     },
     {
@@ -167,7 +167,7 @@ export const TP_VARIATEUR: TpDefinition = {
   slots: [
     { id: 'q1', label: 'Q1 · Disjoncteur moteur GV2ME08', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
-    { id: 'f3', label: 'Q3 · Sectionneur porte-fusibles phase + neutre', key: 'fuse1pn', rail: 0, x: 200, rep: 'Q3' },
+    { id: 'f3', label: 'Q3 · Disjoncteur phase + neutre 2 A', key: 'mcb1pn', rail: 0, x: 200, rep: 'Q3' },
     { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 240, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur de ligne', key: 'kontaktaux', rail: 1, x: 46, rep: 'KM1' },
     { id: 'u1', label: 'U1 · Variateur ATV320', key: 'atv320', rail: 1, x: 150, rep: 'U1' },
@@ -354,10 +354,10 @@ export const TP_VARIATEUR: TpDefinition = {
       coupe: 'u1.V/T2>x1_7.a', action: 'Refaire la liaison U1 V/T2 → X1:7 et acquitter le défaut',
     },
     {
-      id: 'f3', title: 'Cartouche de Q3 fondue (défaut sur le 24 V)',
+      id: 'f3', title: 'Q3 déclenché (défaut sur le 24 V)',
       symptom: 'H1 éteint alors que Q1 est fermé, 0 V sur tout le bornier X2, 24 V au secondaire de T1.',
-      fix: 'Chercher le défaut d\'isolement du circuit 24 V, puis REMPLACER la cartouche — un fusible ne se réarme pas.',
-      ouvre: 'f3', action: 'Chercher le défaut d\'isolement du 24 V, puis remplacer la cartouche de Q3',
+      fix: 'Chercher le défaut d\'isolement du circuit 24 V, puis réarmer Q3. Réarmer sans chercher, c\'est provoquer un second déclenchement.',
+      ouvre: 'f3', action: 'Chercher le défaut d\'isolement du 24 V, puis réarmer Q3',
     },
   ],
   quiz: [
@@ -470,7 +470,7 @@ export const TP_VARIATEUR: TpDefinition = {
     retour: 't1.0a', repRetour: 'T1:0a',
     tete: {
       type: 'disjoncteur', a: 'f3.1', b: 'f3.2',
-      rep: 'Q3', legende: 'pôle protégé · cartouche 2 A', conducteur: '2',
+      rep: 'Q3', legende: 'pôle protégé · 2 A courbe C', conducteur: '2',
     },
     // Q3 est un PHASE + NEUTRE : son second pôle sectionne le 0 V. Sans ce
     // dessin, l'élève croirait le retour raccordé en permanence au secondaire.

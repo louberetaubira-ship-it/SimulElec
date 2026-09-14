@@ -187,7 +187,7 @@ export function reseauCommande(
       // cartouche — un défaut ne le fait pas fondre — mais il s'ouvre avec
       // l'appareil, et l'élève doit retrouver ce sectionnement à l'ohmmètre.
       const pn = tp.slots.find(x => x.id === id)?.key;
-      if (pn === 'fuse1pn' || pn === 'mcb2p') contact(`${id}.N`, `${id}.N2`, sim.f3, `${id}-n`);
+      if (pn === 'fuse1pn' || pn === 'mcb1pn' || pn === 'mcb2p') contact(`${id}.N`, `${id}.N2`, sim.f3, `${id}-n`);
     }
     if (id === 'f1') {
       contact(`${id}.95`, `${id}.96`, !sim.f1trip, 'f1');

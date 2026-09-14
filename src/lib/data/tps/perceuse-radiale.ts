@@ -142,7 +142,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       name: 'Q2 · Protection du primaire',
       need: 'Protéger le primaire 400 V de T1 (I₁ ≈ 0,16 A) et ses conducteurs',
       options: [
-        { key: 'mcb2ph', ref: 'iC60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire : le primaire est pris entre DEUX phases, il faut couper les deux.' },
+        { key: 'mcb2ph', ref: 'C60N 2P C2', spec: '2 A · courbe C · 2 pôles', ok: true, why: 'Bipolaire : le primaire est pris entre DEUX phases, il faut couper les deux.' },
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · 1 pôle', why: 'Un seul pôle coupé : la seconde phase du primaire reste sous tension, le transformateur reste dangereux.' },
         { key: 'mcb2ph', ref: 'iC60N 2P C20', spec: '20 A · courbe C', why: 'Calibre sans rapport avec un primaire de 0,16 A.' },
       ],
@@ -154,7 +154,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       options: [
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', ok: true, why: 'Le conducteur « com » est relié à la terre : on ne coupe que le conducteur actif.' },
         { key: 'mcb1p', ref: 'iC60N 1P C16', spec: '16 A · courbe C', why: 'Beaucoup trop élevé pour du 1,5 mm² de commande.' },
-        { key: 'mcb2p', ref: 'iC60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne, mais couper le « com » mis à la terre ne sert à rien et coûte un module.' },
+        { key: 'mcb2p', ref: 'C60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne, mais couper le « com » mis à la terre ne sert à rien et coûte un module.' },
       ],
     },
     {

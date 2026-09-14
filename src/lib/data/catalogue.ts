@@ -25,6 +25,13 @@ function vector(
 export const CATALOGUE: CatalogueItem[] = [
   // ---- Disjoncteurs modulaires ----
   item({ key: 'mcb1p', name: 'Disjoncteur 1P C2', ref: 'iC60N 1P C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 1, In: 2, terminals: one() }),
+  // Disjoncteur PHASE + NEUTRE Schneider, 1 module, courbe C 2 A. Le pôle protégé
+  // coupe l'actif, le pôle neutre sectionne le retour : les deux conducteurs de la
+  // commande s'ouvrent d'un seul geste. Bornes N et 1 en haut, N et 2 en bas,
+  // comme sur l'appareil.
+  item({ key: 'mcb1pn', name: 'Disjoncteur phase + neutre 2 A · courbe C', ref: 'Schneider C60N 1P+N C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 2, In: 2,
+    terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 },
+      { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
   // Sectionneur porte-fusibles PHASE + NEUTRE, 1 module, cartouche 10,3 × 38 — c'est
   // l'appareil réellement posé sur la platine de l'établissement (Multi 9 STI). Un
   // fusible ne se réarme pas : il fond et se remplace, et c'est ce que l'élève doit
@@ -36,7 +43,7 @@ export const CATALOGUE: CatalogueItem[] = [
     terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
   // Bipolaire PHASE / PHASE : bornes 1-3 / 2-4, comme sur un primaire de transformateur pris
   // entre deux phases. Le 1P+N ci-dessus a des bornes N : elles induiraient l'élève en erreur.
-  item({ key: 'mcb2ph', name: 'Disjoncteur bipolaire 2 A · phase / phase', ref: 'iC60N 2P C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 2, poles: 2, In: 2,
+  item({ key: 'mcb2ph', name: 'Disjoncteur bipolaire 2 A · phase / phase', ref: 'C60N 2P C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 2, poles: 2, In: 2,
     terminals: [{ id: '1', fx: 0.3, fy: 0.06 }, { id: '3', fx: 0.7, fy: 0.06 }, { id: '2', fx: 0.3, fy: 0.94 }, { id: '4', fx: 0.7, fy: 0.94 }] }),
   item({ key: 'mcb3p', name: 'Disjoncteur 3P C20', ref: 'Genrod 3P C20', brand: 'Genrod', kind: 'mcb', family: 'Disjoncteurs', modules: 3, poles: 3, In: 20, terminals: [...top3(['1', '3', '5']), ...bot3(['2', '4', '6'])] }),
   item({ key: 'mcb4p', name: 'Disjoncteur 4P C40', ref: 'Genrod 4P C40', brand: 'Genrod', kind: 'main', family: 'Disjoncteurs', modules: 4, poles: 4, In: 40,

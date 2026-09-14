@@ -111,7 +111,7 @@ export const TP_ECLAIRAGE_BAES: TpDefinition = {
       options: [
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', ok: true, why: 'Calibre adapté à un circuit de commande en 1,5 mm² et circuit dédié, indépendant de l\'éclairage.' },
         { key: 'mcb1p', ref: 'iC60N 1P C16', spec: '16 A · courbe C', why: 'Bien trop élevé pour du 1,5 mm² de commande : un défaut ne serait pas éliminé assez vite.' },
-        { key: 'mcb2p', ref: 'iC60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne, mais couper le neutre du circuit de commande n\'apporte rien et consomme un module de plus.' },
+        { key: 'mcb2p', ref: 'C60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne, mais couper le neutre du circuit de commande n\'apporte rien et consomme un module de plus.' },
       ],
     },
     {

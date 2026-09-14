@@ -90,7 +90,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
       options: [
         { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C', ok: true, why: 'Calibre adapté à l\'automate, la bobine et les voyants ; un seul pôle car le 0 V est à la terre.' },
         { key: 'mcb1p', ref: 'iC60N 1P C10', spec: '10 A · courbe C', why: 'Trop élevé : les fils 1,5 mm² de commande ne sont pas protégés.' },
-        { key: 'mcb2ph', ref: 'iC60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne mais coupe inutilement le 0 V mis à la terre.' },
+        { key: 'mcb2ph', ref: 'C60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne mais coupe inutilement le 0 V mis à la terre.' },
       ],
     },
     {
