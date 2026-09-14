@@ -50,3 +50,19 @@ export function generatePassword(): string {
   const chiffres = String(10 + Math.floor(Math.random() * 90));
   return `${mot}-${chiffres}`;
 }
+
+/**
+ * Mot de passe PROVISOIRE d'un compte enseignant : quatre syllabes et trois
+ * chiffres, soit ~14 caractères — encore dictable au téléphone, mais nettement
+ * plus solide que le mot de passe élève.
+ *
+ * L'écart se justifie : un compte enseignant voit les résultats de toutes ses
+ * classes, et un compte administrateur voit l'établissement entier. Ce mot de
+ * passe ne vit d'ailleurs que le temps d'une session, puisque la personne doit
+ * en choisir un autre.
+ */
+export function generateTempPassword(): string {
+  const mot = Array.from({ length: 4 }, () => pick(SYLLABES)).join('');
+  const chiffres = String(100 + Math.floor(Math.random() * 900));
+  return `${mot}-${chiffres}`;
+}

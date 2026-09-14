@@ -21,16 +21,21 @@ export async function listAllowlist(): Promise<TeacherAllowEntry[]> {
   return profs;
 }
 
-/** Autorise une adresse à se connecter avec Google. */
+/**
+ * Autorise une personne. `email` est son identité de référence — celle qui porte
+ * le mot de passe ; `googleEmail`, facultative, laisse en plus passer la
+ * connexion Google.
+ */
 export async function addTeacher(
   email: string,
   fullName?: string,
   role: 'professeur' | 'admin' = 'professeur',
+  googleEmail?: string,
 ): Promise<TeacherAllowRow> {
   const response = await fetch('/api/admin/profs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, full_name: fullName ?? null, role }),
+    body: JSON.stringify({ email, google_email: googleEmail ?? null, full_name: fullName ?? null, role }),
   });
   const { prof } = await readJson<{ prof: TeacherAllowRow }>(response);
   return prof;

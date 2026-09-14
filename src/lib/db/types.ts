@@ -68,6 +68,8 @@ export interface ClassRow {
 /** Liste blanche des adresses autorisées à se connecter avec Google (migration 0005). */
 export interface TeacherAllowRow {
   email: string;
+  /** Adresse Google facultative de la même personne : elle ouvre le même compte. */
+  google_email: string | null;
   full_name: string | null;
   role: 'professeur' | 'admin';
   invited_by: string | null;

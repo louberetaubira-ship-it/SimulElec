@@ -70,6 +70,8 @@ export default function AdminPage() {
   const [chiffres, setChiffres] = useState<Compteurs | null>(null);
   const [allowlist, setAllowlist] = useState<TeacherAllowEntry[]>([]);
   const [email, setEmail] = useState('');
+  /** Adresse Google facultative : la même personne, une seconde porte d'entrée. */
+  const [googleEmail, setGoogleEmail] = useState('');
   const [nom, setNom] = useState('');
   const [role, setRole] = useState<'professeur' | 'admin'>('professeur');
   const [busy, setBusy] = useState(false);
@@ -77,6 +79,9 @@ export default function AdminPage() {
   const [ok, setOk] = useState<string | null>(null);
   /** Mot de passe fraîchement généré, affiché UNE seule fois : il n'est stocké nulle part en clair. */
   const [motDePasse, setMotDePasse] = useState<{ email: string; password: string } | null>(null);
+
+  /** Administrateur en place, s'il y en a un : il n'y en a qu'un par établissement. */
+  const adminExistant = allowlist.find((e) => e.role === 'admin')?.email ?? null;
 
   const recharger = useCallback(async () => {
     const [liste, compteurs] = await Promise.all([listAllowlist(), compter()]);
@@ -103,8 +108,9 @@ export default function AdminPage() {
     setOk(null);
     setBusy(true);
     try {
-      await addTeacher(email.trim().toLowerCase(), nom.trim() || undefined, role);
+      await addTeacher(email.trim().toLowerCase(), nom.trim() || undefined, role, googleEmail.trim().toLowerCase() || undefined);
       setEmail('');
+      setGoogleEmail('');
       setNom('');
       setRole('professeur');
       setOk('Adresse ajoutée. Pour une adresse académique, utilisez « Créer l\u2019accès » afin de générer son mot de passe.');
@@ -141,8 +147,8 @@ export default function AdminPage() {
       }
       setMotDePasse({ email: charge.email ?? adresse, password: charge.password });
       setOk(charge.created
-        ? 'Compte créé. Transmettez le mot de passe ci-dessous : il ne sera plus affiché.'
-        : 'Mot de passe réinitialisé. Transmettez-le ci-dessous : il ne sera plus affiché.');
+        ? 'Compte créé. Transmettez le mot de passe ci-dessous : il ne sera plus affiché, et la personne devra en choisir un autre à sa première session.'
+        : 'Mot de passe réinitialisé. Transmettez-le ci-dessous : il ne sera plus affiché, et la personne devra en choisir un autre à sa première session.');
       await recharger();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Génération impossible.');
@@ -196,9 +202,9 @@ export default function AdminPage() {
       <Panneau title="Liste blanche">
         <p className="mb-3 text-[13px] text-muted">
           Seules les adresses inscrites ci-dessous peuvent se connecter ; toute autre est refusée à
-          l&apos;inscription. Une adresse Gmail peut passer par Google ; une adresse académique, elle,
-          n&apos;est pas un compte Google — il faut lui « créer l&apos;accès » ci-dessous, ce qui génère
-          un mot de passe à transmettre.
+          l&apos;inscription. Une adresse Google entre d&apos;un clic. Une adresse académique, elle,
+          n&apos;est pas un compte Google : il faut lui « créer l&apos;accès », ce qui génère un mot de
+          passe provisoire à transmettre — la personne en choisira un autre à sa première session.
         </p>
 
         {motDePasse && (
@@ -207,9 +213,10 @@ export default function AdminPage() {
               Accès pour {motDePasse.email}
             </p>
             <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-              À transmettre à l&apos;intéressé, qui se connecte ensuite par l&apos;onglet
-              « Professeur » avec cette adresse et ce mot de passe. Il n&apos;est affiché
-              qu&apos;une fois.
+              À transmettre à l&apos;intéressé, qui se connecte par l&apos;onglet « Professeur »
+              avec cette adresse et ce mot de passe. Il n&apos;est affiché qu&apos;une fois, et
+              il est <strong>provisoire</strong> : à la première session, la personne devra
+              choisir le sien avant d&apos;accéder au reste de l&apos;application.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <code className="rounded-[8px] border border-line bg-white px-3 py-1.5 font-mono text-[13px]">
@@ -232,6 +239,7 @@ export default function AdminPage() {
             <thead className="bg-[var(--surface-2)] text-left text-[11px] uppercase tracking-[.06em] text-muted">
               <tr>
                 <th className="px-3 py-2.5">Adresse</th>
+                <th className="px-3 py-2.5">Adresse Google</th>
                 <th className="px-3 py-2.5">Nom</th>
                 <th className="px-3 py-2.5">Rôle</th>
                 <th className="px-3 py-2.5">État</th>
@@ -243,6 +251,7 @@ export default function AdminPage() {
               {allowlist.map((entry) => (
                 <tr key={entry.email} className="border-t border-line align-middle">
                   <td className="px-3 py-2.5 font-mono text-[12px]">{entry.email}</td>
+                  <td className="px-3 py-2.5 font-mono text-[12px] text-muted">{entry.google_email ?? '—'}</td>
                   <td className="px-3 py-2.5">{entry.profile?.full_name ?? entry.full_name ?? '—'}</td>
                   <td className="px-3 py-2.5">{ROLE_LABEL[entry.role]}</td>
                   <td className="px-3 py-2.5">
@@ -284,7 +293,7 @@ export default function AdminPage() {
               ))}
               {allowlist.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-muted">
+                  <td colSpan={7} className="px-3 py-6 text-center text-muted">
                     Aucune adresse autorisée.
                   </td>
                 </tr>
@@ -295,14 +304,30 @@ export default function AdminPage() {
       </Panneau>
 
       <Panneau title="Autoriser une adresse">
+        <p className="mb-3 text-[13px] text-muted">
+          Une personne, deux portes d&apos;entrée. L&apos;<strong>adresse électronique</strong> est
+          son identité de référence : c&apos;est elle qui porte le mot de passe, et c&apos;est la
+          seule qui convienne à une adresse académique. L&apos;<strong>adresse Google</strong> est
+          facultative et ouvre le même compte d&apos;un clic, pour qui en possède une.
+        </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Champ label="Adresse Google" className="lg:col-span-2">
+          <Champ label="Adresse électronique" className="lg:col-span-2">
             <input
               type="email"
               inputMode="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="prenom.nom@ac-academie.fr"
+              placeholder="prenom.nom@ac-guyane.fr"
+              className={inputClass}
+            />
+          </Champ>
+          <Champ label="Adresse Google (facultative)" className="lg:col-span-2">
+            <input
+              type="email"
+              inputMode="email"
+              value={googleEmail}
+              onChange={(e) => setGoogleEmail(e.target.value)}
+              placeholder="prenom.nom@gmail.com"
               className={inputClass}
             />
           </Champ>
@@ -316,7 +341,14 @@ export default function AdminPage() {
               className={inputClass}
             >
               <option value="professeur">Professeur</option>
-              <option value="admin">Administrateur</option>
+              {/*
+                L'établissement n'a qu'un administrateur. Tant qu'il y en a un, le
+                choix reste visible mais inerte : le masquer laisserait croire que
+                le rôle n'existe pas, alors qu'il est simplement déjà attribué.
+              */}
+              <option value="admin" disabled={Boolean(adminExistant)}>
+                Administrateur{adminExistant ? ` — déjà ${adminExistant}` : ''}
+              </option>
             </select>
           </Champ>
         </div>
