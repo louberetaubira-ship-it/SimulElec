@@ -18,7 +18,7 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 ## Contrat entre les modules
 - Le parcours (client) persiste via `src/lib/db/attempts.ts` : `getOrCreateAttempt(tpId)`, `saveAttemptState(id, state, stage, status?)`, `addMeasurement(id, m)`, `addMessage(id, stage, role, content)`, `finishAttempt(id, report, score)`.
 - Le bot : `POST /api/prof` body `{ attemptId, stage, context, turns:[{role,content}] }` → `{ text }`. Le client construit `context` (cahier des charges + état du montage, panne secrète incluse) ; le serveur ajoute les règles pédagogiques et archive les deux messages.
-- Panneau : coordonnées logiques `PANEL_W × PANEL_H` (560 × 920 : armoire 0..720 + bloc récepteurs 734..920), mis à l'échelle par le `<Workspace>` zoomable (`src/components/panel/Workspace.tsx`) ou, à défaut, par le `<Panel>` lui-même ; les positions des bornes viennent de `CatalogueItem.terminals` (fractions) + `Slot`.
+- Panneau : coordonnées logiques `PANEL_W × PANEL_H` (560 × 920 par défaut : armoire 0..720 + bloc récepteurs 734..920). **La hauteur est variable par TP** : `TpDefinition.armoire` et `rails` définissent la scène, `sceneOf(tp)` la calcule (`cabH`, `recvY`, `panelH`, goulottes déduites des rails) et `Panel` la distribue. Un appareil book (variateur) se décale sous son rail par `Slot.dy` au lieu d'y être centré, mis à l'échelle par le `<Workspace>` zoomable (`src/components/panel/Workspace.tsx`) ou, à défaut, par le `<Panel>` lui-même ; les positions des bornes viennent de `CatalogueItem.terminals` (fractions) + `Slot`.
 
 ## Design
 - Palette : fond `#F5F6F8` / surface `#FFFFFF` / ligne `#D3D9E1` / texte `#141A21` / muted `#66717F` / accent `#E39A00` / good `#1E9E63` / warn `#D97706` / crit `#D93A3A`. Fils : L1 `#8B4A2B`, L2 `#2B2F36`, L3 `#8E979F`, N `#2C7BE5`, PE `#37B34A` (pointillé), commande `#E4312B`.
@@ -36,6 +36,7 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - `npx tsx scripts/audit-trafo.ts` — prises du transformateur de commande et tension du secondaire.
 - `npx tsx scripts/audit-diagnostic.ts` — chaque panne est-elle *trouvable* à l'instrument, et *distincte* des autres ?
 - `npx tsx scripts/audit-folio.ts` — le folio est-il complet (toute borne de commande mesurable), fidèle (rien de rouge sur une platine saine, chaque panne visible) et cohérent avec les repères de la platine ?
+- `npx tsx scripts/audit-encombrement.ts` — deux appareils qui se chevauchent, un appareil qui mord une goulotte, un appareil qui déborde de l'armoire. À lancer après tout changement de `rails`, d'`armoire` ou de taille de sprite.
 - `npx tsx scripts/audit-mesures.ts` — table de référence de la plaque à bornes (2 R en étoile, ⅔ R en triangle, OL barrettes retirées), puis : chaque mesure attendue est-elle *atteignable* ? La valeur rendue par le simulateur doit tomber dans `[min, max]`, sinon l'élève ne peut pas valider l'étape. À lancer après toute modification d'un TP ou du moteur de mesure.
 
 ## Repères
