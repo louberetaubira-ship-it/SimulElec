@@ -120,7 +120,48 @@ function ProfForm({ next, initialError }: { next: string; initialError: string |
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [google, setGoogle] = useState(false);
+  const [lien, setLien] = useState(false);
+  const [envoye, setEnvoye] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(initialError);
+
+  /**
+   * Lien de connexion par courriel. Aucun mot de passe n'est envoyé : ce serait
+   * une faute, et Supabase ne le fait pas. Ce qui part, c'est un lien à usage
+   * unique et daté.
+   *
+   * `shouldCreateUser` est laissé à vrai À DESSEIN : c'est ainsi qu'une adresse
+   * inscrite mais jamais connectée obtient son accès sans intervention. Une
+   * adresse absente de la liste blanche ne crée rien pour autant — le trigger
+   * `handle_new_user` la refuse, et le message ci-dessous le dit.
+   */
+  async function envoyerLien() {
+    const adresse = email.trim().toLowerCase();
+    if (!adresse) {
+      setError('Saisissez d\u2019abord votre adresse électronique.');
+      return;
+    }
+    setLien(true);
+    setError(null);
+    setEnvoye(null);
+    const supabase = createClient();
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: adresse,
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}` },
+    });
+    setLien(false);
+    if (err) {
+      const m = err.message.toLowerCase();
+      if (m.includes('autoris') || m.includes('database error') || m.includes('saving new user')) {
+        setError("Cette adresse n'est pas autorisée sur SimulElec. Demandez à l'administrateur de l'ajouter.");
+      } else if (m.includes('rate') || m.includes('limit') || m.includes('seconds')) {
+        setError('Un lien vient déjà d\u2019être envoyé. Patientez une minute avant d\u2019en redemander un.');
+      } else {
+        setError(err.message);
+      }
+      return;
+    }
+    setEnvoye(adresse);
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -204,6 +245,22 @@ function ProfForm({ next, initialError }: { next: string; initialError: string |
         <span className="text-xs text-[#66717F]">ou</span>
         <span className="h-px flex-1 bg-[#D3D9E1]" />
       </div>
+
+      <button
+        type="button"
+        onClick={envoyerLien}
+        disabled={lien}
+        className="mt-4 min-h-[48px] w-full rounded-xl border border-[#D3D9E1] bg-white px-4 text-sm font-medium text-[#141A21] transition hover:bg-[#F5F6F8] disabled:opacity-60"
+      >
+        {lien ? 'Envoi…' : 'Recevoir un lien de connexion par e-mail'}
+      </button>
+
+      {envoye && (
+        <p className="mt-3 rounded-xl border border-[#1E9E63]/30 bg-[#1E9E63]/5 p-3 text-sm leading-relaxed text-[#1E9E63]">
+          Un lien de connexion vient d&apos;être envoyé à {envoye}. Il ne sert qu&apos;une fois
+          et expire au bout d&apos;une heure. Pensez au dossier « indésirables ».
+        </p>
+      )}
 
       <button
         type="button"
