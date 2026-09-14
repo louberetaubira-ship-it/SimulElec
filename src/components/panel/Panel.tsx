@@ -9,8 +9,8 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  MTERM, MT2, PANEL_W, PE_GLAND, RES, sceneOf,
-  pupitreOf, pupitreTerminals, recvBox, resIds, resLabel, term, type Point,
+  PANEL_W, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
+  pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
   annexTerminals, planLanes, recvGlandX, recvTerminals, route, sceneContext, tpos,
@@ -189,10 +189,10 @@ export default function Panel(props: PanelProps) {
   );
   const motorTerminals: TerminalMark[] = React.useMemo(() => {
     if (!tp.hasMotor) return [];
-    return Object.entries({ ...MTERM, ...MT2 }).map(([id, p]) => ({
+    return Object.entries({ ...mtermOf(geo), ...mt2Of(geo) }).map(([id, p]) => ({
       id, pos: p, label: id.split('.')[1], dy: id.endsWith('2') ? -9 : 9,
     }));
-  }, [tp.hasMotor]);
+  }, [tp.hasMotor, geo]);
   const annexTerms: TerminalMark[] = React.useMemo(() => {
     const out: TerminalMark[] = [];
     for (const it of tp.annexItems ?? []) {
@@ -206,7 +206,7 @@ export default function Panel(props: PanelProps) {
   const recvTerms: TerminalMark[] = React.useMemo(() => {
     const out: TerminalMark[] = [];
     for (const it of recvItems) {
-      for (const [id, p] of Object.entries(recvTerminals(it))) {
+      for (const [id, p] of Object.entries(recvTerminals(geo, it))) {
         out.push({ id, pos: { x: p.x, y: p.y }, label: id.split('.')[1], dy: -9 });
       }
     }
@@ -215,15 +215,15 @@ export default function Panel(props: PanelProps) {
   /** Presse-étoupes en bas de l'armoire : un par descente vers un récepteur. */
   const glands: number[] = React.useMemo(() => {
     const xs = new Set<number>(recvItems.length ? recvItems.flatMap((it) => {
-      const b = recvBox(it);
+      const b = recvBoxOf(geo, it);
       return [recvGlandX(b.x + b.w * 0.34), recvGlandX(b.x + b.w * 0.66)];
     }) : []);
-    if (tp.hasMotor) xs.add(PE_GLAND.x);
+    if (tp.hasMotor) xs.add(glandOf(geo).x);
     return Array.from(xs);
-  }, [recvItems, tp.hasMotor]);
+  }, [recvItems, tp.hasMotor, geo]);
 
   const netTerminals: TerminalMark[] = React.useMemo(
-    () => resIds(tp.scene).map((id) => ({ id, pos: RES[id] })),
+    () => resIds(tp.scene).map((id) => ({ id, pos: resOf(geo)[id] })),
     [tp.scene],
   );
 
@@ -324,7 +324,7 @@ export default function Panel(props: PanelProps) {
     <div
       ref={panelRef}
       className={`se-panel ${tp.scene}`}
-      style={fixedScale ? undefined : { transform: `scale(${scale})` }}
+      style={fixedScale ? { height: geo.panelH } : { height: geo.panelH, transform: `scale(${scale})` }}
       onPointerDown={picking ? (e) => {
         const id = borneSous(e);
         // On ne neutralise l'événement que si une borne est vraiment visée : ailleurs,
@@ -347,7 +347,7 @@ export default function Panel(props: PanelProps) {
       <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} />
 
       {/* fils sous les couvercles : masqués par les goulottes quand les couvercles sont fermés */}
-      <WiresUnder panelH={geo.panelH} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresUnder panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       {/* appareils */}
       {ctx.slots.map((s) => (
@@ -386,8 +386,8 @@ export default function Panel(props: PanelProps) {
       {tp.hasMotor ? (
         <>
           {/* L'étiquette vient de la plaque du TP : chaque machine a son moteur. */}
-          <Motor rpm={motorRpm} label={motorLabel} />
-          <TerminalBox />
+          <Motor rpm={motorRpm} label={motorLabel} y={motorOf(geo).y} />
+          <TerminalBox y={tbOf(geo).y} />
           <Terminals
             terminals={motorTerminals}
             marks={marks}
@@ -402,10 +402,10 @@ export default function Panel(props: PanelProps) {
 
       {/* presse-étoupes en bas de l'armoire */}
       {glands.map((x) => (
-        <div key={`g${x}`} className="se-gland" style={{ left: x, top: PE_GLAND.y }} />
+        <div key={`g${x}`} className="se-gland" style={{ left: x, top: glandOf(geo).y }} />
       ))}
       {glands.length ? (
-        <div className="se-res" style={{ left: 500, top: PE_GLAND.y + 12 }}>
+        <div className="se-res" style={{ left: 500, top: glandOf(geo).y + 12 }}>
           presse-étoupe{glands.length > 1 ? 's' : ''}
         </div>
       ) : null}
@@ -452,13 +452,13 @@ export default function Panel(props: PanelProps) {
         </div>
       ))}
       {mono ? (
-        <div className="se-res" style={{ left: 200, top: RES['RES.L1'].y + 6 }}>
+        <div className="se-res" style={{ left: 200, top: resOf(geo)['RES.L1'].y + 6 }}>
           arrivée réseau mono 230 V · AGCP
         </div>
       ) : null}
 
       {/* fils au-dessus des couvercles (brins + parties extérieures) */}
-      <WiresOver panelH={geo.panelH} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresOver panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       <Overlays probes={probePos} clamp={clampPos} lock={lockBox} />
     </div>

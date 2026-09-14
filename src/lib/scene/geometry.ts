@@ -229,6 +229,46 @@ export const RES: Record<string, Point> = {
   'RES.N': { x: 154, y: 704 },
   'RES.PE': { x: 182, y: 704 },
 };
+/*
+ * Tout ce qui est HORS ARMOIRE suit la scène, pas une constante.
+ *
+ * Le moteur, sa plaque à bornes, les presse-étoupes et l'arrivée réseau étaient
+ * figés sur l'armoire de 720 px. Dès qu'un TP relève son armoire, ils restaient
+ * en arrière et se retrouvaient DANS la platine, tandis que le bloc récepteurs
+ * descendait, vide. Les décalages ci-dessous sont ceux de la scène de référence ;
+ * ce sont eux qui font foi, pas les ordonnées absolues.
+ */
+const MOTOR_DY = MOTOR.y - RECV_Y;      //  +26 sous le haut du bloc récepteurs
+const TB_DY = TB.y - RECV_Y;            //  +36
+const GLAND_DY = PE_GLAND.y - CAB_H;    //   -8 : le presse-étoupe mord le bas de l'armoire
+const RES_DY = RES['RES.L1'].y - CAB_H; //  -16 : l'arrivée réseau juste au-dessus
+
+/** Moteur hors armoire, à sa place dans le bloc récepteurs de CETTE scène. */
+export const motorOf = (geo: Pick<SceneGeom, 'recvY'>): Point =>
+  ({ x: MOTOR.x, y: geo.recvY + MOTOR_DY });
+/** Plaque à bornes du moteur, idem. */
+export const tbOf = (geo: Pick<SceneGeom, 'recvY'>): Box =>
+  ({ ...TB, y: geo.recvY + TB_DY });
+/** Presse-étoupe de sortie du câble moteur, en bas de l'armoire de CETTE scène. */
+export const glandOf = (geo: Pick<SceneGeom, 'cabH'>): Point =>
+  ({ x: PE_GLAND.x, y: geo.cabH + GLAND_DY });
+/** Arrivée réseau, en bas de l'armoire de CETTE scène. */
+export function resOf(geo: Pick<SceneGeom, 'cabH'>): Record<string, Point> {
+  const y = geo.cabH + RES_DY;
+  return Object.fromEntries(Object.entries(RES).map(([id, p]) => [id, { x: p.x, y }]));
+}
+const ttOf = (tb: Box, cx: number, cy: number): Point => ({ x: tb.x + cx, y: tb.y + cy });
+/** Bornes basses de la plaque (U1 V1 W1 + PE) dans CETTE scène. */
+export function mtermOf(geo: Pick<SceneGeom, 'recvY'>): Record<string, Point> {
+  const tb = tbOf(geo);
+  return { 'M.U1': ttOf(tb, 30, 74), 'M.V1': ttOf(tb, 58, 74), 'M.W1': ttOf(tb, 86, 74), 'M.PE': ttOf(tb, 14, 98) };
+}
+/** Bornes hautes (W2 U2 V2) dans CETTE scène. */
+export function mt2Of(geo: Pick<SceneGeom, 'recvY'>): Record<string, Point> {
+  const tb = tbOf(geo);
+  return { 'M.W2': ttOf(tb, 30, 40), 'M.U2': ttOf(tb, 58, 40), 'M.V2': ttOf(tb, 86, 40) };
+}
+
 /** Bornes réseau visibles selon la scène (mono pour hab / pv). */
 export function resIds(scene: SceneKind): string[] {
   return scene === 'pv' || scene === 'hab'
@@ -286,6 +326,12 @@ export const RECV_TITLE: Record<AnnexKind, string> = {
  */
 export const recvBox = (it: { x: number; y: number; w: number; h: number }): Box =>
   ({ x: it.x, y: RECV_Y + it.y, w: it.w, h: it.h });
+
+/** Idem, mais dans le bloc récepteurs de CETTE scène (armoire de hauteur variable). */
+export const recvBoxOf = (
+  geo: Pick<SceneGeom, 'recvY'>,
+  it: { x: number; y: number; w: number; h: number },
+): Box => ({ x: it.x, y: geo.recvY + it.y, w: it.w, h: it.h });
 
 /* ------------------------------------------------------------ helpers */
 

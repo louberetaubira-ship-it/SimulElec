@@ -41,6 +41,8 @@ export interface WiresProps {
   onWireLongPress?: (index: number, x: number, y: number) => void;
   /** Hauteur de la scène : une armoire plus haute allonge le viewBox. */
   panelH?: number;
+  /** Bas de la goulotte de pied : au-delà, le fil est hors armoire (porte, moteur, réseau). */
+  pied?: number;
 }
 
 const cls = (w: RoutedWire, highlight?: number | null, selected?: number | null): string =>
@@ -109,7 +111,7 @@ function Hit(props: {
 }
 
 function Layer(
-  { over, wires, highlight, selected, pick, onWire, onWireLongPress, panelH = PANEL_H }:
+  { over, wires, highlight, selected, pick, onWire, onWireLongPress, panelH = PANEL_H, pied }:
   WiresProps & { over: boolean },
 ) {
   const { down, click, cancel } = useWireGestures(onWire, onWireLongPress);
@@ -118,7 +120,7 @@ function Layer(
   const segments = (w: RoutedWire): { key: string; d: string }[] => {
     if (!over) return [{ key: 'u', d: pathD(w.pts) }];
     const out = stubs(w.pts).map(([a, b], k) => ({ key: `s${k}`, d: `M${a.x} ${a.y} L${b.x} ${b.y}` }));
-    if (w.external && externalPart(w.pts).length > 1) out.push({ key: 'x', d: pathD(externalPart(w.pts)) });
+    if (w.external && externalPart(w.pts, pied).length > 1) out.push({ key: 'x', d: pathD(externalPart(w.pts, pied)) });
     return out;
   };
 

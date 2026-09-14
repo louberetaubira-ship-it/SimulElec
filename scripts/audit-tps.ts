@@ -25,7 +25,7 @@ for (const tp of TPS) {
   const bornes = new Set<string>();
   for (const s of ctx.slots) for (const t of s.terminals) bornes.add(`${s.id}.${t.id}`);
   for (const id of resIds(tp.scene)) bornes.add(id);
-  for (const it of tp.recvItems ?? []) Object.keys(recvTerminals(it)).forEach((k) => bornes.add(k));
+  for (const it of tp.recvItems ?? []) Object.keys(recvTerminals(ctx.geo, it)).forEach((k) => bornes.add(k));
   for (const it of tp.annexItems ?? []) Object.keys(annexTerminals(it)).forEach((k) => bornes.add(k));
   if (tp.station) Object.keys(pupitreTerminals(pupitreOf(tp))).forEach((k) => bornes.add(k));
   if (tp.hasMotor) Object.keys({ ...MTERM, ...MT2 }).forEach((k) => bornes.add(k));

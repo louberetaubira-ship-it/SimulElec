@@ -12,8 +12,9 @@
  */
 import type { AnnexKind, AnnexItem, CatalogueItem, Slot, TerminalDef, TpDefinition } from '@/lib/types';
 import {
-  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, DUCT_YS, MTERM, MT2, PX_MM, RAILS, RES, SR, ST, TB,
-  ductY, pupitreOf, pupitreTerminals, recvBox, slotGeom, term, type Box, type Point,
+  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, PX_MM, SR, ST,
+  mt2Of, mtermOf, pupitreOf, pupitreTerminals, recvBoxOf, resOf, sceneOf, slotGeom, tbOf,
+  term, type Box, type Point, type SceneGeom,
 } from './geometry';
 
 /* ------------------------------------------------------------- contexte */
@@ -41,6 +42,12 @@ export interface SceneCtx {
   slots: ResolvedSlot[];
   annex: AnnexKind;
   extra: Record<string, ExtPoint>;
+  /**
+   * Géométrie de CETTE scène : rails, goulottes, hauteur d'armoire. Le cheminement
+   * s'y réfère au lieu des constantes — sur une armoire relevée, les goulottes ne
+   * sont plus là où les constantes les plaçaient.
+   */
+  geo: SceneGeom;
 }
 
 /** Position résolue d'une borne. */
@@ -74,8 +81,8 @@ export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
 }
 
 /** Bornes X1 / X2 d'un récepteur du bloc du bas, sur son bord haut. */
-export function recvTerminals(it: AnnexItem): Record<string, ExtPoint> {
-  const b = recvBox(it);
+export function recvTerminals(geo: Pick<SceneGeom, 'recvY'>, it: AnnexItem): Record<string, ExtPoint> {
+  const b = recvBoxOf(geo, it);
   return {
     [`${it.rep}.X1`]: { x: b.x + b.w * 0.34, y: b.y, ext: 'recv' },
     [`${it.rep}.X2`]: { x: b.x + b.w * 0.66, y: b.y, ext: 'recv' },
@@ -86,18 +93,21 @@ export function recvTerminals(it: AnnexItem): Record<string, ExtPoint> {
 export const recvGlandX = (x: number): number => Math.max(46, Math.min(536, Math.round(x)));
 
 /** Bornes extérieures d'un TP : coffret de porte, moteur, réseau, éléments d'annexe. */
-export function externalPoints(tp: Pick<TpDefinition, 'station' | 'pupitre' | 'hasMotor' | 'annexItems' | 'recvItems'>): Record<string, ExtPoint> {
+export function externalPoints(
+  tp: Pick<TpDefinition, 'station' | 'pupitre' | 'hasMotor' | 'annexItems' | 'recvItems'>,
+  geo: SceneGeom,
+): Record<string, ExtPoint> {
   const out: Record<string, ExtPoint> = {};
   if (tp.station) {
     for (const [id, p] of Object.entries(pupitreTerminals(pupitreOf(tp)))) out[id] = { ...p, ext: 'door' };
   }
   if (tp.hasMotor) {
-    for (const [id, p] of Object.entries(MTERM)) out[id] = { ...p, ext: 'motor' };
-    for (const [id, p] of Object.entries(MT2)) out[id] = { ...p, ext: 'motor' };
+    for (const [id, p] of Object.entries(mtermOf(geo))) out[id] = { ...p, ext: 'motor' };
+    for (const [id, p] of Object.entries(mt2Of(geo))) out[id] = { ...p, ext: 'motor' };
   }
-  for (const [id, p] of Object.entries(RES)) out[id] = { ...p, ext: 'res' };
+  for (const [id, p] of Object.entries(resOf(geo))) out[id] = { ...p, ext: 'res' };
   for (const it of tp.annexItems ?? []) Object.assign(out, annexTerminals(it));
-  for (const it of tp.recvItems ?? []) Object.assign(out, recvTerminals(it));
+  for (const it of tp.recvItems ?? []) Object.assign(out, recvTerminals(geo, it));
   return out;
 }
 
@@ -110,7 +120,8 @@ export function sceneContext(tp: TpDefinition, items: Record<string, CatalogueIt
     const g = slotGeom(tp, s, item);
     slots.push({ ...g, id: s.id, key: s.key, rail: s.rail, terminals: item.terminals, slot: s, item });
   }
-  return { slots, annex: tp.annex, extra: externalPoints(tp) };
+  const geo = sceneOf(tp);
+  return { slots, annex: tp.annex, extra: externalPoints(tp, geo), geo };
 }
 
 /* ------------------------------------------------------------- position */
@@ -127,7 +138,7 @@ export function tpos(ctx: SceneCtx, id: string): TPos | null {
   const t = s.terminals.find((x) => x.id === tid);
   if (!t) return null;
   const p = term(s, t.fx, t.fy);
-  if (s.rail === null || s.rail === undefined || s.rail >= RAILS.length) {
+  if (s.rail === null || s.rail === undefined || s.rail >= ctx.geo.rails.length) {
     return { ...p, ext: 'door', free: true };
   }
   return { ...p, top: t.fy < 0.5, slot: s };
@@ -161,6 +172,14 @@ export function simplify(pts: Pt[]): Pt[] {
   return o;
 }
 
+/** Axe d'une goulotte horizontale de CETTE scène. */
+const dY = (ctx: SceneCtx, i: number): number => {
+  const d = ctx.geo.ducts[Math.min(i, ctx.geo.ducts.length - 1)];
+  return (d[0] + d[1]) / 2;
+};
+/** Goulotte de pied : la dernière, celle qui dessert les presse-étoupes. */
+const dPied = (ctx: SceneCtx): number => dY(ctx, ctx.geo.ducts.length - 1);
+
 /** Cheminement brut, orthogonal, avant ordonnancement des nappes. */
 function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
   const A = tpos(ctx, a), B = tpos(ctx, b);
@@ -186,29 +205,29 @@ function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
     const ext = E.ext;
     const d = ductFor(P);
     if (d === null) return null;
-    const y = ductY(d);
+    const y = dY(ctx, d);
     if (ext === 'res') {
-      push(P.x, P.y); push(P.x, ductY(3)); push(E.x, ductY(3)); push(E.x, E.y);
+      push(P.x, P.y); push(P.x, dPied(ctx)); push(E.x, dPied(ctx)); push(E.x, E.y);
       return A.ext ? pts.reverse() : pts;
     }
     if (ext === 'motor' || ext === 'recv') {
       // borne → goulotte la plus proche → goulotte 4 → descente par le presse-étoupe → récepteur
       push(P.x, P.y); push(P.x, y);
       const xin = ext === 'motor'
-        ? TB.x - 30 + Math.round((E.x - TB.x) / 28) * 4
+        ? tbOf(ctx.geo).x - 30 + Math.round((E.x - tbOf(ctx.geo).x) / 28) * 4
         : recvGlandX(E.x);
-      if (Math.abs(y - ductY(3)) > 0.5) {
+      if (Math.abs(y - dPied(ctx)) > 0.5) {
         const vxr = DUCT_XS[1];
-        push(vxr, y); push(vxr, ductY(3));
+        push(vxr, y); push(vxr, dPied(ctx));
       }
-      push(xin, ductY(3)); push(xin, E.y); push(E.x, E.y);
+      push(xin, dPied(ctx)); push(xin, E.y); push(E.x, E.y);
       return A.ext ? pts.reverse() : pts;
     }
     // 'door' : coffret de porte et éléments d'annexe (free)
     push(P.x, P.y); push(P.x, y);
     const vxr = DUCT_XS[1];
     push(vxr, y);
-    const hy = E.free ? ductY(3) : ST.y + ST.h + 20;
+    const hy = E.free ? dPied(ctx) : ST.y + ST.h + 20;
     const tx = E.free ? 546 : SR + 20;
     push(vxr, hy); push(tx, hy); push(tx, E.y); push(E.x, E.y);
     return A.ext ? pts.reverse() : pts;
@@ -217,12 +236,12 @@ function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
   // deux bornes sur la platine
   const da = ductFor(A), db = ductFor(B);
   if (da === null || db === null) return null;
-  push(A.x, A.y); push(A.x, ductY(da));
+  push(A.x, A.y); push(A.x, dY(ctx, da));
   if (da === db) {
-    push(B.x, ductY(db));
+    push(B.x, dY(ctx, db));
   } else {
     const x = pickVx((A.x + B.x) / 2, A.x, B.x);
-    push(x, ductY(da)); push(x, ductY(db)); push(B.x, ductY(db));
+    push(x, dY(ctx, da)); push(x, dY(ctx, db)); push(B.x, dY(ctx, db));
   }
   push(B.x, B.y);
   return pts;
@@ -255,9 +274,9 @@ function depth(list: Seg[]): Record<string, number> {
 /** Calcule les nappes de toutes les liaisons ainsi que leur longueur développée. */
 export function planLanes(ctx: SceneCtx, wires: WirePair[]): LanePlan {
   const plan = emptyPlan();
-  const H = DUCTS_H.map(() => ({ top: [] as Seg[], bot: [] as Seg[], mid: [] as Seg[] }));
+  const H = ctx.geo.ducts.map(() => ({ top: [] as Seg[], bot: [] as Seg[], mid: [] as Seg[] }));
   const V: [Seg[], Seg[]] = [[], []];
-  const dy = DUCT_YS, vx = DUCT_XS;
+  const dy = ctx.geo.ducts.map((d) => (d[0] + d[1]) / 2), vx = DUCT_XS;
 
   wires.forEach((w, i) => {
     const r = route0(ctx, w[0], w[1]);
@@ -287,13 +306,13 @@ export function planLanes(ctx: SceneCtx, wires: WirePair[]): LanePlan {
   const step = 3.2, pad = 4.5;
 
   H.forEach((g, d) => {
-    const h = DUCTS_H[d][1] - DUCTS_H[d][0];
+    const h = ctx.geo.ducts[d][1] - ctx.geo.ducts[d][0];
     const cap = Math.floor((h - 2 * pad) / step);
     for (const [key, dd] of Object.entries(depth(g.top))) {
-      lane(key).y = DUCTS_H[d][0] + pad + Math.min(dd, cap) * step;
+      lane(key).y = ctx.geo.ducts[d][0] + pad + Math.min(dd, cap) * step;
     }
     for (const [key, dd] of Object.entries(depth(g.bot))) {
-      lane(key).y = DUCTS_H[d][1] - pad - Math.min(dd, cap) * step;
+      lane(key).y = ctx.geo.ducts[d][1] - pad - Math.min(dd, cap) * step;
     }
     const md = depth(g.mid);
     const nm = Object.keys(md).length;
@@ -318,7 +337,7 @@ export function route(ctx: SceneCtx, plan: LanePlan, a: string, b: string, idx =
   const r = route0(ctx, a, b);
   if (!r) return null;
   if (r.length < 3) return r.map(([x, y]) => ({ x, y }));
-  const dy = DUCT_YS, vx = DUCT_XS;
+  const dy = ctx.geo.ducts.map((d) => (d[0] + d[1]) / 2), vx = DUCT_XS;
   const out: Pt[] = r.map((p) => [p[0], p[1]]);
   for (let k = 0; k < r.length - 1; k++) {
     const p = r[k], q = r[k + 1];
@@ -373,9 +392,9 @@ export function stubs(pts: Point[] | null): [Point, Point][] {
  * dessinée au-dessus des couvercles. Le point d'entrée dans la goulotte est conservé
  * pour que la descente vers le presse-étoupe reste raccordée.
  */
-export function externalPart(pts: Point[] | null): Point[] {
+export function externalPart(pts: Point[] | null, pied = DUCTS_H[3][1]): Point[] {
   if (!pts) return [];
-  const out = (p: Point) => p.x > DUCT_R[1] || p.y > DUCTS_H[3][1];
+  const out = (p: Point) => p.x > DUCT_R[1] || p.y > pied;
   return pts.filter((p, i) => out(p) || (i > 0 && out(pts[i - 1])) || (i < pts.length - 1 && out(pts[i + 1])));
 }
 

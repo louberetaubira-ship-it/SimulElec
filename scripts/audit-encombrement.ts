@@ -9,7 +9,7 @@
  *     npx tsx scripts/audit-encombrement.ts
  */
 import { CATALOGUE_BY_KEY } from '@/lib/data/catalogue';
-import { sceneOf, slotGeom } from '@/lib/scene/geometry';
+import { glandOf, motorOf, resOf, sceneOf, slotGeom, tbOf } from '@/lib/scene/geometry';
 import { TPS } from '@/lib/data/tps';
 
 let ko = 0;
@@ -42,7 +42,22 @@ for (const tp of TPS) {
       }
     }
   }
-  if (!ko) console.log('  ✓ rien ne se chevauche, rien ne déborde');
+  // Le moteur et sa plaque à bornes sont HORS armoire : ils appartiennent au bloc
+  // récepteurs. Tant que leurs ordonnées étaient des constantes, une armoire relevée
+  // les laissait en arrière — donc à l'intérieur de la platine, et le bloc récepteurs
+  // restait vide. Ce contrôle interdit que cela revienne.
+  if (tp.hasMotor) {
+    const m = motorOf(geo); const tb = tbOf(geo);
+    if (m.y < geo.recvY) { ko++; console.log(`  ✗ le moteur est DANS l'armoire (y ${m.y} < récepteurs ${geo.recvY})`); }
+    if (tb.y < geo.recvY) { ko++; console.log(`  ✗ la plaque à bornes est DANS l'armoire (y ${tb.y} < ${geo.recvY})`); }
+    if (tb.y + tb.h > geo.panelH) { ko++; console.log('  ✗ la plaque à bornes déborde sous le bloc récepteurs'); }
+  }
+  // L'arrivée réseau et les presse-étoupes, eux, restent en bas de l'armoire.
+  const res = resOf(geo)['RES.L1']; const gl = glandOf(geo);
+  for (const [nom, y] of [['arrivée réseau', res.y], ['presse-étoupe', gl.y]] as const) {
+    if (y > geo.cabH || y < geo.cabH - 60) { ko++; console.log(`  ✗ ${nom} décrochée du bas de l'armoire (y ${y}, armoire ${geo.cabH})`); }
+  }
+  if (!ko) console.log('  ✓ rien ne se chevauche, rien ne déborde, moteur hors armoire');
 }
 
 console.log(ko === 0 ? '\nEncombrement correct sur tous les TP.' : `\n${ko} conflit(s) d'encombrement.`);
