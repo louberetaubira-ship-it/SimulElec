@@ -39,6 +39,8 @@ export interface WiresProps {
   onWire?: (index: number) => void;
   /** Appui long (≈ 500 ms) sur un fil : ouvre le menu contextuel tactile. */
   onWireLongPress?: (index: number, x: number, y: number) => void;
+  /** Hauteur de la scène : une armoire plus haute allonge le viewBox. */
+  panelH?: number;
 }
 
 const cls = (w: RoutedWire, highlight?: number | null, selected?: number | null): string =>
@@ -106,7 +108,10 @@ function Hit(props: {
   );
 }
 
-function Layer({ over, wires, highlight, selected, pick, onWire, onWireLongPress }: WiresProps & { over: boolean }) {
+function Layer(
+  { over, wires, highlight, selected, pick, onWire, onWireLongPress, panelH = PANEL_H }:
+  WiresProps & { over: boolean },
+) {
   const { down, click, cancel } = useWireGestures(onWire, onWireLongPress);
   const interactive = Boolean(onWire || onWireLongPress);
 
@@ -118,7 +123,7 @@ function Layer({ over, wires, highlight, selected, pick, onWire, onWireLongPress
   };
 
   return (
-    <svg className={`se-wires${over ? ' over' : ''}${pick ? ' pick' : ''}`} viewBox={`0 0 ${PANEL_W} ${PANEL_H}`}>
+    <svg className={`se-wires${over ? ' over' : ''}${pick ? ' pick' : ''}`} viewBox={`0 0 ${PANEL_W} ${panelH}`}>
       {wires.map((w) => (
         <React.Fragment key={w.index}>
           {segments(w).map((seg) => (

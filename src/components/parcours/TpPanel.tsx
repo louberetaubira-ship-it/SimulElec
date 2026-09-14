@@ -10,6 +10,7 @@ import type { CatalogueItem, InstrumentKind, TpDefinition } from '@/lib/types';
 import { INSTRUMENTS } from '@/lib/sim/mesures';
 import { STAGES } from '@/lib/sim/progress';
 import { CATALOGUE_BY_KEY } from '@/lib/data/catalogue';
+import { sceneOf } from '@/lib/scene/geometry';
 import { libraryItemSync, loadLibraryItem } from '@/lib/data/library';
 import Panel, { type PanelProps } from '@/components/panel/Panel';
 import Workspace from '@/components/panel/Workspace';
@@ -103,6 +104,7 @@ export default function TpPanel({ trayEnabled = false, instruments, indicator, a
       <InstrumentTray value={inst} onSelect={setInstrument} disabled={!trayEnabled} />
       <Workspace
         fill={fill}
+        contentHeight={sceneOf(props.tp).panelH}
         storageKey="tp"
         title={props.tp.title}
         subtitle={`Étape ${stage + 1} / ${STAGES.length} · ${STAGES[stage]}`}

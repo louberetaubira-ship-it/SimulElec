@@ -15,11 +15,14 @@ export interface RecvProps {
   annex: AnnexKind;
   items: AnnexItem[];
   catalogue: Record<string, CatalogueItem>;
+  /** Position et hauteur du bloc, quand l'armoire du TP n'a pas la hauteur d'origine. */
+  y?: number;
+  h?: number;
 }
 
-export default function Recv({ annex, items, catalogue }: RecvProps) {
+export default function Recv({ annex, items, catalogue, y = RECV_Y, h = RECV_H }: RecvProps) {
   return (
-    <div className="se-recv" style={{ top: RECV_Y, height: RECV_H }}>
+    <div className="se-recv" style={{ top: y, height: h }}>
       <span className="t">{RECV_TITLE[annex]}</span>
       {items.map((it) => {
         const item = catalogue[it.key];

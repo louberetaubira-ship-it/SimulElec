@@ -5,12 +5,15 @@ import React from 'react';
 import type { SceneKind } from '@/lib/types';
 import { DUCTS_H, DUCT_L, DUCT_R, RAILS, RAIL_X, ROW_LABELS } from '@/lib/scene/geometry';
 
-export function Ducts({ scene, cover }: { scene: SceneKind; cover: boolean }) {
+export function Ducts(
+  { scene, cover, ducts = DUCTS_H }:
+  { scene: SceneKind; cover: boolean; ducts?: readonly (readonly [number, number])[] },
+) {
   const open = cover ? '' : ' open';
   const labels = ROW_LABELS[scene] ?? ROW_LABELS.ind;
   return (
     <>
-      {DUCTS_H.map((d, i) => (
+      {ducts.map((d, i) => (
         <div
           key={`h${i}`}
           className={`se-duct h${open}`}
@@ -21,11 +24,11 @@ export function Ducts({ scene, cover }: { scene: SceneKind; cover: boolean }) {
       ))}
       <div
         className={`se-duct v${open}`}
-        style={{ left: DUCT_L[0], top: DUCTS_H[0][0], width: DUCT_L[1] - DUCT_L[0], height: DUCTS_H[3][1] - DUCTS_H[0][0] }}
+        style={{ left: DUCT_L[0], top: ducts[0][0], width: DUCT_L[1] - DUCT_L[0], height: ducts[ducts.length - 1][1] - ducts[0][0] }}
       />
       <div
         className={`se-duct v${open}`}
-        style={{ left: DUCT_R[0], top: DUCTS_H[0][0], width: DUCT_R[1] - DUCT_R[0], height: DUCTS_H[3][1] - DUCTS_H[0][0] }}
+        style={{ left: DUCT_R[0], top: ducts[0][0], width: DUCT_R[1] - DUCT_R[0], height: ducts[ducts.length - 1][1] - ducts[0][0] }}
       />
     </>
   );

@@ -195,28 +195,27 @@ export function PlcSvg() {
  */
 export function Atv320Svg() {
   return (
-    <svg viewBox="0 0 190 180" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-      <rect x="8" y="12" width="174" height="156" rx="5" fill="#3F464E" stroke="#232930" />
-      <rect x="13" y="17" width="164" height="146" rx="4" fill="#4A525B" />
-      {/* face avant : afficheur et navigation */}
-      <rect x="26" y="24" width="138" height="60" rx="4" fill="#20262C" stroke="#171C21" />
-      <rect x="34" y="31" width="82" height="26" rx="2" fill="#8FA98C" stroke="#6E8A6B" />
-      <text x="75" y="51" textAnchor="middle" fontFamily={MONO} fontSize="16" fontWeight="700" fill="#15200F">rdY</text>
-      <circle cx="140" cy="44" r="13" fill="#5A636D" stroke="#2C3238" strokeWidth="1.4" />
-      <circle cx="140" cy="44" r="5" fill="#E39A00" />
-      <text x="40" y="75" fontFamily={MONO} fontSize="7" fill="#C9CFD5">ESC</text>
-      <text x="70" y="75" fontFamily={MONO} fontSize="7" fill="#C9CFD5">ENT</text>
-      <text x="126" y="75" fontFamily={MONO} fontSize="7" fill="#C9CFD5">RUN</text>
-      {/* ailettes de refroidissement */}
-      {Array.from({ length: 6 }, (_, i) => (
-        <line key={`f${i}`} x1="22" y1={96 + i * 8} x2="168" y2={96 + i * 8} stroke="#3A4148" strokeWidth="2" />
+    <svg viewBox="0 0 65 471" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+      <rect x="2" y="10" width="61" height="451" rx="4" fill="#3F464E" stroke="#232930" />
+      <rect x="5" y="13" width="55" height="445" rx="3" fill="#4A525B" />
+      {/* afficheur et navigation, en tête de face */}
+      <rect x="9" y="20" width="47" height="52" rx="3" fill="#20262C" stroke="#171C21" />
+      <rect x="13" y="25" width="39" height="18" rx="2" fill="#8FA98C" stroke="#6E8A6B" />
+      <text x="32" y="39" textAnchor="middle" fontFamily={MONO} fontSize="11" fontWeight="700" fill="#15200F">rdY</text>
+      <circle cx="32" cy="58" r="8" fill="#5A636D" stroke="#2C3238" strokeWidth="1.1" />
+      <circle cx="32" cy="58" r="3" fill="#E39A00" />
+      {/* bornier de contrôle : en colonne, comme sur un format book */}
+      <rect x="36" y="105" width="22" height="190" rx="2" fill="#F5F7FA" stroke="#B4BDC8"
+            strokeWidth="1" strokeDasharray="3 2" />
+      {/* ailettes de refroidissement, sur toute la hauteur restante */}
+      {Array.from({ length: 14 }, (_, i) => (
+        <line key={`f${i}`} x1="8" y1={310 + i * 9} x2="57" y2={310 + i * 9} stroke="#3A4148" strokeWidth="2" />
       ))}
-      {/* plaque signalétique, placée SOUS le repère que la platine pose au centre */}
-      <text x="95" y="150" textAnchor="middle" fontFamily={COND} fontSize="11" fontWeight="700" fill="#EDEFF2">ATV320U07N4B</text>
-      <text x="95" y="160" textAnchor="middle" fontFamily={MONO} fontSize="7" fill="#B6BEC7">0,75 kW · 3 × 400 V · 0,1-599 Hz</text>
-      {/* repères des borniers */}
-      <text x="8" y="8" fontFamily={MONO} fontSize="6" fill="#66717F">bornier de contrôle</text>
-      <text x="8" y="177" fontFamily={MONO} fontSize="6" fill="#66717F">bornier de puissance · bus continu sur le flanc</text>
+      {/* plaque signalétique, sous le repère posé par la platine */}
+      <text x="32" y="88" textAnchor="middle" fontFamily={COND} fontSize="8" fontWeight="700" fill="#EDEFF2">ATV320</text>
+      <text x="32" y="97" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#B6BEC7">U07N4B</text>
+      <text x="32" y="440" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#B6BEC7">0,75 kW</text>
+      <text x="32" y="450" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#B6BEC7">3 × 400 V</text>
     </svg>
   );
 }

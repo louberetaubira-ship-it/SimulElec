@@ -9,7 +9,7 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  MTERM, MT2, PANEL_H, PANEL_W, PE_GLAND, RES,
+  MTERM, MT2, PANEL_W, PE_GLAND, RES, sceneOf,
   pupitreOf, pupitreTerminals, recvBox, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
@@ -83,7 +83,22 @@ export interface PanelProps {
 }
 
 /** Décalage du repère d'une borne (95/96 à gauche, 97/98 à droite). */
-function markOffset(id: string, fy: number): { dx: number; dy: number } {
+/**
+ * Bornes du variateur : sur 65 px de large, une étiquette de quatre caractères
+ * en fait 22. Les trois bornes d'une rangée de puissance sont donc décalées en
+ * quinconce, et les bornes de contrôle — rangées en colonne — se lisent à côté
+ * de l'appareil plutôt que dessus.
+ */
+const MARQUE_ATV: Record<string, { dx: number; dy: number }> = {
+  'R/L1': { dx: -13, dy: -9 }, 'S/L2': { dx: 0, dy: -20 }, 'T/L3': { dx: 13, dy: -9 },
+  'U/T1': { dx: -13, dy: 9 }, 'V/T2': { dx: 0, dy: 20 }, 'W/T3': { dx: 13, dy: 9 },
+  'PA+': { dx: -18, dy: 0 }, 'PC-': { dx: -18, dy: 0 }, PE: { dx: -16, dy: 0 },
+  '+24': { dx: 20, dy: 0 }, COM: { dx: 20, dy: 0 }, LI1: { dx: 20, dy: 0 },
+  LI2: { dx: 20, dy: 0 }, AI1: { dx: 20, dy: 0 }, R1A: { dx: 20, dy: 0 }, R1C: { dx: 20, dy: 0 },
+};
+
+function markOffset(id: string, fy: number, key?: string): { dx: number; dy: number } {
+  if (key === 'atv320' && MARQUE_ATV[id]) return MARQUE_ATV[id];
   const dx = id === '95' || id === '96' ? -8 : id === '97' || id === '98' ? 8 : 0;
   return { dx, dy: fy < 0.5 ? -9 : 9 };
 }
@@ -97,6 +112,9 @@ export default function Panel(props: PanelProps) {
 
   const hostRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(1);
+  // L'armoire n'a pas toujours 720 px : un TP peut la relever pour loger un
+  // appareil que l'échelle rend trop grand. Tout le reste de la scène suit.
+  const geo = React.useMemo(() => sceneOf(tp), [tp]);
 
   React.useEffect(() => {
     if (fixedScale) return;
@@ -148,7 +166,7 @@ export default function Panel(props: PanelProps) {
     for (const s of ctx.slots) {
       for (const t of s.terminals) {
         const p = term(s, t.fx, t.fy);
-        const { dx, dy } = markOffset(t.id, t.fy);
+        const { dx, dy } = markOffset(t.id, t.fy, s.slot.key);
         out.push({ id: `${s.id}.${t.id}`, pos: p, label: s.slot.group ? undefined : t.id, dx, dy });
       }
     }
@@ -320,16 +338,16 @@ export default function Panel(props: PanelProps) {
       onPointerLeave={picking ? () => setSurvol(null) : undefined}
     >
       {/* cadre de l'armoire (560 × 720) : fond, bordure, grille Lina */}
-      <div className="se-cab" />
+      <div className="se-cab" style={{ height: geo.cabH }} />
       {tp.scene === 'hab' ? <div className="se-tab" /> : null}
       {/* bloc récepteurs, sous la platine */}
-      <Recv annex={tp.annex} items={recvItems} catalogue={items} />
-      <Ducts scene={tp.scene} cover={cover} />
-      <Rails rails={tp.rails && tp.rails.length ? tp.rails : undefined} />
+      <Recv annex={tp.annex} items={recvItems} catalogue={items} y={geo.recvY} h={geo.recvH} />
+      <Ducts scene={tp.scene} cover={cover} ducts={geo.ducts} />
+      <Rails rails={geo.rails} />
       <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} />
 
       {/* fils sous les couvercles : masqués par les goulottes quand les couvercles sont fermés */}
-      <WiresUnder wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresUnder panelH={geo.panelH} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       {/* appareils */}
       {ctx.slots.map((s) => (
@@ -440,7 +458,7 @@ export default function Panel(props: PanelProps) {
       ) : null}
 
       {/* fils au-dessus des couvercles (brins + parties extérieures) */}
-      <WiresOver wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresOver panelH={geo.panelH} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       <Overlays probes={probePos} clamp={clampPos} lock={lockBox} />
     </div>
@@ -450,7 +468,7 @@ export default function Panel(props: PanelProps) {
 
   return (
     <div className={`se-panelwrap${className ? ` ${className}` : ''}`} ref={hostRef}>
-      <div style={{ width: PANEL_W * scale, height: PANEL_H * scale }}>{panel}</div>
+      <div style={{ width: PANEL_W * scale, height: geo.panelH * scale }}>{panel}</div>
     </div>
   );
 }
