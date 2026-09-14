@@ -162,6 +162,17 @@ export interface TrafoDef {
   primaire: Record<string, number>;
   /** Prises du secondaire : borne → tension marquée dessus. */
   secondaire: Record<string, number>;
+  /**
+   * Secondaire BI-TENSION à deux enroulements et barrettes de couplage
+   * (Legrand 042872 : deux enroulements de 24 V, bornes 0 · 0 · 24 · 24).
+   * La tension obtenue ne se lit alors plus sur les prises : elle dépend des
+   * BARRETTES que l'élève a posées — parallèle donne 24 V, série donne 48 V.
+   * Déclarer ici chaque enroulement par ses deux bornes et sa tension ; les
+   * prises restent déclarées dans `secondaire` pour le repérage.
+   */
+  enroulements?: { bornes: [string, string]; u: number }[];
+  /** Bornes du secondaire sur lesquelles la commande est prise (sortie). */
+  sortie?: [string, string];
   /** Tension assignée des récepteurs de commande (bobine du contacteur, voyant). */
   bobine: number;
 }

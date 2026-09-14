@@ -67,7 +67,10 @@ export const TP_VARIATEUR: TpDefinition = {
     { k: 'Variateur', v: 'Altivar ATV320U07N4B · 0,75 kW · 380-500 V triphasé · sortie 0,1 à 599 Hz' },
     { k: 'Force motrice', v: 'moteur asynchrone triphasé 0,75 kW, 4 pôles, couplage étoile sur 400 V' },
     { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1 400/24 V, primaire protégé par Q2 bipolaire phase / phase, secondaire par Q3 sectionneur porte-fusibles PHASE + NEUTRE : le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V. Une cartouche ne se réarme pas, elle se remplace.' },
-    { k: 'Primaire de T1', v: 'prises 0 · 230 · 400. Alimentation en 400 V ENTRE DEUX PHASES : raccorder sur 0 et 400, la prise 230 reste libre.' },
+    { k: 'Transformateur T1', v: 'Legrand 042872 · 100 VA · 50/60 Hz · classe I · IP2X · EN 61558-2-6. Primaire à prises 0 · 230 · 400, secondaire BI-TENSION livré avec ses barrettes de couplage.' },
+    { k: 'Primaire de T1', v: 'trois bornes marquées 0 · 230 · 400 (la face en compte cinq, deux logements restent borgnes). Alimentation en 400 V ENTRE DEUX PHASES : raccorder sur 0 et 400, la prise 230 reste libre.' },
+    { k: 'Secondaire de T1', v: 'DEUX enroulements de 24 V, quatre bornes marquées 0 · 0 · 24 · 24 (0a · 0b · 24a · 24b au simulateur) et une borne de terre. Pour 24 V : deux barrettes, 0a-0b et 24a-24b — les enroulements sont en PARALLÈLE. Pour 48 V il n\'en faudrait qu\'une, 0b-24a, en SÉRIE. Dans les deux cas la sortie se prend sur 0a et 24b.' },
+    { k: 'Fusible du secondaire', v: 'le calibre est gravé sur la face du transformateur : T4A en 24 V, T2A en 48 V. 100 VA sous 24 V font 4,17 A — la cartouche de Q3 est donc de 4 A.' },
     { k: 'Contacteur de ligne', v: 'KM1 alimente le variateur. Moins d\'UNE manœuvre par minute : ce n\'est pas lui qui sert à démarrer et arrêter la machine au quotidien.' },
     { k: 'Ordre de marche', v: 'LI1 reçoit le 24 V du VARIATEUR (borne +24) par le contact auxiliaire 53-54 de KM1. Ne jamais mélanger ce 24 V avec celui de T1 : ce sont deux sources distinctes.' },
     { k: 'Sortie moteur', v: 'câble blindé, blindage repris à la terre aux DEUX extrémités. AUCUN organe de coupure entre le variateur et le moteur.' },
@@ -122,11 +125,11 @@ export const TP_VARIATEUR: TpDefinition = {
     {
       id: 't1',
       name: 'T1 · Transformateur de commande',
-      need: 'Abaisser 400 V en 24 V pour la bobine de KM1 et les voyants',
+      need: 'Abaisser 400 V en 24 V pour la bobine de KM1 et les deux voyants',
       options: [
-        { key: 'trafo', ref: 'ABL6TS02U', spec: '400/24 V · 25 VA', half: true, why: 'Puissance juste : l\'appel de la bobine fait chuter la tension à l\'enclenchement.' },
-        { key: 'trafo', ref: 'ABL6TS06U', spec: '400/24 V · 63 VA', ok: true, why: 'Primaire 400 V pris entre deux phases, secondaire 24 V, 63 VA largement suffisants pour une bobine et deux voyants.' },
-        { key: 'trafo', ref: 'ABL6TS10U', spec: '230/12 V · 100 VA', why: 'Ni le primaire ni le secondaire ne correspondent au cahier des charges.' },
+        { key: 'trafoleg', ref: 'Legrand 042872', spec: '100 VA · primaire 230/400 V · secondaire bi-tension 24/48 V', ok: true, why: 'C\'est le transformateur de la platine de l\'établissement. Primaire pris entre deux phases sur 0 et 400 ; secondaire à DEUX enroulements de 24 V, qu\'on couple en parallèle avec les deux barrettes livrées. 100 VA sont largement suffisants pour une bobine et deux voyants.' },
+        { key: 'trafoleg', ref: 'Legrand 042857', spec: '100 VA · secondaire 24 V seulement', half: true, why: 'Fonctionne et évite l\'erreur de couplage, puisqu\'il n\'y a qu\'un secondaire. Mais ce n\'est pas l\'appareil du plateau, et l\'élève n\'apprendrait pas à poser des barrettes de couplage.' },
+        { key: 'trafoleg', ref: 'Legrand 042842', spec: '100 VA · secondaire 12/24 V', why: 'Secondaire 12/24 V : mal couplé il donne 12 V, et le contacteur ne collera pas. Le cahier des charges demande 24 V sûrs.' },
       ],
     },
     {
@@ -142,10 +145,10 @@ export const TP_VARIATEUR: TpDefinition = {
     {
       id: 'f3',
       name: 'Q3 · Protection et sectionnement du 24 V',
-      need: 'Protéger le circuit de commande 24 V (bobine + deux voyants ≈ 0,4 A) et pouvoir le sectionner',
+      need: 'Protéger le secondaire 24 V du transformateur et pouvoir le sectionner. Le calibre est gravé sur la face de T1 : T4A en 24 V',
       options: [
-        { key: 'fuse1pn', ref: 'Multi 9 STI 10,3 × 38 · cartouche 2 A', spec: 'sectionneur porte-fusibles phase + neutre · 1 module', ok: true, why: 'Le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V : les deux conducteurs de la commande sont ouverts d\'un seul geste. C\'est l\'appareil de la platine de l\'établissement. Retiens qu\'une cartouche ne se réarme pas — elle fond, on la remplace, et on cherche d\'abord pourquoi.' },
-        { key: 'mcb1p', ref: 'iC60N 1P C2', spec: 'disjoncteur 1 pôle · 2 A', half: true, why: 'Protège bien le conducteur actif et se réarme, mais ne sectionne pas le 0 V : pour intervenir il reste un conducteur raccordé au secondaire.' },
+        { key: 'fuse1pn', ref: 'Multi 9 STI 10,3 × 38 · cartouche 4 A', spec: 'sectionneur porte-fusibles phase + neutre · 1 module', ok: true, why: 'Le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V : les deux conducteurs de la commande sont ouverts d\'un seul geste. C\'est l\'appareil de la platine de l\'établissement. Retiens qu\'une cartouche ne se réarme pas — elle fond, on la remplace, et on cherche d\'abord pourquoi.' },
+        { key: 'mcb1p', ref: 'iC60N 1P C4', spec: 'disjoncteur 1 pôle · 4 A', half: true, why: 'Protège bien le conducteur actif et se réarme, mais ne sectionne pas le 0 V : pour intervenir il reste un conducteur raccordé au secondaire.' },
         { key: 'fuse1pn', ref: 'Multi 9 STI · cartouche 16 A', spec: 'même appareil, cartouche 16 A', why: 'Quarante fois le courant du circuit : la cartouche ne fondra jamais avant que le fil de 1,5 mm² n\'ait chauffé. Le calibre se choisit sur le courant à protéger, pas sur la taille de la cartouche.' },
       ],
     },
@@ -165,7 +168,7 @@ export const TP_VARIATEUR: TpDefinition = {
     { id: 'q1', label: 'Q1 · Disjoncteur moteur GV2ME08', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
     { id: 'f3', label: 'Q3 · Sectionneur porte-fusibles phase + neutre', key: 'fuse1pn', rail: 0, x: 200, rep: 'Q3' },
-    { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 0, x: 240, rep: 'T1' },
+    { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 240, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur de ligne', key: 'kontaktaux', rail: 1, x: 46, rep: 'KM1' },
     { id: 'u1', label: 'U1 · Variateur ATV320', key: 'atv320', rail: 1, x: 150, rep: 'U1' },
     ...X1(46),
@@ -184,8 +187,13 @@ export const TP_VARIATEUR: TpDefinition = {
     // ---- alimentation TBT : deux phases en aval de Q1 → Q2 → T1 → Q3 ----
     L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
     L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
-    L('t1.24', 'f3.1', 'C'),
-    L('t1.0V', 'f3.N', 'C0'), L('f3.N2', 'x2_4.a', 'C0'), L('x2_4.a', 'x1_5.a', 'PE'),
+    // Secondaire bi-tension : DEUX barrettes de couplage mettent les deux
+    // enroulements de 24 V en PARALLÈLE. Une seule barrette 0b-24a les mettrait
+    // en série et donnerait 48 V — la bobine de KM1 n'y survivrait pas.
+    L('t1.0a', 't1.0b', 'BAR'), L('t1.24a', 't1.24b', 'BAR'),
+    L('t1.24b', 'f3.1', 'C'),
+    L('t1.0a', 'f3.N', 'C0'), L('f3.N2', 'x2_4.a', 'C0'), L('x2_4.a', 'x1_5.a', 'PE'),
+    L('t1.PE', 'x1_5.a', 'PE'),
     // ---- commande 24 V : chaîne d'arrêt, auto-maintien, bobine ----
     L('f3.2', 'x2_1.a', 'C'), L('f3.2', 'x2_5.a', 'C'),
     L('x2_2.a', 'km1.13', 'C'), L('x2_3.a', 'km1.A1', 'C'), L('km1.14', 'km1.A1', 'C'),
@@ -245,8 +253,9 @@ export const TP_VARIATEUR: TpDefinition = {
     // transformateur de commande : chaque prise libre a son propre réseau
     't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' },
     't1.230': { net: 'TAP-PRI-230', live: 'f2' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' },
-    't1.48': { net: 'TAP-SEC-48', live: 'f2' },
+    't1.24a': { net: 'C', live: 'f2' }, 't1.24b': { net: 'C', live: 'f2' },
+    't1.0a': { net: 'C0', live: 'always' }, 't1.0b': { net: 'C0', live: 'always' },
+    't1.PE': { net: 'PE', live: 'always' },
     // protection du secondaire (Q3)
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
     'f3.N': { net: 'C0', live: 'always' }, 'f3.N2': { net: 'C0', live: 'always' },
@@ -307,8 +316,8 @@ export const TP_VARIATEUR: TpDefinition = {
       instrument: 'mm', dial: 'V~', a: 'q1.2', b: 'q1.4', min: 380, max: 420, unit: 'V', when: 'run',
     },
     {
-      id: 'u24', title: 'Tension de commande au secondaire de T1', stage: 'sousTension',
-      instrument: 'mm', dial: 'V~', a: 't1.24', b: 't1.0V', min: 22, max: 26, unit: 'V', when: 'ctl',
+      id: 'u24', title: 'Tension de commande en sortie du couplage de T1 (0a – 24b)', stage: 'sousTension',
+      instrument: 'mm', dial: 'V~', a: 't1.24b', b: 't1.0a', min: 22, max: 26, unit: 'V', when: 'ctl',
     },
     {
       id: 'iL', title: 'Courant de ligne à la pince (KM1:2 → U1 R/L1)', stage: 'sousTension',
@@ -394,6 +403,24 @@ export const TP_VARIATEUR: TpDefinition = {
       answer: 1,
     },
     {
+      q: 'Le secondaire de T1 porte deux enroulements de 24 V. Quelles barrettes poses-tu pour obtenir 24 V ?',
+      options: [
+        'Une seule, entre 0b et 24a',
+        'Deux : 0a-0b et 24a-24b — les enroulements sont mis en parallèle',
+        'Aucune, les 24 V sont déjà disponibles',
+      ],
+      answer: 1,
+    },
+    {
+      q: 'Tu poses une seule barrette, entre 0b et 24a. Que mesures-tu entre 0a et 24b, et qu\'arrive-t-il à la bobine ?',
+      options: [
+        '24 V, rien de particulier',
+        '48 V : les enroulements sont en série, la bobine reçoit le double de sa tension assignée et finit par griller',
+        '0 V, le circuit est ouvert',
+      ],
+      answer: 1,
+    },
+    {
       q: 'Quelles fonctions un disjoncteur moteur réunit-il dans un seul appareil ?',
       options: [
         'La commande et la signalisation',
@@ -418,11 +445,18 @@ export const TP_VARIATEUR: TpDefinition = {
     },
   ],
   motor: { P: 750, U: 400, In: 1.9, n: 1395, ns: 1500, cosPhi: 0.78 },
+  // Legrand 042872 : 100 VA, primaire à prises 0 · 230 · 400, secondaire
+  // BI-TENSION à deux enroulements de 24 V et barrettes de couplage.
   trafo: {
     slot: 't1',
     reseau: 400,
     primaire: { '0': 0, '230': 230, '400': 400 },
-    secondaire: { '0V': 0, '24': 24, '48': 48 },
+    secondaire: { '0a': 0, '0b': 0, '24a': 24, '24b': 24 },
+    enroulements: [
+      { bornes: ['0a', '24a'], u: 24 },
+      { bornes: ['0b', '24b'], u: 24 },
+    ],
+    sortie: ['0a', '24b'],
     bobine: 24,
   },
   // Paramètres de mise en service entrés par l'élève sur l'afficheur du variateur.
@@ -432,8 +466,8 @@ export const TP_VARIATEUR: TpDefinition = {
   folio: {
     railHaut: '24 V — secondaire de T1',
     railBas: 'com — retour 0 V, relié à la terre',
-    source: 't1.24', repSource: 'T1:24',
-    retour: 't1.0V', repRetour: 'T1:0V',
+    source: 't1.24b', repSource: 'T1:24b',
+    retour: 't1.0a', repRetour: 'T1:0a',
     tete: {
       type: 'disjoncteur', a: 'f3.1', b: 'f3.2',
       rep: 'Q3', legende: 'pôle protégé · cartouche 2 A', conducteur: '2',

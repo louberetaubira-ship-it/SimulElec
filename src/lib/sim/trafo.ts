@@ -95,6 +95,58 @@ function prisesCablees(
 }
 
 /**
+ * Secondaire bi-tension : tension obtenue entre les deux bornes de sortie,
+ * d'après les BARRETTES DE COUPLAGE réellement posées.
+ *
+ * Un transformateur à deux enroulements de 24 V ne donne pas « 24 ou 48 V selon
+ * la prise » : il donne ce que le couplage décide. Barrettes 0a-0b et 24a-24b,
+ * les enroulements sont en parallèle et la sortie vaut 24 V. Une seule barrette
+ * 0b-24a, ils sont en série et la sortie vaut 48 V. Poser une barrette aux deux
+ * bornes d'un même enroulement, c'est le court-circuiter.
+ *
+ * On parcourt le graphe formé par les enroulements (arête de valeur u) et les
+ * barrettes (arête de valeur 0) en cumulant la tension. Une boucle qui ne se
+ * referme pas sur zéro est un court-circuit de spires : on renvoie `null`.
+ */
+function tensionCouplage(
+  def: TrafoDef, poses: readonly Pose[],
+): { u: number; courtCircuit: boolean } | null {
+  const enr = def.enroulements;
+  const sortie = def.sortie;
+  if (!enr || !sortie) return null;
+
+  interface Arete { a: string; b: string; u: number }
+  const aretes: Arete[] = enr.map(e => ({ a: e.bornes[0], b: e.bornes[1], u: e.u }));
+  for (const w of poses) {
+    const a = borne(w.a, def.slot), b = borne(w.b, def.slot);
+    if (a != null && b != null && a !== b && a in def.secondaire && b in def.secondaire) {
+      aretes.push({ a, b, u: 0 });
+    }
+  }
+
+  // potentiel de chaque borne, à partir de la borne de sortie basse
+  const pot = new Map<string, number>([[sortie[0], 0]]);
+  let courtCircuit = false;
+  for (let i = 0; i < aretes.length + 2; i++) {
+    for (const e of aretes) {
+      const pa = pot.get(e.a), pb = pot.get(e.b);
+      if (pa !== undefined && pb === undefined) pot.set(e.b, pa + e.u);
+      else if (pb !== undefined && pa === undefined) pot.set(e.a, pb - e.u);
+      else if (pa !== undefined && pb !== undefined && Math.abs(pb - pa) !== e.u) {
+        // deux chemins ne donnent pas la même tension : des spires sont
+        // court-circuitées par une barrette mal placée.
+        courtCircuit = true;
+      }
+    }
+  }
+  const u = pot.get(sortie[1]);
+  // Sortie non atteinte : les barrettes ne referment pas le chemin entre les
+  // deux bornes de sortie — il manque un couplage, le secondaire ne débite rien.
+  if (u === undefined) return courtCircuit ? { u: 0, courtCircuit: true } : null;
+  return { u: Math.abs(u), courtCircuit };
+}
+
+/**
  * État du transformateur d'après les fils réellement posés.
  * Aucune constante : tout se déduit des prises marquées et du réseau.
  */
@@ -105,7 +157,19 @@ export function etatTrafo(def: TrafoDef | undefined, poses: readonly Pose[]): Et
   if (!pri || !sec) return { ...ABSENT, primaire: pri, secondaire: sec };
 
   const uPrise = Math.abs(def.primaire[pri[1]] - def.primaire[pri[0]]);
-  const uSec = Math.abs(def.secondaire[sec[1]] - def.secondaire[sec[0]]);
+  // Secondaire à prises : la tension se lit sur les bornes câblées.
+  // Secondaire bi-tension : elle se déduit des barrettes de couplage posées.
+  const couplage = tensionCouplage(def, poses);
+  if (couplage?.courtCircuit) {
+    // Barrette posée aux deux bornes d'un même enroulement : ses spires sont
+    // court-circuitées. Le courant s'y emballe et c'est la protection du
+    // primaire qui déclenche — comme sur une surexcitation.
+    return { primaire: pri, secondaire: sec, uPrise, u2: 0, exces: 99, diag: 'surexcite' };
+  }
+  // Sur un secondaire bi-tension, sans barrette le circuit de sortie n'est pas
+  // refermé : il n'y a pas de tension, et surtout pas celle des prises.
+  if (def.enroulements && !couplage) return { ...ABSENT, primaire: pri, secondaire: sec };
+  const uSec = couplage ? couplage.u : Math.abs(def.secondaire[sec[1]] - def.secondaire[sec[0]]);
   if (!(uPrise > 0) || !(uSec > 0)) return { ...ABSENT, primaire: pri, secondaire: sec };
 
   const exces = def.reseau / uPrise;
@@ -120,9 +184,10 @@ export function etatTrafo(def: TrafoDef | undefined, poses: readonly Pose[]): Et
   // Seuils : 110 % et 85 % de la tension assignée, limites de fermeture garantie
   // de la CEI 60947-4-1 §8.2.1.2.1, et ordre de grandeur de la surexcitation
   // permanente qu'un transformateur supporte.
-  const diag: DiagTrafo = exces > 1.1 ? 'surexcite'
-    : rapport > 1.1 ? 'surtension'
-      : rapport < 0.85 ? 'sousexcite' : 'ok';
+  const diag: DiagTrafo = couplage?.courtCircuit ? 'surexcite'
+    : exces > 1.1 ? 'surexcite'
+      : rapport > 1.1 ? 'surtension'
+        : rapport < 0.85 ? 'sousexcite' : 'ok';
   return { primaire: pri, secondaire: sec, uPrise, u2, exces, diag };
 }
 

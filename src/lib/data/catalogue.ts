@@ -120,6 +120,29 @@ export const CATALOGUE: CatalogueItem[] = [
     key: 'plc', name: 'Automate Modicon M221 · 16 E/S relais', ref: 'TM221CE16R', brand: 'Schneider',
     kind: 'plc', family: 'Automatisme', modules: 11, poles: 0, w: PLC.w, h: PLC.h, terminals: PLC_TERMINALS,
   }),
+  // Transformateur de commande Legrand 042872 — celui de la platine de
+  // l'établissement. 100 VA, 50/60 Hz, classe I, IP2X, IK04, uk 4,6 %,
+  // EN 61558-2-6, 84 x 104 x 98 mm.
+  //
+  // Primaire : trois bornes marquées 0 · 230 · 400 (la face en compte cinq,
+  // deux logements restent borgnes). 400 V entre deux phases : 0 et 400.
+  //
+  // Secondaire BI-TENSION, livré avec ses barrettes de couplage : DEUX
+  // enroulements de 24 V, quatre bornes marquées 0 · 0 · 24 · 24, plus une borne
+  // de terre. Le simulateur les distingue en 0a / 0b / 24a / 24b, sans quoi deux
+  // bornes porteraient le même identifiant.
+  //   · 24 V — enroulements en PARALLÈLE : deux barrettes, 0a-0b et 24a-24b ;
+  //   · 48 V — enroulements en SÉRIE : une seule barrette, 0b-24a.
+  // Dans les deux cas la sortie se prend sur 0a et 24b. La face porte le calibre
+  // du fusible correspondant : T4A en 24 V, T2A en 48 V (100 VA / 24 V = 4,17 A).
+  item({ key: 'trafoleg', name: 'Transformateur de commande Legrand 100 VA · 230-400 / 24-48 V', ref: '042872', brand: 'Legrand',
+    kind: 'trafo', family: 'Alimentation', modules: 5, poles: 2,
+    terminals: [
+      { id: '0', fx: 0.306, fy: 0.28 }, { id: '230', fx: 0.625, fy: 0.28 }, { id: '400', fx: 0.833, fy: 0.28 },
+      { id: 'PE', fx: 0.133, fy: 0.90 },
+      { id: '0a', fx: 0.361, fy: 0.90 }, { id: '0b', fx: 0.511, fy: 0.90 },
+      { id: '24a', fx: 0.667, fy: 0.90 }, { id: '24b', fx: 0.822, fy: 0.90 },
+    ] }),
   // ---- Variation de vitesse ----
   // ATV320U07N4B : 45 x 325 x 245 mm, 0,75 kW, 380-500 V triphase, 3,6 A en ligne
   // sous 380 V, 2,3 A de sortie a 4 kHz, sortie 0,1 a 599 Hz (fiche produit Schneider).

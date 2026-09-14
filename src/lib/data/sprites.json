@@ -178,5 +178,10 @@
     "w": 26,
     "h": 121,
     "states": false
+  },
+  "trafoleg": {
+    "w": 118,
+    "h": 147,
+    "states": false
   }
 }
