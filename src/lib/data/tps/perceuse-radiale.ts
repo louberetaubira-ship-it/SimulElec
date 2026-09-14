@@ -21,7 +21,7 @@
  * « XC:1 » à « XC:7 », conforme au schéma.
  */
 import type { TpDefinition, Slot } from '@/lib/types';
-import { BASE_TESTS, L, X1 } from './common';
+import { BASE_TESTS, L, POSTE_T1_OPTIONS, TRAFO_REF, X1, liaisonsT1, netsT1 } from './common';
 
 /** Bornier de commande XC : 7 bornes au pas de 18 px, repérées comme au folio 1/1. */
 const XC: Slot[] = ([
@@ -71,9 +71,10 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
   cahierDesCharges: [
     { k: 'Réseau', v: '3 × 400 V + PE, 50 Hz, arrivée sur bornier X1' },
     { k: 'Force motrice', v: 'moteur asynchrone triphasé 1,1 kW, 1 500 tr/min, 4 pôles, couplage étoile' },
-    { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1 400/24 V · 63 VA, primaire protégé par Q2, secondaire par Q3' },
+    { k: 'Commande', v: 'TBT 24 V ~ par le transformateur T1 Legrand 042872 (100 VA), primaire protégé par Q2 bipolaire PHASE / PHASE, secondaire par Q3 PHASE + NEUTRE' },
     { k: 'Primaire de T1', v: 'prises 0 · 230 · 400. Alimentation en 400 V ENTRE DEUX PHASES : raccorder sur 0 et 400, la prise 230 reste libre. En 230 V on utiliserait 0 et 230, avec le NEUTRE sur la borne 0 — ici il n\'y a pas de neutre à la machine.' },
-    { k: 'Secondaire de T1', v: 'prises 0V · 24 · 48. La commande est en 24 V : raccorder sur 0V et 24, la prise 48 reste libre. Le 0V est relié à la terre.' },
+    { k: 'Secondaire de T1', v: 'BI-TENSION : deux enroulements de 24 V, bornes marquées 0 · 0 · 24 · 24 (0a · 0b · 24a · 24b au simulateur) et une borne de terre. Pour 24 V, deux barrettes — 0a-0b et 24a-24b — mettent les enroulements en PARALLÈLE ; une seule, 0b-24a, les mettrait en SÉRIE et donnerait 48 V. La sortie se prend sur 0a et 24b, et le 0a est relié à la terre.' },
+    { k: 'Q3', v: 'disjoncteur PHASE + NEUTRE : le pôle protégé coupe le 24 V, le pôle neutre sectionne le « com ». Les deux conducteurs de la commande s\'ouvrent d\'un seul geste.' },
     { k: 'Sectionnement', v: 'Q1 sectionneur porte-fusibles cadenassable : c\'est LUI qui assure la consignation' },
     { k: 'Rail 1', v: 'Q1 · Q2 · Q3 · T1' },
     { k: 'Rail 2', v: 'KM1 · F1' },
@@ -132,9 +133,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       name: 'T1 · Transformateur de commande',
       need: 'Abaisser 400 V en 24 V pour la commande (bobine + voyant)',
       options: [
-        { key: 'trafo', ref: 'ABL6TS02U', spec: '400/24 V · 25 VA', half: true, why: 'Puissance juste : l\'appel de la bobine fait chuter la tension à l\'enclenchement.' },
-        { key: 'trafo', ref: 'ABL6TS06U', spec: '400/24 V · 63 VA', ok: true, why: 'Primaire 400 V pris entre deux phases, secondaire 24 V, 63 VA largement suffisants.' },
-        { key: 'trafo', ref: 'ABL6TS10U', spec: '230/12 V · 100 VA', why: 'Ni le primaire ni le secondaire ne correspondent au cahier des charges.' },
+        ...POSTE_T1_OPTIONS,
       ],
     },
     {
@@ -152,8 +151,8 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       name: 'Q3 · Protection du secondaire',
       need: 'Protéger le circuit de commande 24 V (bobine + voyant ≈ 0,4 A)',
       options: [
-        { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', ok: true, why: 'Le conducteur « com » est relié à la terre : on ne coupe que le conducteur actif.' },
-        { key: 'mcb1p', ref: 'iC60N 1P C16', spec: '16 A · courbe C', why: 'Beaucoup trop élevé pour du 1,5 mm² de commande.' },
+        { key: 'mcb1pn', ref: 'Acti9 iC60N 1P+N C2 · A9F74602', spec: '2 A · courbe C · phase + neutre', ok: true, why: 'Le pôle protégé coupe le 24 V, le pôle neutre sectionne le « com » : les deux conducteurs de la commande s\'ouvrent d\'un seul geste.' },
+        { key: 'mcb1p', ref: 'Acti9 iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', half: true, why: 'Protège bien, mais laisse le « com » raccordé au secondaire pendant l\'intervention.' },
         { key: 'mcb2p', ref: 'C60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne, mais couper le « com » mis à la terre ne sert à rien et coûte un module.' },
       ],
     },
@@ -192,8 +191,8 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
   slots: [
     { id: 'q1', label: 'Q1 · Sectionneur porte-fusibles', key: 'fuseswitch', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
-    { id: 'f3', label: 'Q3 · Secondaire 24 V', key: 'mcb1p', rail: 0, x: 200, rep: 'Q3' },
-    { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 0, x: 240, rep: 'T1' },
+    { id: 'f3', label: 'Q3 · Secondaire 24 V · phase + neutre', key: 'mcb1pn', rail: 0, x: 200, rep: 'Q3' },
+    { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 262, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 1, x: 60, rep: 'KM1' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 1, x: 150, rep: 'F1' },
     ...X1(46),
@@ -217,9 +216,8 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     L('x1_5.a', 'x1_9.a', 'PE'),
     // ---- alimentation TBT : deux phases en aval de Q1 → Q2 → T1 → Q3 ----
     L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
-    L('t1.24', 'f3.1', 'C'),
-    L('t1.0V', 'x2_4.a', 'C0'), L('x2_4.a', 'x1_5.a', 'PE'),
+    ...liaisonsT1({ retour: 'x2_4.a', terre: 'x1_5.a' }),
+    L('x2_4.a', 'x1_5.a', 'PE'),
     // ---- commande : conducteur « 2 », défaut thermique, chaîne d'arrêt ----
     L('f3.2', 'x2_1.a', 'C'), L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_5.a', 'C'),
     // S1 interrupteur de position : contact NF (11-12) en série dans la chaîne d'arrêt.
@@ -275,12 +273,10 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     // équipotentielle à la terre : un élève qui y raccordait un retour de bobine obtenait un
     // montage « cohérent » pour le simulateur, alors que c'est un court-circuit phase-terre.
     // Même faute sur la prise 48 V du secondaire. Chacune a désormais son propre réseau.
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' },
-    't1.230': { net: 'TAP-PRI-230', live: 'f2' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' },
-    't1.48': { net: 'TAP-SEC-48', live: 'f2' },
+    ...netsT1('f2'),
     // protection du secondaire (Q3)
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
+    'f3.N': { net: 'C0', live: 'always' }, 'f3.N2': { net: 'C0', live: 'always' },
     // bornier de commande XC
     'x2_1.a': { net: 'C', live: 'ctl' }, 'x2_1.b': { net: 'C', live: 'ctl' },
     'x2_5.a': { net: 'C', live: 'ctl' }, 'x2_5.b': { net: 'C', live: 'ctl' },
@@ -339,7 +335,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     },
     {
       id: 'u24', title: 'Tension de commande au secondaire de T1', stage: 'sousTension',
-      instrument: 'mm', dial: 'V~', a: 't1.24', b: 't1.0V', min: 22, max: 26, unit: 'V', when: 'ctl',
+      instrument: 'mm', dial: 'V~', a: 't1.24b', b: 't1.0a', min: 22, max: 26, unit: 'V', when: 'ctl',
     },
     {
       id: 'iL', title: 'Courant de ligne à la pince (KM1:2 → F1:1)', stage: 'sousTension',
@@ -425,24 +421,24 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
   // Transformateur de commande à prises : le rapport de transformation est fixé par
   // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
   // Voir `src/lib/sim/trafo.ts`.
-  trafo: {
-    slot: 't1',
-    reseau: 400,
-    primaire: { '0': 0, '230': 230, '400': 400 },
-    secondaire: { '0V': 0, '24': 24, '48': 48 },
-    bobine: 24,
-  },
+  trafo: { slot: 't1', ...TRAFO_REF },
   // Folio du circuit de commande. On n'écrit que l'ORDRE des organes : le moteur
   // de mise en page (`src/lib/schema/folio.ts`) place les ordonnées, et l'état de
   // chaque contact se lit dans le réseau, pas ici.
   folio: {
     railHaut: '24 V — secondaire de T1',
     railBas: 'com — retour 0 V, relié à la terre',
-    source: 't1.24', repSource: 'T1:24',
-    retour: 't1.0V', repRetour: 'T1:0V',
+    source: 't1.24b', repSource: 'T1:24b',
+    retour: 't1.0a', repRetour: 'T1:0a',
     tete: {
       type: 'disjoncteur', a: 'f3.1', b: 'f3.2',
       rep: 'Q3', legende: 'protection du 24 V', conducteur: '2',
+    },
+    // Pôle NEUTRE de Q3, sur le rail de retour : il sectionne le 0 V en même temps
+    // que le pôle protégé coupe le 24 V.
+    pied: {
+      type: 'disjoncteur', a: 'f3.N', b: 'f3.N2',
+      rep: 'Q3', legende: 'pôle neutre · sectionnement du 0 V',
     },
     colonnes: [
       {

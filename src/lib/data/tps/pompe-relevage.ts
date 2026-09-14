@@ -13,7 +13,7 @@
  *  simulateur, il se contrôle à l'ohmmètre et se raisonne sur le schéma.
  */
 import type { Slot, TpDefinition } from '@/lib/types';
-import { BASE_TESTS, L, X1 } from './common';
+import { BASE_TESTS, L, TRAFO_REF, X1, liaisonsT1, netsT1 } from './common';
 
 /** Bornier X2 : 9 bornes de commande (porte et fosse), bornes étroites au pas de 17 px. */
 function bornierX2(x0: number, rail = 2): Slot[] {
@@ -152,8 +152,8 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     { id: 'km1', label: 'KM1 · Contacteur pompe', key: 'kontakt', rail: 0, x: 112, rep: 'KM1' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 180, rep: 'F1' },
     { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 1, x: 52, rep: 'F2' },
-    { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 1, x: 116, rep: 'T1' },
-    { id: 'f3', label: 'F3 · Secondaire 24 V', key: 'mcb1p', rail: 1, x: 204, rep: 'F3' },
+    { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 1, x: 116, rep: 'T1' },
+    { id: 'f3', label: 'F3 · Secondaire 24 V · phase + neutre', key: 'mcb1pn', rail: 1, x: 250, rep: 'F3' },
     { id: 'ka1', label: 'KA1 · Relais de mémorisation (1-2 bobine · 3-4 contact NO)', key: 'timer', rail: 1, x: 240, rep: 'KA1' },
     ...X1(48),
     ...bornierX2(230),
@@ -172,8 +172,8 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     L('x1_5.a', 'x1_9.a', 'PE'),
     // ---- alimentation de la commande 24 V ----
     L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
-    L('t1.24', 'f3.1', 'C'), L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_1.a', 'C'),
+    ...liaisonsT1({ retour: 'x2_9.a', terre: 'x1_5.a' }),
+    L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_1.a', 'C'),
     // ---- commande : marche forcée, départ vers les flotteurs ----
     L('x2_2.a', 'x2_4.a', 'C'), L('x2_3.a', 'km1.A1', 'C'),
     // ---- commande automatique : flotteur haut, mémorisation KA1, flotteur bas ----
@@ -184,7 +184,7 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     L('x2_2.a', 'km1.13', 'C'), L('km1.14', 'x2_7.a', 'C'),
     L('f1.97', 'f3.2', 'C'), L('f1.98', 'x2_8.a', 'C'),
     // ---- 0 V et mise à la terre du secondaire ----
-    L('t1.0V', 'x2_9.a', 'C0'), L('x2_9.a', 'x1_5.a', 'PE'),
+    L('x2_9.a', 'x1_5.a', 'PE'),
     // ---- porte : arrêt, marche forcée, voyants ----
     L('x2_1.b', 'S1.21', 'C', 'door'), L('S1.22', 'S2.13', 'C', 'door'), L('S1.22', 'x2_2.b', 'C', 'door'),
     L('S2.14', 'x2_3.b', 'C', 'door'),
@@ -229,9 +229,9 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     // protections et transformateur de commande
     'f2.1': { net: 'L1', live: 'q1' }, 'f2.3': { net: 'L2', live: 'q1' },
     'f2.2': { net: 'L1', live: 'f2' }, 'f2.4': { net: 'L2', live: 'f2' },
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'TAP-PRI-230', live: 'f2' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'TAP-SEC-48', live: 'f2' },
+    ...netsT1('f2'),
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
+    'f3.N': { net: 'C0', live: 'always' }, 'f3.N2': { net: 'C0', live: 'always' },
     // bornier de commande
     'x2_1.a': { net: 'C', live: 'ctl' }, 'x2_1.b': { net: 'C', live: 'ctl' },
     'x2_2.a': { net: 'C', live: 'ctl' }, 'x2_2.b': { net: 'C', live: 'ctl' },
@@ -299,7 +299,7 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
     },
     {
       id: 'u24', title: 'Tension de commande au secondaire de T1', stage: 'sousTension',
-      instrument: 'mm', dial: 'V~', a: 't1.24', b: 't1.0V', min: 22, max: 26, unit: 'V', when: 'ctl',
+      instrument: 'mm', dial: 'V~', a: 't1.24b', b: 't1.0a', min: 22, max: 26, unit: 'V', when: 'ctl',
     },
     {
       id: 'iL', title: 'Courant de ligne à la pince (KM1:2 → F1:1)', stage: 'sousTension',
@@ -324,13 +324,7 @@ export const TP_POMPE_RELEVAGE: TpDefinition = {
   // Transformateur de commande à prises : le rapport de transformation est fixé par
   // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
   // Voir `src/lib/sim/trafo.ts`.
-  trafo: {
-    slot: 't1',
-    reseau: 400,
-    primaire: { '0': 0, '230': 230, '400': 400 },
-    secondaire: { '0V': 0, '24': 24, '48': 48 },
-    bobine: 24,
-  },
+  trafo: { slot: 't1', ...TRAFO_REF },
   station: true,
   hasMotor: true,
 };

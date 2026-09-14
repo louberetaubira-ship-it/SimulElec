@@ -5,9 +5,11 @@
  * Un moteur piloté par un variateur ne démarre pas parce que le câblage est juste,
  * il démarre parce que la plaque signalétique a été entrée dans l'appareil.
  *
- * Matériel : Altivar ATV320U07N4B — 45 × 325 × 245 mm, 0,75 kW, 380-500 V triphasé,
- * 3,6 A en ligne sous 380 V, 2,3 A de sortie à 4 kHz, sortie 0,1 à 599 Hz
- * (fiche produit Schneider). L'ATV312 de la littérature d'atelier est arrêté depuis
+ * Matériel : Altivar ATV320U07N4C, format COMPACT — 105 × 142 × 158 mm, 0,75 kW,
+ * 380-500 V triphasé, 3,6 A en ligne sous 380 V, 2,3 A de sortie à 4 kHz, sortie
+ * 0,1 à 599 Hz (fiche produit Schneider). Le format book (U07N4B) fait 325 mm de
+ * haut : à l'échelle de la platine il occupe une armoire entière pour un appareil
+ * de 0,75 kW. C'est le compact qu'on trouve sur un plateau d'atelier. L'ATV312 de la littérature d'atelier est arrêté depuis
  * décembre 2017 ; c'est l'ATV320 qui le remplace, et c'est lui que mobilise la
  * progression MELEC de l'établissement.
  *
@@ -64,7 +66,7 @@ export const TP_VARIATEUR: TpDefinition = {
   },
   cahierDesCharges: [
     { k: 'Réseau', v: '3 × 400 V + PE, 50 Hz, arrivée sur bornier X1' },
-    { k: 'Variateur', v: 'Altivar ATV320U07N4B · 0,75 kW · 380-500 V triphasé · sortie 0,1 à 599 Hz' },
+    { k: 'Variateur', v: 'Altivar ATV320U07N4C · 0,75 kW · 380-500 V triphasé · sortie 0,1 à 599 Hz' },
     { k: 'Force motrice', v: 'moteur asynchrone triphasé 0,75 kW, 4 pôles, couplage étoile sur 400 V' },
     { k: 'Commande', v: 'TBT 24 V ~ par transformateur T1, primaire protégé par Q2 Schneider C60N C2 bipolaire PHASE / PHASE (bornes 1-3 / 2-4, pas de neutre), secondaire par Q3 Schneider C60N C2 PHASE + NEUTRE : le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V. Les deux conducteurs de la commande s\'ouvrent d\'un seul geste.' },
     { k: 'Transformateur T1', v: 'Legrand 042872 · 100 VA · 50/60 Hz · classe I · IP2X · EN 61558-2-6. Primaire à prises 0 · 230 · 400, secondaire BI-TENSION livré avec ses barrettes de couplage.' },
@@ -97,7 +99,7 @@ export const TP_VARIATEUR: TpDefinition = {
       name: 'U1 · Variateur de vitesse',
       need: 'Faire varier la vitesse d\'un moteur asynchrone de 0,75 kW alimenté en 3 × 400 V',
       options: [
-        { key: 'atv320', ref: 'ATV320U07N4B', spec: '0,75 kW · 380-500 V triphasé · format book', ok: true, why: 'Calibre et tension conformes, et c\'est l\'appareil de la progression de l\'établissement. Sa protection I²t remplace le relais thermique.' },
+        { key: 'atv320', ref: 'ATV320U07N4C', spec: '0,75 kW · 380-500 V triphasé · format book', ok: true, why: 'Calibre et tension conformes, et c\'est l\'appareil de la progression de l\'établissement. Sa protection I²t remplace le relais thermique.' },
         { key: 'atv320', ref: 'ATV312H075N4', spec: '0,75 kW · 380-500 V triphasé', half: true, why: 'Électriquement équivalent et les paramètres portent les mêmes noms, mais l\'ATV312 est arrêté commercialement depuis décembre 2017 : il est remplacé par l\'ATV320.' },
         { key: 'atv320', ref: 'ATV320U07M2C', spec: '0,75 kW · 200-240 V monophasé', why: 'Alimentation monophasée 230 V : elle ne correspond pas au réseau triphasé 400 V de l\'atelier.' },
       ],
@@ -163,20 +165,21 @@ export const TP_VARIATEUR: TpDefinition = {
       ],
     },
   ],
-  // Rails écartés et armoire relevée : l'ATV320 mesure 325 mm de haut, soit 471 px
-  // à l'échelle de la platine. Entre son rail et le suivant il faut la hauteur de
-  // l'appareil PLUS la goulotte du rail du dessous — ce que 196 px ne donnaient pas.
-  rails: [150, 470, 1010],
-  armoire: 1180,
+  // Le variateur au format COMPACT mesure 142 mm de haut, soit 206 px : il tient
+  // sous son rail sans qu'on relève l'armoire à 1180 px comme l'imposait le book
+  // (471 px). Il reste plus encombrant qu'un appareil modulaire, d'où l'armoire
+  // de 860 px et l'écart entre les rails 2 et 3.
+  rails: [150, 400, 690],
+  armoire: 860,
   slots: [
     { id: 'q1', label: 'Q1 · Disjoncteur moteur GV2ME08', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },
     { id: 'f3', label: 'Q3 · Disjoncteur phase + neutre 2 A', key: 'mcb1pn', rail: 0, x: 200, rep: 'Q3' },
     { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 262, rep: 'T1' },
     { id: 'km1', label: 'KM1 · Contacteur de ligne', key: 'kontaktaux', rail: 1, x: 46, rep: 'KM1' },
-    // 325 mm de haut : l'ATV320 book descend sous son rail au lieu d'être centré
-    // dessus, sinon il remonterait dans la goulotte qui longe ce même rail.
-    { id: 'u1', label: 'U1 · Variateur ATV320', key: 'atv320', rail: 1, x: 150, rep: 'U1', dy: 162 },
+    // 142 mm de haut : même compact, l'ATV320 descend sous son rail au lieu d'être
+    // centré dessus, sinon il remonterait dans la goulotte qui longe ce même rail.
+    { id: 'u1', label: 'U1 · Variateur ATV320 compact', key: 'atv320', rail: 1, x: 150, rep: 'U1', dy: 29 },
     ...X1(46),
     ...X2B,
   ],

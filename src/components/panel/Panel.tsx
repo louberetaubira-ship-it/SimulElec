@@ -90,11 +90,11 @@ export interface PanelProps {
  * de l'appareil plutôt que dessus.
  */
 const MARQUE_ATV: Record<string, { dx: number; dy: number }> = {
-  'R/L1': { dx: -13, dy: -9 }, 'S/L2': { dx: 0, dy: -20 }, 'T/L3': { dx: 13, dy: -9 },
-  'U/T1': { dx: -13, dy: 9 }, 'V/T2': { dx: 0, dy: 20 }, 'W/T3': { dx: 13, dy: 9 },
-  'PA+': { dx: -18, dy: 0 }, 'PC-': { dx: -18, dy: 0 }, PE: { dx: -16, dy: 0 },
-  '+24': { dx: 20, dy: 0 }, COM: { dx: 20, dy: 0 }, LI1: { dx: 20, dy: 0 },
-  LI2: { dx: 20, dy: 0 }, AI1: { dx: 20, dy: 0 }, R1A: { dx: 20, dy: 0 }, R1C: { dx: 20, dy: 0 },
+  // bloc de commande, en face avant : la rangée du haut se repère AU-DESSUS de
+  // ses bornes, celle du bas en dessous — sinon les deux étiquettes se
+  // retrouveraient l'une sur l'autre entre les deux rangées.
+  R1A: { dx: 0, dy: -9 }, R1C: { dx: 0, dy: -9 }, '+24': { dx: 0, dy: -9 }, COM: { dx: 0, dy: -9 },
+  LI1: { dx: 0, dy: 9 }, LI2: { dx: 0, dy: 9 }, AI1: { dx: 0, dy: 9 },
 };
 
 function markOffset(id: string, fy: number, key?: string): { dx: number; dy: number } {
@@ -211,7 +211,7 @@ export default function Panel(props: PanelProps) {
       }
     }
     return out;
-  }, [recvItems]);
+  }, [recvItems, geo]);
   /** Presse-étoupes en bas de l'armoire : un par descente vers un récepteur. */
   const glands: number[] = React.useMemo(() => {
     const xs = new Set<number>(recvItems.length ? recvItems.flatMap((it) => {
@@ -224,7 +224,7 @@ export default function Panel(props: PanelProps) {
 
   const netTerminals: TerminalMark[] = React.useMemo(
     () => resIds(tp.scene).map((id) => ({ id, pos: resOf(geo)[id] })),
-    [tp.scene],
+    [tp.scene, geo],
   );
 
   /* ------------------------------------------------- arbitrage du clic sur les bornes

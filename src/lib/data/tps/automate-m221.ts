@@ -4,7 +4,7 @@
  * entrées S2 / S1 / F1 par le bornier X2, sorties relais vers KM1, H1 et H2.
  */
 import type { TpDefinition } from '@/lib/types';
-import { BASE_TESTS, L, X1, X2 } from './common';
+import { BASE_TESTS, L, POSTE_T1_OPTIONS, TRAFO_REF, X1, X2, liaisonsT1, netsT1 } from './common';
 
 export const TP_AUTOMATE_M221: TpDefinition = {
   id: 'automate-m221',
@@ -78,9 +78,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
       name: 'T1 · Alimentation de commande',
       need: 'Alimenter l\'automate (250 mA), la bobine et les voyants en 24 V',
       options: [
-        { key: 'trafo', ref: 'ABL6TS06U', spec: '400/24 V · 63 VA', ok: true, why: 'Primaire 400 V, secondaire 24 V, réserve de puissance suffisante pour l\'automate et la bobine.' },
-        { key: 'trafo', ref: 'ABL6TS02U', spec: '400/24 V · 25 VA', half: true, why: 'Limite : l\'appel de bobine fait chuter la tension d\'alimentation de l\'automate.' },
-        { key: 'trafo', ref: 'ABL6TS10U', spec: '230/12 V · 100 VA', why: 'Primaire et secondaire non conformes au cahier des charges.' },
+        ...POSTE_T1_OPTIONS,
       ],
     },
     {
@@ -110,8 +108,8 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 0, x: 112, rep: 'KM1' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 180, rep: 'F1' },
     { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 248, rep: 'F2' },
-    { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 0, x: 308, rep: 'T1' },
-    { id: 'f3', label: 'F3 · Secondaire 24 V', key: 'mcb1p', rail: 1, x: 52, rep: 'F3' },
+    { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 0, x: 308, rep: 'T1' },
+    { id: 'f3', label: 'F3 · Secondaire 24 V · phase + neutre', key: 'mcb1pn', rail: 1, x: 52, rep: 'F3' },
     { id: 'plc', label: 'A1 · Automate M221', key: 'plc', rail: 1, x: 96, rep: 'A1' },
     ...X1(52),
     ...X2(238, 8),
@@ -127,9 +125,9 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     L('x1_5.a', 'x1_9.a', 'PE'),
     // ---- alimentation de commande 24 V ----
     L('q1.2', 'f2.1', 'L1'), L('q1.4', 'f2.3', 'L2'),
-    L('f2.2', 't1.400', 'L1'), L('f2.4', 't1.0', 'L2'),
-    L('t1.24', 'f3.1', 'C'),
-    L('f3.2', 'plc.+24', 'C'), L('t1.0V', 'x2_6.a', 'C0'), L('x2_6.a', 'plc.0V', 'C0'),
+    ...liaisonsT1({ retour: 'x2_6.a', terre: 'x1_5.a' }),
+   
+    L('f3.2', 'plc.+24', 'C'), L('x2_6.a', 'plc.0V', 'C0'),
     L('x2_6.a', 'x1_5.a', 'PE'),
     // ---- entrées ----
     L('f3.2', 'x2_1.a', 'C'), L('x2_1.b', 'S1.21', 'C', 'door'),
@@ -169,9 +167,9 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     'f1.95': { net: 'C', live: 'f3' }, 'f1.96': { net: 'C', live: 'ctl' },
     'f2.1': { net: 'L1', live: 'q1' }, 'f2.3': { net: 'L2', live: 'q1' },
     'f2.2': { net: 'L1', live: 'f2' }, 'f2.4': { net: 'L2', live: 'f2' },
-    't1.400': { net: 'L1', live: 'f2' }, 't1.0': { net: 'L2', live: 'f2' }, 't1.230': { net: 'TAP-PRI-230', live: 'f2' },
-    't1.24': { net: 'C', live: 'f2' }, 't1.0V': { net: 'C0', live: 'always' }, 't1.48': { net: 'TAP-SEC-48', live: 'f2' },
+    ...netsT1('f2'),
     'f3.1': { net: 'C', live: 'f2' }, 'f3.2': { net: 'C', live: 'f3' },
+    'f3.N': { net: 'C0', live: 'always' }, 'f3.N2': { net: 'C0', live: 'always' },
     // automate
     'plc.+24': { net: 'C', live: 'f3' }, 'plc.0V': { net: 'C0', live: 'always' },
     'plc.COM0': { net: 'C', live: 'f3' }, 'plc.COM1': { net: 'C', live: 'f3' },
@@ -264,13 +262,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
   // Transformateur de commande à prises : le rapport de transformation est fixé par
   // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
   // Voir `src/lib/sim/trafo.ts`.
-  trafo: {
-    slot: 't1',
-    reseau: 400,
-    primaire: { '0': 0, '230': 230, '400': 400 },
-    secondaire: { '0V': 0, '24': 24, '48': 48 },
-    bobine: 24,
-  },
+  trafo: { slot: 't1', ...TRAFO_REF },
   station: true,
   hasMotor: true,
 };

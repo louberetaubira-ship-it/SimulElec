@@ -154,8 +154,14 @@ export const CATALOGUE: CatalogueItem[] = [
   item({ key: 'pe', name: 'Pictogramme terre', ref: 'signalétique', kind: 'sign', family: 'Signalétique', modules: 0, poles: 0, terminals: [] }),
   // ---- Transformateur de commande (photo /sprites/trafo.png) ----
   {
-    key: 'trafo', name: 'Transformateur de commande 400/24 V · 63 VA', ref: 'ABL6TS06U', brand: 'Schneider',
-    kind: 'trafo', family: 'Industriel', modules: 4, poles: 0, switchable: false, w: 74, h: 100,
+    // Phaseo ABL6TS06B — 78 × 90 × 80 mm (fiche Schneider), soit 113 × 131 px.
+    // Il ne figure plus sur aucune platine : depuis que l'alimentation de commande
+    // de référence est le Legrand bi-tension, il ne sert qu'à illustrer une OPTION
+    // à l'étape matériel. C'est pourquoi ses bornes restent celles du modèle à
+    // prises : personne ne s'y raccorde.
+    key: 'trafo', name: 'Transformateur de commande 230-400 / 24 V · 63 VA', ref: 'ABL6TS06B', brand: 'Schneider',
+    dims: { largeur: 78, hauteur: 90, profondeur: 80, source: 'fiche' },
+    kind: 'trafo', family: 'Industriel', modules: 4, poles: 0, switchable: false, w: 113, h: 131,
     terminals: [
       { id: '0', fx: 0.31, fy: 0.28 }, { id: '230', fx: 0.59, fy: 0.28 }, { id: '400', fx: 0.85, fy: 0.28 },
       { id: '0V', fx: 0.41, fy: 0.72 }, { id: '24', fx: 0.70, fy: 0.72 }, { id: '48', fx: 0.85, fy: 0.72 },
@@ -190,33 +196,35 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: '24a', fx: 0.667, fy: 0.90 }, { id: '24b', fx: 0.822, fy: 0.90 },
     ] }),
   // ---- Variation de vitesse ----
-  // ATV320U07N4B : 45 x 325 x 245 mm, 0,75 kW, 380-500 V triphase, 3,6 A en ligne
-  // sous 380 V, 2,3 A de sortie a 4 kHz, sortie 0,1 a 599 Hz (fiche produit Schneider).
-  vector({
-    key: 'atv320', name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW', ref: 'ATV320U07N4B',
-    dims: { largeur: 45, hauteur: 325, profondeur: 245, source: 'fiche' },
-    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 2.5, poles: 3, w: 65, h: 471,
-    // À l'échelle : 45 × 325 mm font 65 × 471 px. L'armoire de ce TP a été
-    // relevée pour le loger — un format book EST un appareil très haut, et c'est
-    // une information que l'élève doit voir.
-    //
-    // Les bornes de contrôle sont rangées EN COLONNE sur la face, et non en
-    // ligne : sur 65 px de large, sept étiquettes côte à côte seraient illisibles,
-    // alors que la hauteur ne manque pas. C'est d'ailleurs ainsi que se présente
-    // le bornier de contrôle d'un variateur au format book.
+  // ATV320U07N4C, format COMPACT : 105 x 142 x 158 mm, 0,75 kW, 380-500 V
+  // triphase, 2,3 A de sortie, sortie 0,1 a 599 Hz (fiche produit Schneider).
+  //
+  // C'est le compact et non le book qui est retenu : a l'echelle, le book fait
+  // 471 px de haut et mange toute une armoire, alors que le compact en fait 206
+  // pour 152 de large. Meme appareil, meme calibre, meme raccordement — seule
+  // la forme change, et c'est celle qu'on trouve sur un plateau d'atelier.
+  //
+  // Bornier de puissance en deux blocs, comme sur l'appareil : l'entree reseau
+  // et la terre en haut, le bus continu puis la sortie moteur en bas. Le bloc
+  // de commande est en face avant, sous le capot, sur deux rangees — 152 px de
+  // large laissent quatre etiquettes lisibles par rangee.
+  item({
+    key: 'atv320', name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW · compact', ref: 'ATV320U07N4C',
+    dims: { largeur: 105, hauteur: 142, profondeur: 158, source: 'fiche' },
+    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 6, poles: 3,
     terminals: [
-      // bornier de puissance, entrée réseau en haut
-      { id: 'R/L1', fx: 0.18, fy: 0.018 }, { id: 'S/L2', fx: 0.50, fy: 0.018 }, { id: 'T/L3', fx: 0.82, fy: 0.018 },
-      // bus continu, sur le flanc gauche
-      { id: 'PA+', fx: 0.10, fy: 0.30 }, { id: 'PC-', fx: 0.10, fy: 0.36 },
-      // bornier de contrôle, en colonne
-      { id: '+24', fx: 0.70, fy: 0.24 }, { id: 'COM', fx: 0.70, fy: 0.30 },
-      { id: 'LI1', fx: 0.70, fy: 0.36 }, { id: 'LI2', fx: 0.70, fy: 0.42 },
-      { id: 'AI1', fx: 0.70, fy: 0.48 },
-      { id: 'R1A', fx: 0.70, fy: 0.56 }, { id: 'R1C', fx: 0.70, fy: 0.62 },
-      // terre et sortie moteur, en bas
-      { id: 'PE', fx: 0.10, fy: 0.90 },
-      { id: 'U/T1', fx: 0.18, fy: 0.982 }, { id: 'V/T2', fx: 0.50, fy: 0.982 }, { id: 'W/T3', fx: 0.82, fy: 0.982 },
+      // bloc de puissance haut : entree reseau + terre
+      { id: 'R/L1', fx: 0.14, fy: 0.025 }, { id: 'S/L2', fx: 0.34, fy: 0.025 },
+      { id: 'T/L3', fx: 0.54, fy: 0.025 }, { id: 'PE', fx: 0.80, fy: 0.025 },
+      // bloc de commande, en face avant, deux rangees
+      { id: 'R1A', fx: 0.14, fy: 0.56 }, { id: 'R1C', fx: 0.38, fy: 0.56 },
+      { id: '+24', fx: 0.62, fy: 0.56 }, { id: 'COM', fx: 0.86, fy: 0.56 },
+      { id: 'LI1', fx: 0.14, fy: 0.70 }, { id: 'LI2', fx: 0.38, fy: 0.70 },
+      { id: 'AI1', fx: 0.62, fy: 0.70 },
+      // bloc de puissance bas : bus continu puis sortie moteur
+      { id: 'PA+', fx: 0.09, fy: 0.975 }, { id: 'PC-', fx: 0.27, fy: 0.975 },
+      { id: 'U/T1', fx: 0.50, fy: 0.975 }, { id: 'V/T2', fx: 0.68, fy: 0.975 },
+      { id: 'W/T3', fx: 0.86, fy: 0.975 },
     ],
   }),
   // ---- Photovoltaïque et branchement (dessins SVG) ----

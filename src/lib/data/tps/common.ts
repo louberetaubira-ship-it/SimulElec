@@ -3,7 +3,7 @@
  * garnitures d'annexe (pièce, local, toiture) et tests hors tension récurrents.
  * Positions portées de `docs/reference/illustration-v3.tpl.html` (`X1`, `X2`, `ANNEX`).
  */
-import type { AnnexItem, Liaison, NetKind, Slot, TestHorsTension } from '@/lib/types';
+import type { AnnexItem, Liaison, NetKind, Slot, TerminalNet, TestHorsTension } from '@/lib/types';
 
 /** Bornier de puissance X1 : 9 bornes (L1 L2 L3 N PE · U V W PE), pas de 18 px, jeu de 8 px après le PE. */
 export function X1(x0: number, rail = 2): Slot[] {
@@ -158,3 +158,90 @@ export const TEST_ISO: TestHorsTension = {
 
 /** Jeu de tests hors tension standard. */
 export const BASE_TESTS: TestHorsTension[] = [TEST_VAT, TEST_VISU, TEST_PE, TEST_ISO];
+
+/* ------------------------------------- alimentation de commande 24 V (référence) */
+
+/**
+ * ALIMENTATION DE COMMANDE DE RÉFÉRENCE — la même sur toute la platine.
+ *
+ * C'est le montage réellement posé à l'établissement, et il vaut désormais pour
+ * TOUT TP qui a besoin d'un 24 V de commande :
+ *
+ *   · protection du primaire  — Acti9 iC60N 2P C2 (A9F74202), PHASE / PHASE :
+ *     bornes 1-3 en haut, 2-4 en bas. Pas de borne N : le primaire est pris
+ *     entre deux phases, pas entre phase et neutre ;
+ *   · protection du secondaire — Acti9 iC60N 1P+N C2 (A9F74602) : le pôle
+ *     protégé coupe le 24 V, le pôle neutre SECTIONNE le 0 V. Les deux
+ *     conducteurs de la commande s'ouvrent d'un seul geste, ce qu'un
+ *     unipolaire ne sait pas faire ;
+ *   · transformateur — Legrand 042872, 100 VA. Primaire à prises 0 · 230 · 400.
+ *     Secondaire BI-TENSION : deux enroulements de 24 V, quatre bornes marquées
+ *     0 · 0 · 24 · 24 (0a · 0b · 24a · 24b au simulateur, sans quoi deux bornes
+ *     porteraient le même identifiant) et une borne de terre.
+ *
+ * Le couplage n'est pas déclaré, il est CÂBLÉ : deux barrettes 0a-0b et 24a-24b
+ * mettent les enroulements en parallèle et donnent 24 V ; une seule barrette
+ * 0b-24a les mettrait en série et donnerait 48 V — la bobine n'y survivrait pas.
+ * `src/lib/sim/trafo.ts` résout le graphe réel, il ne lit pas une constante.
+ */
+export const TRAFO_REF = {
+  reseau: 400,
+  primaire: { '0': 0, '230': 230, '400': 400 },
+  secondaire: { '0a': 0, '0b': 0, '24a': 24, '24b': 24 },
+  enroulements: [
+    { bornes: ['0a', '24a'] as [string, string], u: 24 },
+    { bornes: ['0b', '24b'] as [string, string], u: 24 },
+  ],
+  sortie: ['0a', '24b'] as [string, string],
+  bobine: 24,
+};
+
+/** Réseaux des bornes de T1 (référence). `live` est le repère du disjoncteur de primaire. */
+export function netsT1(livePri: TerminalNet['live'] = 'f2'): Record<string, TerminalNet> {
+  return {
+    't1.400': { net: 'L1', live: livePri }, 't1.0': { net: 'L2', live: livePri },
+    't1.230': { net: 'TAP-PRI-230', live: livePri },
+    't1.24a': { net: 'C', live: livePri }, 't1.24b': { net: 'C', live: livePri },
+    't1.0a': { net: 'C0', live: 'always' }, 't1.0b': { net: 'C0', live: 'always' },
+    't1.PE': { net: 'PE', live: 'always' },
+  };
+}
+
+/**
+ * Liaisons de l'alimentation de commande de référence.
+ *
+ * `pri` = disjoncteur du primaire, `sec` = disjoncteur du secondaire (phase +
+ * neutre), `retour` = borne du bornier X2 qui reçoit le 0 V, `terre` = borne PE
+ * du bornier X1.
+ */
+export function liaisonsT1(
+  { pri = 'f2', sec = 'f3', retour, terre }: { pri?: string; sec?: string; retour: string; terre: string },
+): Liaison[] {
+  return [
+    // primaire : deux phases en aval du disjoncteur de tête
+    L(`${pri}.2`, 't1.400', 'L1'), L(`${pri}.4`, 't1.0', 'L2'),
+    // barrettes de couplage : enroulements en PARALLÈLE, donc 24 V
+    L('t1.0a', 't1.0b', 'BAR'), L('t1.24a', 't1.24b', 'BAR'),
+    // secondaire : le 24 V par le pôle protégé, le 0 V par le pôle neutre
+    L('t1.24b', `${sec}.1`, 'C'),
+    L('t1.0a', `${sec}.N`, 'C0'), L(`${sec}.N2`, retour, 'C0'),
+    // masse du transformateur
+    L('t1.PE', terre, 'PE'),
+  ];
+}
+
+/** Options du poste « transformateur de commande » à l'étape matériel. */
+export const POSTE_T1_OPTIONS = [
+  {
+    key: 'trafoleg', ref: 'Legrand 042872', spec: '230-400 / 24-48 V · 100 VA', ok: true,
+    why: 'Primaire à prises 0 · 230 · 400 pris entre deux phases, secondaire bi-tension couplé en 24 V par ses barrettes, 100 VA : la bobine et les voyants passent sans chute de tension.',
+  },
+  {
+    key: 'trafoleg', ref: 'Legrand 042852', spec: '230-400 / 24-48 V · 40 VA', half: true,
+    why: 'Puissance trop juste : l\'appel de la bobine fait chuter la tension à l\'enclenchement.',
+  },
+  {
+    key: 'trafo', ref: 'ABL6TS10U', spec: '230-400 / 230 V · 100 VA',
+    why: 'Secondaire 230 V : ce n\'est pas une TBT, la bobine 24 V grillerait et le pupitre ne serait plus en très basse tension de sécurité.',
+  },
+];

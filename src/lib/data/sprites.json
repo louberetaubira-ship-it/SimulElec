@@ -193,5 +193,10 @@
     "w": 65,
     "h": 129,
     "states": false
+  },
+  "atv320": {
+    "w": 152,
+    "h": 206,
+    "states": false
   }
 }
