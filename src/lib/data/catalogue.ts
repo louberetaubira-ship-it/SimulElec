@@ -14,6 +14,32 @@ function item(p: Omit<CatalogueItem, 'w' | 'h' | 'switchable'>): CatalogueItem {
   return { ...p, w: m.w, h: m.h, switchable: m.states };
 }
 
+/**
+ * ÉCHELLE DE LA PLATINE — une seule règle pour tout le catalogue.
+ *
+ * 1 millimètre réel = 1,45 pixel de platine. La valeur n'est pas choisie au
+ * hasard : la platine dessinait déjà un disjoncteur de 3 modules sur 78 px, soit
+ * 26 px par module, et un module Acti9 mesure 18 mm — 26 / 18 = 1,44.
+ *
+ * Ce sont les MILLIMÈTRES qui font foi, jamais le nombre de modules. Un GV2ME
+ * de 45 mm fait 65 px, qu'on le compte 2,5 modules ou non ; le champ `modules`
+ * ne sert plus qu'à l'inventaire et au repérage sur le rail.
+ *
+ * `npx tsx scripts/audit-echelle.ts` vérifie que chaque sprite respecte la règle
+ * et liste les appareils dont les cotes n'ont pas encore été relevées.
+ */
+export const ECHELLE_PX_PAR_MM = 1.45;
+
+/** Taille du sprite déduite des cotes constructeur. */
+export const tailleSprite = (largeurMm: number, hauteurMm: number): { w: number; h: number } => ({
+  w: Math.round(largeurMm * ECHELLE_PX_PAR_MM),
+  h: Math.round(hauteurMm * ECHELLE_PX_PAR_MM),
+});
+
+/** Appareil modulaire : pas de 18 mm, hauteur 85 mm (relevé sur la fiche iC60N). */
+export const dimsModulaire = (modules: number) =>
+  ({ largeur: Math.round(modules * 18), hauteur: 85, profondeur: 78.5, source: 'norme' as const });
+
 /** Appareil dessiné en SVG (photovoltaïque, automate, AGCP) : pas de sprite photo. */
 function vector(
   p: Omit<CatalogueItem, 'switchable' | 'svg' | 'modules'> & { modules?: number },
@@ -29,7 +55,7 @@ export const CATALOGUE: CatalogueItem[] = [
   // coupe l'actif, le pôle neutre sectionne le retour : les deux conducteurs de la
   // commande s'ouvrent d'un seul geste. Bornes N et 1 en haut, N et 2 en bas,
   // comme sur l'appareil.
-  item({ key: 'mcb1pn', name: 'Disjoncteur phase + neutre 2 A · courbe C', ref: 'Schneider C60N 1P+N C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 2, In: 2,
+  item({ key: 'mcb1pn', dims: { largeur: 18, hauteur: 85, profondeur: 78.5, source: 'fiche' }, name: 'Disjoncteur phase + neutre 2 A · courbe C', ref: 'Schneider C60N 1P+N C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 2, In: 2,
     terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 },
       { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
   // Sectionneur porte-fusibles PHASE + NEUTRE, 1 module, cartouche 10,3 × 38 — c'est
@@ -43,7 +69,7 @@ export const CATALOGUE: CatalogueItem[] = [
     terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
   // Bipolaire PHASE / PHASE : bornes 1-3 / 2-4, comme sur un primaire de transformateur pris
   // entre deux phases. Le 1P+N ci-dessus a des bornes N : elles induiraient l'élève en erreur.
-  item({ key: 'mcb2ph', name: 'Disjoncteur bipolaire 2 A · phase / phase', ref: 'C60N 2P C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 2, poles: 2, In: 2,
+  item({ key: 'mcb2ph', dims: { largeur: 36, hauteur: 85, profondeur: 78.5, source: 'fiche' }, name: 'Disjoncteur bipolaire 2 A · phase / phase', ref: 'C60N 2P C2', brand: 'Schneider', kind: 'mcb', family: 'Disjoncteurs', modules: 2, poles: 2, In: 2,
     terminals: [{ id: '1', fx: 0.3, fy: 0.06 }, { id: '3', fx: 0.7, fy: 0.06 }, { id: '2', fx: 0.3, fy: 0.94 }, { id: '4', fx: 0.7, fy: 0.94 }] }),
   item({ key: 'mcb3p', name: 'Disjoncteur 3P C20', ref: 'Genrod 3P C20', brand: 'Genrod', kind: 'mcb', family: 'Disjoncteurs', modules: 3, poles: 3, In: 20, terminals: [...top3(['1', '3', '5']), ...bot3(['2', '4', '6'])] }),
   item({ key: 'mcb4p', name: 'Disjoncteur 4P C40', ref: 'Genrod 4P C40', brand: 'Genrod', kind: 'main', family: 'Disjoncteurs', modules: 4, poles: 4, In: 40,
@@ -70,7 +96,7 @@ export const CATALOGUE: CatalogueItem[] = [
     ],
   }),
   // ---- Disjoncteurs moteur ----
-  item({ key: 'motorcb', name: 'Disjoncteur moteur GV2ME08', ref: 'GV2ME08', brand: 'Schneider', kind: 'motorcb', family: 'Disjoncteurs', modules: 2.5, poles: 3, range: [2.5, 4], terminals: [...top3(['1', '3', '5']), ...bot3(['2', '4', '6'])] }),
+  item({ key: 'motorcb', dims: { largeur: 45, hauteur: 89, profondeur: 78.5, source: 'fiche' }, name: 'Disjoncteur moteur GV2ME08', ref: 'GV2ME08', brand: 'Schneider', kind: 'motorcb', family: 'Disjoncteurs', modules: 2.5, poles: 3, range: [2.5, 4], terminals: [...top3(['1', '3', '5']), ...bot3(['2', '4', '6'])] }),
   // ---- Différentiels ----
   item({ key: 'rcd2p', name: 'Interrupteur différentiel 2P 40 A 30 mA', ref: 'iID 2P 40A 30mA', brand: 'Schneider', kind: 'rcd', family: 'Différentiels', modules: 2, poles: 2, In: 40,
     terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
@@ -142,7 +168,7 @@ export const CATALOGUE: CatalogueItem[] = [
   //   · 48 V — enroulements en SÉRIE : une seule barrette, 0b-24a.
   // Dans les deux cas la sortie se prend sur 0a et 24b. La face porte le calibre
   // du fusible correspondant : T4A en 24 V, T2A en 48 V (100 VA / 24 V = 4,17 A).
-  item({ key: 'trafoleg', name: 'Transformateur de commande Legrand 100 VA · 230-400 / 24-48 V', ref: '042872', brand: 'Legrand',
+  item({ key: 'trafoleg', dims: { largeur: 84, hauteur: 104, profondeur: 98, source: 'fiche' }, name: 'Transformateur de commande Legrand 100 VA · 230-400 / 24-48 V', ref: '042872', brand: 'Legrand',
     kind: 'trafo', family: 'Alimentation', modules: 5, poles: 2,
     terminals: [
       { id: '0', fx: 0.306, fy: 0.28 }, { id: '230', fx: 0.625, fy: 0.28 }, { id: '400', fx: 0.833, fy: 0.28 },
@@ -154,7 +180,7 @@ export const CATALOGUE: CatalogueItem[] = [
   // ATV320U07N4B : 45 x 325 x 245 mm, 0,75 kW, 380-500 V triphase, 3,6 A en ligne
   // sous 380 V, 2,3 A de sortie a 4 kHz, sortie 0,1 a 599 Hz (fiche produit Schneider).
   vector({
-    key: 'atv320', name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW', ref: 'ATV320U07N4B',
+    key: 'atv320', dims: { largeur: 45, hauteur: 325, profondeur: 245, source: 'fiche' }, name: 'Variateur de vitesse Altivar ATV320 · 0,75 kW', ref: 'ATV320U07N4B',
     brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 7, poles: 3, w: 190, h: 180,
     // Dessiné plus large que l'échelle stricte (45 mm de façade) : à l'échelle, les
     // dix-sept bornes se chevauchent et l'élève ne lit plus ni les repères ni les

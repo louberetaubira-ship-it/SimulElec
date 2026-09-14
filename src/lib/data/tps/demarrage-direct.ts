@@ -138,8 +138,8 @@ export const TP_DEMARRAGE_DIRECT: TpDefinition = {
   rails: [150, 346, 542],
   slots: [
     { id: 'q1', label: 'Q1 · Disjoncteur moteur', key: 'motorcb', rail: 0, x: 52, rep: 'Q1' },
-    { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 0, x: 112, rep: 'KM1' },
-    { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 180, rep: 'F1' },
+    { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 0, x: 125, rep: 'KM1' },
+    { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 193, rep: 'F1' },
     { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 1, x: 52, rep: 'F2' },
     { id: 't1', label: 'T1 · Transformateur 400/24 V', key: 'trafo', rail: 1, x: 116, rep: 'T1' },
     { id: 'f3', label: 'F3 · Secondaire 24 V', key: 'mcb1p', rail: 1, x: 204, rep: 'F3' },

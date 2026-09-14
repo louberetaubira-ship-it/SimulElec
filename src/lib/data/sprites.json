@@ -130,8 +130,8 @@
     "states": false
   },
   "motorcb": {
-    "w": 52,
-    "h": 100,
+    "w": 65,
+    "h": 129,
     "states": false
   },
   "stopstart": {
@@ -165,8 +165,8 @@
     "states": false
   },
   "mcb2ph": {
-    "w": 55,
-    "h": 121,
+    "w": 52,
+    "h": 123,
     "states": true
   },
   "kontaktaux": {
@@ -186,7 +186,7 @@
   },
   "mcb1pn": {
     "w": 26,
-    "h": 121,
+    "h": 123,
     "states": false
   }
 }

@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Méthode — retrouver un appareil chez le constructeur et le poser à l'échelle</title>
+<style>
+  :root{
+    --app:#F5F6F8; --surface:#fff; --surface-2:#EEF1F5; --line:#D3D9E1;
+    --ink:#141A21; --muted:#66717F; --accent:#E39A00; --good:#1E9E63;
+    --warn:#D97706; --crit:#D93A3A; --info:#3B7DD8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--app);color:var(--ink);
+    font:14px/1.6 "IBM Plex Sans",system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+  h1{font:600 30px/1.15 "Barlow Condensed",system-ui,sans-serif;margin:0 0 6px}
+  h2{font:600 15px/1.2 "Barlow Condensed",system-ui,sans-serif;text-transform:uppercase;
+    letter-spacing:.15em;color:var(--accent);margin:0 0 12px}
+  h3{font-size:13.5px;margin:0 0 6px}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+  .bandeau{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:20px 22px;margin-bottom:18px}
+  .bandeau .sur{font:600 11px/1 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.18em;color:var(--accent);margin-bottom:6px}
+  .bandeau p{margin:0;color:var(--muted);max-width:78ch}
+
+  section{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:20px 22px;margin-bottom:16px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+  th{font:600 10.5px/1.2 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.09em;color:var(--muted)}
+  td.c{font-family:"IBM Plex Mono",monospace;white-space:nowrap}
+  .scroll{overflow-x:auto}
+
+  .alerte{border-left:3px solid var(--crit);background:#FDF0F0;border-radius:0 10px 10px 0;
+    padding:11px 14px;margin:12px 0;font-size:12.5px}
+  .alerte b{color:var(--crit)}
+  .info{border-left:3px solid var(--info);background:#EFF5FC;border-radius:0 10px 10px 0;
+    padding:11px 14px;margin:12px 0;font-size:12.5px}
+  .note{background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--muted)}
+  .note b{color:var(--ink)}
+
+  button{font:inherit;cursor:pointer}
+  .btn{min-height:38px;border:1px solid var(--line);background:var(--surface);border-radius:9px;
+    padding:0 13px;font-size:12.5px;color:var(--ink)}
+  .btn:hover{border-color:var(--muted)}
+  .btn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+
+  /* étapes */
+  .etapes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .et{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .et > button{display:flex;gap:11px;align-items:baseline;width:100%;text-align:left;
+    border:0;background:transparent;padding:11px 13px;font-size:13.5px}
+  .et > button:hover{background:var(--surface-2)}
+  .et .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;
+    background:var(--accent);color:#fff;font:600 11px/1 system-ui;flex:0 0 auto;transform:translateY(3px)}
+  .et .t{font-weight:600}
+  .et .d{padding:0 13px 13px 47px;font-size:12.5px;color:var(--muted);display:none}
+  .et.on .d{display:block}
+  .et.on{border-color:var(--accent)}
+  .et .d b{color:var(--ink)}
+  .et .d .pv{display:block;margin-top:8px;padding:8px 10px;background:#11161C;color:#B9C6D2;
+    border-radius:8px;font:11.5px/1.5 "IBM Plex Mono",monospace}
+  .et .d .pv b{color:#FFD98A}
+
+  /* calculateur */
+  .calc{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;align-items:end}
+  .champ{display:flex;flex-direction:column;gap:4px}
+  .champ label{font:600 10.5px/1 "Barlow Condensed",sans-serif;text-transform:uppercase;
+    letter-spacing:.09em;color:var(--muted)}
+  .champ input{min-height:38px;border:1px solid var(--line);border-radius:9px;padding:0 10px;
+    font:14px/1 "IBM Plex Mono",monospace;background:var(--surface)}
+  .res{background:#11161C;color:#E8EDF3;border-radius:12px;padding:12px 14px;margin-top:12px}
+  .res .k{font:600 10.5px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;
+    text-transform:uppercase;color:#8B97A5}
+  .res .n{font:700 20px/1.2 "IBM Plex Mono",monospace;margin:5px 0 4px}
+  .res .d{font-size:12px;color:#B9C6D2}
+
+  svg{display:block;width:100%;height:auto}
+  .ecart{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:11.5px}
+  .ecart.ko{color:var(--crit)} .ecart.ok{color:var(--good)} .ecart.tiede{color:var(--warn)}
+
+  .badge{display:inline-block;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:600}
+  .badge.v{background:rgba(30,158,99,.14);color:var(--good)}
+  .badge.a{background:rgba(217,119,6,.14);color:var(--warn)}
+
+  .q{border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:9px}
+  .q h3{color:var(--ink)}
+  .q p{margin:0 0 6px;font-size:12.5px;color:var(--muted)}
+  .q .opts{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+  .q .opt{border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12.5px;
+    background:transparent;text-align:left;width:100%}
+  .q .opt:hover{background:var(--surface-2)}
+  .q .opt[aria-pressed="true"]{border-color:var(--accent);background:#FFF8EC}
+  .q .opt b{display:block}
+  .q .opt span{color:var(--muted);font-size:11.5px}
+
+  .src{font-size:11.5px;color:var(--muted)}
+  .src a{color:var(--info)}
+  footer{margin-top:22px;font-size:11.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bandeau">
+    <div class="sur">SimulElec · méthode à valider</div>
+    <h1>Retrouver un appareil chez le constructeur, et le poser à l'échelle</h1>
+    <p>
+      Tu me donnes le site du constructeur, je retrouve l'appareil, je lis sa fiche technique,
+      j'en capture une vue de face et je la pose sur la platine à sa vraie taille. Voici la
+      démarche que je propose de figer, et ce que j'ai déjà vérifié en la testant sur
+      l'appareil de ton lien.
+    </p>
+  </div>
+
+  <!-- ============================================= 1. la demande -->
+  <section>
+    <h2>1 · Ta demande, telle que je la comprends</h2>
+    <div class="grid2">
+      <div>
+        <h3>Ce que tu demandes</h3>
+        <p style="margin:0;font-size:12.5px;color:var(--muted)">
+          Le site <b>se.com</b> devient ma source de référence pour l'appareillage Schneider :
+          j'y cherche le produit, j'ouvre sa fiche technique, j'en capture la photo <b>vue de
+          face</b>, et je l'adapte à la platine <b>en tenant compte de sa taille réelle</b>, pour
+          que le rendu soit juste. Tu veux d'abord le détail de ma démarche et une illustration ;
+          une fois validée, je garde cette méthode pour tout l'appareillage, et tu me donneras le
+          site du constructeur quand je ne trouve pas.
+        </p>
+      </div>
+      <div>
+        <h3>Ce que je comprends derrière</h3>
+        <p style="margin:0;font-size:12.5px;color:var(--muted)">
+          Ce n'est pas une demande cosmétique. Aujourd'hui les appareils de la platine sont à des
+          échelles différentes les unes des autres : un disjoncteur moteur y paraît plus petit
+          qu'il ne l'est, et l'élève se fait une fausse idée de l'encombrement d'une armoire.
+          <b>La taille est une information technique</b>, au même titre que le calibre : c'est elle
+          qui dit combien de modules il faut prévoir, et si l'appareil tient sur le rail.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================= 2. démarche -->
+  <section>
+    <h2>2 · La démarche, six étapes — clique une étape</h2>
+    <ol class="etapes" id="etapes">
+      <li class="et"><button type="button"><span class="n">1</span><span class="t">Identifier le produit chez le constructeur</span></button>
+        <div class="d">
+          Je pars de ce qui est <b>écrit sur l'appareil de la platine</b> — gamme, référence, calibre,
+          courbe — et je le retrouve sur le site du constructeur. Je note la <b>référence commerciale</b>,
+          et surtout son <b>statut</b> : arrêté ou commercialisé.
+          <span class="pv">Testé sur ton lien : <b>24184 · Multi 9 C60N 1P+N 2 A courbe C</b> — production arrêtée le 30 juin 2013, fin de service le 31 décembre 2013. Remplacé par <b>A9F74602 · Acti9 iC60N</b>.</span>
+        </div>
+      </li>
+      <li class="et"><button type="button"><span class="n">2</span><span class="t">Lire la fiche technique, pas la page de vente</span></button>
+        <div class="d">
+          La page produit donne la gamme et le calibre, mais <b>pas les dimensions</b> : elles sont dans
+          la « Fiche technique du produit » téléchargeable. C'est là que je prends
+          <b>largeur × hauteur × profondeur en millimètres</b>, le nombre de modules, le pouvoir de
+          coupure et la norme. Ces valeurs partent dans le cahier des charges du TP, pas seulement
+          dans le dessin.
+          <span class="pv">Vérifié au passage sur la sérigraphie de l'appareil : <b>IEC/EN 60898-1</b> Ue 230 V, Icn 6000 A · <b>IEC/EN 60947-2</b> Icu 50 kA, Ics/Icu 100 % · Uimp 6 kV · Ui 500 V.</span>
+        </div>
+      </li>
+      <li class="et"><button type="button"><span class="n">3</span><span class="t">Capturer une vue de FACE — et pas l'image par défaut</span></button>
+        <div class="d">
+          L'image principale d'une page se.com est un rendu <b>de trois quarts</b>, en perspective :
+          posée sur la platine elle jurerait avec les autres, et ses bornes ne tomberaient pas en face
+          des points de raccordement. Mais chaque page porte un <b>visualiseur 360°</b> : je fais pivoter
+          l'appareil jusqu'à la face, puis j'agrandis et je capture.
+          <span class="pv">Testé et concluant : après rotation j'ai lu sur la face <b>Schneider Electric · Acti9 · iC60N C2 · A9F74602</b>, les repères <b>N</b> en haut et en bas, les quatre bornes et la manette verte.</span>
+        </div>
+      </li>
+      <li class="et"><button type="button"><span class="n">4</span><span class="t">Détourer et cadrer sur l'appareil seul</span></button>
+        <div class="d">
+          Je recadre au ras de l'appareil, bornes du haut et du bas comprises, et j'efface ce qui
+          n'appartient pas au produit — fond, ombres du studio, annotations. C'est déjà ce que j'ai fait
+          pour ton C60N : les deux lettres <b>N</b> visibles sur ta photo étaient des annotations ajoutées,
+          pas des repères de l'appareil, et un bipolaire phase / phase n'a pas de borne de neutre.
+        </div>
+      </li>
+      <li class="et"><button type="button"><span class="n">5</span><span class="t">Mettre à l'échelle de la platine</span></button>
+        <div class="d">
+          Une seule règle pour tout le catalogue : <b>1 millimètre réel = 1,45 pixel de platine</b>.
+          Elle vient du pas modulaire déjà en place — un module de 18 mm y occupe 26 px. Ce sont les
+          <b>millimètres qui font foi</b>, jamais le nombre de modules : un appareil de 45 mm fait 65 px,
+          qu'on le compte 2,5 modules ou non.
+        </div>
+      </li>
+      <li class="et"><button type="button"><span class="n">6</span><span class="t">Placer les bornes et contrôler</span></button>
+        <div class="d">
+          Les bornes sont repérées en <b>fractions de la boîte</b>, relevées sur la photo, et nommées comme
+          sur l'appareil. Puis les contrôles automatiques passent : cohérence électrique, repères,
+          transformateur, mesures, folio, diagnostic — plus un contrôle de <b>chevauchement</b> sur le rail
+          et de <b>lisibilité des étiquettes</b> de bornes.
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ============================================= 3. échelle -->
+  <section>
+    <h2>3 · La règle d'échelle — essaie-la</h2>
+    <p style="margin:0 0 12px;font-size:12.5px;color:var(--muted)">
+      Entre les dimensions lues sur la fiche technique : tu obtiens la taille du sprite sur la platine,
+      et la place qu'il prend sur le rail.
+    </p>
+    <div class="calc">
+      <div class="champ"><label for="mm-l">Largeur (mm)</label><input id="mm-l" type="number" value="45" min="1" max="600"></div>
+      <div class="champ"><label for="mm-h">Hauteur (mm)</label><input id="mm-h" type="number" value="89" min="1" max="600"></div>
+      <div class="champ"><label for="ech">Échelle (px / mm)</label><input id="ech" type="number" value="1.45" step="0.01" min="0.5" max="4"></div>
+    </div>
+    <div class="res" id="res"></div>
+    <div class="note" style="margin-top:12px">
+      <b>D'où vient le 1,45.</b> La platine dessine déjà un disjoncteur de 3 modules sur 78 px, soit
+      26 px par module. Un module Acti9 mesure 18 mm : 26 ÷ 18 = 1,44. On fige <b>1,45 px/mm</b> et
+      tout le catalogue s'y aligne — y compris les appareils qui ne se comptent pas en modules,
+      comme un transformateur ou un moteur.
+    </div>
+  </section>
+
+  <!-- ============================================= 4. le rail comparé -->
+  <section>
+    <h2>4 · Ce que ça change sur le rail — bascule les deux vues</h2>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn" id="v-app" aria-pressed="true">Tailles actuelles</button>
+      <button class="btn" id="v-reel">Tailles à l'échelle</button>
+    </div>
+    <svg id="rail" viewBox="0 0 560 210" role="img"
+         aria-label="Comparaison des largeurs d'appareils sur le rail"></svg>
+    <div class="scroll" style="margin-top:12px">
+      <table>
+        <thead><tr><th>Appareil</th><th>Largeur réelle</th><th>Devrait faire</th><th>Fait aujourd'hui</th><th>Écart</th><th>Source</th></tr></thead>
+        <tbody id="tbl"></tbody>
+      </table>
+    </div>
+    <div class="alerte">
+      <b>Le variateur est le cas à part.</b> Un ATV320 format book mesure 45 mm de large mais
+      <b>325 mm de haut</b> : à l'échelle il ferait 65 × 471 px, soit deux fois et demie l'écart entre
+      deux rails de la platine. Je l'ai dessiné à 190 × 180 px pour que ses dix-sept bornes restent
+      lisibles. C'est le seul appareil où j'ai sciemment quitté l'échelle, et il faut décider quoi en
+      faire — voir la dernière section.
+    </div>
+  </section>
+
+  <!-- ============================================= 5. les trois appareils -->
+  <section>
+    <h2>5 · Les trois appareils de ta capture</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Repère</th><th>Ce qui est écrit dessus</th><th>Chez Schneider</th><th>Ce que je ferais</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="c">Q1</td>
+            <td>TeSys <b>GV2ME</b> · disjoncteur moteur magnétothermique</td>
+            <td>Gamme TeSys GV2ME, toujours commercialisée. Référence à confirmer selon la plage de réglage — <span class="mono">GV2ME08</span> couvre 2,5 à 4 A, ce qui encadre les 3,6 A du variateur.</td>
+            <td>Capture de face depuis se.com, puis passage de <span class="mono">52 × 100</span> à <span class="mono">65 × 129</span> px : c'est lui qui souffre le plus de l'échelle actuelle.</td>
+          </tr>
+          <tr>
+            <td class="c">Q2</td>
+            <td><b>C60N C2</b> · 400 V~ · EN 60947-2 · Icu 10 kA · schéma 1-3 / 2-4</td>
+            <td><b>Arrêté depuis 2013.</b> Remplacé par Acti9 <span class="mono">iC60N 2P C2</span>.</td>
+            <td>Aujourd'hui c'est ta propre photo qui sert de sprite. Soit on la garde — c'est l'appareil du plateau — soit on passe à l'iC60N. À trancher.</td>
+          </tr>
+          <tr>
+            <td class="c">Q3</td>
+            <td>Schneider <b>C2</b> · phase + neutre · bornes N et 1 en haut, N et 2 en bas</td>
+            <td><b>24184 arrêté</b> (30 juin 2013). Remplacé par <span class="mono">A9F74602 · Acti9 iC60N 1P+N 2 A courbe C</span> — c'est exactement le lien que tu m'as donné.</td>
+            <td>Capture de face de l'A9F74602, déjà repérée : marquage, bornes N et manette verte tous lisibles.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info">
+      <b>Le point qui revient trois fois.</b> Deux de tes trois appareils sont <b>arrêtés depuis 2013</b>.
+      C'est normal — un plateau de lycée vit longtemps — mais ça pose une vraie question pédagogique :
+      l'élève doit-il voir l'appareil qu'il a dans les mains, ou celui qu'il commandera en entreprise ?
+      Les deux se défendent, et le simulateur sait déjà faire les deux : le bon appareil sur la platine,
+      l'autre en option à l'étape matériel, avec sa raison.
+    </div>
+  </section>
+
+  <!-- ============================================= 6. à trancher -->
+  <section>
+    <h2>6 · Trois choses à trancher avant que je code</h2>
+
+    <div class="q" data-q="a">
+      <h3>A · Appareil du plateau, ou appareil au catalogue ?</h3>
+      <p>Le C60N est arrêté depuis 2013, l'iC60N le remplace. Lequel l'élève voit-il sur la platine ?</p>
+      <div class="opts">
+        <button class="opt" type="button"><b>Celui du plateau — C60N</b><span>L'élève retrouve exactement ce qu'il a dans les mains. L'iC60N figure en option à l'étape matériel, avec la mention de l'arrêt de gamme.</span></button>
+        <button class="opt" type="button"><b>Celui du catalogue — iC60N</b><span>L'élève apprend la référence qu'il commandera. Le C60N figure en option, avec la mention qu'il ne se remplace plus à l'identique.</span></button>
+        <button class="opt" type="button"><b>Au cas par cas</b><span>Tu me dis appareil par appareil. Plus juste, mais une décision de plus à chaque fois.</span></button>
+      </div>
+    </div>
+
+    <div class="q" data-q="b">
+      <h3>B · Le variateur, et les appareils trop hauts</h3>
+      <p>Un ATV320 fait 325 mm de haut : à l'échelle il traverserait deux rails. Que fait-on ?</p>
+      <div class="opts">
+        <button class="opt" type="button"><b>Écarter les rails de cette platine</b><span>Le variateur est alors à l'échelle comme tout le reste. La platine s'allonge et il faut scroller davantage sur téléphone.</span></button>
+        <button class="opt" type="button"><b>Le laisser hors échelle, et le dire</b><span>Une mention « dessiné hors échelle » sur l'appareil. Honnête, mais l'élève perd la notion d'encombrement de cet appareil-là.</span></button>
+        <button class="opt" type="button"><b>Le poser à plat, hors rail</b><span>Comme le moteur et le pupitre : dans le bloc du bas, à sa vraie taille, relié par le bornier.</span></button>
+      </div>
+    </div>
+
+    <div class="q" data-q="c">
+      <h3>C · Jusqu'où je remonte la méthode ?</h3>
+      <p>La règle d'échelle change la taille de presque tous les appareils déjà en place.</p>
+      <div class="opts">
+        <button class="opt" type="button"><b>Tout le catalogue d'un coup</b><span>Tous les appareils repassent à l'échelle et à la photo constructeur. C'est le plus cohérent, et ça touche les trois TP en même temps.</span></button>
+        <button class="opt" type="button"><b>Le TP variateur d'abord</b><span>On valide la méthode sur ses cinq appareils, on regarde le rendu, puis on étend.</span></button>
+        <button class="opt" type="button"><b>Seulement les trois de la capture</b><span>Q1, Q2, Q3. Le plus rapide, mais le rail restera mélangé tant que le reste n'aura pas suivi.</span></button>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:14px">
+      <b>Ce que je ferai dans tous les cas.</b> Je ne remplace jamais un appareil par un approchant : si
+      je ne le trouve pas chez le constructeur, je te le dis et je te demande le site, comme tu l'as
+      proposé. Et je n'invente aucune dimension : soit elle est lue sur la fiche technique, soit elle
+      est marquée « à confirmer » — comme dans le tableau ci-dessus.
+    </div>
+  </section>
+
+  <footer>
+    <div class="src">
+      Sources consultées pour cette page :
+      <a href="https://www.se.com/fr/fr/product/24184/multi-9-c60n-disjoncteur-modulaire-1p+n-2a-courbe-c/">se.com · Multi 9 C60N 1P+N 2 A courbe C (réf. 24184)</a> ·
+      <a href="https://www.se.com/fr/fr/product/A9F74602/acti9-ic60n-disjoncteur-1p+n-2a-courbe-c-230vca-6000a-50ka/">se.com · Acti9 iC60N 1P+N 2 A courbe C (réf. A9F74602)</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+var $ = function (i) { return document.getElementById(i); };
+
+/* ---------------------------------------------------------------- étapes */
+Array.prototype.forEach.call(document.querySelectorAll('#etapes .et'), function (el) {
+  el.querySelector('button').addEventListener('click', function () {
+    el.classList.toggle('on');
+  });
+});
+document.querySelector('#etapes .et').classList.add('on');
+
+/* ------------------------------------------------------------ calculateur */
+function calc() {
+  var l = parseFloat($('mm-l').value) || 0;
+  var h = parseFloat($('mm-h').value) || 0;
+  var k = parseFloat($('ech').value) || 1.45;
+  var px = Math.round(l * k), py = Math.round(h * k);
+  var mod = l / 18;
+  var modTxt = Math.abs(mod - Math.round(mod)) < 0.06
+    ? Math.round(mod) + ' module' + (Math.round(mod) > 1 ? 's' : '')
+    : mod.toFixed(1).replace('.', ',') + ' module';
+  var rails = (py / 196);
+  $('res').innerHTML =
+    '<div class="k">Taille du sprite sur la platine</div>' +
+    '<div class="n">' + px + ' × ' + py + ' px</div>' +
+    '<div class="d">' + l + ' × ' + h + ' mm, soit ' + modTxt + ' de large. ' +
+    (rails > 1
+      ? 'Hauteur : <b style="color:#FFB4A8">' + rails.toFixed(1).replace('.', ',') +
+        ' fois l\'écart entre deux rails</b> — l\'appareil ne tient pas entre deux rails, il faut décider quoi en faire.'
+      : 'Hauteur : ' + Math.round(rails * 100) + ' % de l\'écart entre deux rails, il tient sans toucher le rail suivant.') +
+    '</div>';
+}
+['mm-l', 'mm-h', 'ech'].forEach(function (i) { $(i).addEventListener('input', calc); });
+calc();
+
+/* ------------------------------------------------------------------ rail */
+/* Largeur RÉELLE en mm : lue sur la fiche technique quand la source le dit,
+   sinon déduite du pas modulaire normalisé (un module = 18 mm), ce qui est une
+   valeur de norme et non une supposition. La colonne « source » le précise. */
+var APPAREILS = [
+  { rep: 'Q1', nom: 'GV2ME08', mm: 45, app: 52, src: 'module', note: 'disjoncteur moteur' },
+  { rep: 'KM1', nom: 'LC1D09 + LADN11', mm: 45, app: 60, src: 'module', note: 'contacteur' },
+  { rep: 'Q2', nom: 'C60N 2P C2', mm: 36, app: 55, src: 'module', note: '2 modules' },
+  { rep: 'Q3', nom: 'C60N 1P+N C2', mm: 18, app: 26, src: 'module', note: '1 module' },
+  { rep: 'T1', nom: 'Legrand 042872', mm: 84, app: 118, src: 'fiche', note: '100 VA' }
+];
+var K = 1.45;
+
+function tableau() {
+  $('tbl').innerHTML = APPAREILS.map(function (a) {
+    var cible = Math.round(a.mm * K);
+    var e = Math.round(((a.app - cible) / cible) * 100);
+    var cls = Math.abs(e) <= 4 ? 'ok' : Math.abs(e) <= 12 ? 'tiede' : 'ko';
+    var sig = e > 0 ? '+' : '';
+    return '<tr><td><b>' + a.rep + '</b> · ' + a.nom + '</td>' +
+      '<td class="c">' + a.mm + ' mm</td>' +
+      '<td class="c">' + cible + ' px</td>' +
+      '<td class="c">' + a.app + ' px</td>' +
+      '<td><span class="ecart ' + cls + '">' + sig + e + ' %</span></td>' +
+      '<td>' + (a.src === 'fiche'
+        ? '<span class="badge v">fiche technique</span>'
+        : '<span class="badge a">pas modulaire · à confirmer</span>') + '</td></tr>';
+  }).join('');
+}
+
+var vue = 'app';
+function rail() {
+  var g = '';
+  g += '<rect x="0" y="0" width="560" height="210" fill="#FAFBFC"/>';
+  g += '<rect x="14" y="96" width="532" height="12" rx="2" fill="#DCE1E8" stroke="#C0C8D2"/>';
+  g += '<text x="14" y="24" font-family="Barlow Condensed,sans-serif" font-size="12" font-weight="600" ' +
+       'letter-spacing="1.4" fill="#66717F">' +
+       (vue === 'app' ? 'TAILLES ACTUELLES' : 'TAILLES À L\'ÉCHELLE — 1,45 px / mm') + '</text>';
+  var x = 22;
+  APPAREILS.forEach(function (a) {
+    var w = vue === 'app' ? a.app : Math.round(a.mm * K);
+    var h = vue === 'app' ? 96 : 110;
+    var y = 102 - h / 2 + 6;
+    var juste = Math.abs(a.app - Math.round(a.mm * K)) / Math.round(a.mm * K) <= 0.04;
+    var fill = vue === 'reel' && !juste ? '#FFF3DC' : '#E9EDF2';
+    var stroke = vue === 'reel' && !juste ? '#E39A00' : '#98A3B0';
+    g += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="3" fill="' + fill +
+         '" stroke="' + stroke + '" stroke-width="1.4"/>';
+    g += '<text x="' + (x + w / 2) + '" y="' + (y + h / 2 + 4) + '" text-anchor="middle" ' +
+         'font-family="IBM Plex Mono,monospace" font-size="11" font-weight="700" fill="#141A21">' + a.rep + '</text>';
+    g += '<text x="' + (x + w / 2) + '" y="' + (y + h + 15) + '" text-anchor="middle" ' +
+         'font-family="IBM Plex Sans,sans-serif" font-size="8.5" fill="#66717F">' + w + ' px</text>';
+    if (vue === 'reel') {
+      g += '<text x="' + (x + w / 2) + '" y="' + (y - 7) + '" text-anchor="middle" ' +
+           'font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#66717F">' + a.mm + ' mm</text>';
+    }
+    x += w + 10;
+  });
+  g += '<text x="546" y="200" text-anchor="end" font-family="IBM Plex Sans,sans-serif" ' +
+       'font-size="9" fill="#8E979F">largeur utile du rail : 532 px</text>';
+  $('rail').innerHTML = g;
+  $('v-app').setAttribute('aria-pressed', String(vue === 'app'));
+  $('v-reel').setAttribute('aria-pressed', String(vue === 'reel'));
+}
+$('v-app').addEventListener('click', function () { vue = 'app'; rail(); });
+$('v-reel').addEventListener('click', function () { vue = 'reel'; rail(); });
+
+/* -------------------------------------------------------------- questions */
+Array.prototype.forEach.call(document.querySelectorAll('.q'), function (q) {
+  var opts = q.querySelectorAll('.opt');
+  Array.prototype.forEach.call(opts, function (o) {
+    o.addEventListener('click', function () {
+      Array.prototype.forEach.call(opts, function (x) {
+        x.setAttribute('aria-pressed', String(x === o));
+      });
+    });
+  });
+});
+
+tableau();
+rail();
+</script>
+</body>
+</html>

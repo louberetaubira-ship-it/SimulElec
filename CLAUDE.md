@@ -64,6 +64,13 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 - Un enroulement se mesure entre **U1–U2, V1–V2 ou W1–W2** ; toute autre paire ne conduit que par une barrette. `src/lib/sim/plaque.ts` résout le réseau réel (union-find sur les barrettes posées + méthode des nœuds sur la seule composante connexe des deux pointes) : jamais de constante.
 - Ordre normalisé : rangée haute **W2 U2 V2**, rangée basse **U1 V1 W1**. Étoile = barrettes W2–U2 et U2–V2 ; triangle = W2–U1, U2–V1, V2–W1.
 
+## Échelle et photos des appareils
+- **Une seule règle : 1 mm réel = 1,45 px de platine** (`ECHELLE_PX_PAR_MM`). Elle vient du pas déjà en place — 3 modules sur 78 px, soit 26 px pour un module de 18 mm. Ce sont les **millimètres qui font foi, jamais le nombre de modules** : un GV2ME de 45 mm fait 65 px qu'on le compte 2,5 modules ou non. `modules` ne sert plus qu'à l'inventaire.
+- Chaque `CatalogueItem` déclare ses cotes constructeur dans `dims`, avec leur **provenance** : `fiche` (lue sur la fiche technique), `norme` (déduite du pas modulaire — 18 mm par module, 85 mm de hauteur, relevé sur la fiche iC60N), `arelever`. On n'invente jamais une cote pour faire taire l'audit : une ligne « à relever » est une ligne de la liste de travail.
+- `npx tsx scripts/audit-echelle.ts` — chaque sprite respecte-t-il l'échelle à 4 % près, et quelles cotes restent à relever ? Un appareil volontairement hors échelle doit figurer dans `EXCEPTIONS` **avec sa raison écrite**.
+- **Photo de l'appareil** : on part du site du constructeur (se.com pour Schneider). L'image par défaut d'une page produit est un rendu **de trois quarts** — inutilisable sur la platine, ses bornes ne tombant pas en face des points de raccordement. C'est le **visualiseur 360°** de la page qui donne la vue de face. La capture se fait ensuite au ras de l'appareil, bornes comprises, sans le fond ni les annotations.
+- Un appareil **arrêté** garde sa place s'il est sur le plateau, mais son remplaçant figure en option à l'étape matériel, avec la mention de l'arrêt de gamme — et réciproquement.
+
 ## Qualité
 - `npm run build` doit passer sans erreur ni warning ESLint bloquant. Pas de `any` gratuit. Composants client marqués `'use client'`.
 - Aucune clé secrète côté client. Les images sont servies depuis `public/sprites` (pas de data URI dans le code).

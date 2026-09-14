@@ -73,6 +73,20 @@ export interface CatalogueItem {
   switchable: boolean;
   w: number;               // display width px (logical panel units, 560×720)
   h: number;
+  /**
+   * Dimensions RÉELLES de l'appareil, relevées sur la fiche technique du
+   * constructeur. Ce sont elles qui font foi pour la taille du sprite :
+   * `w = largeur × ÉCHELLE_PX_PAR_MM`, jamais le nombre de modules. Un appareil
+   * de 45 mm fait 65 px qu'on le compte 2,5 modules ou non.
+   *
+   * `source` dit d'où vient la valeur, pour qu'on ne confonde jamais une cote
+   * lue chez le constructeur avec une cote déduite ou estimée :
+   *   · `fiche`   — lue sur la fiche technique du constructeur ;
+   *   · `norme`   — déduite du pas modulaire normalisé (18 mm par module,
+   *                 85 mm de hauteur pour un appareil modulaire) ;
+   *   · `arelever`— pas encore relevée : l'audit d'échelle la signale.
+   */
+  dims?: { largeur: number; hauteur: number; profondeur?: number; source: 'fiche' | 'norme' | 'arelever' };
   /** Rendu par un composant SVG (trafo, plc, pv…) plutôt qu'un <img>. */
   svg?: boolean;
   /** Source image (data URI) pour les éléments de bibliothèque chargés dynamiquement. */
