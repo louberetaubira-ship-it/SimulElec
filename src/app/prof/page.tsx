@@ -35,9 +35,9 @@ const DIPLOMA_SHORT: Record<string, string> = Object.fromEntries(DIPLOMAS.map((d
 /** Note formatée à la française (14,5). */
 const fr = (n: number) => n.toFixed(1).replace('.', ',');
 
-/** Point de présence : vert clignotant en ligne, gris sinon. */
+/** Point de présence : vert clignotant en ligne, rouge fixe hors ligne (inactif). */
 function OnlineDot({ online }: { online: boolean }) {
-  if (!online) return <span className="inline-block h-2.5 w-2.5 flex-none rounded-full bg-[#CBD2DB]" title="Hors ligne" />;
+  if (!online) return <span className="inline-block h-2.5 w-2.5 flex-none rounded-full bg-[#DC2626]" title="Hors ligne (inactif)" />;
   return (
     <span className="relative flex h-2.5 w-2.5 flex-none" title="En ligne">
       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#16A34A] opacity-60" />
