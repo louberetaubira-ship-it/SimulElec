@@ -30,7 +30,7 @@ export default function PlatineDemoPage() {
 function PlatineDemo() {
   const params = useSearchParams();
   const router = useRouter();
-  const id = params.get('tp') || 'demarrage-direct';
+  const id = params.get('tp') || 'perceuse-radiale';
   const tp = TP_BY_ID[id] ?? TPS[0];
 
   const [cover, setCover] = React.useState(true);

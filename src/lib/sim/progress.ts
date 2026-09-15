@@ -142,37 +142,15 @@ export const STAGE_COURS: CoursId[][] = [
   ['diagnostic', 'contacteur'],                               // 11 validation / maintenance
 ];
 
-/** Précisions par TP : étape → fiches (remplace la valeur par défaut). */
+/**
+ * Précisions par TP : étape → fiches (remplace la valeur par défaut).
+ *
+ * La perceuse radiale et le variateur se contentent des fiches par défaut de
+ * `STAGE_COURS` ; l'automate, lui, a sa fiche propre dès la découverte du
+ * matériel.
+ */
 export const TP_COURS: Record<string, Partial<Record<number, CoursId[]>>> = {
-  'demarrage-direct': {
-    1: ['plaque-moteur', 'couplage'],
-    2: ['plaque-moteur', 'contacteur', 'transfo-commande'],
-    4: ['contacteur', 'borniers', 'regles-cablage'],
-    9: ['mesure-tension', 'mesure-courant', 'vitesse-glissement', 'couplage'],
-  },
-  'etoile-triangle': { 1: ['couplage', 'plaque-moteur'], 4: ['couplage', 'contacteur'], 9: ['mesure-courant', 'couplage'] },
-  inversion: { 4: ['contacteur', 'regles-cablage'], 10: ['diagnostic', 'contacteur'] },
   'automate-m221': { 2: ['automate-m221'], 4: ['automate-m221', 'borniers'], 8: ['automate-m221', 'deconsignation'] },
-  'tableau-logement': { 1: ['tableau-logement'], 2: ['tableau-logement', 'calibre-protection'], 4: ['tableau-logement', 'borniers'], 5: ['tests-hors-tension'] },
-  'tableau-repartition': { 2: ['calibre-protection', 'tableau-logement'], 4: ['borniers', 'chute-tension'] },
-  'va-et-vient': { 1: ['serie-parallele'], 4: ['regles-cablage', 'borniers'] },
-  'chauffe-eau': { 2: ['calibre-protection'], 9: ['loi-ohm-puissance', 'energie'] },
-  'eclairage-tertiaire': { 2: ['calibre-protection'], 9: ['energie', 'loi-ohm-puissance'] },
-  'eclairage-baes': { 1: ['tableau-logement'], 5: ['tests-hors-tension'] },
-  'pompe-relevage': { 2: ['plaque-moteur', 'calibre-protection'], 9: ['mesure-courant', 'loi-ohm-puissance'] },
-  'pv-reseau': {
-    1: ['pv-tension-systeme', 'serie-parallele'],
-    2: ['pv-voc-temperature', 'dc-ac'],
-    4: ['dc-ac', 'chute-tension'],
-    5: ['dc-ac', 'tests-hors-tension'],
-    9: ['mesure-tension', 'dc-ac'],
-  },
-  'pv-batterie': {
-    1: ['energie', 'pv-tension-systeme'],
-    2: ['pv-batterie', 'pv-voc-temperature'],
-    4: ['dc-ac', 'chute-tension'],
-    9: ['mesure-tension', 'dc-ac'],
-  },
 };
 
 /** Fiches de rappel proposées à l'élève pour l'étape en cours de ce TP. */
