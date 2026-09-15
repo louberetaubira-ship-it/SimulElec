@@ -24,17 +24,19 @@ export interface SchemaCommandeProps {
   reseau: readonly Arete[];
   /** Bornes de la zone à mettre en évidence (l'hypothèse visée). */
   zone?: readonly string[];
+  /** Repère de l'organe à encadrer (question de préparation en cours). */
+  focusRep?: string | null;
   /** Pointes de touche posées. */
   probes?: { r?: string | null; k?: string | null };
   onBorne?: (id: string) => void;
 }
 
 export default function SchemaCommande({
-  tp, reseau, zone, probes, onBorne,
+  tp, reseau, zone, focusRep, probes, onBorne,
 }: SchemaCommandeProps) {
   const rendu = React.useMemo(
-    () => rendreFolio(tp, reseau, { zone, r: probes?.r, k: probes?.k }),
-    [tp, reseau, zone, probes?.r, probes?.k],
+    () => rendreFolio(tp, reseau, { zone, focusRep, r: probes?.r, k: probes?.k }),
+    [tp, reseau, zone, focusRep, probes?.r, probes?.k],
   );
 
   const svgRef = React.useRef<SVGSVGElement>(null);

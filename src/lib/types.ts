@@ -311,6 +311,44 @@ export interface PrepQuestion {
   options: string[];
   answer: number;
   why: string;
+  /**
+   * Repère à mettre en évidence sur le schéma pendant qu'on répond. Sans lui,
+   * l'élève devrait deviner de quel organe on parle.
+   */
+  focus?: string;
+  /** Schéma sur lequel chercher : la puissance ou la commande. */
+  schema?: 'puissance' | 'commande';
+}
+
+/**
+ * Un organe de la partie PUISSANCE, du réseau vers le récepteur.
+ *
+ * Le schéma ne porte aucune coordonnée : le TP déclare l'ORDRE des organes, le
+ * tracé s'en déduit — même principe que le folio de commande.
+ */
+export interface PuissanceOrgane {
+  type: 'sectionneur' | 'contacteur' | 'thermique' | 'bornier' | 'disjoncteur';
+  /** Repère gravé, celui que l'élève doit reconnaître. */
+  rep: string;
+  legende?: string;
+  /** Numéros des deux bornes de chaque phase, dans l'ordre des phases. */
+  bornes?: [string, string][];
+  /**
+   * Second appareil d'un contacteur-INVERSEUR : deux corps identiques dont deux
+   * phases sont croisées à l'amont. C'est ce croisement qui inverse le sens de
+   * rotation — il se dessine, il ne se décrète pas.
+   */
+  paire?: { rep: string; legende?: string; bornes?: [string, string][] };
+}
+
+/** Partie puissance d'un TP, dessinée à l'étape de préparation. */
+export interface PuissanceDef {
+  /** Conducteurs dessinés, de gauche à droite. */
+  phases: string[];
+  /** Libellé du réseau, écrit au-dessus du rail. */
+  reseau?: string;
+  organes: PuissanceOrgane[];
+  moteur?: { rep: string; legende?: string };
 }
 
 /** Les deux temps de la préparation : identifier, puis donner la fonction. */
@@ -492,6 +530,8 @@ export interface TpDefinition {
   cahierDesCharges: { k: string; v: string }[];
   /** Préparation (activité A1) : identification des organes et fonction de chacun. */
   preparation?: PreparationDef;
+  /** Schéma de la partie puissance, dessiné à l'étape de préparation. */
+  puissance?: PuissanceDef;
   postes: Poste[];
   rails: number[];               // y de chaque rail (unités logiques, 560×920)
   slots: Slot[];

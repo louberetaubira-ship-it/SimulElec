@@ -116,7 +116,11 @@ export interface RenduFolio {
 export function rendreFolio(
   tp: Pick<TpDefinition, 'folio'>,
   reseau: readonly Arete[],
-  opts: { zone?: readonly string[]; r?: string | null; k?: string | null } = {},
+  opts: {
+    zone?: readonly string[]; r?: string | null; k?: string | null;
+    /** Repère à encadrer : l'organe dont on parle, dans un folio qui en porte trente. */
+    focusRep?: string | null;
+  } = {},
 ): RenduFolio | null {
   const f: FolioDef | undefined = tp.folio;
   if (!f) return null;
@@ -216,6 +220,9 @@ export function rendreFolio(
       + `<text class="folio-borne" x="${X0 - 14}" y="30" text-anchor="end">${f.repSource}</text>`;
   }
 
+  /** Organes portant le repère désigné : de quoi les encadrer à la fin. */
+  const cadresFocus: { x: number; y: number; w: number; h: number }[] = [];
+
   // colonnes : fils entre organes, puis symboles
   for (const { c, places } of colonnes) {
     const x = xDe(c);
@@ -229,7 +236,12 @@ export function rendreFolio(
     const fin = c.vers ? (yDe(c.vers) ?? yBas) : yBas;
     const xFin = c.vers ? X0 : x;
     g += fil(x, haut, xFin, fin, false);
-    for (const p of places) g += symbole(p, vivante);
+    for (const p of places) {
+      g += symbole(p, vivante);
+      if (opts.focusRep && p.el.rep === opts.focusRep) {
+        cadresFocus.push({ x: x - 34, y: p.y1 - 14, w: 68, h: p.y2 - p.y1 + 28 });
+      }
+    }
     // Repérage équipotentiel du conducteur qui sort de chaque organe.
     // On le pose sous la borne suivante quand il y en a une : à mi-tronçon il
     // tombait pile sur son étiquette, tous deux étant à gauche du conducteur.
@@ -261,6 +273,9 @@ export function rendreFolio(
     }
   }
   if (f.tete) {
+    if (opts.focusRep && f.tete.rep === opts.focusRep) {
+      cadresFocus.push({ x: X0 - 34, y: tete[0].y1 - 14, w: 68, h: tete[0].y2 - tete[0].y1 + 28 });
+    }
     points.push({ id: f.source, x: X0, y: 26, rep: f.source });
     points.push({ id: f.tete.a, x: X0, y: 48, rep: f.tete.a });
     if (f.tete.b) points.push({ id: f.tete.b, x: X0, y: tete[0].y2, rep: f.tete.b });
@@ -273,6 +288,9 @@ export function rendreFolio(
       + symbole({ el: f.pied, x: X0, y1, y2 }, vivante)
       + fil(X0, y2, X0, y2 + 22, false)
       + `<text class="folio-borne" x="${X0 - 14}" y="${y2 + 20}" text-anchor="end">${f.repRetour}</text>`;
+    if (opts.focusRep && f.pied.rep === opts.focusRep) {
+      cadresFocus.push({ x: X0 - 34, y: y1 - 14, w: 68, h: y2 - y1 + 28 });
+    }
     points.push({ id: f.pied.a, x: X0, y: y1, rep: f.pied.a });
     if (f.pied.b) points.push({ id: f.pied.b, x: X0, y: y2, rep: f.pied.b });
     points.push({ id: f.retour, x: X0, y: y2 + 22, rep: f.repRetour });
@@ -281,6 +299,13 @@ export function rendreFolio(
     g += `<text class="folio-borne" x="${railG + 26}" y="${yBas - 10}" text-anchor="end">${f.repRetour}</text>`;
   }
   g += S.terre(railD - 40, yBas + 6);
+
+  // L'organe dont parle la question, encadré : sur un folio à trente organes,
+  // nommer le repère ne suffit pas, il faut le montrer.
+  for (const z of cadresFocus) {
+    g += `<rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="8" fill="#E39A00" `
+      + `fill-opacity=".14" stroke="#E39A00" stroke-width="2.4"/>`;
+  }
 
   // points de mesure : discrets, le folio porte déjà tout le repérage utile
   const vus = new Set<string>();

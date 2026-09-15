@@ -68,11 +68,44 @@ export const TP_WAGONNET: TpDefinition = {
     { k: 'Avant mise en service', v: 'consignation sur Q1 · VAT · continuité PE · isolement 500 V · réglage de F1 sur le courant absorbé' },
   ],
 
+  /* ------------------------------------------------- schéma de la puissance */
+  puissance: {
+    phases: ['L1', 'L2', 'L3'],
+    reseau: '3 × 400 V + PE · 100 A maxi',
+    organes: [
+      {
+        type: 'bornier', rep: 'X1', legende: 'arrivée du réseau',
+        bornes: [['1', ''], ['2', ''], ['3', '']],
+      },
+      {
+        type: 'sectionneur', rep: 'Q1', legende: 'séparation · cartouches aM 50 A',
+        bornes: [['1', '2'], ['3', '4'], ['5', '6']],
+      },
+      {
+        type: 'contacteur', rep: 'KM1', legende: 'marche avant',
+        bornes: [['1', '2'], ['3', '4'], ['5', '6']],
+        paire: {
+          rep: 'KM2', legende: 'marche arrière · L1 et L3 croisées',
+          bornes: [['1', '2'], ['3', '4'], ['5', '6']],
+        },
+      },
+      {
+        type: 'thermique', rep: 'F1', legende: 'surcharges et démarrages trop longs',
+        bornes: [['1', '2'], ['3', '4'], ['5', '6']],
+      },
+      {
+        type: 'bornier', rep: 'X1', legende: 'départ vers le moteur',
+        bornes: [['6', ''], ['7', ''], ['8', '']],
+      },
+    ],
+    moteur: { rep: 'M1', legende: '22 kW · 400 V Δ · 42,5 A' },
+  },
+
   /* ------------------------------------------------------------ A1 · préparation */
   preparation: {
     identification: [
       {
-        id: 'id-q1', rep: 'Q1', invite: 'Quel organe porte ce repère en tête de l\'installation ?',
+        id: 'id-q1', focus: 'Q1', schema: 'puissance', rep: 'Q1', invite: 'Quel organe porte ce repère en tête de l\'installation ?',
         options: [
           'Un sectionneur porte-fusibles tripolaire à contacts de précoupure',
           'Un disjoncteur moteur magnéto-thermique',
@@ -83,7 +116,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Q1 est un sectionneur porte-fusibles : trois cartouches pour le court-circuit, et deux contacts de précoupure qui coupent la commande avant les pôles de puissance.',
       },
       {
-        id: 'id-km', rep: 'KM1 / KM2', invite: 'Que représentent ces deux repères accolés sur le schéma de puissance ?',
+        id: 'id-km', focus: 'KM1', schema: 'puissance', rep: 'KM1 / KM2', invite: 'Que représentent ces deux repères accolés sur le schéma de puissance ?',
         options: [
           'Deux contacteurs accouplés et verrouillés : le contacteur-inverseur',
           'Un contacteur et son relais thermique',
@@ -94,7 +127,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Deux contacteurs identiques, verrouillés mécaniquement et électriquement. L\'inversion vient du CÂBLAGE : deux phases croisées entre KM1 et KM2.',
       },
       {
-        id: 'id-f1', rep: 'F1', invite: 'Quel appareil est monté sous le contacteur, entre lui et le bornier moteur ?',
+        id: 'id-f1', focus: 'F1', schema: 'puissance', rep: 'F1', invite: 'Quel appareil est monté sous le contacteur, entre lui et le bornier moteur ?',
         options: [
           'Le relais de protection thermique',
           'Le transformateur de commande',
@@ -105,7 +138,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Le relais thermique s\'enfiche sous le contacteur par trois barrettes ; ses contacts 95-96 et 97-98 partent, eux, dans le circuit de commande.',
       },
       {
-        id: 'id-ka', rep: 'KA3 · KA4 · KA5', invite: 'Trois appareils identiques occupent le rail de commande. Lesquels ?',
+        id: 'id-ka', focus: 'KA4', schema: 'commande', rep: 'KA3 · KA4 · KA5', invite: 'Trois appareils identiques occupent le rail de commande. Lesquels ?',
         options: [
           'Des contacteurs auxiliaires équipés d\'un bloc temporisé',
           'Des relais thermiques de secours',
@@ -116,7 +149,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Un contacteur auxiliaire ne commande aucune puissance : il ne porte que des contacts. Le bloc temporisé clipsé en face avant ajoute les contacts retardés 55-56 et 67-68.',
       },
       {
-        id: 'id-s', rep: 'S2 · S3 · S4 · S5', invite: 'Ces quatre repères, alignés le long du rail, désignent :',
+        id: 'id-s', focus: 'S4', schema: 'commande', rep: 'S2 · S3 · S4 · S5', invite: 'Ces quatre repères, alignés le long du rail, désignent :',
         options: [
           'Des interrupteurs de position à galet',
           'Des boutons poussoirs de la porte de l\'armoire',
@@ -127,7 +160,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Ce sont des capteurs de position : le wagonnet les actionne mécaniquement en passant. S2 en porte deux — un à fermeture et un à ouverture.',
       },
       {
-        id: 'id-t1', rep: 'T1', invite: 'Entre les deux protections Q2 et Q3, on trouve :',
+        id: 'id-t1', focus: 'Q3', schema: 'commande', rep: 'T1', invite: 'Entre les deux protections Q2 et Q3, on trouve :',
         options: [
           'Le transformateur de commande 400 / 24 V',
           'Un autotransformateur de démarrage',
@@ -140,7 +173,7 @@ export const TP_WAGONNET: TpDefinition = {
     ],
     fonctions: [
       {
-        id: 'fn-sect', rep: 'Q1', invite: 'Quelle est la fonction du sectionneur ?',
+        id: 'fn-sect', focus: 'Q1', schema: 'puissance', rep: 'Q1', invite: 'Quelle est la fonction du sectionneur ?',
         options: [
           'Isoler l\'installation du réseau pour travailler en sécurité ; il n\'a pas de pouvoir de coupure',
           'Couper le courant de court-circuit en charge',
@@ -151,7 +184,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Le sectionneur assure la SÉPARATION. Il ne s\'ouvre pas en charge : il n\'a pas de pouvoir de coupure. C\'est sur lui qu\'on consigne.',
       },
       {
-        id: 'fn-fus', rep: 'Fusibles aM', invite: 'Contre quoi protègent les cartouches aM du sectionneur ?',
+        id: 'fn-fus', focus: 'Q1', schema: 'puissance', rep: 'Fusibles aM', invite: 'Contre quoi protègent les cartouches aM du sectionneur ?',
         options: [
           'Contre les courts-circuits uniquement',
           'Contre les surcharges uniquement',
@@ -162,7 +195,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Les aM sont les fusibles d\'accompagnement moteur : ils laissent passer la pointe de démarrage et ne coupent que le court-circuit. La surcharge, c\'est l\'affaire du relais thermique.',
       },
       {
-        id: 'fn-km', rep: 'KM1 / KM2', invite: 'Quelle est la fonction du contacteur inverseur ?',
+        id: 'fn-km', focus: 'KM2', schema: 'puissance', rep: 'KM1 / KM2', invite: 'Quelle est la fonction du contacteur inverseur ?',
         options: [
           'Ouvrir et fermer le circuit de puissance sur ordre de la commande, dans un sens ou dans l\'autre',
           'Isoler le circuit pour l\'entretien',
@@ -173,7 +206,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Le contacteur, lui, POSSÈDE le pouvoir de coupure : il manœuvre en charge, commandé par sa bobine. La fonction inverseur est obtenue par câblage, en croisant deux phases.',
       },
       {
-        id: 'fn-th', rep: 'F1', invite: 'Quelle est la fonction du relais thermique ?',
+        id: 'fn-th', focus: 'F1', schema: 'puissance', rep: 'F1', invite: 'Quelle est la fonction du relais thermique ?',
         options: [
           'Protéger le moteur contre les surcharges et les démarrages trop longs, en coupant le circuit de commande',
           'Couper directement le circuit de puissance sur surcharge',
@@ -184,7 +217,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Le bilame ne coupe pas la puissance : il ouvre son contact 95-96, la bobine du contacteur retombe, et c\'est le contacteur qui coupe. Le thermique voit aussi l\'absence de phase.',
       },
       {
-        id: 'fn-verr', rep: 'KM1:21-22 / KM2:21-22', invite: 'À quoi servent ces deux contacts à ouverture, croisés entre les deux bobines ?',
+        id: 'fn-verr', focus: 'KM2', schema: 'commande', rep: 'KM1:21-22 / KM2:21-22', invite: 'À quoi servent ces deux contacts à ouverture, croisés entre les deux bobines ?',
         options: [
           'Au verrouillage électrique : ils interdisent que les deux contacteurs collent en même temps',
           'À l\'auto-maintien de la marche avant',
@@ -195,7 +228,7 @@ export const TP_WAGONNET: TpDefinition = {
         why: 'Deux contacteurs collés ensemble mettraient deux phases en court-circuit franc. Le verrouillage électrique l\'interdit — et le verrouillage mécanique le double, au cas où un contact resterait soudé.',
       },
       {
-        id: 'fn-tempo', rep: 'KA4:67-68', invite: 'Ce contact temporisé au travail, réglé à 2 s, fait quoi exactement ?',
+        id: 'fn-tempo', focus: 'KA4', schema: 'commande', rep: 'KA4:67-68', invite: 'Ce contact temporisé au travail, réglé à 2 s, fait quoi exactement ?',
         options: [
           'Il se ferme 2 secondes après que la bobine de KA4 a été alimentée',
           'Il s\'ouvre 2 secondes après que la bobine a été alimentée',
@@ -671,7 +704,7 @@ export const TP_WAGONNET: TpDefinition = {
         ],
       },
       {
-        id: 'arriere', dx: -1, depuis: 'f1.96',
+        id: 'arriere', dx: 3, depuis: 'f1.96',
         elements: [
           { type: 'contactNO', a: 'ka4.67', b: 'ka4.68', rep: 'KA4', bornes: ['67', '68'],
             legende: 'temporisé 2 s' },
@@ -683,14 +716,14 @@ export const TP_WAGONNET: TpDefinition = {
         ],
       },
       {
-        id: 'reprise5', dx: -2, depuis: 'f1.96', vers: 'km1.21',
+        id: 'reprise5', dx: 4, depuis: 'f1.96', vers: 'km1.21',
         elements: [
           { type: 'contactNO', a: 'ka5.67', b: 'ka5.68', rep: 'KA5', bornes: ['67', '68'],
             legende: 'temporisé 2 s · reprise en arrière' },
         ],
       },
       {
-        id: 'service', dx: -3, depuis: 'f1.96',
+        id: 'service', dx: -1, depuis: 'f1.96',
         elements: [
           { type: 'contactNO', a: 'km1.53', b: 'km1.54', rep: 'KM1', bornes: ['53', '54'],
             legende: 'bloc LAD N11' },
@@ -700,14 +733,14 @@ export const TP_WAGONNET: TpDefinition = {
       },
       {
         // H2 s'allume dans les DEUX sens : le second chemin vient de KM2.
-        id: 'service2', dx: -5, depuis: 'f1.96', vers: 'x2_11.a',
+        id: 'service2', dx: -2, depuis: 'f1.96', vers: 'x2_11.a',
         elements: [
           { type: 'contactNO', a: 'km2.13', b: 'km2.14', rep: 'KM2', bornes: ['13', '14'],
             legende: 'marche arrière' },
         ],
       },
       {
-        id: 'rail33', dx: 3, depuis: 'f1.96',
+        id: 'rail33', dx: 5, depuis: 'f1.96',
         elements: [
           { type: 'contactNF', a: 'sf2.11', b: 'sf2.12', rep: 'S2', bornes: ['11', '12'],
             actionneur: 'galet', legende: 'coupe les relais au retour', conducteur: '33' },
@@ -720,14 +753,14 @@ export const TP_WAGONNET: TpDefinition = {
         ],
       },
       {
-        id: 'ka4m', dx: 4, depuis: 'x2_6.a', vers: 'ka4.A1',
+        id: 'ka4m', dx: 6, depuis: 'x2_6.a', vers: 'ka4.A1',
         elements: [
           { type: 'contactNO', a: 'ka4.43', b: 'ka4.44', rep: 'KA4', bornes: ['43', '44'],
             legende: 'auto-maintien' },
         ],
       },
       {
-        id: 'ka3c', dx: 5, depuis: 'x2_6.a',
+        id: 'ka3c', dx: 7, depuis: 'x2_6.a',
         elements: [
           { type: 'contactNO', a: 'sf3.11', b: 'sf3.14', rep: 'S3', bornes: ['11', '14'],
             actionneur: 'galet', legende: 'arrêt au retour' },
@@ -738,14 +771,14 @@ export const TP_WAGONNET: TpDefinition = {
         ],
       },
       {
-        id: 'ka3m', dx: 6, depuis: 'x2_6.a', vers: 'ka3.A1',
+        id: 'ka3m', dx: 8, depuis: 'x2_6.a', vers: 'ka3.A1',
         elements: [
           { type: 'contactNO', a: 'ka3.43', b: 'ka3.44', rep: 'KA3', bornes: ['43', '44'],
             legende: 'auto-maintien' },
         ],
       },
       {
-        id: 'ka5c', dx: 7, depuis: 'x2_6.a',
+        id: 'ka5c', dx: 9, depuis: 'x2_6.a',
         elements: [
           { type: 'contactNO', a: 'sf5.11', b: 'sf5.14', rep: 'S5', bornes: ['11', '14'],
             actionneur: 'galet', legende: 'arrêt en bout de course' },
@@ -756,14 +789,14 @@ export const TP_WAGONNET: TpDefinition = {
         ],
       },
       {
-        id: 'ka5m', dx: 8, depuis: 'x2_6.a', vers: 'ka5.A1',
+        id: 'ka5m', dx: 10, depuis: 'x2_6.a', vers: 'ka5.A1',
         elements: [
           { type: 'contactNO', a: 'ka5.43', b: 'ka5.44', rep: 'KA5', bornes: ['43', '44'],
             legende: 'auto-maintien' },
         ],
       },
       {
-        id: 'soustension', dx: -4, depuis: 'f3.2',
+        id: 'soustension', dx: -3, depuis: 'f3.2',
         elements: [
           { type: 'borne', a: 'x2_10.a', rep: 'X2:10' },
           { type: 'voyant', a: 'H1.X1', b: 'H1.X2', rep: 'H1', legende: 'sous tension · en amont de F1' },
@@ -771,7 +804,13 @@ export const TP_WAGONNET: TpDefinition = {
       },
     ],
     cadres: [
-      { titre: 'Coffret de porte', de: 'S1.13', a: 'S1.14', couleur: 'porte', colonnes: ['avant'] },
+      // Tout ce qui est en porte : le bouton de départ et les deux voyants. Le
+      // cadre dit la frontière de l'armoire — ce qui est derrière la porte se
+      // câble en X2, et se déconnecte là pour isoler le coffret.
+      {
+        titre: 'Coffret de porte', de: 'H1.X1', a: 'S1.14', couleur: 'porte',
+        colonnes: ['soustension', 'service2', 'service', 'avant'],
+      },
     ],
   },
 
