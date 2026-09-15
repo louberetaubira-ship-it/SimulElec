@@ -8,7 +8,7 @@ import type { AttemptRow, ClassRow, ProfileRow } from './types';
 /** Colonnes d'une classe (migration 0005 comprise). */
 const CLASS_COLS = 'id, name, level, teacher_id, join_code, diploma, archived';
 
-export type StudentBrief = Pick<ProfileRow, 'id' | 'full_name' | 'email' | 'avatar_url' | 'class_id'>;
+export type StudentBrief = Pick<ProfileRow, 'id' | 'full_name' | 'email' | 'avatar_url' | 'class_id' | 'last_seen_at'>;
 
 /** An attempt joined with its student, for the teacher dashboard. */
 export interface AttemptWithStudent extends AttemptRow {
@@ -68,7 +68,7 @@ export async function listClassStudents(classId: string): Promise<StudentBrief[]
   const supabase = createClient();
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, email, avatar_url, class_id')
+    .select('id, full_name, email, avatar_url, class_id, last_seen_at')
     .eq('class_id', classId)
     .order('full_name');
   if (error) throw new Error(error.message);

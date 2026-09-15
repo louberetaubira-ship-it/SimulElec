@@ -25,6 +25,7 @@ import {
 import { STAGE_COUNT, modeOf } from '@/lib/sim/progress';
 import { liveBilan, liveEvaluation, liveNotes, type LiveBilan, type LiveNotes } from '@/lib/sim/live';
 import { noteSur20 } from '@/lib/eleve-stats';
+import { ONLINE_MS, presenceStats, formatDuree, type PresenceStat } from '@/lib/db/presence';
 
 /** Nombre d'étapes du parcours. */
 const ETAPES = STAGE_COUNT - 1;
@@ -33,6 +34,17 @@ const DIPLOMA_SHORT: Record<string, string> = Object.fromEntries(DIPLOMAS.map((d
 
 /** Note formatée à la française (14,5). */
 const fr = (n: number) => n.toFixed(1).replace('.', ',');
+
+/** Point de présence : vert clignotant en ligne, gris sinon. */
+function OnlineDot({ online }: { online: boolean }) {
+  if (!online) return <span className="inline-block h-2.5 w-2.5 flex-none rounded-full bg-[#CBD2DB]" title="Hors ligne" />;
+  return (
+    <span className="relative flex h-2.5 w-2.5 flex-none" title="En ligne">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#16A34A] opacity-60" />
+      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#16A34A]" />
+    </span>
+  );
+}
 
 /** Couleur d'une note sur 20 (vert / ambre / rouge). */
 const noteColor = (n: number | null) => (n == null ? '#94A3B8' : n >= 14 ? '#1E9E63' : n >= 10 ? '#E39A00' : '#D93A3A');
@@ -144,6 +156,15 @@ export default function ProfPage() {
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [defs, setDefs] = useState<Record<string, TpDefinition | null>>({});
   const [manage, setManage] = useState(false);
+  const [presence, setPresence] = useState<Record<string, PresenceStat>>({});
+  const [nowTs, setNowTs] = useState(() => Date.now());
+
+  const studentsById = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
+  const lastSeenOf = useCallback((id: string) => studentsById.get(id)?.last_seen_at ?? null, [studentsById]);
+  const isOnline = useCallback((id: string) => {
+    const ls = lastSeenOf(id);
+    return ls ? nowTs - Date.parse(ls) < ONLINE_MS : false;
+  }, [lastSeenOf, nowTs]);
 
   const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
   const tpTitle = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
@@ -234,6 +255,7 @@ export default function ProfPage() {
       setStudents(st);
       setAttempts(at);
       setLastSync(new Date());
+      presenceStats(st.map((s) => s.id)).then(setPresence).catch(() => {});
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erreur');
     }
@@ -247,8 +269,16 @@ export default function ProfPage() {
       .channel(`attempts-${currentId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attempts' }, () => refresh(currentId))
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // la présence (last_seen_at) ne passe pas par le canal des tentatives : on rafraîchit régulièrement
+    const poll = window.setInterval(() => refresh(currentId), 30_000);
+    return () => { supabase.removeChannel(channel); window.clearInterval(poll); };
   }, [currentId, refresh]);
+
+  // horloge locale : rafraîchit les libellés « en ligne » / « il y a X » sans re-requêter
+  useEffect(() => {
+    const t = window.setInterval(() => setNowTs(Date.now()), 15_000);
+    return () => window.clearInterval(t);
+  }, []);
 
   useEffect(() => {
     if (!openId) { setDetail(null); return; }
@@ -387,8 +417,8 @@ export default function ProfPage() {
         <>
           {/* Tuiles de synthèse */}
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Tile k="Élèves actifs" v={stats.active} unit={`/ ${students.length}`}
-              meta={`${Math.max(0, students.length - stats.active)} non connecté${students.length - stats.active > 1 ? 's' : ''}`} />
+            <Tile k="En ligne" v={students.filter((s) => isOnline(s.id)).length} unit={`/ ${students.length}`}
+              color="#16A34A" meta={`${stats.active} en activité sur un TP`} />
             <Tile k="Note moyenne" tag="prov." v={stats.moy != null ? fr(stats.moy) : '—'} unit="/ 20" meta="à l'instant t" />
             <Tile k="Avancement moyen" v={Math.round((stats.avg / ETAPES) * 100)} unit="%" meta={`étape ${fr(stats.avg)} / ${ETAPES}`} />
             <Tile k="À remédier" v={stats.vig} color={stats.vig > 0 ? '#D93A3A' : undefined} meta="points de vigilance actifs" />
@@ -460,8 +490,19 @@ export default function ProfPage() {
                     return (
                       <tr key={a.id} className="border-t border-[#E7EAEF] transition-colors hover:bg-[#FAFBFC]">
                         <td className="px-4 py-3.5">
-                          <div className="font-semibold">{a.student?.full_name ?? a.student?.email ?? '—'}</div>
-                          <div className="text-[11.5px] text-[#94A3B8]">{(() => { const d = a.diploma ?? current?.diploma; return d ? DIPLOMA_SHORT[d] ?? d : '—'; })()}</div>
+                          <div className="flex items-center gap-2">
+                            <OnlineDot online={isOnline(a.student_id)} />
+                            <span className="font-semibold">{a.student?.full_name ?? a.student?.email ?? '—'}</span>
+                          </div>
+                          <div className="mt-0.5 pl-[18px] text-[11.5px] text-[#94A3B8]">
+                            {(() => { const d = a.diploma ?? current?.diploma; return d ? DIPLOMA_SHORT[d] ?? d : '—'; })()}
+                            {' · '}
+                            {(() => {
+                              const ls = lastSeenOf(a.student_id);
+                              if (isOnline(a.student_id)) return <span className="font-semibold text-[#16A34A]">en ligne</span>;
+                              return ls ? `vu le ${when(ls)}` : 'jamais connecté';
+                            })()}
+                          </div>
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="text-[13px] text-[#66717F]">{a.tp_id}</div>
@@ -569,6 +610,19 @@ export default function ProfPage() {
               <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#EAF1FF] px-2.5 py-1 text-[11px] font-bold text-[#2563EB]">
                 ◷ Évalué à l&apos;instant t · {when(openedAttempt.updated_at)}
               </span>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-[#66717F]">
+                <span className="inline-flex items-center gap-1.5">
+                  <OnlineDot online={isOnline(openedAttempt.student_id)} />
+                  {(() => {
+                    const ls = lastSeenOf(openedAttempt.student_id);
+                    if (isOnline(openedAttempt.student_id)) return <b className="text-[#16A34A]">En ligne</b>;
+                    return ls ? `Vu le ${when(ls)}` : 'Jamais connecté';
+                  })()}
+                </span>
+                {presence[openedAttempt.student_id] && (
+                  <span>Temps en ligne : <b>{formatDuree(presence[openedAttempt.student_id].total)}</b> total · {formatDuree(presence[openedAttempt.student_id].today)} aujourd&apos;hui · {formatDuree(presence[openedAttempt.student_id].week)} cette semaine</span>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 space-y-5 overflow-y-auto p-5">
