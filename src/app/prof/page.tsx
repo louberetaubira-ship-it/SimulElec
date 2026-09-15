@@ -14,129 +14,128 @@ import {
   type AttemptWithStudent,
   type StudentBrief,
 } from '@/lib/db/classes';
+import { addMessage } from '@/lib/db/attempts';
 import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
 import { DIPLOMAS, type CompetenceEval, type DiplomaId, type Mastery } from '@/lib/data/competences';
-import { STAGE_COUNT } from '@/lib/sim/progress';
+import { STAGE_COUNT, modeOf } from '@/lib/sim/progress';
 import { liveBilan, liveEvaluation, liveNotes, type LiveBilan, type LiveNotes } from '@/lib/sim/live';
 import { noteSur20 } from '@/lib/eleve-stats';
 
-/** Nombre d'étapes du parcours : il a changé, et la valeur était figée ici. */
-const STAGES = STAGE_COUNT - 1;
+/** Nombre d'étapes du parcours. */
+const ETAPES = STAGE_COUNT - 1;
 
-const STATUS_STYLE: Record<string, string> = {
-  en_cours: 'bg-[#FEF3E2] text-[#D97706]',
-  termine: 'bg-[#E7F6EE] text-[#1E9E63]',
-  abandonne: 'bg-[#F5F6F8] text-[#66717F]',
-};
-const STATUS_LABEL: Record<string, string> = {
-  en_cours: 'En cours',
-  termine: 'Terminé',
-  abandonne: 'Abandonné',
-};
-
-const MASTERY_STYLE: Record<Mastery, string> = {
-  acquis: 'bg-[#E7F6EE] text-[#1E9E63] border-[#1E9E63]',
-  enCours: 'bg-[#FEF3E2] text-[#D97706] border-[#E39A00]',
-  nonAcquis: 'bg-[#FBE9E9] text-[#D93A3A] border-[#D93A3A]',
-  nonEvalue: 'bg-[#F5F6F8] text-[#66717F] border-[#D3D9E1]',
-};
-const MASTERY_LABEL: Record<Mastery, string> = {
-  acquis: 'acquis',
-  enCours: 'en cours',
-  nonAcquis: 'non acquis',
-  nonEvalue: 'non évalué',
-};
 const DIPLOMA_SHORT: Record<string, string> = Object.fromEntries(DIPLOMAS.map((d) => [d.id, d.short]));
-
-/** Grille compacte : un pastille par compétence, code + niveau. */
-function GrilleCompetences({ evaluation }: { evaluation: CompetenceEval[] }) {
-  return (
-    <ul className="flex flex-wrap gap-1">
-      {evaluation.map((c) => (
-        <li
-          key={c.code}
-          title={`${c.label} — ${MASTERY_LABEL[c.mastery]} (${Math.round(c.score * 100)} %)`}
-          className={`rounded-md border px-1.5 py-0.5 font-[var(--font-mono)] text-[11px] font-semibold ${MASTERY_STYLE[c.mastery]}`}
-        >
-          {c.code}
-          <span className="ml-1 font-normal opacity-80">{Math.round(c.score * 100)}%</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 /** Note formatée à la française (14,5). */
 const fr = (n: number) => n.toFixed(1).replace('.', ',');
 
-/** Note provisoire (étapes faites) + note projetée (barème complet) d'une tentative en cours. */
-function NotesLive({ notes }: { notes: LiveNotes }) {
+/** Couleur d'une note sur 20 (vert / ambre / rouge). */
+const noteColor = (n: number | null) => (n == null ? '#94A3B8' : n >= 14 ? '#1E9E63' : n >= 10 ? '#E39A00' : '#D93A3A');
+
+const LEVEL: Record<Mastery, number> = { acquis: 3, enCours: 2, nonAcquis: 1, nonEvalue: 0 };
+const LEVEL_COLOR: Record<number, string> = { 0: '#D3D9E1', 1: '#D93A3A', 2: '#E39A00', 3: '#1E9E63' };
+const MASTERY_LABEL: Record<Mastery, string> = {
+  acquis: 'Acquis', enCours: 'En cours', nonAcquis: 'Non acquis', nonEvalue: 'À venir',
+};
+const MASTERY_PILL: Record<Mastery, string> = {
+  acquis: 'bg-[#E7F6EE] text-[#1E9E63]',
+  enCours: 'bg-[#FEF3E2] text-[#B45309]',
+  nonAcquis: 'bg-[#FBE9E9] text-[#D93A3A]',
+  nonEvalue: 'bg-[#F5F6F8] text-[#66717F]',
+};
+
+/** Jauge circulaire de note (sur 20). */
+function Gauge({ note, size, stroke }: { note: number | null; size: number; stroke: number }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = note == null ? 0 : Math.max(0, Math.min(1, note / 20));
   return (
-    <div className="flex flex-col leading-tight">
-      <span className="font-[var(--font-mono)] text-[15px] font-semibold text-[#1E9E63]">
-        {notes.provisoire != null ? fr(notes.provisoire) : '—'}
-        <span className="ml-1 text-[10px] font-normal text-[#66717F]">prov.</span>
-      </span>
-      <span className="font-[var(--font-mono)] text-[11px] text-[#D97706]">
-        {fr(notes.projetee)} <span className="text-[#66717F]">proj. /20</span>
-      </span>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E7EAEF" strokeWidth={stroke} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={noteColor(note)} strokeWidth={stroke}
+        strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
+      />
+    </svg>
+  );
+}
+
+/** Barres compactes des compétences déjà évaluées (colonne « Compétences (t) »). */
+function MiniBars({ evaluation }: { evaluation: CompetenceEval[] }) {
+  const items = evaluation.filter((c) => c.mastery !== 'nonEvalue').slice(0, 6);
+  if (items.length === 0) return <span className="text-xs text-[#94A3B8]">en attente</span>;
+  return (
+    <div className="flex h-[30px] items-end gap-1">
+      {items.map((c) => {
+        const lv = LEVEL[c.mastery];
+        const h = lv === 0 ? 8 : [0, 42, 72, 100][lv];
+        return (
+          <div
+            key={c.code}
+            title={`${c.code} · ${c.label} — ${MASTERY_LABEL[c.mastery]}`}
+            className="w-2 rounded-t-sm"
+            style={{ height: `${h}%`, background: LEVEL_COLOR[lv] }}
+          />
+        );
+      })}
     </div>
   );
 }
 
-/** Bilan par règles : ce qui est bien réalisé, et les points de vigilance à remédier. */
-function BilanLive({ bilan }: { bilan: LiveBilan }) {
+/** Barre pleine d'une compétence (tiroir de détail). */
+function CompBar({ c }: { c: CompetenceEval }) {
+  const lv = LEVEL[c.mastery];
+  const niv = c.mastery === 'nonEvalue' ? '—' : `niv. ${lv}/3`;
+  const w = c.mastery === 'nonEvalue' ? 4 : Math.max(6, Math.round(c.score * 100));
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <div>
-        <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#1E9E63]">
-          Ce qui est bien réalisé
-        </h4>
-        <ul className="space-y-1.5">
-          {bilan.forces.map((f) => (
-            <li key={f.key} className="rounded-lg border border-[#1E9E63]/30 bg-[#E7F6EE] px-2.5 py-1.5 text-[13px]">
-              <span className="font-semibold">{f.label}</span>
-              <span className="text-[#66717F]"> — {f.detail}</span>
-            </li>
-          ))}
-          {bilan.forces.length === 0 && (
-            <li className="text-[13px] text-[#66717F]">Rien de consolidé pour l&apos;instant.</li>
-          )}
-        </ul>
+    <div className="mb-2.5">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="text-[13px]">
+          <b className="font-semibold">{c.code} · {c.label}</b>{' '}
+          <span className="text-[11px] text-[#66717F]">{niv}</span>
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${MASTERY_PILL[c.mastery]}`}>
+          {MASTERY_LABEL[c.mastery]}
+        </span>
       </div>
-      <div>
-        <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#D97706]">
-          Points de vigilance → remédiation
-        </h4>
-        <ul className="space-y-1.5">
-          {bilan.vigilances.map((v) => (
-            <li key={v.key} className="rounded-lg border border-[#E39A00]/40 bg-[#FEF3E2] px-2.5 py-1.5 text-[13px]">
-              <span className="font-semibold">{v.label}</span>
-              <span className="text-[#66717F]"> — {v.detail}</span>
-              {v.remediation && v.remediation.length > 0 && (
-                <span className="mt-1 block text-[12px] text-[#B45309]">
-                  → Remédiation : {v.remediation.join(' · ')}
-                </span>
-              )}
-            </li>
-          ))}
-          {bilan.vigilances.length === 0 && (
-            <li className="text-[13px] text-[#66717F]">Aucun point de vigilance sur les étapes réalisées.</li>
-          )}
-        </ul>
+      <div className="h-2 overflow-hidden rounded-full bg-[#E7EAEF]">
+        <div className="h-full rounded-full" style={{ width: `${w}%`, background: LEVEL_COLOR[lv] }} />
       </div>
+    </div>
+  );
+}
+
+/** Tuile de synthèse en tête de tableau. */
+function Tile({ k, v, unit, meta, tag, color }: {
+  k: string; v: string | number; unit?: string; meta?: string; tag?: string; color?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#E7EAEF] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.05)]">
+      <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-[#94A3B8]">
+        {k}
+        {tag && (
+          <span className="rounded bg-[#FEF3E2] px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-[#B45309]">
+            {tag}
+          </span>
+        )}
+      </div>
+      <div className="mt-1.5 flex items-baseline gap-1.5 font-[var(--font-title)] text-[26px] font-bold" style={{ color }}>
+        {v}
+        {unit && <span className="text-[13px] font-semibold text-[#94A3B8]">{unit}</span>}
+      </div>
+      {meta && <div className="mt-0.5 text-[12px] text-[#66717F]">{meta}</div>}
     </div>
   );
 }
 
 function when(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
-
-type Detail = Awaited<ReturnType<typeof getAttemptDetail>>;
+function hhmm(d: Date | null): string {
+  return d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
+}
 
 export default function ProfPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -149,24 +148,29 @@ export default function ProfPage() {
   const [newClass, setNewClass] = useState('');
   const [newLevel, setNewLevel] = useState('');
   const [assignChoice, setAssignChoice] = useState('');
-  // mode imposé à la classe pour ce TP : « libre » laisse l'élève choisir au lancement
   const [assignMode, setAssignMode] = useState<'libre' | 'entrainement' | 'evaluation'>('libre');
   const [openId, setOpenId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<Detail | null>(null);
+  const [detail, setDetail] = useState<Awaited<ReturnType<typeof getAttemptDetail>> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [diplomaFilter, setDiplomaFilter] = useState<DiplomaId | 'tous'>('tous');
+  const [modeFilter, setModeFilter] = useState<'evaluation' | 'entrainement' | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [defs, setDefs] = useState<Record<string, TpDefinition | null>>({});
+  const [manage, setManage] = useState(false);
+
+  const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
+  const tpTitle = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
 
   const shownAttempts = useMemo(
     () => (diplomaFilter === 'tous' ? attempts : attempts.filter((a) => a.diploma === diplomaFilter)),
     [attempts, diplomaFilter],
   );
+  const visibleAttempts = useMemo(
+    () => (modeFilter ? shownAttempts.filter((a) => modeOf(a.state) === modeFilter) : shownAttempts),
+    [shownAttempts, modeFilter],
+  );
 
-  const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
-
-  // Définitions des TP rencontrés (fournis ou créés par un professeur), pour calculer les
-  // notes provisoire / projetée et les compétences à l'instant t des tentatives en cours.
-  const [defs, setDefs] = useState<Record<string, TpDefinition | null>>({});
   useEffect(() => {
     const missing = Array.from(new Set(attempts.map((a) => a.tp_id))).filter((id) => !(id in defs));
     if (missing.length === 0) return;
@@ -176,9 +180,7 @@ export default function ProfPage() {
         if (alive) setDefs((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
       },
     );
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [attempts, defs]);
 
   const liveFor = useCallback(
@@ -195,10 +197,26 @@ export default function ProfPage() {
     [defs, current],
   );
 
-  const openedAttempt = useMemo(
-    () => attempts.find((a) => a.id === openId) ?? null,
-    [attempts, openId],
-  );
+  const live = useMemo(() => visibleAttempts.map((a) => ({ a, l: liveFor(a) })), [visibleAttempts, liveFor]);
+
+  const stats = useMemo(() => {
+    const enc = live.filter((x) => x.a.status === 'en_cours');
+    const active = new Set(enc.map((x) => x.a.student_id)).size;
+    const provs = enc.map((x) => x.l?.notes.provisoire).filter((n): n is number => n != null);
+    const moy = provs.length ? provs.reduce((a, b) => a + b, 0) / provs.length : null;
+    const avg = enc.length ? enc.reduce((s, x) => s + x.a.stage, 0) / enc.length : 0;
+    const vig = enc.reduce((s, x) => s + (x.l?.bilan.vigilances.length ?? 0), 0);
+    return { active, moy, avg, vig };
+  }, [live]);
+
+  const dominantTp = useMemo(() => {
+    const count: Record<string, number> = {};
+    visibleAttempts.forEach((a) => { count[a.tp_id] = (count[a.tp_id] ?? 0) + 1; });
+    const top = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+    return top ? top[0] : null;
+  }, [visibleAttempts]);
+
+  const openedAttempt = useMemo(() => attempts.find((a) => a.id === openId) ?? null, [attempts, openId]);
 
   useEffect(() => {
     (async () => {
@@ -225,6 +243,7 @@ export default function ProfPage() {
       const [st, at] = await Promise.all([listClassStudents(classId), listClassAttempts(classId)]);
       setStudents(st);
       setAttempts(at);
+      setLastSync(new Date());
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erreur');
     }
@@ -236,54 +255,48 @@ export default function ProfPage() {
     const supabase = createClient();
     const channel = supabase
       .channel(`attempts-${currentId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attempts' }, () => {
-        refresh(currentId);
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attempts' }, () => refresh(currentId))
       .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [currentId, refresh]);
 
   useEffect(() => {
-    if (!openId) {
-      setDetail(null);
-      return;
-    }
-    getAttemptDetail(openId)
-      .then(setDetail)
-      .catch((e: unknown) => setErr(e instanceof Error ? e.message : 'Erreur'));
+    if (!openId) { setDetail(null); return; }
+    getAttemptDetail(openId).then(setDetail).catch((e: unknown) => setErr(e instanceof Error ? e.message : 'Erreur'));
   }, [openId]);
 
   async function onCreateClass() {
-    setErr(null);
-    setMsg(null);
+    setErr(null); setMsg(null);
     try {
       const c = await createClass(newClass.trim(), null, newLevel.trim() || undefined);
       setClasses((prev) => [...prev, c]);
       setCurrentId(c.id);
-      setNewClass('');
-      setNewLevel('');
+      setNewClass(''); setNewLevel('');
       setMsg(`Classe créée. Code à donner aux élèves : ${c.join_code}`);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erreur');
-    }
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
   }
 
   async function onAssign() {
     if (!currentId || !assignChoice) return;
-    setErr(null);
-    setMsg(null);
+    setErr(null); setMsg(null);
     try {
       await assignTp(currentId, assignChoice, null, assignMode === 'libre' ? null : assignMode);
-      setMsg(
-        assignMode === 'libre'
-          ? 'TP attribué à la classe (chaque élève choisit son mode).'
-          : `TP attribué à la classe en mode ${assignMode === 'evaluation' ? 'évaluation' : 'entraînement'}.`,
-      );
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Erreur');
-    }
+      setMsg(assignMode === 'libre'
+        ? 'TP attribué (chaque élève choisit son mode).'
+        : `TP attribué en mode ${assignMode === 'evaluation' ? 'évaluation' : 'entraînement'}.`);
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
+  }
+
+  async function sendRemediation(a: AttemptWithStudent, bilan: LiveBilan) {
+    if (bilan.vigilances.length === 0) { setMsg('Aucun point de vigilance à transmettre.'); return; }
+    const text = ['Points à revoir pour progresser :', ...bilan.vigilances.map((v, i) => {
+      const rem = v.remediation && v.remediation.length ? ` — à revoir : ${v.remediation.join(', ')}` : '';
+      return `${i + 1}. ${v.label} : ${v.detail}${rem}`;
+    })].join('\n');
+    try {
+      await addMessage(a.id, a.stage, 'assistant', text);
+      setMsg('Remédiation envoyée à l’élève (visible dans ses échanges avec le professeur).');
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
   }
 
   if (loading) return <main className="mx-auto max-w-6xl p-6 text-sm text-[#66717F]">Chargement…</main>;
@@ -293,28 +306,39 @@ export default function ProfPage() {
       <main className="mx-auto max-w-2xl px-5 py-10">
         <h1 className="font-[var(--font-title)] text-2xl font-bold uppercase tracking-wide">Espace professeur</h1>
         <p className="mt-2 text-sm text-[#66717F]">
-          Cet espace est réservé aux comptes professeur. Demande à l&apos;administrateur de passer ton rôle à
-          « professeur ».
+          Cet espace est réservé aux comptes professeur. Demande à l&apos;administrateur de passer ton rôle à « professeur ».
         </p>
       </main>
     );
   }
 
+  const openedLive = openedAttempt ? liveFor(openedAttempt) : null;
+
   return (
-    <main className="mx-auto max-w-6xl space-y-5 px-4 py-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="font-[var(--font-title)] text-3xl font-bold uppercase tracking-wide">Tableau de bord</h1>
-        <Link
-          href="/prof/classes"
-          className="ml-auto grid min-h-[40px] place-items-center rounded-lg border border-[#D3D9E1] bg-white px-4 text-sm font-semibold"
-        >
-          Mes classes
-        </Link>
+    <main className="mx-auto max-w-6xl px-4 py-6">
+      {/* En-tête */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-[var(--font-title)] text-3xl font-bold uppercase tracking-wide">
+            Suivi temps réel{current ? ` — ${current.name}` : ''}
+          </h1>
+          <p className="mt-1 text-[13.5px] text-[#66717F]">
+            {dominantTp ? <>TP <b>{tpTitle.get(dominantTp) ?? dominantTp}</b> · </> : null}
+            {current?.diploma ? DIPLOMA_SHORT[current.diploma] : 'Suivi en direct'}
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#E7F6EE] px-3 py-1.5 text-[12px] font-bold text-[#1E9E63]">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1E9E63] opacity-60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#1E9E63]" />
+          </span>
+          En direct · dernière synchro {hhmm(lastSync)}
+        </span>
       </div>
 
-      <section className="rounded-xl border border-[#D3D9E1] bg-white p-5">
-        <h2 className="font-[var(--font-title)] text-xl font-semibold uppercase tracking-wide">Mes classes</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+      {/* Sélecteur de classe */}
+      {classes.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           {classes.map((c) => (
             <button
               key={c.id}
@@ -327,259 +351,334 @@ export default function ProfPage() {
               <span className="ml-2 font-[var(--font-mono)] text-xs opacity-70">{c.join_code}</span>
             </button>
           ))}
-          {classes.length === 0 && <p className="text-sm text-[#66717F]">Aucune classe pour le moment.</p>}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-[#D3D9E1] pt-4">
-          <input
-            value={newClass}
-            onChange={(e) => setNewClass(e.target.value)}
-            placeholder="Nom de la classe (1 MELEC A)"
-            className="min-h-[44px] flex-1 rounded-lg border border-[#D3D9E1] px-3 text-sm"
-          />
-          <input
-            value={newLevel}
-            onChange={(e) => setNewLevel(e.target.value)}
-            placeholder="Niveau"
-            className="min-h-[44px] w-32 rounded-lg border border-[#D3D9E1] px-3 text-sm"
-          />
           <button
-            onClick={onCreateClass}
-            disabled={newClass.trim().length < 2}
-            className="min-h-[44px] rounded-lg bg-[#E39A00] px-5 text-sm font-semibold text-[#141A21] disabled:opacity-50"
+            onClick={() => setManage((m) => !m)}
+            className="ml-auto min-h-[40px] rounded-lg border border-[#D3D9E1] bg-white px-3 text-sm font-semibold"
           >
-            Créer
+            {manage ? 'Fermer la gestion' : 'Gérer / attribuer'}
           </button>
         </div>
-      </section>
+      )}
+
+      {/* Gestion (créer une classe, attribuer un TP) — repliée par défaut */}
+      {(manage || classes.length === 0) && (
+        <section className="mt-3 space-y-3 rounded-xl border border-[#D3D9E1] bg-white p-4">
+          <div className="flex flex-wrap gap-2">
+            <input value={newClass} onChange={(e) => setNewClass(e.target.value)} placeholder="Nom de la classe (2NDE MELEC A)"
+              className="min-h-[44px] flex-1 rounded-lg border border-[#D3D9E1] px-3 text-sm" />
+            <input value={newLevel} onChange={(e) => setNewLevel(e.target.value)} placeholder="Niveau"
+              className="min-h-[44px] w-32 rounded-lg border border-[#D3D9E1] px-3 text-sm" />
+            <button onClick={onCreateClass} disabled={newClass.trim().length < 2}
+              className="min-h-[44px] rounded-lg bg-[#E39A00] px-5 text-sm font-semibold text-[#141A21] disabled:opacity-50">
+              Créer la classe
+            </button>
+          </div>
+          {current && (
+            <div className="flex flex-wrap gap-2 border-t border-[#D3D9E1] pt-3">
+              <select value={assignChoice} onChange={(e) => setAssignChoice(e.target.value)}
+                className="min-h-[44px] flex-1 rounded-lg border border-[#D3D9E1] px-3 text-sm">
+                {tps.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+              </select>
+              <select value={assignMode} onChange={(e) => setAssignMode(e.target.value as 'libre' | 'entrainement' | 'evaluation')}
+                aria-label="Mode imposé" className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-3 text-sm">
+                <option value="libre">Mode au choix de l&apos;élève</option>
+                <option value="entrainement">Entraînement imposé</option>
+                <option value="evaluation">Évaluation imposée</option>
+              </select>
+              <button onClick={onAssign} className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-4 text-sm font-semibold">
+                Attribuer à {current.name}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       {current && (
         <>
-          <section className="rounded-xl border border-[#D3D9E1] bg-white p-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="font-[var(--font-title)] text-xl font-semibold uppercase tracking-wide">
-                {current.name}
-              </h2>
-              <span className="rounded-full bg-[#F5F6F8] px-3 py-1 font-[var(--font-mono)] text-xs">
-                code {current.join_code}
-              </span>
-              <span className="text-sm text-[#66717F]">
-                {students.length} élève{students.length > 1 ? 's' : ''}
-              </span>
-              <div className="ml-auto flex gap-2">
-                <select
-                  value={assignChoice}
-                  onChange={(e) => setAssignChoice(e.target.value)}
-                  className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-3 text-sm"
-                >
-                  {tps.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.title}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={assignMode}
-                  onChange={(e) => setAssignMode(e.target.value as 'libre' | 'entrainement' | 'evaluation')}
-                  aria-label="Mode imposé à la classe"
-                  className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-3 text-sm"
-                >
-                  <option value="libre">Mode au choix de l&apos;élève</option>
-                  <option value="entrainement">Entraînement imposé</option>
-                  <option value="evaluation">Évaluation imposée</option>
-                </select>
-                <button
-                  onClick={onAssign}
-                  className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-4 text-sm font-semibold"
-                >
-                  Attribuer
+          {/* Tuiles de synthèse */}
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Tile k="Élèves actifs" v={stats.active} unit={`/ ${students.length}`}
+              meta={`${Math.max(0, students.length - stats.active)} non connecté${students.length - stats.active > 1 ? 's' : ''}`} />
+            <Tile k="Note moyenne" tag="prov." v={stats.moy != null ? fr(stats.moy) : '—'} unit="/ 20" meta="à l'instant t" />
+            <Tile k="Avancement moyen" v={Math.round((stats.avg / ETAPES) * 100)} unit="%" meta={`étape ${fr(stats.avg)} / ${ETAPES}`} />
+            <Tile k="À remédier" v={stats.vig} color={stats.vig > 0 ? '#D93A3A' : undefined} meta="points de vigilance actifs" />
+          </div>
+
+          {/* Barre d'outils : mode + diplôme */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-[10px] border border-[#D3D9E1] bg-white p-1">
+              {(['evaluation', 'entrainement'] as const).map((m) => (
+                <button key={m} onClick={() => setModeFilter(modeFilter === m ? null : m)}
+                  className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold ${
+                    modeFilter === m ? 'bg-[#141A21] text-white' : 'text-[#66717F]'
+                  }`}>
+                  Mode {m === 'evaluation' ? 'évaluation' : 'entraînement'}
                 </button>
-              </div>
+              ))}
             </div>
-            {students.length > 0 && (
-              <ul className="mt-3 flex flex-wrap gap-2">
-                {students.map((s) => (
-                  <li key={s.id} className="rounded-full bg-[#F5F6F8] px-3 py-1 text-xs text-[#66717F]">
-                    {s.full_name ?? s.email}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+            <div className="ml-auto flex flex-wrap gap-1.5">
+              {(['tous', ...DIPLOMAS.map((d) => d.id)] as (DiplomaId | 'tous')[]).map((id) => (
+                <button key={id} onClick={() => setDiplomaFilter(id)}
+                  className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold ${
+                    diplomaFilter === id ? 'border-[#141A21] bg-[#141A21] text-white' : 'border-[#D3D9E1] bg-white text-[#66717F]'
+                  }`}>
+                  {id === 'tous' ? 'Tous' : DIPLOMA_SHORT[id]}
+                </button>
+              ))}
+            </div>
+          </div>
 
-          <section className="flex flex-wrap items-center gap-2 rounded-xl border border-[#D3D9E1] bg-white p-3">
-            <span className="text-sm text-[#66717F]">Filtrer par diplôme :</span>
-            {(['tous', ...DIPLOMAS.map((d) => d.id)] as (DiplomaId | 'tous')[]).map((id) => (
-              <button
-                key={id}
-                onClick={() => setDiplomaFilter(id)}
-                className={`min-h-[40px] rounded-lg border px-3 text-sm ${
-                  diplomaFilter === id ? 'border-[#141A21] bg-[#141A21] text-white' : 'border-[#D3D9E1] bg-white'
-                }`}
-              >
-                {id === 'tous' ? 'Tous' : DIPLOMA_SHORT[id]}
-              </button>
-            ))}
-          </section>
-
-          <section className="overflow-x-auto rounded-xl border border-[#D3D9E1] bg-white">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead className="bg-[#F5F6F8] text-left text-xs uppercase tracking-wide text-[#66717F]">
-                <tr>
-                  <th className="px-4 py-3">Élève</th>
-                  <th className="px-4 py-3">Diplôme</th>
-                  <th className="px-4 py-3">TP</th>
-                  <th className="px-4 py-3">Étape</th>
-                  <th className="px-4 py-3">Note /20</th>
-                  <th className="px-4 py-3">Statut</th>
-                  <th className="px-4 py-3">Dernière activité</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {shownAttempts.map((a) => (
-                  <tr key={a.id} className="border-t border-[#D3D9E1] align-top">
-                    <td className="px-4 py-3">
-                      {a.student?.full_name ?? a.student?.email ?? '—'}
-                      {(() => {
-                        const ev = a.status === 'termine' ? a.evaluation : liveFor(a)?.evaluation ?? null;
-                        return ev && ev.length > 0 ? (
-                          <div className="mt-1.5 max-w-[280px]">
-                            <GrilleCompetences evaluation={ev} />
+          {/* Tableau */}
+          <section className="mt-3 overflow-hidden rounded-2xl border border-[#E7EAEF] bg-white shadow-[0_1px_2px_rgba(15,23,42,.05)]">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] text-sm">
+                <thead>
+                  <tr className="bg-[#FAFBFC] text-left text-[11px] uppercase tracking-[.06em] text-[#94A3B8]">
+                    <th className="px-4 py-3 font-bold">Élève</th>
+                    <th className="px-4 py-3 font-bold">TP · étape</th>
+                    <th className="px-4 py-3 font-bold">Note temps réel</th>
+                    <th className="px-4 py-3 font-bold">Compétences (t)</th>
+                    <th className="px-4 py-3 font-bold">Statut</th>
+                    <th className="px-4 py-3 font-bold">Activité</th>
+                    <th className="px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {live.map(({ a, l }) => {
+                    const termine = a.status === 'termine';
+                    const noteProv = termine ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.provisoire ?? null;
+                    const noteProj = termine ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.projetee ?? null;
+                    const evalu = termine ? a.evaluation : l?.evaluation ?? null;
+                    return (
+                      <tr key={a.id} className="border-t border-[#E7EAEF] transition-colors hover:bg-[#FAFBFC]">
+                        <td className="px-4 py-3.5">
+                          <div className="font-semibold">{a.student?.full_name ?? a.student?.email ?? '—'}</div>
+                          <div className="text-[11.5px] text-[#94A3B8]">{a.diploma ? DIPLOMA_SHORT[a.diploma] ?? a.diploma : '—'}</div>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="text-[13px] text-[#66717F]">{a.tp_id}</div>
+                          <div className="font-[var(--font-mono)] text-[13.5px] font-bold">
+                            {a.stage}<span className="text-[#94A3B8]">/{ETAPES}</span>
                           </div>
-                        ) : null;
-                      })()}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-[#66717F]">
-                      {a.diploma ? DIPLOMA_SHORT[a.diploma] ?? a.diploma : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-[#66717F]">{a.tp_id}</td>
-                    <td className="px-4 py-3 font-[var(--font-mono)]">
-                      {a.stage}/{STAGES}
-                    </td>
-                    <td className="px-4 py-3 font-[var(--font-mono)]">
-                      {a.status === 'termine'
-                        ? a.score != null
-                          ? `${fr(noteSur20(a.score))}/20`
-                          : '—'
-                        : (() => {
-                            const l = liveFor(a);
-                            return l ? <NotesLive notes={l.notes} /> : '—';
-                          })()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_STYLE[a.status]}`}>
-                        {STATUS_LABEL[a.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-[var(--font-mono)] text-xs text-[#66717F]">{when(a.updated_at)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setOpenId(openId === a.id ? null : a.id)}
-                        className="rounded-lg border border-[#D3D9E1] px-3 py-2 text-xs font-semibold"
-                      >
-                        {openId === a.id ? 'Fermer' : 'Détail'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {shownAttempts.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-6 text-center text-[#66717F]">
-                      {attempts.length === 0
-                        ? 'Aucune tentative pour cette classe.'
-                        : 'Aucune tentative pour ce diplôme.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                          <div className="mt-1.5 h-[5px] w-[72px] overflow-hidden rounded-full bg-[#E7EAEF]">
+                            <div className="h-full rounded-full bg-[#E39A00]" style={{ width: `${Math.min(100, (a.stage / ETAPES) * 100)}%` }} />
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <span className="relative grid place-items-center" style={{ width: 42, height: 42 }}>
+                              <Gauge note={noteProv} size={42} stroke={5} />
+                              <span className="absolute font-[var(--font-mono)] text-[12px] font-bold">
+                                {noteProv != null ? fr(noteProv) : '—'}
+                              </span>
+                            </span>
+                            <div className="leading-tight">
+                              <div className="font-[var(--font-mono)] text-[13.5px] font-bold">
+                                {noteProv != null ? fr(noteProv) : '—'}
+                                <span className="ml-1 text-[10px] font-normal text-[#94A3B8]">{termine ? 'finale' : 'prov.'}</span>
+                              </div>
+                              {!termine && (
+                                <div className="text-[11px] text-[#66717F]">
+                                  projetée {noteProj != null ? fr(noteProj) : '—'}/20
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5">{evalu ? <MiniBars evaluation={evalu} /> : <span className="text-xs text-[#94A3B8]">…</span>}</td>
+                        <td className="px-4 py-3.5">
+                          {a.status === 'en_cours' && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FEF3E2] px-2.5 py-1 text-[12px] font-bold text-[#B45309]">
+                              <span className="h-1.5 w-1.5 rounded-full bg-current" /> En cours
+                            </span>
+                          )}
+                          {a.status === 'termine' && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F6EE] px-2.5 py-1 text-[12px] font-bold text-[#1E9E63]">Terminé</span>
+                          )}
+                          {a.status === 'abandonne' && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F5F6F8] px-2.5 py-1 text-[12px] font-bold text-[#66717F]">Abandonné</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 font-[var(--font-mono)] text-[12.5px] text-[#66717F]">{when(a.updated_at)}</td>
+                        <td className="px-4 py-3.5 text-right">
+                          <button onClick={() => setOpenId(a.id)}
+                            className="rounded-lg border border-[#D3D9E1] bg-white px-3 py-2 text-[12.5px] font-bold hover:border-[#E39A00] hover:text-[#B45309]">
+                            Détail
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {live.length === 0 && (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-[#66717F]">
+                      {attempts.length === 0 ? 'Aucune tentative pour cette classe.' : 'Aucune tentative pour ce filtre.'}
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </section>
 
-          {openId && openedAttempt && (() => {
-            const l = liveFor(openedAttempt);
-            if (!l) return null;
-            const done = openedAttempt.status === 'termine';
-            return (
-              <section className="space-y-4 rounded-xl border border-[#D3D9E1] bg-white p-5">
-                <div className="flex flex-wrap items-center gap-4">
-                  <h3 className="font-[var(--font-title)] text-lg font-semibold uppercase tracking-wide">
-                    Bilan {done ? 'final' : 'à l’instant t'} — {openedAttempt.student?.full_name ?? '—'}
-                  </h3>
-                  <div className="ml-auto flex items-center gap-4">
-                    <div className="text-center">
-                      <div className="font-[var(--font-mono)] text-2xl font-bold text-[#1E9E63]">
-                        {l.notes.provisoire != null ? fr(l.notes.provisoire) : '—'}
-                      </div>
-                      <div className="text-[10px] uppercase tracking-wide text-[#66717F]">note provisoire /20</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-[var(--font-mono)] text-2xl font-bold text-[#D97706]">{fr(l.notes.projetee)}</div>
-                      <div className="text-[10px] uppercase tracking-wide text-[#66717F]">note projetée /20</div>
-                    </div>
-                  </div>
-                </div>
-                {l.evaluation && l.evaluation.length > 0 && (
-                  <div>
-                    <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#66717F]">
-                      Compétences évaluées à l&apos;instant t
-                    </h4>
-                    <GrilleCompetences evaluation={l.evaluation} />
-                  </div>
-                )}
-                <BilanLive bilan={l.bilan} />
-              </section>
-            );
-          })()}
-
-          {openId && (
-            <section className="grid gap-4 rounded-xl border border-[#D3D9E1] bg-white p-5 md:grid-cols-2">
-              <div>
-                <h3 className="font-[var(--font-title)] text-lg font-semibold uppercase tracking-wide">Relevés</h3>
-                <ul className="mt-2 space-y-1">
-                  {detail?.measurements.map((m) => (
-                    <li key={m.id} className="flex items-center gap-2 border-b border-[#F5F6F8] py-1 text-sm">
-                      <span className="font-[var(--font-mono)] text-xs text-[#66717F]">é{m.stage}</span>
-                      <span className="text-[#66717F]">{m.instrument}</span>
-                      <span>{m.point}</span>
-                      <span className="ml-auto font-[var(--font-mono)]">{m.display ?? m.value}</span>
-                    </li>
-                  ))}
-                  {detail && detail.measurements.length === 0 && (
-                    <li className="text-sm text-[#66717F]">Aucun relevé.</li>
-                  )}
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-[var(--font-title)] text-lg font-semibold uppercase tracking-wide">
-                  Échanges avec le professeur virtuel
-                </h3>
-                <ul className="mt-2 space-y-2">
-                  {detail?.messages.map((m) => (
-                    <li
-                      key={m.id}
-                      className={`rounded-lg p-2 text-sm ${
-                        m.role === 'user' ? 'bg-[#F5F6F8]' : 'bg-[#FEF3E2]'
-                      }`}
-                    >
-                      <span className="font-[var(--font-mono)] text-[10px] uppercase text-[#66717F]">
-                        {m.role === 'user' ? 'élève' : 'prof'} · étape {m.stage}
-                      </span>
-                      <p className="mt-1 whitespace-pre-wrap leading-relaxed">{m.content}</p>
-                    </li>
-                  ))}
-                  {detail && detail.messages.length === 0 && (
-                    <li className="text-sm text-[#66717F]">Aucun échange.</li>
-                  )}
-                </ul>
-              </div>
-            </section>
-          )}
+          {/* Légende */}
+          <div className="mt-3 flex flex-wrap items-center gap-4 px-1 text-[12px] text-[#66717F]">
+            <span className="font-semibold text-[#141A21]">Compétences :</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#1E9E63]" /> Acquis</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#E39A00]" /> En cours</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#D93A3A]" /> Non acquis / à remédier</span>
+            <span className="ml-auto"><b>prov.</b> = étapes faites · <b>projetée</b> = si arrêt maintenant</span>
+          </div>
         </>
       )}
 
-      {msg && <p className="text-sm text-[#1E9E63]">{msg}</p>}
-      {err && <p className="text-sm text-[#D93A3A]">{err}</p>}
+      {msg && <p className="mt-3 text-sm text-[#1E9E63]">{msg}</p>}
+      {err && <p className="mt-3 text-sm text-[#D93A3A]">{err}</p>}
+
+      {/* Tiroir latéral de détail */}
+      <div
+        onClick={() => setOpenId(null)}
+        className={`fixed inset-0 z-40 bg-[rgba(15,23,42,.42)] transition-opacity ${openId ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+      />
+      <aside
+        className={`fixed right-0 top-0 z-50 flex h-full w-[min(480px,100%)] flex-col bg-white shadow-[0_12px_48px_rgba(15,23,42,.18)] transition-transform ${
+          openId ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {openedAttempt && (
+          <>
+            <div className="border-b border-[#E7EAEF] p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-[var(--font-title)] text-xl font-bold">{openedAttempt.student?.full_name ?? '—'}</h2>
+                  <div className="mt-0.5 text-[12.5px] text-[#66717F]">
+                    {openedAttempt.diploma ? DIPLOMA_SHORT[openedAttempt.diploma] : ''} · TP {openedAttempt.tp_id} · étape {openedAttempt.stage}/{ETAPES}
+                  </div>
+                </div>
+                <button onClick={() => setOpenId(null)} aria-label="Fermer"
+                  className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F6F8] text-[#66717F]">✕</button>
+              </div>
+              <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#EAF1FF] px-2.5 py-1 text-[11px] font-bold text-[#2563EB]">
+                ◷ Évalué à l&apos;instant t · {when(openedAttempt.updated_at)}
+              </span>
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto p-5">
+              {openedLive ? (
+                <>
+                  {/* Deux notes */}
+                  <div className="flex items-center gap-4 rounded-2xl border border-[#E7EAEF] bg-[#FAFBFC] p-4">
+                    <span className="relative grid place-items-center" style={{ width: 76, height: 76 }}>
+                      <Gauge note={openedLive.notes.provisoire} size={76} stroke={7} />
+                      <span className="absolute text-center">
+                        <b className="block font-[var(--font-mono)] text-[20px] font-bold leading-none">
+                          {openedLive.notes.provisoire != null ? fr(openedLive.notes.provisoire) : '—'}
+                        </b>
+                        <span className="text-[10px] text-[#94A3B8]">/ 20 prov.</span>
+                      </span>
+                    </span>
+                    <div className="text-[12.5px] leading-relaxed">
+                      <b className="text-[14px]">Deux notes à l&apos;instant t</b>
+                      <p className="mt-1 text-[#66717F]">
+                        <b className="text-[#1E9E63]">{openedLive.notes.provisoire != null ? fr(openedLive.notes.provisoire) : '—'}/20 provisoire</b>
+                        {' '}— qualité des étapes réalisées.<br />
+                        <b className="text-[#B45309]">{fr(openedLive.notes.projetee)}/20 projetée</b>
+                        {' '}— si le TP s&apos;arrêtait maintenant.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Compétences à l'instant t */}
+                  {openedLive.evaluation && openedLive.evaluation.length > 0 && (
+                    <div>
+                      <h3 className="mb-2 text-[11px] font-bold uppercase tracking-[.06em] text-[#94A3B8]">
+                        Compétences évaluées à l&apos;instant t
+                      </h3>
+                      {openedLive.evaluation.map((c) => <CompBar key={c.code} c={c} />)}
+                    </div>
+                  )}
+
+                  {/* Ce qui est bien réalisé */}
+                  <div>
+                    <h3 className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-[#94A3B8]">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-[#1E9E63]" /> Ce qui est bien réalisé
+                      <span className="ml-auto text-[#94A3B8]">{openedLive.bilan.forces.length}</span>
+                    </h3>
+                    <div className="space-y-1.5">
+                      {openedLive.bilan.forces.map((f) => (
+                        <div key={f.key} className="flex gap-2.5 rounded-[11px] border border-[#1E9E63]/25 bg-[#1E9E63]/[.06] p-2.5 text-[13px]">
+                          <span className="mt-px grid h-5 w-5 flex-none place-items-center rounded-md bg-[#1E9E63] text-[12px] font-bold text-white">✓</span>
+                          <span><b className="font-semibold">{f.label}</b><span className="text-[#66717F]"> — {f.detail}</span></span>
+                        </div>
+                      ))}
+                      {openedLive.bilan.forces.length === 0 && <p className="text-[13px] text-[#66717F]">Rien de consolidé pour l&apos;instant.</p>}
+                    </div>
+                  </div>
+
+                  {/* Points de vigilance → remédiation */}
+                  <div>
+                    <h3 className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-[#94A3B8]">
+                      <span className="h-2.5 w-2.5 rounded-sm bg-[#E39A00]" /> Points de vigilance → remédiation
+                      <span className="ml-auto text-[#94A3B8]">{openedLive.bilan.vigilances.length}</span>
+                    </h3>
+                    <div className="space-y-1.5">
+                      {openedLive.bilan.vigilances.map((v) => (
+                        <div key={v.key} className="flex gap-2.5 rounded-[11px] border border-[#E39A00]/30 bg-[#E39A00]/[.08] p-2.5 text-[13px]">
+                          <span className="mt-px grid h-5 w-5 flex-none place-items-center rounded-md bg-[#E39A00] text-[12px] font-bold text-[#3D2C00]">!</span>
+                          <span>
+                            <b className="font-semibold">{v.label}</b><span className="text-[#66717F]"> — {v.detail}</span>
+                            {v.remediation && v.remediation.length > 0 && (
+                              <span className="mt-1 block text-[12px] font-semibold text-[#B45309]">→ Remédiation : {v.remediation.join(' · ')}</span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                      {openedLive.bilan.vigilances.length === 0 && <p className="text-[13px] text-[#66717F]">Aucun point de vigilance sur les étapes réalisées.</p>}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[13px] text-[#66717F]">Chargement du bilan…</p>
+              )}
+
+              {/* Relevés et échanges */}
+              <details className="rounded-xl border border-[#E7EAEF] bg-[#FAFBFC] p-3">
+                <summary className="cursor-pointer text-[12px] font-semibold text-[#66717F]">Relevés et échanges avec le professeur virtuel</summary>
+                <ul className="mt-2 space-y-1">
+                  {detail?.measurements.map((m) => (
+                    <li key={m.id} className="flex items-center gap-2 border-b border-[#EEF1F5] py-1 text-[12.5px]">
+                      <span className="font-[var(--font-mono)] text-[11px] text-[#94A3B8]">é{m.stage}</span>
+                      <span className="text-[#66717F]">{m.instrument}</span><span>{m.point}</span>
+                      <span className="ml-auto font-[var(--font-mono)]">{m.display ?? m.value}</span>
+                    </li>
+                  ))}
+                  {detail && detail.measurements.length === 0 && <li className="text-[12.5px] text-[#66717F]">Aucun relevé.</li>}
+                </ul>
+                <ul className="mt-2 space-y-1.5">
+                  {detail?.messages.map((m) => (
+                    <li key={m.id} className={`rounded-lg p-2 text-[12.5px] ${m.role === 'user' ? 'bg-white' : 'bg-[#FEF3E2]'}`}>
+                      <span className="font-[var(--font-mono)] text-[10px] uppercase text-[#94A3B8]">{m.role === 'user' ? 'élève' : 'prof'} · étape {m.stage}</span>
+                      <p className="mt-0.5 whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            </div>
+
+            <div className="flex gap-2.5 border-t border-[#E7EAEF] p-4">
+              <button
+                onClick={() => openedLive && sendRemediation(openedAttempt, openedLive.bilan)}
+                disabled={!openedLive}
+                className="flex-1 rounded-[11px] border border-[#D3D9E1] bg-white py-2.5 text-[13px] font-bold disabled:opacity-50"
+              >
+                Envoyer une remédiation
+              </button>
+              <Link href={`/prof/eleve/${openedAttempt.student_id}`}
+                className="grid flex-1 place-items-center rounded-[11px] bg-[#141A21] py-2.5 text-[13px] font-bold text-white">
+                Voir la fiche élève
+              </Link>
+            </div>
+          </>
+        )}
+      </aside>
     </main>
   );
 }

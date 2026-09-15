@@ -13,8 +13,8 @@ import { listAssignments } from '@/lib/db/classes';
 import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import { createClient } from '@/lib/supabase/client';
 import { competenceTps, eleveStats } from '@/lib/eleve-stats';
-import { liveEvaluation, liveNotes } from '@/lib/sim/live';
-import { COMPETENCES, DIPLOMAS, masteryOf, type CompetenceEval, type DiplomaId } from '@/lib/data/competences';
+import { liveBilan, liveEvaluation, liveNotes } from '@/lib/sim/live';
+import { COMPETENCES, DIPLOMAS, masteryOf, type CompetenceEval, type DiplomaId, type Mastery } from '@/lib/data/competences';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
 import BilanExport from '@/components/parcours/BilanExport';
@@ -25,7 +25,6 @@ import {
   Message,
   PageTitle,
   Panneau,
-  PastillesCompetences,
   dateCourte,
 } from '@/components/gestion/ui';
 
@@ -34,6 +33,36 @@ const ETAPES = 11;
 
 /** Note formatée à la française (14,5). */
 const fr = (n: number) => n.toFixed(1).replace('.', ',');
+
+const LEVEL: Record<Mastery, number> = { acquis: 3, enCours: 2, nonAcquis: 1, nonEvalue: 0 };
+const LEVEL_HEX: Record<number, string> = { 0: '#D3D9E1', 1: '#D93A3A', 2: '#E39A00', 3: '#1E9E63' };
+const MASTERY_FR: Record<Mastery, string> = {
+  acquis: 'Acquis', enCours: 'En cours', nonAcquis: 'Non acquis', nonEvalue: 'À venir',
+};
+const MASTERY_PILL: Record<Mastery, string> = {
+  acquis: 'bg-good/10 text-good', enCours: 'bg-accent/10 text-accent',
+  nonAcquis: 'bg-crit/10 text-crit', nonEvalue: 'bg-line/60 text-muted',
+};
+
+/** Barre pleine d'une compétence (vue élève). */
+function CompBar({ c }: { c: CompetenceEval }) {
+  const lv = LEVEL[c.mastery];
+  const w = c.mastery === 'nonEvalue' ? 4 : Math.max(6, Math.round(c.score * 100));
+  return (
+    <div className="mb-2.5">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="text-[13px]">
+          <b className="font-semibold">{c.code} · {c.label}</b>{' '}
+          <span className="text-[11px] text-muted">{c.mastery === 'nonEvalue' ? '—' : `niv. ${lv}/3`}</span>
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${MASTERY_PILL[c.mastery]}`}>{MASTERY_FR[c.mastery]}</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-line">
+        <div className="h-full rounded-full" style={{ width: `${w}%`, background: LEVEL_HEX[lv] }} />
+      </div>
+    </div>
+  );
+}
 
 /** Bilan complet : toutes les compétences du diplôme, celles non travaillées comprises. */
 function bilanComplet(diploma: DiplomaId | null, acquis: CompetenceEval[]): CompetenceEval[] {
@@ -174,56 +203,123 @@ export default function MoiPage() {
       <Panneau title="Mes TP">
         {enCours.length > 0 && (
           <>
-            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[.06em] text-muted">En cours</h3>
-            <ul className="mb-4 space-y-2">
-              {enCours.map((a) => (
-                <li key={a.id} className="rounded-xl border border-line bg-surface p-3">
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <Link href={`/tp/${a.tp_id}`} className="text-[15px] font-semibold underline">
-                      {titre(a.tp_id)}
-                    </Link>
-                    <span className="ml-auto text-[11px] text-muted">{dateCourte(a.updated_at)}</span>
-                  </div>
-                  <Barre
-                    className="mt-2"
-                    value={Math.min(1, a.stage / ETAPES)}
-                    tone="accent"
-                    label={`étape ${a.stage}/${ETAPES}`}
-                  />
-                  {(() => {
-                    const def = defs[a.tp_id];
-                    if (!def) return null;
-                    const notes = liveNotes(def, a.state);
-                    const ev = diploma ? liveEvaluation(def, a.state, diploma) : null;
-                    return (
-                      <>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <span className="rounded-full border border-good/50 bg-good/10 px-2.5 py-0.5 font-mono text-[12px] font-semibold text-good">
-                            {notes.provisoire != null ? `${fr(notes.provisoire)}/20` : '—'}
-                            <span className="ml-1 font-sans font-normal text-muted">provisoire</span>
-                          </span>
-                          <span className="rounded-full border border-accent/50 bg-accent/10 px-2.5 py-0.5 font-mono text-[12px] font-semibold text-accent">
-                            {fr(notes.projetee)}/20
-                            <span className="ml-1 font-sans font-normal text-muted">projetée</span>
-                          </span>
-                          <span className="text-[11px] text-muted">
-                            Termine le TP pour faire monter ta note projetée.
-                          </span>
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[.06em] text-muted">Ma progression</h3>
+            <div className="mb-4 space-y-4">
+              {enCours.map((a) => {
+                const def = defs[a.tp_id];
+                const notes = def ? liveNotes(def, a.state) : null;
+                const ev = def && diploma ? liveEvaluation(def, a.state, diploma) : null;
+                const bilan = def ? liveBilan(def, a.state) : null;
+                const restantes = Math.max(0, ETAPES - a.stage);
+                const acquisesTp = ev ? ev.filter((c) => c.mastery === 'acquis').length : 0;
+                return (
+                  <div key={a.id} className="space-y-4 rounded-2xl border border-line bg-surface p-4">
+                    {/* En-tête de la carte */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link href={`/tp/${a.tp_id}`} className="font-[var(--font-title)] text-[18px] font-bold">
+                        {titre(a.tp_id)}
+                      </Link>
+                      <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-good/10 px-2.5 py-1 text-[11px] font-bold text-good">
+                        <span className="h-1.5 w-1.5 rounded-full bg-good" /> TP en cours · étape {a.stage}/{ETAPES}
+                      </span>
+                    </div>
+
+                    {/* Deux notes */}
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-xl border border-line bg-app p-4">
+                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-muted">
+                          Ma note provisoire
+                          <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-accent-ink">LIVE</span>
                         </div>
-                        {ev && ev.length > 0 && (
-                          <div className="mt-2">
-                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.06em] text-muted">
-                              Mes compétences à l&apos;instant t
-                            </p>
-                            <PastillesCompetences competences={ev} />
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </li>
-              ))}
-            </ul>
+                        <div className="mt-1 font-mono text-[26px] font-bold text-good">
+                          {notes && notes.provisoire != null ? fr(notes.provisoire) : '—'}
+                          <span className="text-[13px] font-semibold text-muted"> / 20</span>
+                        </div>
+                        <div className="text-[12px] text-muted">qualité de ce que j&apos;ai déjà réalisé</div>
+                      </div>
+                      <div className="rounded-xl border border-line bg-app p-4">
+                        <div className="text-[11px] font-bold uppercase tracking-[.06em] text-muted">Ma note projetée</div>
+                        <div className="mt-1 font-mono text-[26px] font-bold text-accent-ink">
+                          {notes ? fr(notes.projetee) : '—'}
+                          <span className="text-[13px] font-semibold text-muted"> / 20</span>
+                        </div>
+                        <div className="text-[12px] text-muted">si je m&apos;arrêtais maintenant ({a.stage}/{ETAPES})</div>
+                      </div>
+                    </div>
+
+                    {/* Avancement + encouragement */}
+                    <div>
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <b className="text-[13px]">Avancement du TP</b>
+                        <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent-ink">Étape {a.stage} / {ETAPES}</span>
+                      </div>
+                      <Barre value={Math.min(1, a.stage / ETAPES)} tone="accent" />
+                      <p className="mt-2 text-[12.5px] leading-relaxed text-muted">
+                        Il te reste <b>{restantes} étape{restantes > 1 ? 's' : ''}</b>. Chaque étape réussie fait{' '}
+                        <b className="text-accent-ink">monter ta note projetée</b> vers ta note provisoire. 💪
+                      </p>
+                    </div>
+
+                    {/* Mes compétences */}
+                    {ev && ev.length > 0 && (
+                      <div>
+                        <div className="mb-2 flex items-baseline justify-between">
+                          <h4 className="text-[11px] font-bold uppercase tracking-[.06em] text-muted">Mes compétences</h4>
+                          <span className="text-[11px] font-bold text-muted">{acquisesTp} acquise{acquisesTp > 1 ? 's' : ''} / {ev.length}</span>
+                        </div>
+                        {ev.map((c) => <CompBar key={c.code} c={c} />)}
+                      </div>
+                    )}
+
+                    {/* Mes points forts */}
+                    {bilan && bilan.forces.length > 0 && (
+                      <div>
+                        <h4 className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-muted">
+                          <span className="h-2.5 w-2.5 rounded-sm bg-good" /> Mes points forts
+                        </h4>
+                        <div className="space-y-1.5">
+                          {bilan.forces.map((f) => (
+                            <div key={f.key} className="flex gap-2.5 rounded-[11px] border border-good/25 bg-good/[.06] p-2.5 text-[13px]">
+                              <span className="mt-px grid h-5 w-5 flex-none place-items-center rounded-md bg-good text-[12px] font-bold text-white">✓</span>
+                              <span><b className="font-semibold">{f.label}</b><span className="text-muted"> — {f.detail}</span></span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Pour progresser */}
+                    {bilan && bilan.vigilances.length > 0 && (
+                      <div>
+                        <h4 className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[.06em] text-muted">
+                          <span className="h-2.5 w-2.5 rounded-sm bg-accent" /> Pour progresser
+                        </h4>
+                        <div className="space-y-1.5">
+                          {bilan.vigilances.map((v) => (
+                            <div key={v.key} className="flex gap-2.5 rounded-[11px] border border-accent/30 bg-accent/[.08] p-2.5 text-[13px]">
+                              <span className="mt-px grid h-5 w-5 flex-none place-items-center rounded-md bg-accent text-[12px] font-bold text-[#3D2C00]">!</span>
+                              <span>
+                                <b className="font-semibold">{v.label}</b><span className="text-muted"> — {v.detail}</span>
+                                {v.remediation && v.remediation.length > 0 && (
+                                  <span className="mt-1 block text-[12px] font-semibold text-accent-ink">→ À revoir : {v.remediation.join(' · ')}</span>
+                                )}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <span className="text-[11px] text-muted">Mis à jour {dateCourte(a.updated_at)}</span>
+                      <Link href={`/tp/${a.tp_id}`} className="rounded-[10px] bg-[#141A21] px-4 py-2 text-[13px] font-bold text-white">
+                        Reprendre le TP
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
 
