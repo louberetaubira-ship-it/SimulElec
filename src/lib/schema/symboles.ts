@@ -269,6 +269,59 @@ export function voyant(p: Pose, allume: boolean, o: { rep: string; legende?: str
 }
 
 /**
+ * ENTRÉE d'automate programmable.
+ *
+ * Sur un schéma développé, une voie d'automate ne se dessine pas comme un
+ * appareil : c'est un rectangle portant l'ADRESSE de la voie, parce que ce qui
+ * compte pour le câbleur n'est pas ce qu'il y a dedans mais sur quelle borne le
+ * fil se serre. L'électronique derrière — l'optocoupleur et sa résistance de
+ * limitation — est représentée par le rectangle lui-même.
+ *
+ * L'entrée est un RÉCEPTEUR : le courant y entre par le haut et ressort par le
+ * commun. Le folio doit le montrer ainsi, sinon l'élève croit qu'une entrée est
+ * un point de passage et cherche la suite du circuit là où il n'y a rien.
+ */
+export function entreeAPI(p: Pose, actif: boolean, o: { rep: string; legende?: string }): string {
+  const ym = (p.y1 + p.y2) / 2;
+  const w = 54; const h = Math.min(34, p.y2 - p.y1 - 16);
+  return ligne(p.x, p.y1, p.x, ym - h / 2, TRAIT.actif)
+    + ligne(p.x, ym + h / 2, p.x, p.y2, TRAIT.actif)
+    + `<rect x="${p.x - w / 2}" y="${ym - h / 2}" width="${w}" height="${h}" rx="2" `
+    + `fill="${actif ? '#E8F4EC' : '#fff'}" stroke="${TRAIT.actif}" stroke-width="${E_FIL}"/>`
+    + `<text class="sym-rep" x="${p.x}" y="${ym + 5}" text-anchor="middle">${esc(o.rep)}</text>`
+    + (o.legende ? `<text class="sym-leg" x="${p.x + w / 2 + 8}" y="${ym + 5}">${esc(o.legende)}</text>` : '');
+}
+
+/**
+ * SORTIE relais d'automate : le contact du relais interne, encadré pour dire
+ * qu'il appartient à l'appareil.
+ *
+ * C'est bien un contact sec — d'où le symbole du contact à fermeture — mais il
+ * n'est pas manœuvré par un organe visible : il l'est par le programme. Le
+ * rectangle et l'adresse de la voie disent cela. Son commun est écrit à côté,
+ * parce qu'une sortie dont le commun n'est pas alimenté ne fait rien, et que
+ * c'est la panne que l'élève doit savoir chercher.
+ */
+export function sortieAPI(
+  p: Pose, ferme: boolean, o: { rep: string; legende?: string; commun?: string },
+): string {
+  const col = ferme ? TRAIT.actif : TRAIT.coupe;
+  const ym = (p.y1 + p.y2) / 2;
+  const w = 54; const h = Math.min(38, p.y2 - p.y1 - 12);
+  return ligne(p.x, p.y1, p.x, ym - h / 2, TRAIT.actif)
+    + ligne(p.x, ym + h / 2, p.x, p.y2, TRAIT.actif)
+    + `<rect x="${p.x - w / 2}" y="${ym - h / 2}" width="${w}" height="${h}" rx="2" `
+    + `fill="#fff" stroke="${TRAIT.actif}" stroke-width="${E_FIL}" stroke-dasharray="5 3"/>`
+    // le contact lui-même, à fermeture : la lame décollée tant qu'il est ouvert
+    + ligne(p.x, ym - h / 2, p.x, ym - H, col)
+    + ligne(p.x, ym + H, p.x, ym + h / 2, col)
+    + ligne(p.x, ym - H, ferme ? p.x : p.x + DECOL, ym + H, col)
+    + `<text class="sym-rep" x="${p.x + w / 2 + 8}" y="${ym - 2}">${esc(o.rep)}</text>`
+    + (o.commun ? `<text class="sym-brn" x="${p.x + w / 2 + 8}" y="${ym + 12}">commun ${esc(o.commun)}</text>` : '')
+    + (o.legende ? `<text class="sym-leg" x="${p.x + w / 2 + 8}" y="${ym + 26}">${esc(o.legende)}</text>` : '');
+}
+
+/**
  * Disjoncteur magnétothermique : contact, croix du déclencheur magnétique,
  * crochet du déclencheur thermique. Les deux déclencheurs sont ce qui le
  * distingue d'un simple interrupteur — et ce que l'élève doit savoir nommer.

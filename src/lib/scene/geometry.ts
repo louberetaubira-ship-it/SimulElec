@@ -284,8 +284,19 @@ export function resLabel(id: string, scene: SceneKind): string {
 /* ----------------------------------------------------------- automate */
 
 export const PLC: Box = { x: 96, y: 304, w: 200, h: 112 };
+/**
+ * Bornes de l'automate, dans l'ordre de l'appareil.
+ *
+ * Rangée du haut : les neuf entrées TOR, puis l'alimentation capteurs 24 V / 250 mA.
+ * Rangée du bas : l'alimentation 100-240 V, puis les sorties relais GROUPÉES PAR
+ * COMMUN — COM0 porte Q0.0 à Q0.3, COM1 porte Q0.4 à Q0.6, et les deux communs ne
+ * sont PAS reliés entre eux à l'intérieur de l'appareil (fiche TM221CE16R). C'est
+ * l'ordre gravé sur le bornier : un élève qui compte les bornes de gauche à droite
+ * doit retrouver sur l'écran ce qu'il a sous les doigts, et le folio doit pouvoir
+ * dire de quel commun vient chaque sortie.
+ */
 export const PLC_IN = ['I0.0', 'I0.1', 'I0.2', 'I0.3', 'I0.4', 'I0.5', 'I0.6', 'I0.7', 'I0.8', '+24', '0V'];
-export const PLC_OUT = ['L', 'N', 'COM0', 'Q0.0', 'Q0.1', 'COM1', 'Q0.2', 'Q0.3', 'Q0.4', 'Q0.5', 'Q0.6'];
+export const PLC_OUT = ['L', 'N', 'COM0', 'Q0.0', 'Q0.1', 'Q0.2', 'Q0.3', 'COM1', 'Q0.4', 'Q0.5', 'Q0.6'];
 /** Bornes de l'automate en fractions de sa boîte. */
 export const PLC_TERMINALS: TerminalDef[] = [
   ...PLC_IN.map((id, i) => ({ id, fx: (14 + i * 17) / PLC.w, fy: 0.05 })),

@@ -31,7 +31,7 @@ const MARGE_BAS = 26;
 /** Hauteur réservée par type d'organe. */
 const HAUTEUR: Record<FolioElement['type'], number> = {
   contactNF: 46, contactNO: 46, disjoncteur: 48, bobine: 54, voyant: 60,
-  borne: 0, fil: 30,
+  borne: 0, fil: 30, entreeAPI: 54, sortieAPI: 58,
 };
 /** Écart entre deux organes consécutifs d'une colonne. */
 const ECART = 30;
@@ -92,6 +92,9 @@ function symbole(p: Place, vivante: (a: string, b: string) => boolean): string {
     case 'disjoncteur': return S.disjoncteur(pose, !relie, o);
     case 'bobine': return S.bobine(pose, { rep: o.rep, legende: o.legende });
     case 'voyant': return S.voyant(pose, relie, { rep: o.rep, legende: o.legende });
+    case 'entreeAPI': return S.entreeAPI(pose, relie, { rep: o.rep, legende: o.legende });
+    case 'sortieAPI':
+      return S.sortieAPI(pose, relie, { rep: o.rep, legende: o.legende, commun: el.commun });
     case 'borne': return '';
     case 'fil': return fil(p.x, p.y1, p.x, p.y2, false);
     default: return '';

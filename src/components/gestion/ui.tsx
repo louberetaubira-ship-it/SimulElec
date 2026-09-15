@@ -280,3 +280,59 @@ export function dateCourte(iso: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
+
+// ------------------------------------------------------------------ dialogue
+
+/**
+ * Boîte de dialogue modale : fond assombri, panneau centré, fermeture au clavier.
+ *
+ * Elle sert aux actions qu'on ne veut pas voir déclenchées par un clic de trop
+ * (modifier un élève, le retirer d'une classe). Sur téléphone elle occupe toute
+ * la largeur et défile, plutôt que de déborder de l'écran.
+ */
+export function Dialogue({
+  title,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-0 sm:items-center sm:p-4"
+    >
+      {/* Le fond ferme le dialogue ; le panneau arrête la propagation du clic. */}
+      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
+      <div className="relative my-0 w-full max-w-lg rounded-t-2xl border border-line bg-surface p-4 shadow-xl sm:my-4 sm:rounded-2xl sm:p-5">
+        <div className="mb-3 flex items-start gap-2">
+          <h2 className="font-title text-[19px] font-semibold uppercase leading-tight tracking-wide">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="ml-auto min-h-touch min-w-[40px] rounded-[10px] border border-line px-3 text-[13px] font-semibold"
+          >
+            ✕
+          </button>
+        </div>
+        {children}
+        {footer && <div className="mt-4 flex flex-wrap justify-end gap-2">{footer}</div>}
+      </div>
+    </div>
+  );
+}

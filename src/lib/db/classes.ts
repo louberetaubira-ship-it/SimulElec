@@ -165,7 +165,7 @@ export async function getAttemptDetail(attemptId: string) {
 export type StudentProfile = Pick<
   ProfileRow,
   'id' | 'full_name' | 'first_name' | 'last_name' | 'login' | 'email' | 'avatar_url'
-  | 'class_id' | 'diploma' | 'last_seen_at'
+  | 'class_id' | 'diploma' | 'last_seen_at' | 'archived'
 >;
 
 /** Un élève et sa dernière tentative connue. */
@@ -175,16 +175,27 @@ export interface StudentWithProgress {
 }
 
 const STUDENT_COLS =
-  'id, full_name, first_name, last_name, login, email, avatar_url, class_id, diploma, last_seen_at';
+  'id, full_name, first_name, last_name, login, email, avatar_url, class_id, diploma, last_seen_at, archived';
 
-/** Élèves d'une classe, chacun avec sa tentative la plus récente. */
-export async function listStudents(classId: string): Promise<StudentWithProgress[]> {
+/**
+ * Élèves d'une classe, chacun avec sa tentative la plus récente.
+ *
+ * Les élèves retirés (migration 0013) sont exclus par défaut : ils gardent leur
+ * `class_id` — c'est ce qui laisse au professeur l'accès à leurs notes — mais ils
+ * ne comptent plus dans l'effectif ni dans le suivi du jour.
+ */
+export async function listStudents(
+  classId: string,
+  includeArchived = false,
+): Promise<StudentWithProgress[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from('profiles')
     .select(STUDENT_COLS)
     .eq('class_id', classId)
-    .eq('role', 'eleve')
+    .eq('role', 'eleve');
+  if (!includeArchived) query = query.eq('archived', false);
+  const { data, error } = await query
     .order('last_name', { nullsFirst: false })
     .order('full_name');
   if (error) throw new Error(error.message);
@@ -298,4 +309,50 @@ export async function countHelpByAttempt(attemptIds: string[]): Promise<Record<s
     counts[m.attempt_id] = (counts[m.attempt_id] ?? 0) + 1;
   });
   return counts;
+}
+
+// ------------------------------------------------ retrait d'un élève
+
+/**
+ * Ce qu'un élève emporterait si son compte était réellement supprimé.
+ *
+ * Les clés étrangères sont en cascade (`profiles → attempts → measurements` et
+ * `messages`) : ces trois nombres sont donc exactement ce que la base effacerait.
+ * On les affiche dans la boîte de confirmation — le professeur doit décider en
+ * voyant le volume de travail en jeu, pas en lisant le mot « supprimer ».
+ */
+export interface StudentFootprint {
+  attempts: number;
+  measurements: number;
+  messages: number;
+  /** Tentatives terminées portant une note : ce qui compte pour le bulletin. */
+  notes: number;
+}
+
+export async function countStudentData(studentId: string): Promise<StudentFootprint> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('attempts')
+    .select('id, status, score')
+    .eq('student_id', studentId);
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as { id: string; status: string; score: number | null }[];
+  const ids = rows.map((a) => a.id);
+  const notes = rows.filter((a) => a.status === 'termine' && a.score != null).length;
+  if (ids.length === 0) return { attempts: 0, measurements: 0, messages: 0, notes: 0 };
+
+  const [mesures, messages] = await Promise.all([
+    supabase.from('measurements').select('id', { count: 'exact', head: true }).in('attempt_id', ids),
+    supabase.from('messages').select('id', { count: 'exact', head: true }).in('attempt_id', ids),
+  ]);
+  if (mesures.error) throw new Error(mesures.error.message);
+  if (messages.error) throw new Error(messages.error.message);
+
+  return {
+    attempts: ids.length,
+    measurements: mesures.count ?? 0,
+    messages: messages.count ?? 0,
+    notes,
+  };
 }

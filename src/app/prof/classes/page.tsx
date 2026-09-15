@@ -9,11 +9,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getMyProfile } from '@/lib/db/profiles';
 import {
   archiveClass,
+  countStudentData,
   createClass,
   listClassAttempts,
   listMyClasses,
   listStudents,
   subscribeClassProgress,
+  type StudentFootprint,
+  type StudentProfile,
   type StudentWithProgress,
 } from '@/lib/db/classes';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
@@ -23,6 +26,7 @@ import {
   Barre,
   Champ,
   CopierBouton,
+  Dialogue,
   Message,
   PageTitle,
   Panneau,
@@ -97,6 +101,199 @@ function EncadreIdentifiants({ ids, onClose }: { ids: Identifiants; onClose: () 
   );
 }
 
+/** Nom lisible d'un élève, quelle que soit la façon dont son profil a été rempli. */
+function nomAffiche(student: StudentProfile): string {
+  const compose = `${student.last_name ?? ''} ${student.first_name ?? ''}`.trim();
+  return student.full_name ?? (compose || student.login || '—');
+}
+
+/** Modification d'un élève : nom affiché et identifiant de connexion. */
+function DialogueModification({
+  student,
+  busy,
+  onCancel,
+  onSave,
+}: {
+  student: StudentProfile;
+  busy: boolean;
+  onCancel: () => void;
+  onSave: (v: { first_name: string; last_name: string; login: string }) => void;
+}) {
+  const [prenom, setPrenom] = useState(student.first_name ?? '');
+  const [nom, setNom] = useState(student.last_name ?? '');
+  const [login, setLogin] = useState(student.login ?? '');
+  const valide = prenom.trim().length > 0 && nom.trim().length > 0 && login.trim().length >= 3;
+
+  return (
+    <Dialogue
+      title={`Modifier ${nomAffiche(student)}`}
+      onClose={onCancel}
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-touch rounded-[10px] border border-line px-4 text-[13px] font-semibold"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            disabled={busy || !valide}
+            onClick={() => onSave({ first_name: prenom.trim(), last_name: nom.trim(), login: login.trim() })}
+            className="min-h-touch rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold text-[var(--accent-ink)] disabled:opacity-50"
+          >
+            Enregistrer
+          </button>
+        </>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Champ label="Nom">
+          <input value={nom} onChange={(e) => setNom(e.target.value)} className={inputClass} />
+        </Champ>
+        <Champ label="Prénom">
+          <input value={prenom} onChange={(e) => setPrenom(e.target.value)} className={inputClass} />
+        </Champ>
+      </div>
+      <Champ
+        className="mt-3"
+        label="Identifiant de connexion"
+        hint="Lettres, chiffres et points. Les accents et les majuscules sont retirés à l'enregistrement."
+      >
+        <input
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
+          spellCheck={false}
+          autoCapitalize="none"
+          className={`${inputClass} font-mono`}
+        />
+      </Champ>
+      <p className="mt-3 rounded-[10px] border border-warn/50 bg-warn/10 px-3 py-2 text-[12.5px] text-warn">
+        Changer l&apos;identifiant change celui que l&apos;élève tape pour se connecter. Son mot de passe et
+        toutes ses tentatives sont conservés — pensez simplement à lui communiquer le nouvel identifiant.
+      </p>
+    </Dialogue>
+  );
+}
+
+/**
+ * Retrait d'un élève.
+ *
+ * Deux actions distinctes, et l'écart entre les deux est écrit noir sur blanc :
+ * le retrait conserve tout, la suppression définitive détruit la notation et
+ * n'est donc offerte qu'à un compte qui n'a encore rien produit.
+ */
+function DialogueRetrait({
+  student,
+  footprint,
+  busy,
+  onCancel,
+  onRetirer,
+  onSupprimer,
+}: {
+  student: StudentProfile;
+  footprint: StudentFootprint | null;
+  busy: boolean;
+  onCancel: () => void;
+  onRetirer: () => void;
+  onSupprimer: () => void;
+}) {
+  const [saisie, setSaisie] = useState('');
+  const nom = nomAffiche(student);
+  const vierge = footprint != null && footprint.attempts === 0;
+  // La frappe du nom n'est exigée que pour l'irréversible : la faire recopier
+  // avant chaque geste anodin apprendrait surtout à la recopier sans lire.
+  const confirme = saisie.trim().toLowerCase() === nom.trim().toLowerCase();
+
+  return (
+    <Dialogue title={`Retirer ${nom} de la classe`} onClose={onCancel}>
+      <p className="text-[13.5px] leading-relaxed">
+        <strong className="font-semibold">{nom}</strong>
+        {student.login && <> (identifiant <span className="font-mono">{student.login}</span>)</>} ne pourra plus
+        se connecter et disparaîtra de la liste de la classe.
+      </p>
+
+      <div className="mt-3 rounded-xl border border-line bg-[var(--surface-2)] p-3 text-[12.5px]">
+        <div className="text-[10px] uppercase tracking-[.08em] text-muted">Ce que contient son compte</div>
+        {footprint == null ? (
+          <p className="mt-1 text-muted">Calcul en cours…</p>
+        ) : (
+          <ul className="mt-1 space-y-0.5">
+            <li>{footprint.attempts} tentative{footprint.attempts > 1 ? 's' : ''} de TP</li>
+            <li>{footprint.notes} note{footprint.notes > 1 ? 's' : ''} de TP terminé</li>
+            <li>{footprint.measurements} mesure{footprint.measurements > 1 ? 's' : ''} relevée{footprint.measurements > 1 ? 's' : ''}</li>
+            <li>{footprint.messages} message{footprint.messages > 1 ? 's' : ''} avec le professeur virtuel</li>
+          </ul>
+        )}
+      </div>
+
+      <p className="mt-3 rounded-[10px] border border-good/50 bg-good/10 px-3 py-2 text-[12.5px] text-good">
+        Retirer conserve tout ce qui précède : les notes restent consultables sur la fiche de l&apos;élève et
+        vous pouvez le réintégrer plus tard, avec son mot de passe actuel.
+      </p>
+
+      <div className="mt-3 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-touch rounded-[10px] border border-line px-4 text-[13px] font-semibold"
+        >
+          Annuler
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onRetirer}
+          className="min-h-touch rounded-[10px] border border-warn bg-warn px-4 text-[13px] font-semibold text-white disabled:opacity-50"
+        >
+          Retirer de la classe
+        </button>
+      </div>
+
+      <div className="mt-4 border-t border-line pt-3">
+        <div className="text-[10px] uppercase tracking-[.08em] text-muted">Suppression définitive</div>
+        {footprint == null ? (
+          <p className="mt-1 text-[12.5px] text-muted">
+            En attente du contenu du compte : on ne propose pas de supprimer avant de savoir ce qu&apos;on
+            supprimerait.
+          </p>
+        ) : vierge ? (
+          <>
+            <p className="mt-1 text-[12.5px] leading-relaxed">
+              Ce compte n&apos;a produit aucune tentative : le supprimer n&apos;efface aucune note. L&apos;opération
+              est néanmoins irréversible.
+            </p>
+            <Champ className="mt-2" label={`Écrivez « ${nom} » pour confirmer`}>
+              <input
+                value={saisie}
+                onChange={(e) => setSaisie(e.target.value)}
+                spellCheck={false}
+                className={inputClass}
+              />
+            </Champ>
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                disabled={busy || !confirme}
+                onClick={onSupprimer}
+                className="min-h-touch rounded-[10px] border border-crit bg-crit px-4 text-[13px] font-semibold text-white disabled:opacity-40"
+              >
+                Supprimer définitivement
+              </button>
+            </div>
+          </>
+        ) : (
+          <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
+            Indisponible : supprimer ce compte effacerait au passage ses tentatives, ses mesures et ses notes,
+            que rien ne permettrait de retrouver. Seul un élève n&apos;ayant encore rien fait peut être supprimé.
+          </p>
+        )}
+      </div>
+    </Dialogue>
+  );
+}
+
 export default function ClassesPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +313,12 @@ export default function ClassesPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+
+  // Les élèves retirés sont cachés par défaut : ils ne font plus partie du cours.
+  const [voirRetires, setVoirRetires] = useState(false);
+  const [edition, setEdition] = useState<StudentProfile | null>(null);
+  const [retrait, setRetrait] = useState<StudentProfile | null>(null);
+  const [empreinte, setEmpreinte] = useState<StudentFootprint | null>(null);
 
   const encadreRef = useRef<HTMLDivElement | null>(null);
 
@@ -150,11 +353,15 @@ export default function ClassesPage() {
   }, [chargerClasses]);
 
   const chargerClasse = useCallback(async (classId: string) => {
-    const [eleves, tentatives] = await Promise.all([listStudents(classId), listClassAttempts(classId)]);
+    const [eleves, tentatives] = await Promise.all([
+      listStudents(classId, voirRetires),
+      listClassAttempts(classId),
+    ]);
     setStudents(eleves);
     setAttempts(tentatives);
-    setEffectifs((prev) => ({ ...prev, [classId]: eleves.length }));
-  }, []);
+    // L'effectif ne compte que les élèves présents, même quand la liste montre les retirés.
+    setEffectifs((prev) => ({ ...prev, [classId]: eleves.filter((e) => !e.student.archived).length }));
+  }, [voirRetires]);
 
   useEffect(() => {
     if (!currentId) return;
@@ -264,6 +471,62 @@ export default function ClassesPage() {
       encadreRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Réinitialisation impossible.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Ouvre la boîte de retrait, puis va chercher ce que le compte contient réellement. */
+  function onOuvrirRetrait(student: StudentProfile) {
+    setErr(null);
+    setOk(null);
+    setRetrait(student);
+    setEmpreinte(null);
+    countStudentData(student.id)
+      .then(setEmpreinte)
+      .catch((e: unknown) => setErr(e instanceof Error ? e.message : 'Lecture des données impossible.'));
+  }
+
+  async function onEnregistrerModification(v: { first_name: string; last_name: string; login: string }) {
+    if (!edition || !currentId) return;
+    setErr(null);
+    setOk(null);
+    setBusy(true);
+    try {
+      const maj = await postJson<{ login: string; full_name: string }>('/api/classes/eleves/modifier', {
+        student_id: edition.id,
+        ...v,
+      });
+      setEdition(null);
+      await chargerClasse(currentId);
+      setOk(`${maj.full_name} modifié. Identifiant de connexion : ${maj.login}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Modification impossible.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Retrait, réintégration ou suppression définitive d'un élève. */
+  async function onRetrait(student: StudentProfile, mode: 'retrait' | 'reintegration' | 'definitif') {
+    if (!currentId) return;
+    setErr(null);
+    setOk(null);
+    setBusy(true);
+    const nom = nomAffiche(student);
+    try {
+      await postJson('/api/classes/eleves/retrait', { student_id: student.id, mode });
+      setRetrait(null);
+      await chargerClasse(currentId);
+      setOk(
+        mode === 'definitif'
+          ? `Compte de ${nom} supprimé.`
+          : mode === 'retrait'
+            ? `${nom} retiré de la classe : ses tentatives et ses notes sont conservées.`
+            : `${nom} réintégré : il peut se reconnecter avec son mot de passe habituel.`,
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Opération impossible.');
     } finally {
       setBusy(false);
     }
@@ -381,6 +644,16 @@ export default function ClassesPage() {
             aside={
               <>
                 <PastilleDirect actif={direct} />
+                <button
+                  type="button"
+                  onClick={() => setVoirRetires((v) => !v)}
+                  aria-pressed={voirRetires}
+                  className={`min-h-touch rounded-[10px] border px-3 text-[12.5px] font-semibold ${
+                    voirRetires ? 'border-accent bg-accent/10' : 'border-line text-muted'
+                  }`}
+                >
+                  {voirRetires ? 'Masquer les élèves retirés' : 'Voir les élèves retirés'}
+                </button>
                 <span className="rounded-full bg-[var(--surface-2)] px-2.5 py-1 font-mono text-[11px] text-muted">
                   code {current.join_code}
                 </span>
@@ -410,8 +683,13 @@ export default function ClassesPage() {
                       <tr key={student.id} className="border-t border-line align-top">
                         <td className="px-3 py-2.5">
                           <Link href={`/prof/eleve/${student.id}`} className="font-semibold underline">
-                            {student.full_name ?? (`${student.last_name ?? ''} ${student.first_name ?? ''}`.trim() || '—')}
+                            {nomAffiche(student)}
                           </Link>
+                          {student.archived && (
+                            <span className="ml-2 rounded-full border border-line bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">
+                              retiré
+                            </span>
+                          )}
                           <div className="text-[11px] text-muted">vue le {dateCourte(student.last_seen_at)}</div>
                         </td>
                         <td className="px-3 py-2.5 font-mono text-[12px]">{student.login ?? '—'}</td>
@@ -449,15 +727,46 @@ export default function ClassesPage() {
                         <td className="px-3 py-2.5">
                           <ResumeCompetences competences={stats.competences} />
                         </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => onRegenerer(student.id)}
-                            className="min-h-touch rounded-[10px] border border-line px-3 text-[12.5px] font-semibold disabled:opacity-40"
-                          >
-                            Régénérer le mot de passe
-                          </button>
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+                            {student.archived ? (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => onRetrait(student, 'reintegration')}
+                                className="min-h-touch rounded-[10px] border border-good px-3 text-[12.5px] font-semibold text-good disabled:opacity-40"
+                              >
+                                Réintégrer
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => setEdition(student)}
+                                  className="min-h-touch rounded-[10px] border border-line px-3 text-[12.5px] font-semibold disabled:opacity-40"
+                                >
+                                  Modifier
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => onRegenerer(student.id)}
+                                  className="min-h-touch rounded-[10px] border border-line px-3 text-[12.5px] font-semibold disabled:opacity-40"
+                                >
+                                  Régénérer le mot de passe
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => onOuvrirRetrait(student)}
+                                  className="min-h-touch rounded-[10px] border border-crit/60 px-3 text-[12.5px] font-semibold text-crit disabled:opacity-40"
+                                >
+                                  Retirer de la classe
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -512,6 +821,28 @@ export default function ClassesPage() {
       )}
 
       <Message error={err} ok={ok} />
+
+      {edition && (
+        <DialogueModification
+          key={edition.id}
+          student={edition}
+          busy={busy}
+          onCancel={() => setEdition(null)}
+          onSave={(v) => void onEnregistrerModification(v)}
+        />
+      )}
+
+      {retrait && (
+        <DialogueRetrait
+          key={retrait.id}
+          student={retrait}
+          footprint={empreinte}
+          busy={busy}
+          onCancel={() => setRetrait(null)}
+          onRetirer={() => void onRetrait(retrait, 'retrait')}
+          onSupprimer={() => void onRetrait(retrait, 'definitif')}
+        />
+      )}
     </main>
   );
 }

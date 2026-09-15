@@ -64,6 +64,38 @@ export interface Arete {
  */
 export const R = { FIL: 0.08, CONTACT: 0.04, SECONDAIRE: 2, BOBINE: 100, LAMPE: 2400 } as const;
 
+/**
+ * Entrée TOR d'automate (Ω).
+ *
+ * Une entrée n'est pas un fil : c'est un optocoupleur avec sa résistance de
+ * limitation, et c'est LUI qui referme le circuit de l'entrée vers le commun.
+ * Sans cette charge dans le réseau, la chaîne d'un bouton s'arrête sur une borne
+ * qui ne va nulle part : le folio la voit ouverte sur une platine saine, et
+ * l'élève qui mesure entre l'entrée et le 0 V ne trouve rien alors qu'un vrai
+ * appareil donne bien une valeur.
+ *
+ * TM221CE16R, entrées TOR type 1 au sens de la CEI 61131-2 : 3,4 kΩ pour une
+ * entrée standard (7 mA sous 24 V), 4,9 kΩ pour une entrée rapide — I0.0, I0.1,
+ * I0.6 et I0.7 sur cet appareil (5 mA). Les deux valeurs sont publiées par le
+ * constructeur ; on ne les arrondit pas à une seule.
+ */
+export const R_ENTREE_API = { STANDARD: 3400, RAPIDE: 4900 } as const;
+
+/** Entrées rapides du TM221CE16R (impédance et courant différents des autres). */
+const ENTREES_RAPIDES = new Set(['I0.0', 'I0.1', 'I0.6', 'I0.7']);
+
+/**
+ * Commun de chaque sortie relais du TM221CE16R : COM0 porte Q0.0 à Q0.3, COM1
+ * porte Q0.4 à Q0.6. Les deux communs ne sont pas reliés à l'intérieur de
+ * l'appareil — une sortie n'est alimentée que si SON commun l'est, et c'est une
+ * panne de câblage classique que l'élève doit pouvoir trouver.
+ */
+const communDeSortie = (borne: string): string | null => {
+  const m = /^Q0\.([0-6])$/.exec(borne);
+  if (!m) return null;
+  return Number(m[1]) <= 3 ? 'COM0' : 'COM1';
+};
+
 /** Impédance d'entrée d'un voltmètre TRMS courant (Ω). */
 export const R_VOLTMETRE = 1e7;
 
@@ -258,6 +290,38 @@ export function reseauCommande(
     if (slot.key === 'limitswitch') {
       contact(`${id}.11`, `${id}.12`, true, `${id}`);
       contact(`${id}.11`, `${id}.14`, false, `${id}-no`);
+    }
+    // ---- automate programmable : entrées et sorties relais.
+    //
+    // L'automate n'est pas un bornier. Une ENTRÉE est une charge — l'optocoupleur
+    // et sa résistance — entre la borne et le commun ; une SORTIE relais est un
+    // contact sec entre son commun et sa borne. Tant que ces branches manquaient
+    // au réseau, le circuit de commande de ce TP s'arrêtait à chaque borne de
+    // l'appareil : ni folio complet, ni mesure possible au bout d'une chaîne.
+    //
+    // L'état des sorties se lit comme celui de tous les autres organes : la
+    // platine est AU REPOS, sauf ce que la simulation a fait coller. Le programme
+    // n'est pas exécuté ici — un automate se dépanne à l'instrument, borne par
+    // borne, pas en devinant le code.
+    if (it?.kind === 'plc') {
+      for (const t of it.terminals) {
+        if (/^I0\.[0-8]$/.test(t.id)) {
+          const borne = `${id}.${t.id}`;
+          if (!cablees.has(borne)) continue;
+          e.push({
+            a: borne, b: `${id}.0V`, id: `${id}-${t.id}`, nature: 'charge',
+            r: ENTREES_RAPIDES.has(t.id) ? R_ENTREE_API.RAPIDE : R_ENTREE_API.STANDARD,
+          });
+        }
+        const com = communDeSortie(t.id);
+        if (com) {
+          // Q0.0 pilote la bobine, Q0.1 le voyant de marche : tous deux suivent
+          // l'état du départ. Q0.2 est le voyant de défaut : il est actionné
+          // quand le thermique est déclenché, donc l'inverse du repos.
+          const ferme = t.id === 'Q0.2' ? sim.f1trip : sim.km1;
+          contact(`${id}.${com}`, `${id}.${t.id}`, ferme, `${id}-${t.id}`);
+        }
+      }
     }
   }
 

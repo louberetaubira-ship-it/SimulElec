@@ -1,6 +1,6 @@
 /**
  * TP · Câblage d'un automate Modicon M221 (départ moteur piloté par API).
- * Puissance identique au démarrage direct ; commande 24 V : T1 → F3 → automate,
+ * Puissance identique au démarrage direct ; commande 24 V : T1 → Q3 → automate,
  * entrées S2 / S1 / F1 par le bornier X2, sorties relais vers KM1, H1 et H2.
  */
 import type { TpDefinition } from '@/lib/types';
@@ -16,7 +16,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
   playable: true,
   competences: ['C5 Réaliser', 'C6 Mettre en service', 'C7 Maintenir'],
   summary:
-    'TM221CE16R alimenté en 24 V par T1 et F3 : entrées I0.0 marche, I0.1 arrêt, I0.2 défaut thermique ; sorties relais Q0.0 bobine KM1, Q0.1 voyant marche, Q0.2 voyant défaut.',
+    'TM221CE16R alimenté en 24 V par T1 et Q3 : entrées I0.0 marche, I0.1 arrêt, I0.2 défaut thermique ; sorties relais Q0.0 bobine KM1, Q0.1 voyant marche, Q0.2 voyant défaut.',
   situation:
     'Le départ moteur de l\'extracteur doit être repris par un automate programmable pour préparer une future gestion horaire. Tu remplaces la logique câblée par un M221 : la puissance reste identique, mais les boutons et le contact thermique deviennent des entrées, et la bobine et les voyants des sorties relais. Tu câbles, tu repères, puis tu mets en service.',
   plaque: {
@@ -32,13 +32,13 @@ export const TP_AUTOMATE_M221: TpDefinition = {
   cahierDesCharges: [
     { k: 'Réseau', v: '3 × 400 V + N + PE sur bornier X1' },
     { k: 'Puissance', v: 'Q1 GV2 · KM1 LC1D bobine 24 V · F1 LRD, identique au démarrage direct' },
-    { k: 'Alimentation automate', v: 'T1 400/24 V, F2 au primaire, F3 au secondaire, puis bornes +24 / 0V du M221' },
+    { k: 'Alimentation automate', v: 'T1 400/24 V, Q2 au primaire, Q3 phase + neutre au secondaire, puis bornes +24 / 0V du M221' },
     { k: 'Entrée I0.0', v: 'S2 marche NO, contact 13-14, par X2:3' },
     { k: 'Entrée I0.1', v: 'S1 arrêt NC, contact 21-22, par X2:2' },
     { k: 'Entrée I0.2', v: 'F1 défaut thermique 95-96, par X2:7' },
     { k: 'Sortie Q0.0', v: 'bobine KM1 A1 (commun COM0 relié au + 24 V)' },
     { k: 'Sortie Q0.1', v: 'voyant H1 marche, par X2:4' },
-    { k: 'Sortie Q0.2', v: 'voyant H2 défaut, par X2:5 (commun COM1 ponté sur COM0)' },
+    { k: 'Sortie Q0.2', v: 'voyant H2 défaut, par X2:5 (même commun COM0 : il porte Q0.0 à Q0.3)' },
     { k: '0 V', v: 'commun 0 V sur X2:6, relié à la terre sur X1:5' },
     { k: 'Avant mise en service', v: 'consignation · VAT · continuité PE · isolement 500 V · essai du programme' },
   ],
@@ -83,12 +83,12 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     },
     {
       id: 'f3',
-      name: 'F3 · Protection du 24 V',
-      need: 'Protéger le secondaire et les conducteurs de commande',
+      name: 'Q3 · Protection du 24 V',
+      need: 'Protéger le secondaire et les conducteurs de commande (automate 250 mA + bobine + voyants)',
       options: [
-        { key: 'mcb1p', ref: 'iC60N 1P C2', spec: '2 A · courbe C', ok: true, why: 'Calibre adapté à l\'automate, la bobine et les voyants ; un seul pôle car le 0 V est à la terre.' },
-        { key: 'mcb1p', ref: 'iC60N 1P C10', spec: '10 A · courbe C', why: 'Trop élevé : les fils 1,5 mm² de commande ne sont pas protégés.' },
-        { key: 'mcb2ph', ref: 'C60N 2P C2', spec: '2 A · 2 pôles', half: true, why: 'Fonctionne mais coupe inutilement le 0 V mis à la terre.' },
+        { key: 'mcb1pn', ref: 'Acti9 iC60N 1P+N C2 · A9F74602', spec: '2 A · courbe C · phase + neutre', ok: true, why: 'Le pôle protégé coupe le 24 V, le pôle neutre sectionne le 0 V : les deux conducteurs de la commande s\'ouvrent d\'un seul geste, et l\'automate n\'est plus alimenté par aucun des deux.' },
+        { key: 'mcb1pn', ref: 'Acti9 iC60N 1P+N C10 · A9F74610', spec: '10 A · courbe C · phase + neutre', why: 'Calibre trop élevé : les fils 1,5 mm² de commande ne sont pas protégés, et le secondaire 100 VA de T1 ne fournit pas 10 A.' },
+        { key: 'mcb1p', ref: 'Acti9 iC60N 1P C2', spec: '2 A · courbe C · 1 pôle', half: true, why: 'Protège bien, mais laisse le 0 V raccordé au secondaire pendant l\'intervention.' },
       ],
     },
     {
@@ -109,9 +109,9 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     { id: 'q1', label: 'Q1 · Disjoncteur moteur', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 0, x: 114, rep: 'KM1' },
     { id: 'f1', label: 'F1 · Relais thermique', key: 'therm', rail: 0, x: 182, rep: 'F1' },
-    { id: 'f2', label: 'F2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 250, rep: 'F2' },
+    { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 250, rep: 'Q2' },
     { id: 't1', label: 'T1 · Transformateur Legrand 100 VA · 230-400 / 24-48 V', key: 'trafoleg', rail: 1, x: 46, rep: 'T1' },
-    { id: 'f3', label: 'F3 · Secondaire 24 V · phase + neutre', key: 'mcb1pn', rail: 2, x: 46, rep: 'F3' },
+    { id: 'f3', label: 'Q3 · Secondaire 24 V · phase + neutre', key: 'mcb1pn', rail: 2, x: 46, rep: 'Q3' },
     { id: 'plc', label: 'A1 · Automate M221', key: 'plc', rail: 2, x: 104, rep: 'A1' },
     ...X1(52, 3),
     ...X2(238, 8, 3),
@@ -137,7 +137,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     L('x2_3.a', 'plc.I0.0', 'C'), L('x2_2.a', 'plc.I0.1', 'C'),
     L('f3.2', 'f1.95', 'C'), L('f1.96', 'x2_7.a', 'C'), L('x2_7.b', 'plc.I0.2', 'C'),
     // ---- sorties relais ----
-    L('f3.2', 'plc.COM0', 'C'), L('plc.COM0', 'plc.COM1', 'C'),
+    L('f3.2', 'plc.COM0', 'C'),
     L('plc.Q0.0', 'x2_8.a', 'C'), L('x2_8.b', 'km1.A1', 'C'), L('km1.A2', 'x2_6.a', 'C0'),
     L('plc.Q0.1', 'x2_4.a', 'C'), L('x2_4.b', 'H1.X1', 'C', 'door'),
     L('plc.Q0.2', 'x2_5.a', 'C'), L('x2_5.b', 'H2.X1', 'C', 'door'),
@@ -174,7 +174,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     'f3.N': { net: 'C0', live: 'always' }, 'f3.N2': { net: 'C0', live: 'always' },
     // automate
     'plc.+24': { net: 'C', live: 'f3' }, 'plc.0V': { net: 'C0', live: 'always' },
-    'plc.COM0': { net: 'C', live: 'f3' }, 'plc.COM1': { net: 'C', live: 'f3' },
+    'plc.COM0': { net: 'C', live: 'f3' },
     'plc.I0.0': { net: 'I0', live: 'ctl' }, 'plc.I0.1': { net: 'I1', live: 'ctl' }, 'plc.I0.2': { net: 'I2', live: 'ctl' },
     'plc.Q0.0': { net: 'Q0', live: 'km1' }, 'plc.Q0.1': { net: 'Q1', live: 'km1' }, 'plc.Q0.2': { net: 'Q2', live: 'off' },
     // bornier de commande
@@ -205,8 +205,8 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     {
       id: 'sorties',
       title: 'Contrôle des communs de sortie',
-      how: 'Multimètre en Ω, automate hors tension : vérifie le pontage COM0 – COM1 et l\'arrivée du + 24 V sur COM0.',
-      expected: '< 1 Ω sur le pont, continuité jusqu\'à F3:2',
+      how: 'Multimètre en Ω, automate hors tension : vérifie l\'arrivée du + 24 V sur COM0, le commun des sorties Q0.0 à Q0.3.',
+      expected: '< 1 Ω sur le pont, continuité jusqu\'à Q3:2',
     },
   ],
   mesures: [
@@ -245,11 +245,11 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     { io: 'I0.2', label: 'F1 défaut thermique 95-96 par X2:7', device: 'relais thermique' },
     { io: 'Q0.0', label: 'Bobine KM1 A1 par X2:8 (commun COM0 = + 24 V)', device: 'contacteur' },
     { io: 'Q0.1', label: 'Voyant H1 marche par X2:4', device: 'coffret de porte' },
-    { io: 'Q0.2', label: 'Voyant H2 défaut par X2:5 (COM1 ponté sur COM0)', device: 'coffret de porte' },
-    { io: '+24 / 0V', label: 'Alimentation de l\'automate par T1 et F3', device: 'transformateur de commande' },
+    { io: 'Q0.2', label: 'Voyant H2 défaut par X2:5 (commun COM0)', device: 'coffret de porte' },
+    { io: '+24 / 0V', label: 'Alimentation de l\'automate par T1 et Q3', device: 'transformateur de commande' },
   ],
   faults: [
-    { id: 'com', title: 'Commun COM0 non alimenté', symptom: 'Le programme passe bien à l\'état 1 mais aucune sortie ne colle.', fix: 'Relier COM0 au + 24 V (F3:2) et vérifier le pont COM0 – COM1.', coupe: 'f3.2>plc.COM0', action: 'Relier le commun COM0 au + 24 V et contrôler le pont COM0 – COM1' },
+    { id: 'com', title: 'Commun COM0 non alimenté', symptom: 'Le programme passe bien à l\'état 1 mais aucune sortie ne colle.', fix: 'Relier COM0 au + 24 V (Q3:2) : ce commun porte les trois sorties utilisées.', coupe: 'f3.2>plc.COM0', action: 'Relier le commun COM0 au + 24 V' },
     { id: 'i2', title: 'Entrée I0.2 non câblée', symptom: 'Le défaut thermique n\'allume jamais H2 et n\'arrête pas le moteur.', fix: 'Câbler F1:96 → X2:7 → I0.2.', coupe: 'f1.96>x2_7.a', action: 'Câbler F1:96 → X2:7 → I0.2' },
     { id: 'a1', title: 'Fil X2:8 → KM1 A1 débranché', symptom: 'Q0.0 est active (LED allumée) mais KM1 ne colle pas.', fix: 'Reconnecter X2:8 sur A1.', coupe: 'x2_8.b>km1.A1', action: 'Reconnecter le fil de X2:8 sur la borne A1 de KM1' },
     { id: 's1', title: 'S1 câblé en NO au lieu de NC', symptom: 'Le moteur ne démarre que si l\'on maintient le bouton d\'arrêt enfoncé.', fix: 'Utiliser le contact 21-22 (NC) et corriger la logique du programme.', ouvre: 'S1', action: 'Reprendre le câblage sur le contact 21-22 à ouverture du bouton d\'arrêt' },
@@ -257,7 +257,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
   ],
   quiz: [
     { q: 'Pourquoi les sorties relais conviennent-elles mieux ici que des sorties transistor ?', options: ['Elles sont plus rapides', 'Elles commutent indifféremment du continu ou de l\'alternatif, donc la bobine 24 V~', 'Elles consomment moins'], answer: 1 },
-    { q: 'À quoi sert le commun COM0 de l\'automate ?', options: ['À amener le potentiel + 24 V sur les contacts de sortie Q0.0 et Q0.1', 'À mettre l\'automate à la terre', 'À alimenter les entrées'], answer: 0 },
+    { q: 'À quoi sert le commun COM0 de l\'automate ?', options: ['À amener le potentiel + 24 V sur les contacts des sorties Q0.0 à Q0.3', 'À mettre l\'automate à la terre', 'À alimenter les entrées'], answer: 0 },
     { q: 'Le contact d\'arrêt S1 est câblé en NC sur I0.1. Que fait le programme ?', options: ['Il démarre quand I0.1 passe à 1', 'Il maintient la marche tant que I0.1 est à 1 et arrête quand elle retombe à 0', 'Il ignore I0.1'], answer: 1 },
   ],
   motor: { P: 1500, U: 400, In: 3.3, n: 1440, ns: 1500, cosPhi: 0.8 },
@@ -265,6 +265,20 @@ export const TP_AUTOMATE_M221: TpDefinition = {
   // les spires, donc se tromper de prise ne bloque rien — ça se paie au secondaire.
   // Voir `src/lib/sim/trafo.ts`.
   trafo: { slot: 't1', ...TRAFO_REF },
+  // PAS ENCORE DE FOLIO — et c'est délibéré.
+  //
+  // Un premier folio a été écrit sur le câblage ci-dessus, puis retiré : il
+  // aurait enseigné une faute. Ce TP alimente aujourd'hui l'automate par les
+  // bornes +24 / 0V, qui sont sa SORTIE d'alimentation capteurs (24 V DC,
+  // 250 mA) et non son entrée — le TM221CE16R s'alimente en 100-240 V
+  // alternatif sur L / N — et il alimente des entrées TOR 24 V CONTINU avec le
+  // secondaire alternatif de T1.
+  //
+  // La correction décidée est de montrer les DEUX sources comme sur la vraie
+  // platine : 230 V protégé par Q4 vers L / N de l'appareil, le + 24 V DC de
+  // l'automate pour ses entrées, et T1 24 V~ réservé aux sorties (bobine et
+  // voyants). Elle demande deux réseaux de commande distincts — donc deux
+  // folios — et se fait dans un second temps.
   station: true,
   hasMotor: true,
 };

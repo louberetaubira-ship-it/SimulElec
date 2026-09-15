@@ -66,3 +66,16 @@ export function generateTempPassword(): string {
   const chiffres = String(100 + Math.floor(Math.random() * 900));
   return `${mot}-${chiffres}`;
 }
+
+/**
+ * Normalise un identifiant saisi à la main par le professeur.
+ *
+ * Le professeur corrige parfois un identifiant lui-même (homonymes, nom composé,
+ * faute de frappe). Ce qu'il tape doit subir le même traitement que ce que tape
+ * l'élève à la connexion — sans quoi « Dupont.Léa » serait enregistré tel quel et
+ * ne répondrait jamais à « dupont.lea ». On normalise donc chaque fragment
+ * séparé par un point, et on jette les fragments vides (« dupont..lea »).
+ */
+export function normalizeLogin(raw: string): string {
+  return raw.split('.').map(slugName).filter(Boolean).join('.');
+}

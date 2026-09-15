@@ -51,6 +51,11 @@ export interface ProfileRow {
   created_by: string | null;
   /** Dernière activité connue de l'élève (migration 0005). */
   last_seen_at: string | null;
+  /**
+   * Élève retiré de sa classe (migration 0013) : sorti des listes actives et
+   * de l'effectif, connexion bloquée, mais tentatives et notes conservées.
+   */
+  archived: boolean;
 }
 
 export interface ClassRow {

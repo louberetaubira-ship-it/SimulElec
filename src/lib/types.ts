@@ -225,7 +225,8 @@ export type ActionneurFolio = 'bilame' | 'came' | 'galet' | 'champignon' | 'pous
 
 /** Un organe posé sur une colonne du folio, de haut en bas. */
 export interface FolioElement {
-  type: 'contactNF' | 'contactNO' | 'bobine' | 'voyant' | 'disjoncteur' | 'borne' | 'fil';
+  type: 'contactNF' | 'contactNO' | 'bobine' | 'voyant' | 'disjoncteur' | 'borne' | 'fil'
+    | 'entreeAPI' | 'sortieAPI';
   /** Nœud du réseau en entrée (haut). */
   a: string;
   /** Nœud en sortie (bas). Absent pour une borne, qui est un point unique. */
@@ -241,6 +242,12 @@ export interface FolioElement {
   conducteur?: string;
   /** Hauteur réservée, quand la valeur par défaut du type ne convient pas. */
   h?: number;
+  /**
+   * Borne commune d'une sortie d'automate (« COM0 »). Une sortie relais ne fait
+   * rien si SON commun n'est pas alimenté, et les communs d'un M221 ne sont pas
+   * reliés entre eux : le folio doit donc dire de quel commun chaque voie dépend.
+   */
+  commun?: string;
 }
 
 /** Une colonne du folio : la chaîne principale, ou une dérivation. */
