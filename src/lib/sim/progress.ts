@@ -489,7 +489,7 @@ function errReadings(st: AttemptState, stage: number): number {
 }
 
 /** L'étape a-t-elle été atteinte (donc évaluable) ? */
-function stageReached(st: AttemptState, stage: number): boolean {
+export function stageReached(st: AttemptState, stage: number): boolean {
   return st.done[stage] === true || st.stage > stage;
 }
 

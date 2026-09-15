@@ -10,11 +10,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { getMyProfile } from '@/lib/db/profiles';
 import { listMyAttempts } from '@/lib/db/attempts';
 import { listAssignments } from '@/lib/db/classes';
-import { listTps, type TpSummary } from '@/lib/db/tps';
+import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import { createClient } from '@/lib/supabase/client';
 import { competenceTps, eleveStats } from '@/lib/eleve-stats';
+import { liveEvaluation, liveNotes } from '@/lib/sim/live';
 import { COMPETENCES, DIPLOMAS, masteryOf, type CompetenceEval, type DiplomaId } from '@/lib/data/competences';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
+import type { TpDefinition } from '@/lib/types';
 import BilanExport from '@/components/parcours/BilanExport';
 import {
   Barre,
@@ -23,11 +25,15 @@ import {
   Message,
   PageTitle,
   Panneau,
+  PastillesCompetences,
   dateCourte,
 } from '@/components/gestion/ui';
 
 /** Nombre d'étapes d'un parcours. */
 const ETAPES = 11;
+
+/** Note formatée à la française (14,5). */
+const fr = (n: number) => n.toFixed(1).replace('.', ',');
 
 /** Bilan complet : toutes les compétences du diplôme, celles non travaillées comprises. */
 function bilanComplet(diploma: DiplomaId | null, acquis: CompetenceEval[]): CompetenceEval[] {
@@ -53,6 +59,8 @@ export default function MoiPage() {
   const [aFaire, setAFaire] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  // Définitions des TP en cours, pour afficher notes provisoire / projetée et compétences pendant le TP.
+  const [defs, setDefs] = useState<Record<string, TpDefinition | null>>({});
 
   useEffect(() => {
     let alive = true;
@@ -88,6 +96,23 @@ export default function MoiPage() {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    const ids = Array.from(
+      new Set(attempts.filter((a) => a.status === 'en_cours').map((a) => a.tp_id)),
+    );
+    const missing = ids.filter((id) => !(id in defs));
+    if (missing.length === 0) return;
+    let alive = true;
+    Promise.all(
+      missing.map(async (id) => [id, await resolveDefinition(id).catch(() => null)] as const),
+    ).then((pairs) => {
+      if (alive) setDefs((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [attempts, defs]);
 
   const stats = useMemo(() => eleveStats(attempts), [attempts]);
   const titres = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
@@ -165,6 +190,37 @@ export default function MoiPage() {
                     tone="accent"
                     label={`étape ${a.stage}/${ETAPES}`}
                   />
+                  {(() => {
+                    const def = defs[a.tp_id];
+                    if (!def) return null;
+                    const notes = liveNotes(def, a.state);
+                    const ev = diploma ? liveEvaluation(def, a.state, diploma) : null;
+                    return (
+                      <>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded-full border border-good/50 bg-good/10 px-2.5 py-0.5 font-mono text-[12px] font-semibold text-good">
+                            {notes.provisoire != null ? `${fr(notes.provisoire)}/20` : '—'}
+                            <span className="ml-1 font-sans font-normal text-muted">provisoire</span>
+                          </span>
+                          <span className="rounded-full border border-accent/50 bg-accent/10 px-2.5 py-0.5 font-mono text-[12px] font-semibold text-accent">
+                            {fr(notes.projetee)}/20
+                            <span className="ml-1 font-sans font-normal text-muted">projetée</span>
+                          </span>
+                          <span className="text-[11px] text-muted">
+                            Termine le TP pour faire monter ta note projetée.
+                          </span>
+                        </div>
+                        {ev && ev.length > 0 && (
+                          <div className="mt-2">
+                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[.06em] text-muted">
+                              Mes compétences à l&apos;instant t
+                            </p>
+                            <PastillesCompetences competences={ev} />
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>

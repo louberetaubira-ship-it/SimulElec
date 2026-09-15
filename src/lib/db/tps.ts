@@ -54,6 +54,19 @@ export function getTpDefinition(id: string): TpDefinition | undefined {
   return TPS.find((t) => t.id === id);
 }
 
+/**
+ * `TpDefinition` complète d'un TP, qu'il soit fourni avec l'application (objet typé en
+ * mémoire) ou créé / généré par un professeur (relu depuis la table `tps`). Sert au suivi
+ * temps réel : calculer les notes provisoire / projetée et les compétences à l'instant t
+ * demande la définition, pas seulement la ligne de progression.
+ */
+export async function resolveDefinition(id: string): Promise<TpDefinition | null> {
+  const bundled = getTpDefinition(id);
+  if (bundled) return bundled;
+  const row = await getTpRow(id);
+  return row ? rowToDefinition(row) : null;
+}
+
 // ------------------------------------------------------- TP de l'établissement
 
 /** Familles pédagogiques d'un TP. */

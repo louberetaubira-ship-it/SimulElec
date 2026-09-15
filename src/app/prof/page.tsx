@@ -14,10 +14,13 @@ import {
   type AttemptWithStudent,
   type StudentBrief,
 } from '@/lib/db/classes';
-import { listTps, type TpSummary } from '@/lib/db/tps';
+import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
+import type { TpDefinition } from '@/lib/types';
 import { DIPLOMAS, type CompetenceEval, type DiplomaId, type Mastery } from '@/lib/data/competences';
 import { STAGE_COUNT } from '@/lib/sim/progress';
+import { liveBilan, liveEvaluation, liveNotes, type LiveBilan, type LiveNotes } from '@/lib/sim/live';
+import { noteSur20 } from '@/lib/eleve-stats';
 
 /** Nombre d'étapes du parcours : il a changé, et la valeur était figée ici. */
 const STAGES = STAGE_COUNT - 1;
@@ -65,6 +68,69 @@ function GrilleCompetences({ evaluation }: { evaluation: CompetenceEval[] }) {
   );
 }
 
+/** Note formatée à la française (14,5). */
+const fr = (n: number) => n.toFixed(1).replace('.', ',');
+
+/** Note provisoire (étapes faites) + note projetée (barème complet) d'une tentative en cours. */
+function NotesLive({ notes }: { notes: LiveNotes }) {
+  return (
+    <div className="flex flex-col leading-tight">
+      <span className="font-[var(--font-mono)] text-[15px] font-semibold text-[#1E9E63]">
+        {notes.provisoire != null ? fr(notes.provisoire) : '—'}
+        <span className="ml-1 text-[10px] font-normal text-[#66717F]">prov.</span>
+      </span>
+      <span className="font-[var(--font-mono)] text-[11px] text-[#D97706]">
+        {fr(notes.projetee)} <span className="text-[#66717F]">proj. /20</span>
+      </span>
+    </div>
+  );
+}
+
+/** Bilan par règles : ce qui est bien réalisé, et les points de vigilance à remédier. */
+function BilanLive({ bilan }: { bilan: LiveBilan }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div>
+        <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#1E9E63]">
+          Ce qui est bien réalisé
+        </h4>
+        <ul className="space-y-1.5">
+          {bilan.forces.map((f) => (
+            <li key={f.key} className="rounded-lg border border-[#1E9E63]/30 bg-[#E7F6EE] px-2.5 py-1.5 text-[13px]">
+              <span className="font-semibold">{f.label}</span>
+              <span className="text-[#66717F]"> — {f.detail}</span>
+            </li>
+          ))}
+          {bilan.forces.length === 0 && (
+            <li className="text-[13px] text-[#66717F]">Rien de consolidé pour l&apos;instant.</li>
+          )}
+        </ul>
+      </div>
+      <div>
+        <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#D97706]">
+          Points de vigilance → remédiation
+        </h4>
+        <ul className="space-y-1.5">
+          {bilan.vigilances.map((v) => (
+            <li key={v.key} className="rounded-lg border border-[#E39A00]/40 bg-[#FEF3E2] px-2.5 py-1.5 text-[13px]">
+              <span className="font-semibold">{v.label}</span>
+              <span className="text-[#66717F]"> — {v.detail}</span>
+              {v.remediation && v.remediation.length > 0 && (
+                <span className="mt-1 block text-[12px] text-[#B45309]">
+                  → Remédiation : {v.remediation.join(' · ')}
+                </span>
+              )}
+            </li>
+          ))}
+          {bilan.vigilances.length === 0 && (
+            <li className="text-[13px] text-[#66717F]">Aucun point de vigilance sur les étapes réalisées.</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function when(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -97,6 +163,42 @@ export default function ProfPage() {
   );
 
   const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
+
+  // Définitions des TP rencontrés (fournis ou créés par un professeur), pour calculer les
+  // notes provisoire / projetée et les compétences à l'instant t des tentatives en cours.
+  const [defs, setDefs] = useState<Record<string, TpDefinition | null>>({});
+  useEffect(() => {
+    const missing = Array.from(new Set(attempts.map((a) => a.tp_id))).filter((id) => !(id in defs));
+    if (missing.length === 0) return;
+    let alive = true;
+    Promise.all(missing.map(async (id) => [id, await resolveDefinition(id).catch(() => null)] as const)).then(
+      (pairs) => {
+        if (alive) setDefs((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [attempts, defs]);
+
+  const liveFor = useCallback(
+    (a: AttemptWithStudent): { notes: LiveNotes; evaluation: CompetenceEval[] | null; bilan: LiveBilan } | null => {
+      const def = defs[a.tp_id];
+      if (!def) return null;
+      const dip = a.diploma ?? current?.diploma ?? null;
+      return {
+        notes: liveNotes(def, a.state),
+        evaluation: dip ? liveEvaluation(def, a.state, dip) : null,
+        bilan: liveBilan(def, a.state),
+      };
+    },
+    [defs, current],
+  );
+
+  const openedAttempt = useMemo(
+    () => attempts.find((a) => a.id === openId) ?? null,
+    [attempts, openId],
+  );
 
   useEffect(() => {
     (async () => {
@@ -328,7 +430,7 @@ export default function ProfPage() {
                   <th className="px-4 py-3">Diplôme</th>
                   <th className="px-4 py-3">TP</th>
                   <th className="px-4 py-3">Étape</th>
-                  <th className="px-4 py-3">Score</th>
+                  <th className="px-4 py-3">Note /20</th>
                   <th className="px-4 py-3">Statut</th>
                   <th className="px-4 py-3">Dernière activité</th>
                   <th className="px-4 py-3" />
@@ -339,11 +441,14 @@ export default function ProfPage() {
                   <tr key={a.id} className="border-t border-[#D3D9E1] align-top">
                     <td className="px-4 py-3">
                       {a.student?.full_name ?? a.student?.email ?? '—'}
-                      {a.status === 'termine' && a.evaluation && a.evaluation.length > 0 && (
-                        <div className="mt-1.5 max-w-[280px]">
-                          <GrilleCompetences evaluation={a.evaluation} />
-                        </div>
-                      )}
+                      {(() => {
+                        const ev = a.status === 'termine' ? a.evaluation : liveFor(a)?.evaluation ?? null;
+                        return ev && ev.length > 0 ? (
+                          <div className="mt-1.5 max-w-[280px]">
+                            <GrilleCompetences evaluation={ev} />
+                          </div>
+                        ) : null;
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-xs text-[#66717F]">
                       {a.diploma ? DIPLOMA_SHORT[a.diploma] ?? a.diploma : '—'}
@@ -352,7 +457,16 @@ export default function ProfPage() {
                     <td className="px-4 py-3 font-[var(--font-mono)]">
                       {a.stage}/{STAGES}
                     </td>
-                    <td className="px-4 py-3 font-[var(--font-mono)]">{a.score ?? '—'}</td>
+                    <td className="px-4 py-3 font-[var(--font-mono)]">
+                      {a.status === 'termine'
+                        ? a.score != null
+                          ? `${fr(noteSur20(a.score))}/20`
+                          : '—'
+                        : (() => {
+                            const l = liveFor(a);
+                            return l ? <NotesLive notes={l.notes} /> : '—';
+                          })()}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`rounded-full px-2 py-1 text-xs font-semibold ${STATUS_STYLE[a.status]}`}>
                         {STATUS_LABEL[a.status]}
@@ -381,6 +495,42 @@ export default function ProfPage() {
               </tbody>
             </table>
           </section>
+
+          {openId && openedAttempt && (() => {
+            const l = liveFor(openedAttempt);
+            if (!l) return null;
+            const done = openedAttempt.status === 'termine';
+            return (
+              <section className="space-y-4 rounded-xl border border-[#D3D9E1] bg-white p-5">
+                <div className="flex flex-wrap items-center gap-4">
+                  <h3 className="font-[var(--font-title)] text-lg font-semibold uppercase tracking-wide">
+                    Bilan {done ? 'final' : 'à l’instant t'} — {openedAttempt.student?.full_name ?? '—'}
+                  </h3>
+                  <div className="ml-auto flex items-center gap-4">
+                    <div className="text-center">
+                      <div className="font-[var(--font-mono)] text-2xl font-bold text-[#1E9E63]">
+                        {l.notes.provisoire != null ? fr(l.notes.provisoire) : '—'}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wide text-[#66717F]">note provisoire /20</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-[var(--font-mono)] text-2xl font-bold text-[#D97706]">{fr(l.notes.projetee)}</div>
+                      <div className="text-[10px] uppercase tracking-wide text-[#66717F]">note projetée /20</div>
+                    </div>
+                  </div>
+                </div>
+                {l.evaluation && l.evaluation.length > 0 && (
+                  <div>
+                    <h4 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#66717F]">
+                      Compétences évaluées à l&apos;instant t
+                    </h4>
+                    <GrilleCompetences evaluation={l.evaluation} />
+                  </div>
+                )}
+                <BilanLive bilan={l.bilan} />
+              </section>
+            );
+          })()}
 
           {openId && (
             <section className="grid gap-4 rounded-xl border border-[#D3D9E1] bg-white p-5 md:grid-cols-2">
