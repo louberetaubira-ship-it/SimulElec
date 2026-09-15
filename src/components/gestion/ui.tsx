@@ -6,7 +6,9 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import type { CompetenceEval, Mastery } from '@/lib/data/competences';
+import {
+  niveauOfEval, NIVEAU_BILAN, NIVEAU_COLOR, NIVEAU_ON, type CompetenceEval, type Mastery,
+} from '@/lib/data/competences';
 
 // ------------------------------------------------------------------ structure
 
@@ -124,51 +126,54 @@ export const MASTERY_TONE: Record<Mastery, Tone> = {
   nonEvalue: 'muted',
 };
 
-/** Pastilles compactes : un jeton par compétence (code + pourcentage). */
+/** Pastilles compactes : un jeton par compétence (code + pourcentage). Vocabulaire « acquisition ». */
 export function PastillesCompetences({ competences }: { competences: CompetenceEval[] }) {
   if (competences.length === 0) return <span className="text-[12px] text-muted">—</span>;
   return (
     <ul className="flex flex-wrap gap-1">
-      {competences.map((c) => (
-        <li
-          key={c.code}
-          title={`${c.label} — ${MASTERY_LABEL[c.mastery]} (${Math.round(c.score * 100)} %)`}
-          className={`rounded-md border px-1.5 py-0.5 font-mono text-[11px] font-semibold ${MASTERY_CLASS[c.mastery]}`}
-        >
-          {c.code}
-          <span className="ml-1 font-normal opacity-80">{Math.round(c.score * 100)} %</span>
-        </li>
-      ))}
+      {competences.map((c) => {
+        const n = niveauOfEval(c);
+        return (
+          <li
+            key={c.code}
+            title={`${c.label} — ${NIVEAU_BILAN[n]} (${Math.round(c.score * 100)} %)`}
+            className="rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold"
+            style={{ background: NIVEAU_COLOR[n], color: NIVEAU_ON[n] }}
+          >
+            {c.code}
+            <span className="ml-1 font-normal opacity-90">{Math.round(c.score * 100)} %</span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-/** Bilan détaillé : une ligne par compétence, libellé du référentiel + barre + niveau. */
+/** Bilan détaillé : une ligne par compétence, libellé du référentiel + barre + niveau (« acquisition »). */
 export function BilanCompetences({ competences }: { competences: CompetenceEval[] }) {
   if (competences.length === 0) {
     return <p className="text-[13px] text-muted">Aucune compétence évaluée pour le moment.</p>;
   }
   return (
     <ul className="space-y-2">
-      {competences.map((c) => (
-        <li key={c.code} className="rounded-xl border border-line bg-surface p-2.5">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <span className="font-mono text-[12px] font-semibold">{c.code}</span>
-            <span className="flex-1 text-[13px] leading-snug">{c.label}</span>
-            <span
-              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${MASTERY_CLASS[c.mastery]}`}
-            >
-              {MASTERY_LABEL[c.mastery]}
-            </span>
-          </div>
-          <Barre
-            className="mt-2"
-            value={c.score}
-            tone={MASTERY_TONE[c.mastery]}
-            label={`${Math.round(c.score * 100)} %`}
-          />
-        </li>
-      ))}
+      {competences.map((c) => {
+        const n = niveauOfEval(c);
+        return (
+          <li key={c.code} className="rounded-xl border border-line bg-surface p-2.5">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="font-mono text-[12px] font-semibold">{c.code}</span>
+              <span className="flex-1 text-[13px] leading-snug">{c.label}</span>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
+                style={{ background: NIVEAU_COLOR[n], color: NIVEAU_ON[n] }}>
+                {NIVEAU_BILAN[n]}
+              </span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-line">
+              <div className="h-full rounded-full" style={{ width: `${Math.max(3, Math.round(c.score * 100))}%`, background: NIVEAU_COLOR[n] }} />
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }

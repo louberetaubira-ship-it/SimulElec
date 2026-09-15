@@ -257,11 +257,12 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: '0V', fx: 0.41, fy: 0.72 }, { id: '24', fx: 0.70, fy: 0.72 }, { id: '48', fx: 0.85, fy: 0.72 },
     ],
   },
-  // ---- Automate programmable (dessin SVG) ----
-  vector({
-    key: 'plc', name: 'Automate Modicon M221 · 16 E/S relais', ref: 'TM221CE16R', brand: 'Schneider',
-    kind: 'plc', family: 'Automatisme', modules: 11, poles: 0, w: PLC.w, h: PLC.h, terminals: PLC_TERMINALS,
-  }),
+  // ---- Automate programmable (photo réelle du TM221CE16R, /sprites/plc.png) ----
+  {
+    key: 'plc', name: 'Automate Modicon M221 · TM221CE16R', ref: 'TM221CE16R', brand: 'Schneider',
+    kind: 'plc', family: 'Automatisme', modules: 6, poles: 0, w: PLC.w, h: PLC.h,
+    terminals: PLC_TERMINALS, switchable: false, svg: false,
+  },
   // Transformateur de commande Legrand 042872 — celui de la platine de
   // l'établissement. 100 VA, 50/60 Hz, classe I, IP2X, IK04, uk 4,6 %,
   // EN 61558-2-6, 84 x 104 x 98 mm.

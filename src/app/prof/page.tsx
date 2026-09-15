@@ -18,7 +18,10 @@ import { addMessage } from '@/lib/db/attempts';
 import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
-import { DIPLOMAS, type CompetenceEval, type DiplomaId, type Mastery } from '@/lib/data/competences';
+import {
+  COMPETENCES, DIPLOMAS, grilleComplete, niveauOfEval,
+  NIVEAU_COLOR, NIVEAU_ON, NIVEAU_TP, type CompetenceEval, type DiplomaId, type Niveau,
+} from '@/lib/data/competences';
 import { STAGE_COUNT, modeOf } from '@/lib/sim/progress';
 import { liveBilan, liveEvaluation, liveNotes, type LiveBilan, type LiveNotes } from '@/lib/sim/live';
 import { noteSur20 } from '@/lib/eleve-stats';
@@ -34,17 +37,8 @@ const fr = (n: number) => n.toFixed(1).replace('.', ',');
 /** Couleur d'une note sur 20 (vert / ambre / rouge). */
 const noteColor = (n: number | null) => (n == null ? '#94A3B8' : n >= 14 ? '#1E9E63' : n >= 10 ? '#E39A00' : '#D93A3A');
 
-const LEVEL: Record<Mastery, number> = { acquis: 3, enCours: 2, nonAcquis: 1, nonEvalue: 0 };
-const LEVEL_COLOR: Record<number, string> = { 0: '#D3D9E1', 1: '#D93A3A', 2: '#E39A00', 3: '#1E9E63' };
-const MASTERY_LABEL: Record<Mastery, string> = {
-  acquis: 'Acquis', enCours: 'En cours', nonAcquis: 'Non acquis', nonEvalue: 'À venir',
-};
-const MASTERY_PILL: Record<Mastery, string> = {
-  acquis: 'bg-[#E7F6EE] text-[#1E9E63]',
-  enCours: 'bg-[#FEF3E2] text-[#B45309]',
-  nonAcquis: 'bg-[#FBE9E9] text-[#D93A3A]',
-  nonEvalue: 'bg-[#F5F6F8] text-[#66717F]',
-};
+/** Échelle « maîtrise » (pendant le TP), pour la légende de couleurs. */
+const NIVEAUX_TP: Niveau[] = ['total', 'maitrise', 'partiel', 'encours', 'insuffisant', 'nonMaitrise', 'nonEvalue'];
 
 /** Jauge circulaire de note (sur 20). */
 function Gauge({ note, size, stroke }: { note: number | null; size: number; stroke: number }) {
@@ -62,46 +56,38 @@ function Gauge({ note, size, stroke }: { note: number | null; size: number; stro
   );
 }
 
-/** Barres compactes des compétences déjà évaluées (colonne « Compétences (t) »). */
-function MiniBars({ evaluation }: { evaluation: CompetenceEval[] }) {
-  const items = evaluation.filter((c) => c.mastery !== 'nonEvalue').slice(0, 6);
-  if (items.length === 0) return <span className="text-xs text-[#94A3B8]">en attente</span>;
+/** Bande fixe du référentiel : une case par compétence (C1→C13), couleur = niveau, gris = non évaluée. */
+function Strip({ evaluation, diploma }: { evaluation: CompetenceEval[]; diploma: DiplomaId | null }) {
+  if (!diploma) return <span className="text-xs text-[#94A3B8]">—</span>;
   return (
-    <div className="flex h-[30px] items-end gap-1">
-      {items.map((c) => {
-        const lv = LEVEL[c.mastery];
-        const h = lv === 0 ? 8 : [0, 42, 72, 100][lv];
+    <div className="flex gap-[2px]">
+      {grilleComplete(diploma, evaluation).map((c) => {
+        const n = niveauOfEval(c);
         return (
-          <div
-            key={c.code}
-            title={`${c.code} · ${c.label} — ${MASTERY_LABEL[c.mastery]}`}
-            className="w-2 rounded-t-sm"
-            style={{ height: `${h}%`, background: LEVEL_COLOR[lv] }}
-          />
+          <div key={c.code} title={`${c.code} · ${c.label} — ${NIVEAU_TP[n]}`}
+            className="grid h-[24px] w-[22px] place-items-center rounded-[3px] text-[8px] font-bold"
+            style={{ background: NIVEAU_COLOR[n], color: NIVEAU_ON[n] }}>
+            {c.code.replace(/^C[O]?/, '')}
+          </div>
         );
       })}
     </div>
   );
 }
 
-/** Barre pleine d'une compétence (tiroir de détail). */
+/** Barre pleine d'une compétence (tiroir de détail) — vocabulaire « maîtrise ». */
 function CompBar({ c }: { c: CompetenceEval }) {
-  const lv = LEVEL[c.mastery];
-  const niv = c.mastery === 'nonEvalue' ? '—' : `niv. ${lv}/3`;
-  const w = c.mastery === 'nonEvalue' ? 4 : Math.max(6, Math.round(c.score * 100));
+  const n = niveauOfEval(c);
+  const w = n === 'nonEvalue' ? 4 : Math.max(6, Math.round(c.score * 100));
   return (
     <div className="mb-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
-        <span className="text-[13px]">
-          <b className="font-semibold">{c.code} · {c.label}</b>{' '}
-          <span className="text-[11px] text-[#66717F]">{niv}</span>
-        </span>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${MASTERY_PILL[c.mastery]}`}>
-          {MASTERY_LABEL[c.mastery]}
-        </span>
+        <span className="text-[13px]"><b className="font-semibold">{c.code} · {c.label}</b></span>
+        <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+          style={{ background: NIVEAU_COLOR[n], color: NIVEAU_ON[n] }}>{NIVEAU_TP[n]}</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-[#E7EAEF]">
-        <div className="h-full rounded-full" style={{ width: `${w}%`, background: LEVEL_COLOR[lv] }} />
+        <div className="h-full rounded-full" style={{ width: `${w}%`, background: NIVEAU_COLOR[n] }} />
       </div>
     </div>
   );
@@ -162,9 +148,13 @@ export default function ProfPage() {
   const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
   const tpTitle = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
 
+  // Une tentative en cours n'a pas encore de `diploma` (rempli à la fin) : on retombe alors
+  // sur le diplôme de la CLASSE, sinon le filtre « Bac Pro MELEC » cache une classe de Bac Pro.
   const shownAttempts = useMemo(
-    () => (diplomaFilter === 'tous' ? attempts : attempts.filter((a) => a.diploma === diplomaFilter)),
-    [attempts, diplomaFilter],
+    () => (diplomaFilter === 'tous'
+      ? attempts
+      : attempts.filter((a) => (a.diploma ?? current?.diploma) === diplomaFilter)),
+    [attempts, diplomaFilter, current],
   );
   const visibleAttempts = useMemo(
     () => (modeFilter ? shownAttempts.filter((a) => modeOf(a.state) === modeFilter) : shownAttempts),
@@ -429,6 +419,24 @@ export default function ProfPage() {
           </div>
 
           {/* Tableau */}
+          {/* Légende des compétences (ordre de la bande) */}
+          {current?.diploma && (
+            <details className="mt-3 rounded-2xl border border-[#E7EAEF] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.05)]" open>
+              <summary className="cursor-pointer text-[11px] font-bold uppercase tracking-[.06em] text-[#94A3B8]">
+                Compétences {DIPLOMA_SHORT[current.diploma]} — la bande « Compétences (t) » suit cet ordre
+              </summary>
+              <div className="mt-3 grid gap-x-4 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+                {COMPETENCES[current.diploma].map((c) => (
+                  <div key={c.code} className="flex gap-2 text-[12.5px]">
+                    <b className="w-9 flex-none font-[var(--font-mono)] text-[#B45309]">{c.code}</b>
+                    <span className="text-[#475569]">{c.label}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* Tableau */}
           <section className="mt-3 overflow-hidden rounded-2xl border border-[#E7EAEF] bg-white shadow-[0_1px_2px_rgba(15,23,42,.05)]">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-sm">
@@ -453,7 +461,7 @@ export default function ProfPage() {
                       <tr key={a.id} className="border-t border-[#E7EAEF] transition-colors hover:bg-[#FAFBFC]">
                         <td className="px-4 py-3.5">
                           <div className="font-semibold">{a.student?.full_name ?? a.student?.email ?? '—'}</div>
-                          <div className="text-[11.5px] text-[#94A3B8]">{a.diploma ? DIPLOMA_SHORT[a.diploma] ?? a.diploma : '—'}</div>
+                          <div className="text-[11.5px] text-[#94A3B8]">{(() => { const d = a.diploma ?? current?.diploma; return d ? DIPLOMA_SHORT[d] ?? d : '—'; })()}</div>
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="text-[13px] text-[#66717F]">{a.tp_id}</div>
@@ -485,7 +493,7 @@ export default function ProfPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3.5">{evalu ? <MiniBars evaluation={evalu} /> : <span className="text-xs text-[#94A3B8]">…</span>}</td>
+                        <td className="px-4 py-3.5">{evalu ? <Strip evaluation={evalu} diploma={a.diploma ?? current?.diploma ?? null} /> : <span className="text-xs text-[#94A3B8]">…</span>}</td>
                         <td className="px-4 py-3.5">
                           {a.status === 'en_cours' && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FEF3E2] px-2.5 py-1 text-[12px] font-bold text-[#B45309]">
@@ -519,12 +527,14 @@ export default function ProfPage() {
             </div>
           </section>
 
-          {/* Légende */}
-          <div className="mt-3 flex flex-wrap items-center gap-4 px-1 text-[12px] text-[#66717F]">
-            <span className="font-semibold text-[#141A21]">Compétences :</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#1E9E63]" /> Acquis</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#E39A00]" /> En cours</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#D93A3A]" /> Non acquis / à remédier</span>
+          {/* Légende de l'échelle de maîtrise (7 niveaux) */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1 text-[12px] text-[#66717F]">
+            <span className="font-semibold text-[#141A21]">Maîtrise :</span>
+            {NIVEAUX_TP.map((n) => (
+              <span key={n} className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: NIVEAU_COLOR[n] }} /> {NIVEAU_TP[n]}
+              </span>
+            ))}
             <span className="ml-auto"><b>prov.</b> = étapes faites · <b>projetée</b> = si arrêt maintenant</span>
           </div>
         </>

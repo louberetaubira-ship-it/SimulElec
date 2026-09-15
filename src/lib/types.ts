@@ -366,7 +366,7 @@ export interface PreparationDef {
   fonctions: PrepQuestion[];
 }
 
-export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string }
+export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string; /** Photo propre à cette référence (sinon : sprite/dessin de `key`). */ img?: string }
 export interface Poste { id: string; name: string; need: string; options: PosteOption[] }
 
 export interface TestHorsTension { id: string; title: string; how: string; expected: string }

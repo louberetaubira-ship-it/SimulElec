@@ -7,7 +7,6 @@
  * de `docs/reference/illustration-v3.tpl.html`.
  */
 import React from 'react';
-import { PLC, PLC_IN, PLC_OUT } from '@/lib/scene/geometry';
 
 const SHADOW2 = { filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.35))' } as const;
 const SHADOW3 = { filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.35))' } as const;
@@ -145,38 +144,6 @@ export function AgcpSvg() {
       <rect x="22" y="60" width="26" height="30" rx="4" fill="#2A2E33" />
       <rect x="26" y="64" width="18" height="12" rx="2" fill="#F4F5F7" />
       <text x="35" y="98" textAnchor="middle" fontFamily={SANS} fontSize="6" fill="#66717F">disj. de branchement</text>
-    </svg>
-  );
-}
-
-/** Automate Modicon M221 (TM221CE16R). */
-export function PlcSvg() {
-  return (
-    <svg viewBox={`0 0 ${PLC.w} ${PLC.h}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-      <rect x="2" y="10" width="196" height="92" rx="4" fill="#3A4047" stroke="#1F2429" />
-      <rect x="8" y="16" width="184" height="80" rx="3" fill="#EDEFF2" />
-      <rect x="8" y="16" width="184" height="12" fill="#5A9E3A" />
-      <text x="14" y="25" fontFamily={COND} fontSize="8" fontWeight="700" fill="#fff">Modicon M221 · TM221CE16R</text>
-      <text x="120" y="42" fontFamily={MONO} fontSize="6" fill="#141A21">RUN ● ERR ○ ETH ●</text>
-      <rect x="14" y="32" width="90" height="10" rx="2" fill="#fff" stroke="#9AA3AD" />
-      <text x="16" y="39" fontFamily={MONO} fontSize="5" fill="#141A21">IN 0-8 · 24 V DC</text>
-      {Array.from({ length: 9 }, (_, i) => <rect key={`li${i}`} x={20 + i * 9} y="24" width="5" height="4" rx="1" fill={i < 3 ? '#3DFF7A' : '#2F353B'} />)}
-      {Array.from({ length: 7 }, (_, i) => <rect key={`lo${i}`} x={20 + i * 9} y="82" width="5" height="4" rx="1" fill={i < 2 ? '#FFB400' : '#2F353B'} />)}
-      <rect x="14" y="60" width="60" height="16" rx="2" fill="#C9CFD5" stroke="#9AA3AD" />
-      <text x="17" y="70" fontFamily={MONO} fontSize="6" fill="#141A21">USB · RJ45</text>
-      <text x="16" y="94" fontFamily={MONO} fontSize="5" fill="#141A21">OUT 0-6 · relais 2 A</text>
-      {PLC_IN.map((n, i) => (
-        <g key={`in${n}`}>
-          <circle cx={14 + i * 17} cy="6" r="4" fill="#D9DEE3" stroke="#20262D" />
-          <text x={14 + i * 17} y="-3" textAnchor="middle" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#141A21">{n}</text>
-        </g>
-      ))}
-      {PLC_OUT.map((n, i) => (
-        <g key={`out${n}`}>
-          <circle cx={14 + i * 17} cy="106" r="4" fill="#D9DEE3" stroke="#20262D" />
-          <text x={14 + i * 17} y="118" textAnchor="middle" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#141A21">{n}</text>
-        </g>
-      ))}
     </svg>
   );
 }
@@ -398,7 +365,6 @@ export function svgForKey(key: string): React.ReactNode | null {
     case 'dcfuse': return <DcModSvg kind="fuse" />;
     case 'battery': return <BatterySvg />;
     case 'agcp': return <AgcpSvg />;
-    case 'plc': return <PlcSvg />;
     case 'gk1es': return <Gk1Svg />;
     case 'lc1d50': return <Lc1D50Svg />;
     case 'lrd3357': return <Lrd3357Svg />;

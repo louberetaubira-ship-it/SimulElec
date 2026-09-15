@@ -567,6 +567,30 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
  * Score 0..1 par étape du parcours, pénalisé par les ouvertures de l'aide
  * (−0,1 par ouverture, plancher 0,3 quand l'étape est réussie malgré tout).
  */
+/** Erreurs « dures » imputables à une étape (comptées pour le plafond de niveau). */
+function stageErrors(st: AttemptState, stage: number): number {
+  switch (stage) {
+    case ETAPE.POSE: return st.poseErrors ?? 0;
+    case ETAPE.CABLAGE: return (st.wireErrors ?? 0) + (st.resets ?? 0);
+    case ETAPE.HORS: return errReadings(st, ETAPE.HORS);
+    case ETAPE.SOUS: return errReadings(st, ETAPE.SOUS);
+    case ETAPE.VALIDATION: return Math.max(0, (st.diagTries ?? 0) - 1);
+    default: return 0;
+  }
+}
+
+/**
+ * Plafond de score imposé par les erreurs de l'étape (validé le 2026-09-15).
+ * Au-delà de 4 erreurs, « Totalement maîtrisé » (0,90) devient inatteignable ;
+ * au-delà de 8, on plafonne à « Partiellement maîtrisé » (0,74). NON RATTRAPABLE :
+ * corriger à la fin du TP ne relève pas le plafond — les erreurs restent sanctionnées.
+ */
+function errorCap(errors: number): number {
+  if (errors >= 8) return 0.74;
+  if (errors >= 4) return 0.89;
+  return 1;
+}
+
 export function stageScores(tp: TpDefinition, st: AttemptState, bareme?: Bareme): (number | undefined)[] {
   const b = bareme ?? baremeOf(tp);
   return PLATINE_STAGE_DOMAINS.map((_, i) => {
@@ -574,7 +598,9 @@ export function stageScores(tp: TpDefinition, st: AttemptState, bareme?: Bareme)
     if (raw == null) return undefined;
     const penalty = helpCount(st, i) * b.coutAide;
     const floor = raw >= 0.5 ? 0.3 : 0;
-    return Math.max(floor, clamp01(raw - penalty));
+    const scored = Math.max(floor, clamp01(raw - penalty));
+    // plafond d'erreurs : malus déjà déduit ci-dessus + plafond de niveau, non rattrapable
+    return Math.min(errorCap(stageErrors(st, i)), scored);
   });
 }
 

@@ -255,6 +255,65 @@ export function masteryOf(score: number, evaluated: boolean): Mastery {
 }
 
 /**
+ * ÉCHELLE FINE À 7 NIVEAUX (validée le 2026-09-15), dérivée du même score 0..1.
+ * `Mastery` (4 niveaux) reste le champ stocké dans `attempts.evaluation` ; `Niveau`
+ * se recalcule à l'affichage à partir de `CompetenceEval.score`, donc rien à migrer.
+ *
+ * Deux vocabulaires pour la MÊME couleur :
+ *   — pendant le TP : « maîtrise » (NIVEAU_TP) ;
+ *   — dans le bilan de compétences : « acquisition » (NIVEAU_BILAN).
+ */
+export type Niveau = 'total' | 'maitrise' | 'partiel' | 'encours' | 'insuffisant' | 'nonMaitrise' | 'nonEvalue';
+
+/** Seuils validés : 0,90 / 0,75 / 0,60 / 0,45 / 0,30. */
+export function niveauOf(score: number, evaluated: boolean): Niveau {
+  if (!evaluated) return 'nonEvalue';
+  if (score >= 0.90) return 'total';
+  if (score >= 0.75) return 'maitrise';
+  if (score >= 0.60) return 'partiel';
+  if (score >= 0.45) return 'encours';
+  if (score >= 0.30) return 'insuffisant';
+  return 'nonMaitrise';
+}
+
+/** Niveau d'une ligne de grille (respecte `nonEvalue` déjà porté par la ligne). */
+export const niveauOfEval = (c: CompetenceEval): Niveau => niveauOf(c.score, c.mastery !== 'nonEvalue');
+
+/** Libellés « maîtrise » — partout SAUF le bilan de compétences. */
+export const NIVEAU_TP: Record<Niveau, string> = {
+  total: 'Totalement maîtrisé', maitrise: 'Maîtrisé', partiel: 'Partiellement maîtrisé',
+  encours: 'En cours de maîtrise', insuffisant: 'Insuffisamment maîtrisé', nonMaitrise: 'Non maîtrisé', nonEvalue: 'Non évalué',
+};
+
+/** Libellés « acquisition » — uniquement dans le bilan de compétences. */
+export const NIVEAU_BILAN: Record<Niveau, string> = {
+  total: 'Totalement acquis', maitrise: 'Acquis', partiel: 'Acquis',
+  encours: 'En cours d’acquisition', insuffisant: 'Non acquis', nonMaitrise: 'Non acquis', nonEvalue: 'Non évalué',
+};
+
+/** Couleur du niveau (vert foncé → rouge, gris = non évalué). */
+export const NIVEAU_COLOR: Record<Niveau, string> = {
+  total: '#0F7A3D', maitrise: '#16A34A', partiel: '#7FC79A',
+  encours: '#EAB308', insuffisant: '#F97316', nonMaitrise: '#DC2626', nonEvalue: '#C7CDD6',
+};
+
+/** Texte lisible sur la couleur (foncé sur vert pâle/jaune, blanc sinon). */
+export const NIVEAU_ON: Record<Niveau, string> = {
+  total: '#fff', maitrise: '#fff', partiel: '#0f3d22', encours: '#3d2c00', insuffisant: '#fff', nonMaitrise: '#fff', nonEvalue: '#475569',
+};
+
+/**
+ * Grille COMPLÈTE du référentiel du diplôme (toutes les compétences, dans l'ordre),
+ * en reprenant le score des compétences déjà évaluées et « non évaluée » pour les autres.
+ * Sert à la bande fixe C1→C13 du suivi et au bilan complet.
+ */
+export function grilleComplete(diploma: DiplomaId, evals: CompetenceEval[]): CompetenceEval[] {
+  const parCode = new Map(evals.map((c) => [c.code, c]));
+  return COMPETENCES[diploma].map((c) =>
+    parCode.get(c.code) ?? { code: c.code, label: c.label, domains: [], score: 0, mastery: 'nonEvalue' as Mastery });
+}
+
+/**
  * Construit la grille d'évaluation : pour chaque compétence du diplôme mobilisée par le TP,
  * moyenne des scores des étapes qui la mobilisent.
  * @param stageScores score 0..1 par étape (undefined = étape non faite)

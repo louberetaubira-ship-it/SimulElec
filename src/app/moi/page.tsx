@@ -14,7 +14,10 @@ import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import { createClient } from '@/lib/supabase/client';
 import { competenceTps, eleveStats } from '@/lib/eleve-stats';
 import { liveBilan, liveEvaluation, liveNotes } from '@/lib/sim/live';
-import { COMPETENCES, DIPLOMAS, masteryOf, type CompetenceEval, type DiplomaId, type Mastery } from '@/lib/data/competences';
+import {
+  COMPETENCES, DIPLOMAS, masteryOf, niveauOfEval, NIVEAU_COLOR, NIVEAU_ON, NIVEAU_TP,
+  type CompetenceEval, type DiplomaId,
+} from '@/lib/data/competences';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
 import BilanExport from '@/components/parcours/BilanExport';
@@ -34,31 +37,19 @@ const ETAPES = 11;
 /** Note formatée à la française (14,5). */
 const fr = (n: number) => n.toFixed(1).replace('.', ',');
 
-const LEVEL: Record<Mastery, number> = { acquis: 3, enCours: 2, nonAcquis: 1, nonEvalue: 0 };
-const LEVEL_HEX: Record<number, string> = { 0: '#D3D9E1', 1: '#D93A3A', 2: '#E39A00', 3: '#1E9E63' };
-const MASTERY_FR: Record<Mastery, string> = {
-  acquis: 'Acquis', enCours: 'En cours', nonAcquis: 'Non acquis', nonEvalue: 'À venir',
-};
-const MASTERY_PILL: Record<Mastery, string> = {
-  acquis: 'bg-good/10 text-good', enCours: 'bg-accent/10 text-accent',
-  nonAcquis: 'bg-crit/10 text-crit', nonEvalue: 'bg-line/60 text-muted',
-};
-
-/** Barre pleine d'une compétence (vue élève). */
+/** Barre pleine d'une compétence (vue élève, pendant le TP) — vocabulaire « maîtrise ». */
 function CompBar({ c }: { c: CompetenceEval }) {
-  const lv = LEVEL[c.mastery];
-  const w = c.mastery === 'nonEvalue' ? 4 : Math.max(6, Math.round(c.score * 100));
+  const n = niveauOfEval(c);
+  const w = n === 'nonEvalue' ? 4 : Math.max(6, Math.round(c.score * 100));
   return (
     <div className="mb-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-2">
-        <span className="text-[13px]">
-          <b className="font-semibold">{c.code} · {c.label}</b>{' '}
-          <span className="text-[11px] text-muted">{c.mastery === 'nonEvalue' ? '—' : `niv. ${lv}/3`}</span>
-        </span>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${MASTERY_PILL[c.mastery]}`}>{MASTERY_FR[c.mastery]}</span>
+        <span className="text-[13px]"><b className="font-semibold">{c.code} · {c.label}</b></span>
+        <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+          style={{ background: NIVEAU_COLOR[n], color: NIVEAU_ON[n] }}>{NIVEAU_TP[n]}</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-line">
-        <div className="h-full rounded-full" style={{ width: `${w}%`, background: LEVEL_HEX[lv] }} />
+        <div className="h-full rounded-full" style={{ width: `${w}%`, background: NIVEAU_COLOR[n] }} />
       </div>
     </div>
   );

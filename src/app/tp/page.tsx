@@ -48,43 +48,50 @@ export default async function CataloguePage() {
             <h2 className="mb-3 font-title text-[13px] font-semibold uppercase tracking-[.1em] text-muted">
               {FAMILY_LABEL[fam]}
             </h2>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-3">
               {list.map(tp => (
                 <Link
                   key={tp.id}
                   href={`/tp/${tp.id}`}
                   data-tp={tp.id}
-                  className="flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition-transform hover:-translate-y-0.5"
+                  className="flex flex-col gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-stretch"
                 >
-                  <div className="flex h-[96px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--surface-2)]">
-                    {images[tp.id] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={images[tp.id]} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      tpSprites(tp.id).map((k, i) => (
+                  {/* Gauche : image de présentation + titre */}
+                  <div className="sm:w-[280px] sm:flex-none">
+                    <div className="flex h-[150px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--surface-2)]">
+                      {images[tp.id] ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img key={`${k}-${i}`} src={spriteUrl(k)} alt="" className="max-h-[80px] max-w-[120px] object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
-                      ))
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-baseline gap-2">
-                    <h3 className="text-[20px] font-bold">{tp.title}</h3>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${tp.playable ? 'bg-good/20 text-good' : 'bg-[var(--surface-2)] text-muted'}`}>
-                      {tp.playable ? 'jouable' : 'prévu'}
-                    </span>
-                    {tp.kind === 'dimensionnement' && (
-                      <span data-kind="dimensionnement" className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                        dimensionnement
+                        <img src={images[tp.id]} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        tpSprites(tp.id).map((k, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={`${k}-${i}`} src={spriteUrl(k)} alt="" className="max-h-[110px] max-w-[130px] object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
+                        ))
+                      )}
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap items-baseline gap-2">
+                      <h3 className="text-[19px] font-bold leading-tight">{tp.title}</h3>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${tp.playable ? 'bg-good/20 text-good' : 'bg-[var(--surface-2)] text-muted'}`}>
+                        {tp.playable ? 'jouable' : 'prévu'}
                       </span>
-                    )}
+                      {tp.kind === 'dimensionnement' && (
+                        <span data-kind="dimensionnement" className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                          dimensionnement
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <p className="m-0 text-[13px] text-muted">{tp.summary}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">{tp.level}</span>
-                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-muted">{SCENE_LABEL[tp.scene]}</span>
-                    {tp.competences.map(c => (
-                      <span key={c} className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-muted">{c}</span>
-                    ))}
+
+                  {/* Droite : description + compétences */}
+                  <div className="flex-1 sm:border-l sm:border-[var(--line)] sm:pl-4">
+                    <p className="m-0 text-[13.5px] leading-relaxed text-muted">{tp.summary}</p>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">{tp.level}</span>
+                      <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-muted">{SCENE_LABEL[tp.scene]}</span>
+                      {tp.competences.map(c => (
+                        <span key={c} className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-muted">{c}</span>
+                      ))}
+                    </div>
                   </div>
                 </Link>
               ))}

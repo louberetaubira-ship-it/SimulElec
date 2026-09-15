@@ -48,9 +48,9 @@ export const TP_AUTOMATE_M221: TpDefinition = {
       name: 'A1 · Automate programmable',
       need: '3 entrées TOR, 3 sorties capables de commander une bobine 24 V~ et 2 voyants',
       options: [
-        { key: 'plc', ref: 'TM221CE16R', spec: '9 entrées 24 V DC · 7 sorties relais 2 A · Ethernet', ok: true, why: 'Sorties relais : elles commandent indifféremment du 24 V~ ou du 230 V~, et les E/S sont en nombre suffisant.' },
-        { key: 'plc', ref: 'TM221CE16T', spec: '9 entrées · 7 sorties transistor PNP', why: 'Sorties transistor 24 V DC : elles ne peuvent pas alimenter une bobine 24 V alternative.' },
-        { key: 'plc', ref: 'TM221C40R', spec: '24 entrées · 16 sorties relais', half: true, why: 'Convient, mais très surdimensionné pour 3 entrées et 3 sorties.' },
+        { key: 'plc', img: '/sprites/plc16r.png', ref: 'TM221CE16R', spec: '9 entrées 24 V DC · 7 sorties relais 2 A · Ethernet', ok: true, why: 'Sorties relais : elles commandent indifféremment du 24 V~ ou du 230 V~, et les E/S sont en nombre suffisant.' },
+        { key: 'plc', img: '/sprites/plc16t.png', ref: 'TM221CE16T', spec: '9 entrées · 7 sorties transistor PNP', why: 'Sorties transistor 24 V DC : elles ne peuvent pas alimenter une bobine 24 V alternative.' },
+        { key: 'plc', img: '/sprites/plc40r.png', ref: 'TM221C40R', spec: '24 entrées · 16 sorties relais', half: true, why: 'Convient, mais très surdimensionné pour 3 entrées et 3 sorties.' },
       ],
     },
     {

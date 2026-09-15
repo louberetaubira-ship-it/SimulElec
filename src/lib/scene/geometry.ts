@@ -283,7 +283,10 @@ export function resLabel(id: string, scene: SceneKind): string {
 
 /* ----------------------------------------------------------- automate */
 
-export const PLC: Box = { x: 96, y: 304, w: 200, h: 112 };
+// Empreinte de l'automate : photo réelle du TM221CE16R (format « book », quasi carré),
+// et non plus le dessin large d'avant. Le ratio de la boîte suit celui de la photo pour
+// qu'elle la remplisse exactement (object-fit: contain), sans déformation.
+export const PLC: Box = { x: 96, y: 304, w: 104, h: 113 };
 /**
  * Bornes de l'automate, dans l'ordre de l'appareil.
  *
@@ -297,11 +300,27 @@ export const PLC: Box = { x: 96, y: 304, w: 200, h: 112 };
  */
 export const PLC_IN = ['I0.0', 'I0.1', 'I0.2', 'I0.3', 'I0.4', 'I0.5', 'I0.6', 'I0.7', 'I0.8', '+24', '0V'];
 export const PLC_OUT = ['L', 'N', 'COM0', 'Q0.0', 'Q0.1', 'Q0.2', 'Q0.3', 'COM1', 'Q0.4', 'Q0.5', 'Q0.6'];
-/** Bornes de l'automate en fractions de sa boîte. */
-export const PLC_TERMINALS: TerminalDef[] = [
-  ...PLC_IN.map((id, i) => ({ id, fx: (14 + i * 17) / PLC.w, fy: 0.05 })),
-  ...PLC_OUT.map((id, i) => ({ id, fx: (14 + i * 17) / PLC.w, fy: 0.95 })),
-];
+/**
+ * Bornes de l'automate en fractions de sa boîte, calées sur les vis RÉELLES de la
+ * photo du TM221CE16R (rangée du haut : alim capteurs + entrées ; connecteur vert bas
+ * gauche : L/N ; rangée du bas : sorties relais par commun). L'ordre logique des ids
+ * ne change pas — seules les positions suivent l'appareil réel.
+ */
+const PLC_FX: Record<string, [number, number]> = {
+  // rangée du haut (ordre gravé : 24V 0V COM I0…I8) — COM non câblé sur ce TP
+  '+24': [0.280, 0.095], '0V': [0.342, 0.095],
+  'I0.0': [0.467, 0.095], 'I0.1': [0.529, 0.095], 'I0.2': [0.592, 0.095], 'I0.3': [0.654, 0.095],
+  'I0.4': [0.716, 0.095], 'I0.5': [0.778, 0.095], 'I0.6': [0.841, 0.095], 'I0.7': [0.903, 0.095], 'I0.8': [0.965, 0.095],
+  // alimentation 100-240 V : connecteur vert en bas à gauche
+  'L': [0.075, 0.965], 'N': [0.150, 0.965],
+  // rangée du bas (ordre gravé : COM0 Q0…Q3 COM1 Q4…Q6)
+  'COM0': [0.425, 0.928], 'Q0.0': [0.494, 0.928], 'Q0.1': [0.562, 0.928], 'Q0.2': [0.631, 0.928], 'Q0.3': [0.700, 0.928],
+  'COM1': [0.769, 0.928], 'Q0.4': [0.837, 0.928], 'Q0.5': [0.906, 0.928], 'Q0.6': [0.975, 0.928],
+};
+export const PLC_TERMINALS: TerminalDef[] = [...PLC_IN, ...PLC_OUT].map((id) => {
+  const [fx, fy] = PLC_FX[id] ?? [0.5, 0.5];
+  return { id, fx, fy };
+});
 
 /* ------------------------------------------------------------ couleurs */
 
