@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
-import { addTeacher, listAllowlist, removeTeacher, type TeacherAllowEntry } from '@/lib/db/allowlist';
+import { addTeacher, listAllowlist, listTeacherAccounts, removeTeacher, type TeacherAccount, type TeacherAllowEntry } from '@/lib/db/allowlist';
 import type { ProfileRow } from '@/lib/db/types';
 import ImagesTp from './ImagesTp';
 import {
@@ -69,6 +69,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [chiffres, setChiffres] = useState<Compteurs | null>(null);
   const [allowlist, setAllowlist] = useState<TeacherAllowEntry[]>([]);
+  const [teachers, setTeachers] = useState<TeacherAccount[]>([]);
   const [email, setEmail] = useState('');
   /** Adresse Google facultative : la même personne, une seconde porte d'entrée. */
   const [googleEmail, setGoogleEmail] = useState('');
@@ -84,8 +85,9 @@ export default function AdminPage() {
   const adminExistant = allowlist.find((e) => e.role === 'admin')?.email ?? null;
 
   const recharger = useCallback(async () => {
-    const [liste, compteurs] = await Promise.all([listAllowlist(), compter()]);
+    const [liste, comptes, compteurs] = await Promise.all([listAllowlist(), listTeacherAccounts(), compter()]);
     setAllowlist(liste);
+    setTeachers(comptes);
     setChiffres(compteurs);
   }, []);
 
@@ -196,6 +198,48 @@ export default function AdminPage() {
           <Chiffre label="Élèves" value={chiffres?.eleves ?? 0} />
           <Chiffre label="TP publiés" value={chiffres?.tpPublies ?? 0} />
           <Chiffre label="TP réalisés" value={chiffres?.tpRealises ?? 0} />
+        </div>
+      </Panneau>
+
+      <Panneau title="Comptes professeurs">
+        <p className="mb-3 text-[13px] text-muted">
+          Les comptes prof/admin <strong>réellement existants</strong> (c&apos;est ce chiffre-là,
+          {' '}{teachers.length}, qu&apos;affiche « Professeurs » ci-dessus). Un badge{' '}
+          <span className="rounded-full border border-warn/50 bg-warn/10 px-1.5 py-0.5 text-[10.5px] font-semibold text-warn">hors liste blanche</span>{' '}
+          signale un compte qui n&apos;est pas (ou plus) dans la liste blanche — à régulariser si besoin.
+        </p>
+        <div className="overflow-x-auto rounded-xl border border-line">
+          <table className="w-full min-w-[620px] text-[13px]">
+            <thead className="bg-[var(--surface-2)] text-left text-[11px] uppercase tracking-[.06em] text-muted">
+              <tr>
+                <th className="px-3 py-2.5">Nom</th>
+                <th className="px-3 py-2.5">Adresse</th>
+                <th className="px-3 py-2.5">Rôle</th>
+                <th className="px-3 py-2.5">Liste blanche</th>
+                <th className="px-3 py-2.5">Dernière connexion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {teachers.map((t) => (
+                <tr key={t.id} className="border-t border-line align-middle">
+                  <td className="px-3 py-2.5">{t.full_name ?? '—'}</td>
+                  <td className="px-3 py-2.5 font-mono text-[12px]">{t.email ?? t.login ?? '—'}</td>
+                  <td className="px-3 py-2.5">{ROLE_LABEL[t.role]}</td>
+                  <td className="px-3 py-2.5">
+                    {t.inAllowlist ? (
+                      <span className="rounded-full border border-good/50 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">dans la liste</span>
+                    ) : (
+                      <span className="rounded-full border border-warn/50 bg-warn/10 px-2 py-0.5 text-[11px] font-semibold text-warn">hors liste blanche</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 font-mono text-[12px] text-muted">{dateCourte(t.last_seen_at)}</td>
+                </tr>
+              ))}
+              {teachers.length === 0 && (
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-muted">Aucun compte professeur.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </Panneau>
 

@@ -21,6 +21,25 @@ export async function listAllowlist(): Promise<TeacherAllowEntry[]> {
   return profs;
 }
 
+/** Compte professeur/admin réellement existant, avec le repère « dans la liste blanche ou non ». */
+export interface TeacherAccount {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: 'professeur' | 'admin';
+  last_seen_at: string | null;
+  login: string | null;
+  /** false = compte existant mais absent de la liste blanche (à régulariser). */
+  inAllowlist: boolean;
+}
+
+/** Tous les comptes prof/admin existants (administrateur uniquement). */
+export async function listTeacherAccounts(): Promise<TeacherAccount[]> {
+  const response = await fetch('/api/admin/profs', { cache: 'no-store' });
+  const { teachers } = await readJson<{ teachers: TeacherAccount[] }>(response);
+  return teachers;
+}
+
 /**
  * Autorise une personne. `email` est son identité de référence — celle qui porte
  * le mot de passe ; `googleEmail`, facultative, laisse en plus passer la

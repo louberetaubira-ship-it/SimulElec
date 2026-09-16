@@ -57,12 +57,30 @@ export async function GET() {
     if (p.email) byEmail.set(p.email.toLowerCase(), p);
   });
 
+  // Tous les COMPTES prof/admin réellement existants (pas seulement ceux de la liste blanche) :
+  // c'est ce qu'affiche la section « Comptes professeurs », avec un repère « hors liste blanche ».
+  const { data: teacherRows } = await admin
+    .from('profiles')
+    .select('id, email, full_name, role, last_seen_at, login')
+    .in('role', ['professeur', 'admin'])
+    .order('full_name');
+  const allowSet = new Set<string>();
+  rows.forEach((r) => {
+    allowSet.add(r.email.toLowerCase());
+    if (r.google_email) allowSet.add(r.google_email.toLowerCase());
+  });
+  const teachers = ((teacherRows ?? []) as (ProfileLite & { login: string | null })[]).map((p) => ({
+    ...p,
+    inAllowlist: p.email ? allowSet.has(p.email.toLowerCase()) : false,
+  }));
+
   return NextResponse.json({
     profs: rows.map((r) => ({
       ...r,
       profile: byEmail.get(r.email.toLowerCase())
         ?? (r.google_email ? byEmail.get(r.google_email.toLowerCase()) ?? null : null),
     })),
+    teachers,
   });
 }
 
