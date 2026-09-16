@@ -93,6 +93,88 @@ export const TP_VARIATEUR: TpDefinition = {
     { rep: 'S1', kind: 'nc', color: 'red', label: 'arrêt du convoyeur' },
     { rep: 'S2', kind: 'no', color: 'green', label: 'marche du convoyeur' },
   ],
+  preparation: {
+    identification: [
+      {
+        id: 'id-s0', focus: 'S0', schema: 'commande', rep: 'S0',
+        invite: 'Le bouton rouge « coup de poing » à verrouillage désigne :',
+        options: ['Un arrêt d\'urgence', 'Un bouton de marche', 'Un voyant', 'Un fin de course'],
+        answer: 0,
+        why: 'S0 est l\'arrêt d\'urgence : contact NF à accrochage, il coupe la bobine du contacteur de ligne et reste verrouillé.',
+      },
+      {
+        id: 'id-s2', focus: 'S2', schema: 'commande', rep: 'S2',
+        invite: 'Le bouton vert S2 est :',
+        options: ['Un bouton-poussoir de marche', 'Un arrêt', 'Un voyant', 'Un sectionneur'],
+        answer: 0,
+        why: 'S2 est un bouton-poussoir NO de marche : il lance le convoyeur en alimentant la bobine de KM1.',
+      },
+      {
+        id: 'id-km1', focus: 'KM1', schema: 'commande', rep: 'KM1',
+        invite: 'Que pilote la bobine A1-A2 repérée KM1 ?',
+        options: ['Le contacteur de ligne qui alimente le variateur', 'Le relais thermique', 'Le transformateur', 'Le variateur lui-même'],
+        answer: 0,
+        why: 'KM1 est le contacteur de ligne : il met le variateur sous tension et fournit un contact auxiliaire pour l\'ordre de marche LI1.',
+      },
+      {
+        id: 'id-h2', focus: 'H2', schema: 'commande', rep: 'H2',
+        invite: 'Le voyant blanc H2 signale :',
+        options: ['Que le variateur est prêt (relais R1 fermé)', 'Un défaut thermique', 'La mise sous tension générale', 'La fin de course'],
+        answer: 0,
+        why: 'H2 est piloté par le contact R1 du variateur : allumé, il indique que le variateur est prêt à recevoir l\'ordre de marche.',
+      },
+    ],
+    fonctions: [
+      {
+        id: 'fn-prot', schema: 'commande', rep: 'protection moteur',
+        invite: 'Où est assurée la protection du moteur contre les surcharges ?',
+        options: [
+          'Par le réglage ItH du variateur — il n\'y a pas de relais thermique',
+          'Par un relais thermique F1 entre le variateur et le moteur',
+          'Par le disjoncteur Q3 du 24 V',
+          'Par le contacteur de ligne KM1',
+        ],
+        answer: 0,
+        why: 'La sortie du variateur n\'est ni sinusoïdale ni à fréquence fixe : on n\'y met aucun organe de coupure. La protection thermique du moteur, c\'est le paramètre ItH.',
+      },
+      {
+        id: 'fn-q1', schema: 'commande', rep: 'Q1',
+        invite: 'Quelles fonctions le disjoncteur moteur Q1 de tête assure-t-il ?',
+        options: [
+          'Sectionnement cadenassable + protection courts-circuits et surcharges de la ligne du variateur',
+          'La seule protection contre les surcharges du moteur',
+          'La variation de vitesse',
+          'La signalisation « sous tension »',
+        ],
+        answer: 0,
+        why: 'Q1 réunit sectionnement, protection magnétique (courts-circuits) et thermique, réglé sur le courant de LIGNE du variateur (≈ 3,6 A).',
+      },
+      {
+        id: 'fn-km1', focus: 'KM1', schema: 'commande', rep: 'KM1',
+        invite: 'À quoi sert le contacteur de ligne KM1 ?',
+        options: [
+          'Mettre le variateur sous tension et donner un contact auxiliaire pour l\'ordre de marche',
+          'Faire varier la vitesse du moteur',
+          'Protéger le moteur contre les surcharges',
+          'Abaisser le 400 V en 24 V',
+        ],
+        answer: 0,
+        why: 'KM1 alimente le variateur ; son contact auxiliaire libre transmet l\'ordre de marche à l\'entrée logique LI1.',
+      },
+      {
+        id: 'fn-s0', focus: 'S0', schema: 'commande', rep: 'S0',
+        invite: 'Rôle de l\'arrêt d\'urgence S0 ?',
+        options: [
+          'Couper la bobine du contacteur de ligne et rester verrouillé',
+          'Arrêter le convoyeur sur la rampe de décélération',
+          'Signaler un défaut',
+          'Faire varier la vitesse',
+        ],
+        answer: 0,
+        why: 'S0 ouvre la chaîne de commande de KM1 : le variateur n\'est plus alimenté, arrêt en roue libre, et le bouton reste accroché.',
+      },
+    ],
+  },
   postes: [
     {
       id: 'u1',

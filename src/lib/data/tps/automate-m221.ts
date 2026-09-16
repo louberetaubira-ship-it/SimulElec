@@ -42,6 +42,100 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     { k: '0 V', v: 'commun 0 V sur X2:6, relié à la terre sur X1:5' },
     { k: 'Avant mise en service', v: 'consignation · VAT · continuité PE · isolement 500 V · essai du programme' },
   ],
+  preparation: {
+    identification: [
+      {
+        id: 'id-q1', focus: 'Q1', schema: 'puissance', rep: 'Q1',
+        invite: 'Quel organe protège le moteur en tête de la platine ?',
+        options: ['Un disjoncteur moteur magnéto-thermique', 'Un sectionneur porte-fusibles', 'Un contacteur', 'Un automate'],
+        answer: 0,
+        why: 'Q1 est un disjoncteur moteur : sectionnement cadenassable + protection contre les courts-circuits (magnétique) et les surcharges (thermique), réglé à In = 3,3 A.',
+      },
+      {
+        id: 'id-km1', focus: 'KM1', schema: 'puissance', rep: 'KM1',
+        invite: 'Quel appareil établit et coupe le courant du moteur ?',
+        options: ['Un contacteur', 'Un disjoncteur', 'Un relais thermique', 'Un automate'],
+        answer: 0,
+        why: 'KM1 est le contacteur de puissance ; sa bobine 24 V est pilotée par une sortie relais de l\'automate (Q0.0).',
+      },
+      {
+        id: 'id-f1', focus: 'F1', schema: 'puissance', rep: 'F1',
+        invite: 'Quel appareil surveille la surcharge et renvoie l\'information à l\'automate ?',
+        options: ['Le relais thermique', 'Le transformateur', 'Le contacteur', 'Un parafoudre'],
+        answer: 0,
+        why: 'F1 est le relais thermique : son contact 95-96 est câblé sur l\'entrée I0.2 de l\'automate, qui traite le défaut.',
+      },
+      {
+        id: 'id-a1', schema: 'puissance', rep: 'A1',
+        invite: 'Le repère A1 désigne :',
+        options: ['Un automate programmable', 'Un disjoncteur', 'Un contacteur', 'Un transformateur'],
+        answer: 0,
+        why: 'A1 est l\'automate M221 : il lit 3 entrées TOR (marche, arrêt, défaut) et commande 3 sorties relais (bobine KM1, voyants).',
+      },
+    ],
+    fonctions: [
+      {
+        id: 'fn-q1', focus: 'Q1', schema: 'puissance', rep: 'Q1',
+        invite: 'Quelles fonctions le disjoncteur moteur Q1 réunit-il ?',
+        options: [
+          'Sectionnement cadenassable + protection courts-circuits et surcharges',
+          'La seule variation de vitesse',
+          'La commande de la bobine',
+          'L\'alimentation 24 V de l\'automate',
+        ],
+        answer: 0,
+        why: 'Un seul appareil pour trois fonctions : couper et consigner, protéger du court-circuit (magnétique) et de la surcharge (thermique).',
+      },
+      {
+        id: 'fn-km1', focus: 'KM1', schema: 'puissance', rep: 'KM1',
+        invite: 'Comment la bobine du contacteur KM1 est-elle commandée ?',
+        options: [
+          'Par une sortie relais de l\'automate (Q0.0), sous 24 V',
+          'Directement par le bouton marche, sans automate',
+          'Par le relais thermique',
+          'Par le variateur',
+        ],
+        answer: 0,
+        why: 'La sortie Q0.0 (commun COM0 = +24 V) alimente la bobine A1 de KM1 : c\'est le programme de l\'automate qui décide de la marche.',
+      },
+      {
+        id: 'fn-relais', schema: 'puissance', rep: 'Sorties automate',
+        invite: 'Pourquoi des sorties relais conviennent-elles ici mieux que des sorties transistor ?',
+        options: [
+          'Elles commutent indifféremment du continu ou de l\'alternatif — donc la bobine 24 V~',
+          'Elles sont plus rapides',
+          'Elles consomment moins',
+          'Elles n\'ont pas besoin de commun',
+        ],
+        answer: 0,
+        why: 'Une sortie transistor ne commute que du continu. La bobine et les voyants sont en 24 V alternatif : il faut des contacts secs, donc des sorties relais.',
+      },
+      {
+        id: 'fn-com0', schema: 'puissance', rep: 'COM0',
+        invite: 'À quoi sert le commun COM0 de l\'automate ?',
+        options: [
+          'À amener le potentiel + 24 V sur les contacts des sorties Q0.0 à Q0.3',
+          'À mettre l\'automate à la terre',
+          'À alimenter les entrées',
+          'À protéger le 24 V',
+        ],
+        answer: 0,
+        why: 'COM0 est le commun des sorties : il porte le + 24 V, chaque sortie fermée le renvoie vers la bobine ou le voyant concerné.',
+      },
+    ],
+  },
+  puissance: {
+    phases: ['L1', 'L2', 'L3'],
+    reseau: '3 × 400 V + PE',
+    organes: [
+      { type: 'bornier', rep: 'X1', legende: 'arrivée réseau', bornes: [['1', ''], ['2', ''], ['3', '']] },
+      { type: 'disjoncteur', rep: 'Q1', legende: 'disjoncteur moteur · In 3,3 A', bornes: [['1', '2'], ['3', '4'], ['5', '6']] },
+      { type: 'contacteur', rep: 'KM1', legende: 'piloté par l\'automate', bornes: [['1', '2'], ['3', '4'], ['5', '6']] },
+      { type: 'thermique', rep: 'F1', legende: 'défaut → I0.2', bornes: [['1', '2'], ['3', '4'], ['5', '6']] },
+      { type: 'bornier', rep: 'X1', legende: 'départ moteur', bornes: [['6', ''], ['7', ''], ['8', '']] },
+    ],
+    moteur: { rep: 'M', legende: '1,5 kW · 400 V · 3,3 A' },
+  },
   postes: [
     {
       id: 'plc',
