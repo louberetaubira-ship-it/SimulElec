@@ -17,8 +17,8 @@ const ONGLETS: { key: Onglet; label: string; couleur: string; verbe: string; des
   ...CATALOGUES.map((c) => ({ key: c.type as Onglet, label: c.label, couleur: c.couleur, verbe: c.verbe, desc: c.desc })),
 ];
 
-/** Un TD / une Éval ne sont pas encore actifs : on l'indique sans casser la navigation. */
-const ACTIF: Record<Onglet, boolean> = { tp: true, cours: true, fiche: true, td: false, eval: false };
+/** Tous les catalogues sont actifs. */
+const ACTIF: Record<Onglet, boolean> = { tp: true, cours: true, fiche: true, td: true, eval: true };
 
 function hrefPour(type: Onglet, tpId: string): string {
   if (type === 'tp') return `/tp/${tpId}`;
