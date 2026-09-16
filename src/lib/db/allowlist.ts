@@ -65,3 +65,16 @@ export async function removeTeacher(email: string): Promise<void> {
   const response = await fetch(`/api/admin/profs?email=${encodeURIComponent(email)}`, { method: 'DELETE' });
   await readJson<{ ok: boolean }>(response);
 }
+
+/**
+ * Supprime DÉFINITIVEMENT un compte (profil + connexion Auth + liste blanche),
+ * avec ses cascades en base. Irréversible — l'interface impose un double verrou.
+ */
+export async function deleteTeacherAccount(id: string): Promise<void> {
+  const response = await fetch('/api/admin/profs/supprimer', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
+  await readJson<{ ok: boolean }>(response);
+}
