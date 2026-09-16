@@ -16,7 +16,9 @@ import ConsignationSteps from '@/components/mesures/Consignation';
 import DeconsignationSteps from '@/components/mesures/Deconsignation';
 import Instrument from '@/components/mesures/Instrument';
 import MesuresPanel from '@/components/mesures/MesuresPanel';
+import SecuriteGate from '@/components/mesures/SecuriteGate';
 import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
+import { secuComplete } from '@/lib/sim/securite';
 import { listeMiseSousTension, repereSlot } from '@/lib/sim/reperes';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
 import TpPanel from './TpPanel';
@@ -60,6 +62,14 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
 
   /** Rail du mode atelier : les cinq appareils restent à portée sur ces quatre étapes. */
   const instruments = React.useMemo(() => INSTRUMENTS.map(i => i.id), []);
+
+  /**
+   * Sécurité des mesures sous tension : tant que l'équipement n'est pas bon,
+   * l'appareil de mesure et la platine sont verrouillés. Les autres étapes ne
+   * sont pas concernées.
+   */
+  const secuOk = variant !== 'sousTension' || secuComplete(st.secu);
+  const mesureVerrouillee = variant === 'sousTension' && !secuOk;
 
   const expected = variant === 'horsTension' || variant === 'sousTension'
     ? mesuresFor(tp, variant) : [];
@@ -114,23 +124,45 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           </Card>
         )}
 
-        <Card title="Appareil de mesure">
-          <Instrument
-            inst={mes.inst}
-            dial={mes.dial}
-            out={out}
-            probes={mes.probes}
-            clampLabel={clampLabel}
-            pick={mes.pick}
-            onSelect={s.setInstrument}
-            onRotate={s.rotateDial}
-            onPick={s.setPick}
-            onClear={s.clearProbes}
-          />
-          {mes.inst && (
-            <Button size="sm" className="mt-2" onClick={s.record}>Noter cette lecture</Button>
-          )}
-        </Card>
+        {variant === 'sousTension' && (
+          <Card title="Sécurité · intervention sous tension">
+            <SecuriteGate
+              secu={st.secu}
+              onToggleEquip={s.toggleSecuEquip}
+              onToggleCheck={s.toggleSecuCheck}
+            />
+          </Card>
+        )}
+
+        {mesureVerrouillee ? (
+          <Card title="Appareil de mesure">
+            <div className="flex items-center gap-2 rounded-[10px] border border-crit bg-crit/10 px-3 py-2.5 text-[12px]">
+              <span className="text-[18px] leading-none" aria-hidden>🔒</span>
+              <span>
+                <b>Mesure verrouillée.</b> Choisis l&apos;équipement adapté et confirme
+                son état ci-dessus pour déverrouiller l&apos;appareil.
+              </span>
+            </div>
+          </Card>
+        ) : (
+          <Card title="Appareil de mesure">
+            <Instrument
+              inst={mes.inst}
+              dial={mes.dial}
+              out={out}
+              probes={mes.probes}
+              clampLabel={clampLabel}
+              pick={mes.pick}
+              onSelect={s.setInstrument}
+              onRotate={s.rotateDial}
+              onPick={s.setPick}
+              onClear={s.clearProbes}
+            />
+            {mes.inst && (
+              <Button size="sm" className="mt-2" onClick={s.record}>Noter cette lecture</Button>
+            )}
+          </Card>
+        )}
 
         {(variant === 'horsTension' || variant === 'sousTension') && (
           <MesuresPanel tp={tp} st={st} stage={variant} log={mes.log} />
@@ -169,7 +201,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
 
       <Center>
         <TpPanel
-          trayEnabled={variant === 'horsTension' || variant === 'sousTension'}
+          trayEnabled={variant === 'horsTension' || (variant === 'sousTension' && secuOk)}
           instruments={instruments}
           indicator={indicator}
           dock={panneau}
@@ -185,8 +217,8 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           probes={mes.probes}
           clamp={mes.clamp}
           lock={st.cons.lock}
-          pickTerminals={mes.pick === 'r' || mes.pick === 'k'}
-          pickWires={mes.pick === 'clamp'}
+          pickTerminals={!mesureVerrouillee && (mes.pick === 'r' || mes.pick === 'k')}
+          pickWires={!mesureVerrouillee && mes.pick === 'clamp'}
           onTerminal={s.clickTerminal}
           onWire={s.onWire}
           onDevice={s.deviceClick}

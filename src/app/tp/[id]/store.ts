@@ -208,6 +208,9 @@ interface ParcoursState {
   clearProbes: () => void;
   onWire: (idx: number) => void;
   toggleEpi: (id: string) => void;
+  /** Sécurité mesures sous tension : (dé)sélection d'un EPI/EIS, d'un contrôle d'état. */
+  toggleSecuEquip: (id: string) => void;
+  toggleSecuCheck: (id: string) => void;
   consAct: (a: 'lock' | 'ident' | 'unlock') => void;
   record: () => void;
   currentRead: () => ReadOut;
@@ -905,6 +908,14 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     toggleEpi(id) {
       patch(s => ({ ...s, epi: { ...s.epi, [id]: !s.epi[id] } }));
+    },
+
+    toggleSecuEquip(id) {
+      patch(s => ({ ...s, secu: { ...s.secu, equip: { ...s.secu.equip, [id]: !s.secu.equip[id] } } }));
+    },
+
+    toggleSecuCheck(id) {
+      patch(s => ({ ...s, secu: { ...s.secu, checks: { ...s.secu.checks, [id]: !s.secu.checks[id] } } }));
     },
 
     consAct(a) {

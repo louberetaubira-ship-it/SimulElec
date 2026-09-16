@@ -633,6 +633,12 @@ export interface AttemptState {
   /** Consignation : séparation, condamnation, identification, VAT sur source, VAT aval (paires), re-vérification. */
   cons: { sep: boolean; lock: boolean; ident: boolean; vatRef: boolean; vat: [string, string][]; vatRef2: boolean };
   decons: { unlock: boolean; close: boolean; essai: boolean };
+  /**
+   * Sécurité des mesures sous tension (NF C 18-510) : EPI/EIS choisis et
+   * contrôles d'état confirmés. Tant que l'équipement n'est pas bon, la mesure
+   * sous tension est bloquée.
+   */
+  secu: { equip: Record<string, boolean>; checks: Record<string, boolean> };
   readings: ReadingRecord[];
   fault: string | null;
   /**

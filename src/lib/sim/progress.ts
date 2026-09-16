@@ -69,6 +69,7 @@ export function initialState(): AttemptState {
     epi: {},
     cons: { sep: false, lock: false, ident: false, vatRef: false, vat: [], vatRef2: false },
     decons: { unlock: false, close: false, essai: false },
+    secu: { equip: {}, checks: {} },
     readings: [],
     fault: null,
     hypotheses: [],
@@ -101,6 +102,8 @@ export function normalizeState(raw: Partial<AttemptState> | null | undefined): A
     epi: raw.epi ?? base.epi,
     cons: { ...base.cons, ...(raw.cons ?? {}) },
     decons: { ...base.decons, ...(raw.decons ?? {}) },
+    // sécurité des mesures sous tension ajoutée après coup
+    secu: { ...base.secu, ...(raw.secu ?? {}) },
     readings: raw.readings ?? base.readings,
     helpUsed: raw.helpUsed ?? base.helpUsed,
     // compteurs ajoutés après coup : une tentative enregistrée avant leur existence vaut 0
