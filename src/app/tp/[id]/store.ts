@@ -1161,8 +1161,8 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     async finish() {
       const { tp, st, attemptId, offline, student, evalDiploma } = get();
-      if (!stageSatisfied(tp, st, get().sim, 10)) return;
-      get().complete(10);
+      if (!stageSatisfied(tp, st, get().sim, ETAPE.VALIDATION)) return;
+      get().complete(ETAPE.VALIDATION);
       if (!attemptId || offline) return;
       const done = get().st;
       try {
