@@ -298,7 +298,7 @@ export const PLC: Box = { x: 96, y: 304, w: 160, h: 174 };
  * doit retrouver sur l'écran ce qu'il a sous les doigts, et le folio doit pouvoir
  * dire de quel commun vient chaque sortie.
  */
-export const PLC_IN = ['I0.0', 'I0.1', 'I0.2', 'I0.3', 'I0.4', 'I0.5', 'I0.6', 'I0.7', 'I0.8', '+24', '0V'];
+export const PLC_IN = ['I0.0', 'I0.1', 'I0.2', 'I0.3', 'I0.4', 'I0.5', 'I0.6', 'I0.7', 'I0.8', '+24', '0V', 'COM'];
 export const PLC_OUT = ['L', 'N', 'COM0', 'Q0.0', 'Q0.1', 'Q0.2', 'Q0.3', 'COM1', 'Q0.4', 'Q0.5', 'Q0.6'];
 /**
  * Bornes de l'automate en fractions de sa boîte, calées sur les vis RÉELLES de la
@@ -308,7 +308,7 @@ export const PLC_OUT = ['L', 'N', 'COM0', 'Q0.0', 'Q0.1', 'Q0.2', 'Q0.3', 'COM1'
  */
 const PLC_FX: Record<string, [number, number]> = {
   // rangée du haut (ordre gravé : 24V 0V COM I0…I8) — COM non câblé sur ce TP
-  '+24': [0.280, 0.095], '0V': [0.342, 0.095],
+  '+24': [0.280, 0.095], '0V': [0.342, 0.095], 'COM': [0.405, 0.095],
   'I0.0': [0.467, 0.095], 'I0.1': [0.529, 0.095], 'I0.2': [0.592, 0.095], 'I0.3': [0.654, 0.095],
   'I0.4': [0.716, 0.095], 'I0.5': [0.778, 0.095], 'I0.6': [0.841, 0.095], 'I0.7': [0.903, 0.095], 'I0.8': [0.965, 0.095],
   // alimentation 100-240 V : connecteur vert en bas à gauche
