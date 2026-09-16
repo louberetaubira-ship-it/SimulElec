@@ -286,7 +286,7 @@ export function resLabel(id: string, scene: SceneKind): string {
 // Empreinte de l'automate : photo réelle du TM221CE16R (format « book », quasi carré),
 // et non plus le dessin large d'avant. Le ratio de la boîte suit celui de la photo pour
 // qu'elle la remplisse exactement (object-fit: contain), sans déformation.
-export const PLC: Box = { x: 96, y: 304, w: 104, h: 113 };
+export const PLC: Box = { x: 96, y: 304, w: 160, h: 174 };
 /**
  * Bornes de l'automate, dans l'ordre de l'appareil.
  *
