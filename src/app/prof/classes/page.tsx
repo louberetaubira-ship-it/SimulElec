@@ -22,6 +22,8 @@ import {
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
 import { eleveStats, noteSur20 } from '@/lib/eleve-stats';
 import { DIPLOMAS, type DiplomaId } from '@/lib/data/competences';
+import { generatePassword, loginFor } from '@/lib/eleves';
+import { telechargerIdentifiantsPdf } from '@/lib/pdfIdentifiants';
 import {
   Barre,
   Champ,
@@ -98,6 +100,230 @@ function EncadreIdentifiants({ ids, onClose }: { ids: Identifiants; onClose: () 
         </p>
       </div>
     </div>
+  );
+}
+
+interface LigneImport { last_name: string; first_name: string; password: string }
+interface ResultatImport {
+  last_name: string; first_name: string; login?: string; password?: string; ok: boolean; error?: string;
+}
+
+/** Import d'une classe entière depuis un PDF Pronote, un CSV ou un Excel. */
+function ImportClasse({
+  classId, className, joinCode, onDone,
+}: { classId: string; className: string; joinCode: string | null; onDone: () => void }) {
+  const [rows, setRows] = useState<LigneImport[]>([]);
+  const [results, setResults] = useState<ResultatImport[] | null>(null);
+  const [phase, setPhase] = useState<'idle' | 'busy' | 'preview' | 'done'>('idle');
+  const [err, setErr] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [drag, setDrag] = useState(false);
+
+  /** Identifiant nom.prenom avec suffixe si doublon plus haut dans la liste. */
+  const loginAt = useCallback((rs: LigneImport[], i: number): string => {
+    const base = loginFor(rs[i].last_name, rs[i].first_name);
+    let dup = 0;
+    for (let k = 0; k < i; k++) if (loginFor(rs[k].last_name, rs[k].first_name) === base) dup += 1;
+    return dup ? `${base}${dup + 1}` : base;
+  }, []);
+
+  async function onFichier(file: File | undefined | null) {
+    if (!file) return;
+    setErr(null); setResults(null); setPhase('busy');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/classes/eleves/parse', { method: 'POST', body: fd });
+      const data = (await res.json().catch(() => null)) as
+        | { eleves?: { last_name: string; first_name: string }[]; error?: string } | null;
+      if (!res.ok || !data?.eleves) throw new Error(data?.error ?? 'Lecture impossible.');
+      setRows(data.eleves.map((e) => ({ last_name: e.last_name, first_name: e.first_name, password: generatePassword() })));
+      setPhase('preview');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Lecture du fichier impossible.');
+      setPhase('idle');
+    }
+  }
+
+  function editRow(i: number, k: 'last_name' | 'first_name', v: string) {
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  }
+  function regen(i: number) {
+    setRows((rs) => rs.map((r, j) => (j === i ? { ...r, password: generatePassword() } : r)));
+  }
+  function removeRow(i: number) {
+    setRows((rs) => rs.filter((_, j) => j !== i));
+  }
+
+  async function creer() {
+    setErr(null); setPhase('busy');
+    try {
+      const students = rows.map((r, i) => ({
+        last_name: r.last_name.trim(), first_name: r.first_name.trim(), password: r.password,
+        login: loginAt(rows, i),
+      }));
+      const res = await fetch('/api/classes/eleves/import', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ class_id: classId, students }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { results?: ResultatImport[]; error?: string } | null;
+      if (!res.ok || !data?.results) throw new Error(data?.error ?? 'Création impossible.');
+      setResults(data.results);
+      setPhase('done');
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Création des comptes impossible.');
+      setPhase('preview');
+    }
+  }
+
+  function telecharger() {
+    const ok = (results ?? []).filter((r) => r.ok && r.login && r.password)
+      .map((r) => ({ last_name: r.last_name, first_name: r.first_name, login: r.login!, password: r.password! }));
+    if (ok.length) telechargerIdentifiantsPdf(className, joinCode, ok);
+  }
+
+  function recommencer() {
+    setRows([]); setResults(null); setPhase('idle'); setErr(null);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  const okCount = (results ?? []).filter((r) => r.ok).length;
+  const koCount = (results ?? []).length - okCount;
+
+  return (
+    <Panneau title="Importer une classe (PDF, CSV ou Excel)">
+      {phase !== 'done' && rows.length === 0 && (
+        <>
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={(e) => { e.preventDefault(); setDrag(false); void onFichier(e.dataTransfer.files?.[0]); }}
+            className={`flex cursor-pointer flex-col items-center gap-1 rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${
+              drag ? 'border-accent bg-accent/10' : 'border-line bg-[var(--app)]'
+            }`}
+          >
+            <span className="text-[26px]">📄</span>
+            <span className="text-[14px] font-semibold">Glisser un fichier ici, ou cliquer</span>
+            <span className="text-[12px] text-muted">l&apos;app lit la colonne « Élève » (NOM Prénom)</span>
+            <span className="mt-1 flex flex-wrap justify-center gap-1.5">
+              {['PDF Pronote', 'CSV', 'Excel .xlsx'].map((f) => (
+                <span key={f} className="rounded-md border border-line px-2 py-0.5 text-[11px] font-semibold text-muted">{f}</span>
+              ))}
+            </span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.csv,.xlsx,.xls,application/pdf,text/csv"
+              className="hidden"
+              onChange={(e) => void onFichier(e.target.files?.[0])}
+            />
+          </label>
+          {phase === 'busy' && <p className="mt-2 text-[12.5px] text-muted">Lecture du fichier…</p>}
+        </>
+      )}
+
+      {phase !== 'done' && rows.length > 0 && (
+        <>
+          <p className="text-[12.5px] text-muted">
+            <b>{rows.length}</b> élèves détectés. Identifiant <b>et</b> mot de passe sont générés ;
+            corrige un nom (l&apos;identifiant se recalcule), régénère un mot de passe avec ↻. Rien n&apos;est créé tant que tu ne cliques pas.
+          </p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-[.05em] text-muted">
+                  <th className="border-b border-line px-2 py-1.5 text-left">Nom</th>
+                  <th className="border-b border-line px-2 py-1.5 text-left">Prénom</th>
+                  <th className="border-b border-line px-2 py-1.5 text-left">Identifiant</th>
+                  <th className="border-b border-line px-2 py-1.5 text-left">Mot de passe</th>
+                  <th className="border-b border-line px-2 py-1.5"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td className="border-b border-line px-1 py-1">
+                      <input value={r.last_name} onChange={(e) => editRow(i, 'last_name', e.target.value)}
+                        className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 focus:border-accent focus:bg-[var(--app)] focus:outline-none" />
+                    </td>
+                    <td className="border-b border-line px-1 py-1">
+                      <input value={r.first_name} onChange={(e) => editRow(i, 'first_name', e.target.value)}
+                        className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 focus:border-accent focus:bg-[var(--app)] focus:outline-none" />
+                    </td>
+                    <td className="border-b border-line px-2 py-1 font-mono text-[12px] text-accent">{loginAt(rows, i)}</td>
+                    <td className="border-b border-line px-2 py-1">
+                      <span className="font-mono text-[12px]">{r.password}</span>
+                      <button type="button" onClick={() => regen(i)} title="Régénérer le mot de passe"
+                        className="ml-1.5 text-muted hover:text-accent">↻</button>
+                    </td>
+                    <td className="border-b border-line px-2 py-1 text-right">
+                      <button type="button" onClick={() => removeRow(i)} title="Retirer"
+                        className="text-muted hover:text-crit">✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => void creer()} disabled={phase === 'busy' || rows.length === 0}
+              className="min-h-touch rounded-[10px] border border-accent bg-accent px-4 text-[13px] font-semibold text-[var(--accent-ink)] disabled:opacity-50">
+              {phase === 'busy' ? 'Création…' : `Créer les ${rows.length} comptes`}
+            </button>
+            <button type="button" onClick={recommencer}
+              className="min-h-touch rounded-[10px] border border-line bg-surface px-3 text-[13px] font-semibold">Recommencer</button>
+          </div>
+        </>
+      )}
+
+      {phase === 'done' && results && (
+        <>
+          <p className="text-[13px] font-semibold text-good">✓ {okCount} compte{okCount > 1 ? 's' : ''} créé{okCount > 1 ? 's' : ''}
+            {koCount > 0 && <span className="text-crit"> · {koCount} en échec</span>}</p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-[.05em] text-muted">
+                  <th className="border-b border-line px-2 py-1.5 text-left">Élève</th>
+                  <th className="border-b border-line px-2 py-1.5 text-left">Identifiant</th>
+                  <th className="border-b border-line px-2 py-1.5 text-left">Mot de passe</th>
+                  <th className="border-b border-line px-2 py-1.5 text-left">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r, i) => (
+                  <tr key={i}>
+                    <td className="border-b border-line px-2 py-1"><b>{r.last_name}</b> {r.first_name}</td>
+                    <td className="border-b border-line px-2 py-1 font-mono text-[12px] text-accent">{r.login ?? '—'}</td>
+                    <td className="border-b border-line px-2 py-1 font-mono text-[12px]">{r.password ?? '—'}</td>
+                    <td className="border-b border-line px-2 py-1">
+                      {r.ok
+                        ? <span className="text-[12px] font-semibold text-good">créé</span>
+                        : <span className="text-[12px] font-semibold text-crit" title={r.error}>{r.error ?? 'échec'}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={telecharger} disabled={okCount === 0}
+              className="min-h-touch rounded-[10px] border border-good bg-good px-4 text-[13px] font-semibold text-white disabled:opacity-50">
+              ⬇ Télécharger le PDF des identifiants
+            </button>
+            <button type="button" onClick={recommencer}
+              className="min-h-touch rounded-[10px] border border-line bg-surface px-3 text-[13px] font-semibold">Importer une autre liste</button>
+          </div>
+          <p className="mt-2 text-[12px] font-semibold text-warn">
+            Les mots de passe ne sont affichés qu&apos;ici : télécharge le PDF avant de quitter.
+          </p>
+        </>
+      )}
+
+      {err && <p className="mt-2 text-[12.5px] font-semibold text-crit">{err}</p>}
+    </Panneau>
   );
 }
 
@@ -802,6 +1028,15 @@ export default function ClassesPage() {
               </table>
             </div>
           </Panneau>
+
+          {currentId && current && (
+            <ImportClasse
+              classId={currentId}
+              className={current.name}
+              joinCode={current.join_code ?? null}
+              onDone={() => { void chargerClasse(currentId); }}
+            />
+          )}
 
           <Panneau title="Ajouter un élève">
             <div className="grid gap-3 sm:grid-cols-3">
