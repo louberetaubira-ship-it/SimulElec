@@ -42,10 +42,12 @@ export default function Nav() {
   const links: { href: string; label: string }[] = [];
   if (role === 'eleve') {
     links.push({ href: '/tp', label: 'Mes TP' });
+    links.push({ href: '/ressources', label: 'Ressources' });
     links.push({ href: '/moi', label: 'Ma progression' });
     links.push({ href: '/atelier', label: 'Atelier' });
   } else if (role === 'professeur' || role === 'admin') {
     links.push({ href: '/tp', label: 'Catalogue' });
+    links.push({ href: '/ressources', label: 'Ressources' });
     links.push({ href: '/prof/classes', label: 'Mes classes' });
     links.push({ href: '/prof', label: 'Suivi' });
     links.push({ href: '/prof/tp', label: 'Mes TP' });
