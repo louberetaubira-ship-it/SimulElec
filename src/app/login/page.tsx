@@ -22,6 +22,8 @@ const INPUT =
 
 function EleveForm({ next }: { next: string }) {
   const router = useRouter();
+  const params = useSearchParams();
+  const expired = params.get('expired') === '1';
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -44,6 +46,8 @@ function EleveForm({ next }: { next: string }) {
       const supabase = createClient();
       const { error: err } = await supabase.auth.signInWithPassword({ email: payload.email, password });
       if (err) throw new Error('Identifiant ou mot de passe incorrect.');
+      // Session éphémère (poste partagé) : marqueur d'onglet, effacé à la fermeture.
+      try { sessionStorage.setItem('se.eleve.alive', '1'); } catch { /* navigation privée */ }
       router.replace(next === '/tp' ? '/moi' : next);
       router.refresh();
     } catch (e) {
@@ -53,7 +57,12 @@ function EleveForm({ next }: { next: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="mt-5">
+    <form onSubmit={submit} className="mt-5" autoComplete="off">
+      {expired && (
+        <p className="mb-3 rounded-xl border border-[#E39A00] bg-[#FBE7CD] px-3 py-2 text-sm text-[#7a5300]">
+          Session fermée (inactivité ou fermeture de l&apos;application). Reconnecte-toi pour reprendre.
+        </p>
+      )}
       <p className="text-sm leading-relaxed text-[#66717F]">
         Saisis l&apos;identifiant et le mot de passe que ton professeur t&apos;a remis.
       </p>
@@ -65,7 +74,7 @@ function EleveForm({ next }: { next: string }) {
           value={login}
           onChange={(e) => setLogin(e.target.value)}
           placeholder="dupont.lea"
-          autoComplete="username"
+          autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
           required
@@ -80,7 +89,7 @@ function EleveForm({ next }: { next: string }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="tarolu-42"
-          autoComplete="current-password"
+          autoComplete="off"
           required
           className={INPUT}
         />
@@ -98,6 +107,10 @@ function EleveForm({ next }: { next: string }) {
 
       <p className="mt-4 text-xs leading-relaxed text-[#66717F]">
         Mot de passe oublié ? Demande à ton professeur : il peut t&apos;en générer un nouveau.
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-[#66717F]">
+        🔒 Poste partagé : ta session n&apos;est pas mémorisée, reconnecte-toi à chaque séance. Si le
+        navigateur propose d&apos;enregistrer ton mot de passe, réponds « Jamais ».
       </p>
     </form>
   );

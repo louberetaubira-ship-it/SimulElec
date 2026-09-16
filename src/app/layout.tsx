@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Nav from '@/components/Nav';
 import Heartbeat from '@/components/Heartbeat';
+import SessionGuard from '@/components/SessionGuard';
 import './globals.css';
 
 const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap';
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-[#F5F6F8] text-[#141A21] antialiased [font-family:var(--font-sans),system-ui,sans-serif]">
         <Nav />
         <Heartbeat />
+        <SessionGuard />
         {children}
       </body>
     </html>
