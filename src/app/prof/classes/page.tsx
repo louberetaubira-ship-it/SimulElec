@@ -298,6 +298,7 @@ export default function ClassesPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState<ClassRow[]>([]);
+  const [classeFilter, setClasseFilter] = useState<DiplomaId | 'tous'>('tous');
   const [effectifs, setEffectifs] = useState<Record<string, number>>({});
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [students, setStudents] = useState<StudentWithProgress[]>([]);
@@ -550,8 +551,23 @@ export default function ClassesPage() {
       </PageTitle>
 
       <Panneau title="Classes" aside={<Link href="/prof" className="text-[13px] font-semibold text-muted underline">Suivi des tentatives</Link>}>
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] font-semibold text-muted">Filtrer par diplôme :</span>
+          {(['tous', ...DIPLOMAS.map((d) => d.id)] as (DiplomaId | 'tous')[]).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setClasseFilter(id)}
+              className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold ${
+                classeFilter === id ? 'border-[#141A21] bg-[#141A21] text-white' : 'border-line bg-surface text-muted'
+              }`}
+            >
+              {id === 'tous' ? 'Toutes' : DIPLOMAS.find((d) => d.id === id)?.short ?? id}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {classes.map((c) => {
+          {classes.filter((c) => classeFilter === 'tous' || c.diploma === classeFilter).map((c) => {
             const actif = c.id === currentId;
             const dip = DIPLOMAS.find((d) => d.id === c.diploma);
             return (
@@ -589,7 +605,11 @@ export default function ClassesPage() {
               </div>
             );
           })}
-          {classes.length === 0 && <p className="text-[13px] text-muted">Aucune classe active pour le moment.</p>}
+          {classes.filter((c) => classeFilter === 'tous' || c.diploma === classeFilter).length === 0 && (
+            <p className="text-[13px] text-muted">
+              {classes.length === 0 ? 'Aucune classe active pour le moment.' : 'Aucune classe pour ce diplôme.'}
+            </p>
+          )}
         </div>
 
         <div className="mt-4 grid gap-3 border-t border-line pt-4 sm:grid-cols-2 lg:grid-cols-4">
