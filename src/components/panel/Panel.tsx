@@ -99,6 +99,8 @@ const MARQUE_ATV: Record<string, { dx: number; dy: number }> = {
 
 function markOffset(id: string, fy: number, key?: string): { dx: number; dy: number } {
   if (key === 'atv320' && MARQUE_ATV[id]) return MARQUE_ATV[id];
+  // Automate : 11 bornes serrées par rangée → repères VERTICAUX, un peu plus dégagés du point.
+  if (key === 'plc') return { dx: 0, dy: fy < 0.5 ? -15 : 15 };
   const dx = id === '95' || id === '96' ? -8 : id === '97' || id === '98' ? 8 : 0;
   return { dx, dy: fy < 0.5 ? -9 : 9 };
 }
@@ -167,7 +169,7 @@ export default function Panel(props: PanelProps) {
       for (const t of s.terminals) {
         const p = term(s, t.fx, t.fy);
         const { dx, dy } = markOffset(t.id, t.fy, s.slot.key);
-        out.push({ id: `${s.id}.${t.id}`, pos: p, label: s.slot.group ? undefined : t.id, dx, dy });
+        out.push({ id: `${s.id}.${t.id}`, pos: p, label: s.slot.group ? undefined : t.id, dx, dy, rot: s.slot.key === 'plc' });
       }
     }
     return out;

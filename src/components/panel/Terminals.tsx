@@ -6,7 +6,7 @@
 import React from 'react';
 import type { Point } from '@/lib/scene/geometry';
 
-export interface TerminalMark { id: string; pos: Point; label?: string; dx?: number; dy?: number }
+export interface TerminalMark { id: string; pos: Point; label?: string; dx?: number; dy?: number; rot?: boolean }
 
 export interface TerminalsProps {
   terminals: TerminalMark[];
@@ -35,7 +35,7 @@ export default function Terminals({ terminals, marks, highlighted, aimed, pick, 
               style={{ left: t.pos.x, top: t.pos.y }}
             />
             {marks && t.label ? (
-              <div className="se-tmark" style={{ left: t.pos.x + (t.dx ?? 0), top: t.pos.y + (t.dy ?? 9) }}>
+              <div className={`se-tmark${t.rot ? ' vert' : ''}`} style={{ left: t.pos.x + (t.dx ?? 0), top: t.pos.y + (t.dy ?? 9) }}>
                 {t.label}
               </div>
             ) : null}
