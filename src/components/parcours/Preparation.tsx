@@ -154,6 +154,57 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
     [tp, surCommande, focus],
   );
 
+  /* ------------------------------------------------ zoom + plein écran schéma */
+  const workRef = React.useRef<HTMLDivElement>(null);
+  const [zoom, setZoomState] = React.useState(1);
+  const setZoom = React.useCallback(
+    (z: number) => setZoomState(Math.max(0.4, Math.min(3, Math.round(z * 100) / 100))),
+    [],
+  );
+
+  const [fs, setFs] = React.useState(false);
+  const enterFs = React.useCallback(() => {
+    setFs(true);
+    const el = workRef.current as (HTMLDivElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    }) | null;
+    try {
+      const r = el?.requestFullscreen?.() ?? el?.webkitRequestFullscreen?.();
+      if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => {});
+    } catch {
+      /* API refusée : le calque position:fixed prend le relais */
+    }
+  }, []);
+  const exitFs = React.useCallback(() => {
+    setFs(false);
+    const d = document as Document & {
+      webkitExitFullscreen?: () => Promise<void> | void;
+      webkitFullscreenElement?: Element | null;
+    };
+    if (d.fullscreenElement ?? d.webkitFullscreenElement) {
+      try {
+        if (d.exitFullscreen) d.exitFullscreen();
+        else d.webkitExitFullscreen?.();
+      } catch { /* ignore */ }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    const d = document as Document & { webkitFullscreenElement?: Element | null };
+    const onChange = () => {
+      if (!(d.fullscreenElement ?? d.webkitFullscreenElement)) setFs(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFs(false); };
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
   return (
     <>
       <Side>
@@ -174,43 +225,87 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
       </Side>
 
       <Center>
-        <div className="flex w-full max-w-[860px] flex-col gap-5">
-          {(tp.puissance || tp.folio) && (
-            <div className="sticky top-0 z-10 -mx-1 max-h-[46vh] overflow-y-auto bg-[var(--app)] px-1 pb-2 pt-1">
-              {surCommande && tp.folio
-                ? <SchemaCommande tp={tp} reseau={reseau} zone={zone} focusRep={focus} />
-                : <SchemaPuissance tp={tp} focus={focus} />}
-              {courante?.focus && (
-                <p className="m-0 mt-1 text-[11.5px] text-muted">
-                  Question en cours : repère <b className="text-accent">{courante.focus}</b>,
-                  encadré sur le schéma.
-                </p>
+        <div
+          ref={workRef}
+          className={
+            fs
+              ? 'fixed inset-0 z-[60] flex flex-col gap-2 bg-[var(--app)] p-2'
+              : 'flex min-h-0 w-full flex-1 flex-col'
+          }
+        >
+          <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,.88fr)]">
+            {/* Colonne gauche : schéma zoomable + plein écran */}
+            <div className="flex min-h-0 flex-col gap-2">
+              {(tp.puissance || tp.folio) && (
+                <>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line)]">
+                      <button
+                        type="button" onClick={() => setZoom(zoom - 0.15)}
+                        className="px-2.5 py-1.5 text-[15px] font-semibold hover:bg-[var(--app)]"
+                        aria-label="Dézoomer"
+                      >−</button>
+                      <span className="min-w-[52px] border-x border-[var(--line)] px-1 text-center text-[12.5px] tabular-nums text-muted">
+                        {Math.round(zoom * 100)} %
+                      </span>
+                      <button
+                        type="button" onClick={() => setZoom(zoom + 0.15)}
+                        className="px-2.5 py-1.5 text-[15px] font-semibold hover:bg-[var(--app)]"
+                        aria-label="Zoomer"
+                      >+</button>
+                    </div>
+                    <button
+                      type="button" onClick={() => setZoom(1)}
+                      className="rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-[13px] font-semibold hover:bg-[var(--app)]"
+                    >Ajuster</button>
+                    <button
+                      type="button" onClick={fs ? exitFs : enterFs}
+                      className="rounded-lg border border-[var(--accent)] px-2.5 py-1.5 text-[13px] font-semibold text-accent hover:bg-[var(--app)]"
+                    >{fs ? '✕ Quitter le plein écran' : '⤢ Plein écran'}</button>
+                  </div>
+                  <div className="relative h-[46vh] overflow-auto lg:h-auto lg:min-h-0 lg:flex-1">
+                    <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
+                      {surCommande && tp.folio
+                        ? <SchemaCommande tp={tp} reseau={reseau} zone={zone} focusRep={focus} />
+                        : <SchemaPuissance tp={tp} focus={focus} />}
+                    </div>
+                  </div>
+                  {courante?.focus && (
+                    <p className="m-0 text-[11.5px] text-muted">
+                      Question en cours : repère <b className="text-accent">{courante.focus}</b>,
+                      encadré sur le schéma.
+                    </p>
+                  )}
+                </>
               )}
             </div>
-          )}
 
-          {!p && (
-            <Note>
-              Ce TP n&apos;a pas encore de préparation guidée : passe directement au choix du
-              matériel, en t&apos;appuyant sur le cahier des charges.
-            </Note>
-          )}
-          {p && (
-            <>
-              <Bloc
-                titre="1 · Identifier les éléments du schéma"
-                consigne="Chaque repère du schéma désigne un organe précis. Retrouve-le sur le schéma affiché au-dessus."
-                questions={p.identification} st={st} actif={actif}
-                onAnswer={onAnswer} onActive={setActif}
-              />
-              <Bloc
-                titre="2 · Donner la fonction de chaque équipement"
-                consigne="Un organe se choisit sur sa fonction, pas sur son allure. Dis ce que chacun fait dans CE montage."
-                questions={p.fonctions} st={st} actif={actif}
-                onAnswer={onAnswer} onActive={setActif}
-              />
-            </>
-          )}
+            {/* Colonne droite : questions */}
+            <div className="flex min-h-0 flex-col gap-4 overflow-auto lg:pr-1">
+              {!p && (
+                <Note>
+                  Ce TP n&apos;a pas encore de préparation guidée : passe directement au choix du
+                  matériel, en t&apos;appuyant sur le cahier des charges.
+                </Note>
+              )}
+              {p && (
+                <>
+                  <Bloc
+                    titre="1 · Identifier les éléments du schéma"
+                    consigne="Chaque repère du schéma désigne un organe précis. Retrouve-le sur le schéma affiché à gauche."
+                    questions={p.identification} st={st} actif={actif}
+                    onAnswer={onAnswer} onActive={setActif}
+                  />
+                  <Bloc
+                    titre="2 · Donner la fonction de chaque équipement"
+                    consigne="Un organe se choisit sur sa fonction, pas sur son allure. Dis ce que chacun fait dans CE montage."
+                    questions={p.fonctions} st={st} actif={actif}
+                    onAnswer={onAnswer} onActive={setActif}
+                  />
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </Center>
     </>
