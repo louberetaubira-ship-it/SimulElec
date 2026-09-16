@@ -6,6 +6,7 @@ import { spriteUrl } from '@/lib/data/catalogue';
 import { svgForKey } from '@/components/panel/svg';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { goodChoices, materielComplete } from '@/lib/sim/progress';
+import { shuffledOrder } from '@/lib/sim/shuffle';
 import { Center, Side } from './StageLayout';
 
 /**
@@ -67,7 +68,8 @@ export default function Materiel({ tp, st, onChoose, onNext }: Props) {
                   <small className="font-sans text-[11.5px] font-normal text-muted">{p.need}</small>
                 </h4>
                 <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                  {p.options.map((o, i) => {
+                  {shuffledOrder(p.id, p.options.length).map((i) => {
+                    const o = p.options[i];
                     const sel = ch === i;
                     const tone = sel ? (o.ok ? 'border-good bg-good/10' : 'border-crit bg-crit/10') : 'border-[var(--line)] bg-[var(--surface)]';
                     return (

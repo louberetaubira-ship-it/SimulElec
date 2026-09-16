@@ -376,7 +376,7 @@ export const TP_VARIATEUR: TpDefinition = {
         'Parce qu\'il coûte trop cher',
         'Parce que le courant de sortie n\'est ni sinusoïdal ni à fréquence fixe, et parce qu\'aucun organe de coupure n\'est admis à cet endroit',
         'Parce que le moteur ne peut pas être en surcharge avec un variateur',
-      ],
+       'Parce que le variateur possède déjà un fusible interne',],
       answer: 1,
     },
     {
@@ -385,7 +385,7 @@ export const TP_VARIATEUR: TpDefinition = {
         'Tout de suite, la coupure suffit',
         'Après 15 minutes, en vérifiant moins de 42 V continus entre PA/+ et PC/−',
         'Après 1 minute, en court-circuitant PA/+ et PC/− pour décharger',
-      ],
+       'Après 5 minutes, sans rien vérifier',],
       answer: 1,
     },
     {
@@ -394,12 +394,12 @@ export const TP_VARIATEUR: TpDefinition = {
         'Du secondaire du transformateur T1',
         'De la borne +24 du variateur lui-même',
         'De n\'importe laquelle des deux sources, elles font toutes les deux 24 V',
-      ],
+       'Du réseau 400 V abaissé par un simple pont diviseur',],
       answer: 1,
     },
     {
       q: 'Le moteur porte 0,75 kW · 400 V Y · 1,9 A · 1395 tr/min. Quelle valeur entres-tu dans le paramètre ItH ?',
-      options: ['0,75', '1,9', '400'],
+      options: ['0,75', '1,9', '400', '1,395'],
       answer: 1,
     },
     {
@@ -408,7 +408,7 @@ export const TP_VARIATEUR: TpDefinition = {
         '1,9 A, le courant du moteur',
         '3,6 A, le courant de ligne du variateur — c\'est le seul courant que Q1 traverse',
         'La moyenne des deux',
-      ],
+       '5 A, le calibre du disjoncteur',],
       answer: 1,
     },
     {
@@ -417,7 +417,7 @@ export const TP_VARIATEUR: TpDefinition = {
         'Une seule, entre 0b et 24a',
         'Deux : 0a-0b et 24a-24b — les enroulements sont mis en parallèle',
         'Aucune, les 24 V sont déjà disponibles',
-      ],
+       'Trois barrettes, pour tripler le courant',],
       answer: 1,
     },
     {
@@ -426,7 +426,7 @@ export const TP_VARIATEUR: TpDefinition = {
         '24 V, rien de particulier',
         '48 V : les enroulements sont en série, la bobine reçoit le double de sa tension assignée et finit par griller',
         '0 V, le circuit est ouvert',
-      ],
+       '12 V, la moitié de la tension',],
       answer: 1,
     },
     {
@@ -435,7 +435,7 @@ export const TP_VARIATEUR: TpDefinition = {
         'La commande et la signalisation',
         'Le sectionnement cadenassable, la protection contre les courts-circuits et la protection contre les surcharges — ce que faisaient le sectionneur porte-fusibles et le relais thermique',
         'La variation de vitesse et la protection',
-      ],
+       'La signalisation et la mesure du courant',],
       answer: 1,
     },
     {
@@ -444,12 +444,12 @@ export const TP_VARIATEUR: TpDefinition = {
         'Un arrêt sur la rampe de décélération dEC',
         'Un arrêt en roue libre, catégorie 0 : le moteur n\'est plus alimenté et s\'arrête sur son inertie',
         'Un arrêt par injection de courant continu',
-      ],
+       'Un arrêt d\'urgence de catégorie 1',],
       answer: 1,
     },
     {
       q: 'Combien de manœuvres par minute le contacteur de ligne d\'un variateur peut-il faire au maximum ?',
-      options: ['autant qu\'on veut', 'moins d\'une', 'une dizaine'],
+      options: ['autant qu\'on veut', 'moins d\'une', 'une dizaine', 'plusieurs centaines'],
       answer: 1,
     },
   ],

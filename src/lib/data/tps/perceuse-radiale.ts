@@ -384,22 +384,22 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
   quiz: [
     {
       q: 'Le primaire de T1 porte trois prises : 0, 230 et 400. L\'alimentation se fait en 400 V entre deux phases. Sur quelles bornes raccordes-tu ?',
-      options: ['0 et 230', '0 et 400', '230 et 400'],
+      options: ['0 et 230', '0 et 400', '230 et 400', '0, 230 et 400 en même temps', 'Pour limiter l\'usure du contact'],
       answer: 1,
     },
     {
       q: 'Si ce transformateur était alimenté en 230 V au lieu de 400 V, que faudrait-il amener sur la borne 0 ?',
-      options: ['une deuxième phase', 'le neutre', 'le conducteur de protection'],
+      options: ['une deuxième phase', 'le neutre', 'le conducteur de protection', 'une troisième phase'],
       answer: 1,
     },
     {
       q: 'Le moteur a une intensité nominale In = 2,6 A. Entre quelles valeurs se situe la pointe de courant au démarrage direct ?',
-      options: ['entre 2,6 A et 5,2 A', 'entre 13 A et 20,8 A', 'entre 26 A et 52 A'],
+      options: ['entre 2,6 A et 5,2 A', 'entre 13 A et 20,8 A', 'entre 26 A et 52 A', 'entre 5,2 A et 7,8 A'],
       answer: 1,
     },
     {
       q: 'Quel appareil assure le sectionnement et la consignation de la perceuse ?',
-      options: ['le contacteur KM1', 'le sectionneur porte-fusibles Q1', 'le relais thermique F1'],
+      options: ['le contacteur KM1', 'le sectionneur porte-fusibles Q1', 'le relais thermique F1', 'le transformateur T1'],
       answer: 1,
     },
     {
@@ -413,7 +413,7 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     },
     {
       q: 'Le voyant H1 est incolore et non vert. Que signale-t-il ?',
-      options: ['que le mandrin tourne', 'que la perceuse est sous tension', 'qu\'un défaut thermique est apparu'],
+      options: ['que le mandrin tourne', 'que la perceuse est sous tension', 'qu\'un défaut thermique est apparu', 'que le mandrin tourne dans le bon sens'],
       answer: 1,
     },
   ],

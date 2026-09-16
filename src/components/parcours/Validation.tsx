@@ -12,6 +12,7 @@ import {
 } from '@/lib/sim/diagnostic';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
 import { reseauCommande } from '@/lib/sim/commande';
+import { shuffledOrder } from '@/lib/sim/shuffle';
 import Evaluation from './Evaluation';
 import AutoEvaluation from './AutoEvaluation';
 import TpPanel from './TpPanel';
@@ -39,7 +40,8 @@ function Quiz({ tp, st, onQuiz }: { tp: TpDefinition; st: AttemptState; onQuiz: 
             <div key={q.q}>
               <p className="m-0 mb-1.5 text-[12.5px] font-medium">{i + 1}. {q.q}</p>
               <div className="flex flex-col gap-1.5">
-                {q.options.map((o, j) => {
+                {shuffledOrder(q.q, q.options.length).map((j) => {
+                  const o = q.options[j];
                   const isPicked = picked === j;
                   const reveal = picked != null;
                   const tone = !reveal

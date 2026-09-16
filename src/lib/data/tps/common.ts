@@ -244,4 +244,8 @@ export const POSTE_T1_OPTIONS = [
     key: 'trafo', ref: 'ABL6TS10U', spec: '230-400 / 230 V · 100 VA',
     why: 'Secondaire 230 V : ce n\'est pas une TBT, la bobine 24 V grillerait et le pupitre ne serait plus en très basse tension de sécurité.',
   },
+  {
+    key: 'trafo', ref: 'Legrand 042862', spec: '230-400 / 12 V · 100 VA',
+    why: 'Secondaire 12 V : trop bas pour une commande 24 V, la bobine ne collerait pas et les voyants resteraient éteints.',
+  },
 ];

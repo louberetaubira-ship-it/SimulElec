@@ -256,9 +256,9 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     { id: 'v0', title: '0 V de l\'automate non relié à X2:6', symptom: 'Entrées instables, automate qui redémarre.', fix: 'Relier la borne 0V de l\'automate au 0 V commun (X2:6).', coupe: 'x2_6.a>plc.0V', action: 'Relier la borne 0V de l\'automate au 0 V commun' },
   ],
   quiz: [
-    { q: 'Pourquoi les sorties relais conviennent-elles mieux ici que des sorties transistor ?', options: ['Elles sont plus rapides', 'Elles commutent indifféremment du continu ou de l\'alternatif, donc la bobine 24 V~', 'Elles consomment moins'], answer: 1 },
-    { q: 'À quoi sert le commun COM0 de l\'automate ?', options: ['À amener le potentiel + 24 V sur les contacts des sorties Q0.0 à Q0.3', 'À mettre l\'automate à la terre', 'À alimenter les entrées'], answer: 0 },
-    { q: 'Le contact d\'arrêt S1 est câblé en NC sur I0.1. Que fait le programme ?', options: ['Il démarre quand I0.1 passe à 1', 'Il maintient la marche tant que I0.1 est à 1 et arrête quand elle retombe à 0', 'Il ignore I0.1'], answer: 1 },
+    { q: 'Pourquoi les sorties relais conviennent-elles mieux ici que des sorties transistor ?', options: ['Elles sont plus rapides', 'Elles commutent indifféremment du continu ou de l\'alternatif, donc la bobine 24 V~', 'Elles consomment moins', 'Elles supportent des courants bien plus élevés'], answer: 1 },
+    { q: 'À quoi sert le commun COM0 de l\'automate ?', options: ['À amener le potentiel + 24 V sur les contacts des sorties Q0.0 à Q0.3', 'À mettre l\'automate à la terre', 'À alimenter les entrées', 'À relier les entrées à la masse'], answer: 0 },
+    { q: 'Le contact d\'arrêt S1 est câblé en NC sur I0.1. Que fait le programme ?', options: ['Il démarre quand I0.1 passe à 1', 'Il maintient la marche tant que I0.1 est à 1 et arrête quand elle retombe à 0', 'Il ignore I0.1', 'Il inverse le sens de marche'], answer: 1 },
   ],
   motor: { P: 1500, U: 400, In: 3.3, n: 1440, ns: 1500, cosPhi: 0.8 },
   // Transformateur de commande à prises : le rapport de transformation est fixé par

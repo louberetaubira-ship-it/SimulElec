@@ -20,6 +20,7 @@ import React from 'react';
 import type { AttemptState, PrepQuestion, TpDefinition } from '@/lib/types';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { goodPrep, preparationComplete, prepQuestions } from '@/lib/sim/progress';
+import { shuffledOrder } from '@/lib/sim/shuffle';
 import { initialSim } from '@/lib/sim/engine';
 import { reseauCommande } from '@/lib/sim/commande';
 import SchemaPuissance from '@/components/schema/SchemaPuissance';
@@ -91,7 +92,8 @@ function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive }: {
               )}
             </h4>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
-              {q.options.map((o, i) => {
+              {shuffledOrder(q.id, q.options.length).map((i) => {
+                const o = q.options[i];
                 const sel = ch === i;
                 const tone = sel
                   ? (juste ? 'border-good bg-good/10' : 'border-crit bg-crit/10')

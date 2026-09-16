@@ -298,8 +298,8 @@ export const TP_PORTAIL: TpDefinition = {
   annexItems: [],
   // Fins de course sur le rail du portail (hors armoire), câblées par presse-étoupe.
   recvItems: [
-    { key: 'limitswitch', rep: 'FCO', name: 'fin de course ouverture · portail ouvert', x: 300, y: 20, w: 40, h: 92, recv: true },
-    { key: 'limitswitch', rep: 'FCF', name: 'fin de course fermeture · portail fermé', x: 360, y: 20, w: 40, h: 92, recv: true },
+    { key: 'limitswitch', rep: 'FCO', name: 'fin de course ouverture · portail ouvert', x: 360, y: 20, w: 40, h: 92, recv: true },
+    { key: 'limitswitch', rep: 'FCF', name: 'fin de course fermeture · portail fermé', x: 420, y: 20, w: 40, h: 92, recv: true },
   ],
   liaisons: [
     // ---- puissance : réseau → Q1 ----
@@ -460,12 +460,12 @@ export const TP_PORTAIL: TpDefinition = {
     },
   ],
   quiz: [
-    { q: 'Comment inverse-t-on le sens d\'un moteur triphasé ?', options: ['En inversant une phase', 'En inversant deux phases', 'En inversant les trois phases'], answer: 1 },
-    { q: 'Que se passe-t-il si KM1 et KM2 collent en même temps ?', options: ['Le moteur va plus vite', 'Un court-circuit entre phases', 'Rien de grave'], answer: 1 },
-    { q: 'Quel type de contact réalise le verrouillage électrique ?', options: ['Un contact NO', 'Un contact NF de chaque contacteur en série avec la bobine de l\'autre', 'Un fusible'], answer: 1 },
-    { q: 'À quoi sert le fin de course FCO ?', options: ['À démarrer la fermeture', 'À arrêter l\'ouverture portail ouvert', 'À signaler un défaut'], answer: 1 },
-    { q: 'Le voyant H1 est incolore. Que signale-t-il ?', options: ['Le portail s\'ouvre', 'Le portail est sous tension', 'Un défaut thermique'], answer: 1 },
-    { q: 'Quel appareil assure le sectionnement et la consignation ?', options: ['Le contacteur KM1', 'Le sectionneur porte-fusibles Q1', 'Le relais thermique F1'], answer: 1 },
+    { q: 'Comment inverse-t-on le sens d\'un moteur triphasé ?', options: ['En inversant une phase', 'En inversant deux phases', 'En inversant les trois phases', 'En changeant la tension d\'alimentation'], answer: 1 },
+    { q: 'Que se passe-t-il si KM1 et KM2 collent en même temps ?', options: ['Le moteur va plus vite', 'Un court-circuit entre phases', 'Rien de grave', 'Le moteur ralentit doucement'], answer: 1 },
+    { q: 'Quel type de contact réalise le verrouillage électrique ?', options: ['Un contact NO', 'Un contact NF de chaque contacteur en série avec la bobine de l\'autre', 'Un fusible', 'Un contact temporisé'], answer: 1 },
+    { q: 'À quoi sert le fin de course FCO ?', options: ['À démarrer la fermeture', 'À arrêter l\'ouverture portail ouvert', 'À signaler un défaut', 'À protéger le moteur contre les surcharges'], answer: 1 },
+    { q: 'Le voyant H1 est incolore. Que signale-t-il ?', options: ['Le portail s\'ouvre', 'Le portail est sous tension', 'Un défaut thermique', 'Le sens de rotation du moteur'], answer: 1 },
+    { q: 'Quel appareil assure le sectionnement et la consignation ?', options: ['Le contacteur KM1', 'Le sectionneur porte-fusibles Q1', 'Le relais thermique F1', 'Le transformateur T1'], answer: 1 },
   ],
   motor: { P: 750, U: 400, In: 1.9, n: 1400, ns: 1500, cosPhi: 0.78 },
   trafo: { slot: 't1', ...TRAFO_REF },
