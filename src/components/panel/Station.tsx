@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * Coffret de porte XALD : les organes (voyants, boutons, coups de poing) viennent
- * de la définition du TP (`TpDefinition.pupitre`), dans l'ordre, avec leurs bornes
- * repérées sur le bord droit. À défaut, c'est le pupitre historique H1/H2/S2/S1.
+ * Organes de porte : les voyants, boutons et coups de poing sont posés
+ * directement sur la porte (plus de coffret). Ils viennent de la définition
+ * du TP (`TpDefinition.pupitre`), dans l'ordre, avec leurs bornes repérées
+ * sur le bord droit. À défaut, c'est le pupitre historique H1/H2/S2/S1.
  */
 import React from 'react';
 import { pupitreLayout, type PupitrePlace } from '@/lib/scene/geometry';
@@ -78,9 +79,6 @@ export default function Station({ pupitre, lamps, latched, onButton }: StationPr
           ))}
         </React.Fragment>
       ))}
-      <div className="cap">
-        <b>{places.map((p) => p.item.rep).join(' ')}</b>coffret de porte XALD
-      </div>
     </div>
   );
 }
