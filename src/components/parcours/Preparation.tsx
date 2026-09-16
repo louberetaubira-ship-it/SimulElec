@@ -176,7 +176,7 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
       <Center>
         <div className="flex w-full max-w-[860px] flex-col gap-5">
           {(tp.puissance || tp.folio) && (
-            <div className="sticky top-0 z-10 -mx-1 bg-[var(--app)] px-1 pb-2 pt-1">
+            <div className="sticky top-0 z-10 -mx-1 max-h-[46vh] overflow-y-auto bg-[var(--app)] px-1 pb-2 pt-1">
               {surCommande && tp.folio
                 ? <SchemaCommande tp={tp} reseau={reseau} zone={zone} focusRep={focus} />
                 : <SchemaPuissance tp={tp} focus={focus} />}
