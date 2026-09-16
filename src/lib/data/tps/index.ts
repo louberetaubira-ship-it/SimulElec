@@ -15,11 +15,13 @@ import type { TpDefinition } from '@/lib/types';
 import { TP_PERCEUSE_RADIALE } from './perceuse-radiale';
 import { TP_VARIATEUR } from './variateur';
 import { TP_AUTOMATE_M221 } from './automate-m221';
+import { TP_WAGONNET } from './wagonnet';
 
 export const TPS: TpDefinition[] = [
   TP_PERCEUSE_RADIALE,
   TP_VARIATEUR,
   TP_AUTOMATE_M221,
+  TP_WAGONNET,
 ];
 
 export const TP_BY_ID: Record<string, TpDefinition> = Object.fromEntries(TPS.map((t) => [t.id, t]));
@@ -28,4 +30,4 @@ export function tpById(id: string): TpDefinition | undefined {
   return TP_BY_ID[id];
 }
 
-export { TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221 };
+export { TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_WAGONNET };
