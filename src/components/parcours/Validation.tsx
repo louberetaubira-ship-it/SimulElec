@@ -4,7 +4,8 @@ import React from 'react';
 import type { AttemptState, Prevision, TpDefinition } from '@/lib/types';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { buildEvaluation, buildReport, ETAPE, scoreLines } from '@/lib/sim/progress';
-import { readingLabel } from '@/lib/sim/mesures';
+import { INSTRUMENTS, readingLabel } from '@/lib/sim/mesures';
+import Instrument from '@/components/mesures/Instrument';
 import { startButtons } from '@/lib/sim/engine';
 import {
   conclusionOuverte, hypothesesVivantes, LIBELLE_PREVISION, ligneTest, qualiteRaisonnement,
@@ -360,6 +361,49 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
     [tp, st, sim, mes.vise, mes.marcheMaintenue],
   );
 
+  // Appareil de mesure : mêmes points de test qu'aux étapes de mesure.
+  const out = s.currentRead();
+  const clampLabel = mes.clamp != null && wires[mes.clamp]
+    ? `${wires[mes.clamp].a.replace('.', ' ')} → ${wires[mes.clamp].b.replace('.', ' ')}`
+    : null;
+  const instruments = React.useMemo(() => INSTRUMENTS.map((i) => i.id), []);
+
+  // Schéma (gauche) + platine (droite), avec plein écran de la zone de travail.
+  const workRef = React.useRef<HTMLDivElement>(null);
+  const [fs, setFs] = React.useState(false);
+  const enterFs = React.useCallback(() => {
+    setFs(true);
+    const el = workRef.current as (HTMLDivElement & {
+      webkitRequestFullscreen?: () => Promise<void> | void;
+    }) | null;
+    try {
+      const r = el?.requestFullscreen?.() ?? el?.webkitRequestFullscreen?.();
+      if (r && typeof (r as Promise<void>).catch === 'function') (r as Promise<void>).catch(() => {});
+    } catch { /* API refusée : le calque position:fixed prend le relais */ }
+  }, []);
+  const exitFs = React.useCallback(() => {
+    setFs(false);
+    const d = document as Document & {
+      webkitExitFullscreen?: () => Promise<void> | void; webkitFullscreenElement?: Element | null;
+    };
+    if (d.fullscreenElement ?? d.webkitFullscreenElement) {
+      try { if (d.exitFullscreen) d.exitFullscreen(); else d.webkitExitFullscreen?.(); } catch { /* ignore */ }
+    }
+  }, []);
+  React.useEffect(() => {
+    const d = document as Document & { webkitFullscreenElement?: Element | null };
+    const onChange = () => { if (!(d.fullscreenElement ?? d.webkitFullscreenElement)) setFs(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFs(false); };
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
   if (finished) return <Rapport tp={tp} st={st} />;
 
   const panneau = (
@@ -380,6 +424,26 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
           </Card>
 
           <Hypotheses tp={tp} st={st} onPoser={s.poserHypothese} />
+
+          <Card title="Appareil de mesure">
+            <Instrument
+              inst={mes.inst}
+              dial={mes.dial}
+              out={out}
+              probes={mes.probes}
+              clampLabel={clampLabel}
+              pick={mes.pick}
+              onSelect={s.setInstrument}
+              onRotate={s.rotateDial}
+              onPick={s.setPick}
+              onClear={s.clearProbes}
+            />
+            <Note className="mt-1">
+              Choisis l&apos;instrument, pose les deux pointes sur les points de contrôle, puis conclus
+              ton test : la mesure impose le verdict, elle ne se devine pas.
+            </Note>
+          </Card>
+
           <Test tp={tp} st={st} mes={mes} marche={marche} s={s} />
           <Bilan tp={tp} st={st} />
           {porte.ouverte
@@ -408,53 +472,86 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
     </>
   );
 
+  const platine = (
+    <TpPanel
+      trayEnabled={!st.fixed}
+      dock={panneau}
+      dockTitle="Dépannage"
+      tp={tp}
+      wires={wires}
+      cover={false}
+      marks
+      deviceState={deviceStateOf(sim)}
+      lamps={lampsOf(sim, tp)}
+      latched={sim.latched}
+      motorRpm={sim.n}
+      probes={mes.probes}
+      clamp={mes.clamp}
+      lock={st.cons.lock}
+      aimed={zone}
+      instruments={instruments}
+      pickTerminals={mes.pick === 'r' || mes.pick === 'k'}
+      pickWires={mes.pick === 'clamp'}
+      onTerminal={s.clickTerminal}
+      onWire={s.onWire}
+      onDevice={s.deviceClick}
+      onButton={(b, down) => s.button(b, down)}
+    />
+  );
+
   return (
     <>
       <Side>{panneau}</Side>
 
       <Center>
-        <TpPanel
-          trayEnabled={!st.fixed}
-          dock={panneau}
-          dockTitle="Dépannage"
-          tp={tp}
-          wires={wires}
-          cover={false}
-          marks
-          deviceState={deviceStateOf(sim)}
-          lamps={lampsOf(sim, tp)}
-          latched={sim.latched}
-          motorRpm={sim.n}
-          probes={mes.probes}
-          clamp={mes.clamp}
-          lock={st.cons.lock}
-          aimed={zone}
-          pickTerminals={mes.pick === 'r' || mes.pick === 'k'}
-          pickWires={mes.pick === 'clamp'}
-          onTerminal={s.clickTerminal}
-          onWire={s.onWire}
-          onDevice={s.deviceClick}
-          onButton={(b, down) => s.button(b, down)}
-        />
-        <Hint>
-          {st.fixed
-            ? 'Réparation faite. Relance le moteur pour confirmer, puis envoie le rapport.'
-            : 'Essaie de démarrer, observe, puis mesure : la valeur dépend de l’endroit exact où tu poses tes pointes.'}
-        </Hint>
-        {!st.fixed && (
+        {st.fixed ? (
           <>
-            <SchemaCommande
-              tp={tp}
-              reseau={reseau}
-              zone={zone}
-              probes={mes.probes}
-              onBorne={s.clickTerminal}
-            />
-            <Note className="w-full max-w-[760px]">
-              Le folio ne montre que la commande. Une panne du circuit de puissance — une phase
-              coupée, par exemple — se cherche sur la platine, au-dessus.
-            </Note>
+            {platine}
+            <Hint>Réparation faite. Relance le moteur pour confirmer, puis envoie le rapport.</Hint>
           </>
+        ) : (
+          <div
+            ref={workRef}
+            className={
+              fs
+                ? 'fixed inset-0 z-[60] flex flex-col gap-2 bg-[var(--app)] p-2'
+                : 'flex min-h-0 w-full flex-1 flex-col'
+            }
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] uppercase tracking-[.06em] text-muted">Schéma &amp; platine</span>
+              <span className="flex-1" />
+              <button
+                type="button"
+                onClick={fs ? exitFs : enterFs}
+                className="rounded-lg border border-[var(--accent)] px-2.5 py-1.5 text-[13px] font-semibold text-accent hover:bg-[var(--app)]"
+              >
+                {fs ? '✕ Quitter le plein écran' : '⤢ Plein écran'}
+              </button>
+            </div>
+            <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
+              <div className="flex min-h-0 flex-col overflow-auto">
+                <SchemaCommande
+                  tp={tp}
+                  reseau={reseau}
+                  zone={zone}
+                  probes={mes.probes}
+                  onBorne={s.clickTerminal}
+                />
+                <Note className="mt-2">
+                  Le folio ne montre que la commande. Une panne du circuit de puissance — une phase
+                  coupée, par exemple — se cherche sur la platine, à droite.
+                </Note>
+              </div>
+              <div className="flex min-h-0 flex-col overflow-auto">
+                {platine}
+              </div>
+            </div>
+            <Hint>
+              Essaie de démarrer, observe, puis mesure : la valeur dépend de l’endroit exact où tu
+              poses tes pointes.
+            </Hint>
+          </div>
         )}
       </Center>
     </>
