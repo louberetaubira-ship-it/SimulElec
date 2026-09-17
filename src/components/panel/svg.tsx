@@ -413,9 +413,47 @@ export function IddrSvg() {
   );
 }
 
+/**
+ * Boîte de jonction (combiner) PV : 4 porte-fusibles gPV repérés F1..F4 en haut
+ * (une chaîne de 3 modules par fusible), reliés au bus + ; deux barrettes bus
+ * + (rouge, repère P+) et − (noir, repère M−) sortent à droite vers le sectionneur.
+ * viewBox proportionné à la boîte réelle (100 × 74).
+ */
+export function CombinerSvg() {
+  return (
+    <svg viewBox="0 0 100 74" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x="1" y="1" width="98" height="72" rx="4" fill="#D5D9DE" stroke="#7E8790" strokeWidth="1.5" />
+      <rect x="1" y="1" width="98" height="12" rx="4" fill="#C1C6CC" />
+      <text x="50" y="10" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">BOÎTE DE JONCTION</text>
+      {/* 4 porte-fusibles gPV : corps + cartouche + repère F1..F4 en tête */}
+      {[0.18, 0.40, 0.60, 0.82].map((fx, i) => {
+        const cx = fx * 100;
+        return (
+          <g key={i}>
+            <rect x={cx - 5} y="18" width="10" height="24" rx="2" fill="#8E969E" stroke="#4E555C" />
+            <rect x={cx - 3} y="21" width="6" height="18" rx="3" fill="#EDEFF2" stroke="#B9BEC4" />
+            <circle cx={cx} cy="18" r="2.2" fill="#3A4047" />
+            <text x={cx} y="50" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#141A21">{`F${i + 1}`}</text>
+          </g>
+        );
+      })}
+      {/* barrette bus + (rouge) : relie les 4 fusibles, sort à droite en P+ */}
+      <rect x="14" y="55" width="72" height="4" rx="2" fill="#D93A3A" />
+      {[0.18, 0.40, 0.60, 0.82].map((fx, i) => (
+        <path key={`p${i}`} d={`M${fx * 100} 42v13`} stroke="#D93A3A" strokeWidth="1.5" />
+      ))}
+      <text x="90" y="47" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#D93A3A">P+</text>
+      {/* barrette bus − (noir) : sort à droite en M− */}
+      <rect x="14" y="64" width="72" height="4" rx="2" fill="#20262D" />
+      <text x="90" y="63" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#20262D">M−</text>
+    </svg>
+  );
+}
+
 export function svgForKey(key: string): React.ReactNode | null {
   switch (key) {
     case 'pvpanel': return <PvPanelSvg />;
+    case 'combiner': return <CombinerSvg />;
     case 'onduleur': return <OnduleurSvg />;
     case 'dcswitch': return <DcModSvg kind="sw" />;
     case 'dcspd': return <DcModSvg kind="spd" />;

@@ -43,8 +43,14 @@ function Sect(x: number, y: number, c: string) {
 }
 
 const NODES: Node[] = [
-  { id: 'PV', rep: 'Champ PV', label: '12 × 125 Wc · 3S4P', x: 40, y: 24, w: 104, h: 52, side: 'dc',
+  { id: 'PV', rep: 'Champ PV', label: '12 × 180 Wc · 3S4P', x: 40, y: 24, w: 104, h: 52, side: 'dc',
     sym: <path d="M56 40 h72 v22 h-72 z M74 40 v22 M92 40 v22 M110 40 v22 M56 51 h72" fill="none" stroke={DC} strokeWidth={1.5} /> },
+  { id: 'JB', rep: 'JB', label: 'boîte de jonction · 4 gPV', x: 200, y: 24, w: 160, h: 52, side: 'dc',
+    sym: <g fill="none" stroke={DC} strokeWidth={1.8}>
+      <path d="M212 66 H300" />
+      <rect x={216} y={44} width={7} height={16} rx={2} /><rect x={236} y={44} width={7} height={16} rx={2} />
+      <rect x={256} y={44} width={7} height={16} rx={2} /><rect x={276} y={44} width={7} height={16} rx={2} />
+    </g> },
   { id: 'Q2', rep: 'Q2', label: 'sectionneur DC PV', x: 40, y: 98, w: 104, h: 52, side: 'dc',
     sym: Sect(64, 112, DC) },
   { id: 'PF1', rep: 'PF1', label: 'parafoudre DC T2', x: 40, y: 172, w: 104, h: 46, side: 'dc',
@@ -68,7 +74,8 @@ const NODES: Node[] = [
 ];
 
 const WIRES: { d: string; side: 'dc' | 'ac' }[] = [
-  { d: 'M92 76 V98', side: 'dc' },               // PV -> Q2
+  { d: 'M144 50 H200', side: 'dc' },             // champ PV -> boîte de jonction (3S4P)
+  { d: 'M92 76 V98', side: 'dc' },               // PV/JB -> Q2
   { d: 'M92 150 V172', side: 'dc' },             // Q2 -> PF1
   { d: 'M92 218 V240', side: 'dc' },             // PF1 -> F1
   { d: 'M92 286 V266 H200', side: 'dc' },        // F1 -> MPPT

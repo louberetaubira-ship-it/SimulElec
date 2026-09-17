@@ -72,8 +72,19 @@ export const emptyPlan = (): LanePlan => ({ lanes: {}, len: {} });
 
 /* ---------------------------------------------------- résolution du décor */
 
-/** Bornes X1 / X2 d'un élément d'annexe, sur son bord droit. */
+/** Bornes d'un élément d'annexe, sur son bord droit (X1 / X2), ou bornes propres au combiner. */
 export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
+  // Boîte de jonction (combiner) : 4 entrées de fusibles en haut, 2 sorties de bus à droite.
+  if (it.key === 'combiner') {
+    return {
+      [`${it.rep}.F1`]: { x: it.x + it.w * 0.18, y: it.y + it.h * 0.28, ext: 'door', free: true },
+      [`${it.rep}.F2`]: { x: it.x + it.w * 0.40, y: it.y + it.h * 0.28, ext: 'door', free: true },
+      [`${it.rep}.F3`]: { x: it.x + it.w * 0.60, y: it.y + it.h * 0.28, ext: 'door', free: true },
+      [`${it.rep}.F4`]: { x: it.x + it.w * 0.82, y: it.y + it.h * 0.28, ext: 'door', free: true },
+      [`${it.rep}.P`]: { x: it.x + it.w, y: it.y + it.h * 0.62, ext: 'door', free: true },
+      [`${it.rep}.M`]: { x: it.x + it.w, y: it.y + it.h * 0.85, ext: 'door', free: true },
+    };
+  }
   return {
     [`${it.rep}.X1`]: { x: it.x + it.w, y: it.y + it.h * 0.35, ext: 'door', free: true },
     [`${it.rep}.X2`]: { x: it.x + it.w, y: it.y + it.h * 0.7, ext: 'door', free: true },

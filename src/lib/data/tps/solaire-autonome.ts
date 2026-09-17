@@ -32,6 +32,7 @@ import { L, TEST_ISO, TEST_PE, TEST_VAT, TEST_VISU } from './common';
  * 12 modules 180 Wc couplés 3S4P (3 en série × 4 branches parallèles), calepinés 6 × 2
  * sur un pan de 4,5 × 3,2 m, et le parc batterie 24 V · 1200 Ah, EXTÉRIEUR au coffret. */
 const ROOF: AnnexItem[] = [
+  // 12 modules regroupés EN HAUT de la toiture : grille 6 × 2 compacte.
   ...Array.from({ length: 12 }, (_, i) => {
     const r = Math.floor(i / 2);
     const c = i % 2;
@@ -40,11 +41,14 @@ const ROOF: AnnexItem[] = [
       rep: `PV${i + 1}`,
       name: 'module 180 Wc · 3S4P',
       x: 446 + c * 52,
-      y: 24 + r * 58,
+      y: 18 + r * 38,
       w: 48,
-      h: 52,
+      h: 34,
     } as AnnexItem;
   }),
+  // Boîte de jonction (combiner) à 4 fusibles gPV : elle raccorde le champ 3S4P
+  // (4 chaînes de 3 modules) et sort un couple bus + / − vers le sectionneur Q2.
+  { key: 'combiner', rep: 'JB', name: 'boîte de jonction · 4 fusibles gPV', x: 446, y: 250, w: 100, h: 74 },
   // Parc batterie 24 V · 1200 Ah, à l'EXTÉRIEUR du coffret (bas de la colonne toiture).
   { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 452, y: 388, w: 92, h: 118 },
 ];
@@ -110,6 +114,22 @@ const NETS: Record<string, TerminalNet> = {
   // ---- champ PV (toujours « vif » en journée : c'est le sectionneur Q2 qui l'isole) ----
   // Les éléments de toiture exposent leurs bornes sous les repères X1/X2 (moteur de scène).
   'PV1.X1': { net: 'DC+', live: 'always' }, 'PV1.X2': { net: 'DC-', live: 'always' },
+  // Champ complet : les 12 modules exposent leur + (X1) et leur − (X2), tous vifs en journée.
+  'PV2.X1': { net: 'DC+', live: 'always' }, 'PV2.X2': { net: 'DC-', live: 'always' },
+  'PV3.X1': { net: 'DC+', live: 'always' }, 'PV3.X2': { net: 'DC-', live: 'always' },
+  'PV4.X1': { net: 'DC+', live: 'always' }, 'PV4.X2': { net: 'DC-', live: 'always' },
+  'PV5.X1': { net: 'DC+', live: 'always' }, 'PV5.X2': { net: 'DC-', live: 'always' },
+  'PV6.X1': { net: 'DC+', live: 'always' }, 'PV6.X2': { net: 'DC-', live: 'always' },
+  'PV7.X1': { net: 'DC+', live: 'always' }, 'PV7.X2': { net: 'DC-', live: 'always' },
+  'PV8.X1': { net: 'DC+', live: 'always' }, 'PV8.X2': { net: 'DC-', live: 'always' },
+  'PV9.X1': { net: 'DC+', live: 'always' }, 'PV9.X2': { net: 'DC-', live: 'always' },
+  'PV10.X1': { net: 'DC+', live: 'always' }, 'PV10.X2': { net: 'DC-', live: 'always' },
+  'PV11.X1': { net: 'DC+', live: 'always' }, 'PV11.X2': { net: 'DC-', live: 'always' },
+  'PV12.X1': { net: 'DC+', live: 'always' }, 'PV12.X2': { net: 'DC-', live: 'always' },
+  // Boîte de jonction : 4 entrées de fusibles + bus + (P), tous DC+ ; le bus − (M) est DC−.
+  'JB.F1': { net: 'DC+', live: 'always' }, 'JB.F2': { net: 'DC+', live: 'always' },
+  'JB.F3': { net: 'DC+', live: 'always' }, 'JB.F4': { net: 'DC+', live: 'always' },
+  'JB.P': { net: 'DC+', live: 'always' }, 'JB.M': { net: 'DC-', live: 'always' },
   'f2.1+': { net: 'DC+', live: 'always' }, 'f2.3−': { net: 'DC-', live: 'always' },
   'f2.2+': { net: 'DC+', live: 'f2' }, 'f2.4−': { net: 'DC-', live: 'f2' },
   'dcspd.+': { net: 'DC+', live: 'f2' }, 'dcspd.−': { net: 'DC-', live: 'f2' }, 'dcspd.PE': { net: 'PE', live: 'always' },
@@ -146,9 +166,9 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   competences: ['C3 Préparer', 'C5 Réaliser', 'C6 Mettre en service', 'C7 Maintenir'],
   diplomas: ['bacpro', 'bts'],
   summary:
-    'Site isolé 24 V off-grid (Auberge du Charmant Som). Champ PV 12 modules 180 Wc couplés 3S4P, protections DC (sectionneur 1000 V, parafoudre type 2, fusibles gPV), régulateur MPPT 150/70, parc batterie 24 V · 1200 Ah EXTÉRIEUR protégé par fusible MEGA 125 A, onduleur/chargeur MultiPlus 24/3000, départ 230 V protégé par différentiel 30 mA type A et tableau de répartition. Dimensionnement, câblage, mise en service, mesures et dépannage.',
+    'Site isolé 24 V off-grid (Auberge du Charmant Som). Champ PV 12 modules 180 Wc couplés 3S4P (4 chaînes de 3 modules en série) raccordées par une BOÎTE DE JONCTION à 4 fusibles gPV, protections DC (sectionneur 1000 V, parafoudre type 2), régulateur MPPT 150/70, parc batterie 24 V · 1200 Ah EXTÉRIEUR protégé par fusible MEGA 125 A, onduleur/chargeur MultiPlus 24/3000, départ 230 V protégé par différentiel 30 mA type A et tableau de répartition. Dimensionnement, câblage, mise en service, mesures et dépannage.',
   situation:
-    'L\'Auberge du Charmant Som n\'est pas raccordée au réseau : elle est alimentée par une installation solaire autonome en 24 V. Tu dois dimensionner la chaîne (bilan des récepteurs, couplage des modules, choix du régulateur, du parc et de l\'onduleur), câbler le coffret sur la platine habitat/tertiaire — protections DC, régulateur, onduleur/chargeur, différentiel et tableau de répartition en aval — en laissant le parc batterie à l\'extérieur du coffret, puis mettre en service et mesurer le départ 230 V avant de traiter une panne.',
+    'L\'Auberge du Charmant Som n\'est pas raccordée au réseau : elle est alimentée par une installation solaire autonome en 24 V. Tu dois dimensionner la chaîne (bilan des récepteurs, couplage des modules, choix du régulateur, du parc et de l\'onduleur), câbler le champ regroupé en toiture en 3S4P — 4 chaînes de 3 modules en série ramenées sur une BOÎTE DE JONCTION à 4 fusibles gPV, dont le bus + / − part vers le coffret — puis câbler le coffret sur la platine habitat/tertiaire (protections DC, régulateur, onduleur/chargeur, différentiel et tableau de répartition en aval) en laissant le parc batterie à l\'extérieur, puis mettre en service et mesurer le départ 230 V avant de traiter une panne.',
   plaque: {
     'Type': 'Site isolé (off-grid)',
     'Tension parc': '24 V',
@@ -221,6 +241,18 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         options: ['Écouler les surtensions atmosphériques côté continu', 'Réguler la charge du parc', 'Mesurer le courant PV', 'Découpler les branches'],
         answer: 0,
         why: 'Le parafoudre DC type 2 écoule vers la terre les surtensions (foudre) qui remontent du champ PV, en amont du régulateur.',
+      },
+      {
+        id: 'id-jb', rep: 'JB', focus: 'JB',
+        invite: 'À quoi sert la boîte de jonction (repère JB) placée en toiture ?',
+        options: [
+          'Regrouper les 4 chaînes du champ 3S4P, chacune protégée par un fusible gPV, sur un bus + / −',
+          'Convertir le continu du champ en 230 V alternatif',
+          'Sectionner et consigner le parc batterie',
+          'Mesurer le courant de charge du parc',
+        ],
+        answer: 0,
+        why: 'La boîte de jonction (combiner) réunit les 4 chaînes de 3 modules du couplage 3S4P : chaque chaîne passe par son fusible gPV, et les bus + / − repartent d\'un seul câble vers le sectionneur DC Q2.',
       },
     ],
     fonctions: [
@@ -418,8 +450,20 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   annexItems: ROOF,
   recvItems: RECV,
   liaisons: [
-    // ---- champ PV (arrivée toiture posée par l'installateur) → sectionneur Q2 ----
-    L('PV1.X1', 'f2.1+', 'DC+', 'pre'), L('PV1.X2', 'f2.3−', 'DC-', 'pre'),
+    // ---- champ PV câblé en 3S4P par l'élève : 4 chaînes de 3 modules en série ----
+    // Séries (− X2 d'un module → + X1 du suivant) — 4 chaînes de 3 modules :
+    L('PV1.X2', 'PV3.X1', 'DC+'), L('PV3.X2', 'PV5.X1', 'DC+'),
+    L('PV7.X2', 'PV9.X1', 'DC+'), L('PV9.X2', 'PV11.X1', 'DC+'),
+    L('PV2.X2', 'PV4.X1', 'DC+'), L('PV4.X2', 'PV6.X1', 'DC+'),
+    L('PV8.X2', 'PV10.X1', 'DC+'), L('PV10.X2', 'PV12.X1', 'DC+'),
+    // + de chaque chaîne (X1 du 1er module) → un fusible gPV de la boîte de jonction :
+    L('PV1.X1', 'JB.F1', 'DC+'), L('PV7.X1', 'JB.F2', 'DC+'),
+    L('PV2.X1', 'JB.F3', 'DC+'), L('PV8.X1', 'JB.F4', 'DC+'),
+    // − de chaque chaîne (X2 du dernier module) → bus − de la boîte de jonction :
+    L('PV5.X2', 'JB.M', 'DC-'), L('PV11.X2', 'JB.M', 'DC-'),
+    L('PV6.X2', 'JB.M', 'DC-'), L('PV12.X2', 'JB.M', 'DC-'),
+    // Sortie de la boîte de jonction (bus + / bus −) → sectionneur DC du champ Q2 :
+    L('JB.P', 'f2.1+', 'DC+'), L('JB.M', 'f2.3−', 'DC-'),
     // ---- protections DC : Q2 → fusibles gPV, parafoudre en parallèle, → MPPT ----
     L('f2.2+', 'dcfuse.1+', 'DC+'), L('f2.4−', 'dcfuse.3−', 'DC-'),
     L('dcfuse.1+', 'dcspd.+', 'DC+'), L('dcfuse.3−', 'dcspd.−', 'DC-'),
