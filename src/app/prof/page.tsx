@@ -14,7 +14,7 @@ import {
   type AttemptWithStudent,
   type StudentBrief,
 } from '@/lib/db/classes';
-import { addMessage, closeAttempt, reopenAttempt } from '@/lib/db/attempts';
+import { addMessage, closeAttempt, reopenAttempt, resetAttempt } from '@/lib/db/attempts';
 import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
@@ -306,6 +306,18 @@ export default function ProfPage() {
     } catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
     finally { setBusy(false); }
   }, [live, currentId, refresh]);
+
+  const resetOne = useCallback(async (id: string, who: string, force: boolean) => {
+    const msg = force
+      ? `FORCER la réinitialisation du TP TERMINÉ de ${who} ?\n\nSa note finale et toute sa progression seront EFFACÉES. Il repartira de zéro. Irréversible.`
+      : `Réinitialiser le TP de ${who} ?\n\nProgression et note perdues, le TP repart de zéro (non abordé). Irréversible.`;
+    if (!window.confirm(msg)) return;
+    if (force && !window.confirm('Confirmer : effacer définitivement ce TP terminé et sa note ?')) return;
+    setBusy(true);
+    try { await resetAttempt(id, force); if (currentId) await refresh(currentId); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
+    finally { setBusy(false); }
+  }, [currentId, refresh]);
 
   useEffect(() => {
     if (!currentId) return;
@@ -672,6 +684,19 @@ export default function ProfPage() {
                                 title="Rouvrir le TP pour la reprise"
                                 className="rounded-lg border border-[#D3D9E1] bg-white px-3 py-2 text-[12.5px] font-bold text-[#66717F] hover:border-[#1D6FE0] hover:text-[#1D6FE0] disabled:opacity-40">
                                 Réactiver
+                              </button>
+                            )}
+                            {termine ? (
+                              <button onClick={() => resetOne(a.id, a.student?.full_name ?? a.student?.email ?? 'cet élève', true)} disabled={busy}
+                                title="TP terminé : forcer la réinitialisation (efface la note finale)"
+                                className="rounded-lg bg-[#D93A3A] px-3 py-2 text-[12.5px] font-bold text-white hover:bg-[#bf2f2f] disabled:opacity-40">
+                                Réinitialiser (forcer)
+                              </button>
+                            ) : (
+                              <button onClick={() => resetOne(a.id, a.student?.full_name ?? a.student?.email ?? 'cet élève', false)} disabled={busy}
+                                title="Remettre le TP à zéro (non abordé) — irréversible"
+                                className="rounded-lg border border-[#F3C2C2] bg-white px-3 py-2 text-[12.5px] font-bold text-[#D93A3A] hover:bg-[#FDF0F0] disabled:opacity-40">
+                                Réinitialiser
                               </button>
                             )}
                             <button onClick={() => setOpenId(a.id)}

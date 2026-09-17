@@ -133,6 +133,17 @@ export async function reopenAttempt(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Prof/admin : réinitialiser un TP → « non abordé » (suppression de la tentative et
+ * de ses données liées). Un TP réellement 'termine' est protégé : passer `force=true`
+ * pour l'effacer quand même (efface aussi sa note finale). Irréversible.
+ */
+export async function resetAttempt(id: string, force = false): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc('reset_attempt', { p_attempt: id, p_force: force });
+  if (error) throw new Error(error.message);
+}
+
 /** All the attempts of the signed-in student (catalogue badges, résumés). */
 export async function listMyAttempts(): Promise<AttemptRow[]> {
   const supabase = createClient();
