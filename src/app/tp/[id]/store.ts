@@ -265,10 +265,17 @@ export const useParcours = create<ParcoursState>((set, get) => {
   const schedule = () => {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const { attemptId, st, offline } = get();
-      if (!attemptId || offline) return;
+      const { attemptId, st } = get();
+      // On tente TOUJOURS de sauvegarder : ne jamais bloquer définitivement sur
+      // `offline`. Une micro-coupure réseau faisait rester `offline: true` pour
+      // toujours et la progression de l'élève n'était plus jamais enregistrée
+      // (bug constaté le 2026-09-17). Ici la session se répare seule : au premier
+      // save réussi après le retour du réseau, tout l'état courant (étapes,
+      // erreurs…) est persisté et `offline` repasse à false.
+      if (!attemptId) return;
       set({ saving: true });
       saveAttemptState(attemptId, st, st.stage)
+        .then(() => set({ offline: false }))
         .catch(() => set({ offline: true }))
         .finally(() => set({ saving: false }));
     }, 800);

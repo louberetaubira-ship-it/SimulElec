@@ -28,7 +28,9 @@ import { noteSur20 } from '@/lib/eleve-stats';
 import { ONLINE_MS, presenceStats, formatDuree, type PresenceStat } from '@/lib/db/presence';
 
 /** Nombre d'étapes du parcours. */
-const ETAPES = STAGE_COUNT - 1;
+// Nombre TOTAL d'étapes du parcours (12). On affiche « étapes validées / total » :
+// un élève qui a validé 11 étapes et travaille sur la 12ᵉ voit 11/12.
+const ETAPES = STAGE_COUNT;
 
 const DIPLOMA_SHORT: Record<string, string> = Object.fromEntries(DIPLOMAS.map((d) => [d.id, d.short]));
 
@@ -564,10 +566,10 @@ export default function ProfPage() {
                         <td className="px-4 py-3.5">
                           <div className="text-[13px] text-[#66717F]">{a.tp_id}</div>
                           <div className="font-[var(--font-mono)] text-[13.5px] font-bold">
-                            {a.stage}<span className="text-[#94A3B8]">/{ETAPES}</span>
+                            {termine ? ETAPES : a.stage}<span className="text-[#94A3B8]">/{ETAPES}</span>
                           </div>
                           <div className="mt-1.5 h-[5px] w-[72px] overflow-hidden rounded-full bg-[#E7EAEF]">
-                            <div className="h-full rounded-full bg-[#E39A00]" style={{ width: `${Math.min(100, (a.stage / ETAPES) * 100)}%` }} />
+                            <div className="h-full rounded-full bg-[#E39A00]" style={{ width: `${Math.min(100, ((termine ? ETAPES : a.stage) / ETAPES) * 100)}%` }} />
                           </div>
                         </td>
                         <td className="px-4 py-3.5">
