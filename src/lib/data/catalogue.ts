@@ -366,6 +366,36 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: '2', fx: 0.26, fy: 0.93 }, { id: '4', fx: 0.74, fy: 0.93 },
     ],
   }),
+  // ---- Off-grid 24 V : régulateur, convertisseur, protection batterie, tableau ----
+  vector({
+    key: 'mppt', name: 'Régulateur MPPT 150/70 · 24 V', ref: 'MPPT-150-70', kind: 'dc',
+    family: 'Photovoltaïque', poles: 2, w: 90, h: 120,
+    terminals: [
+      { id: 'PV+', fx: 0.3, fy: 0.06 }, { id: 'PV−', fx: 0.7, fy: 0.06 },
+      { id: 'B+', fx: 0.3, fy: 0.94 }, { id: 'B−', fx: 0.7, fy: 0.94 },
+    ],
+  }),
+  vector({
+    key: 'multiplus', name: 'Convertisseur/chargeur MultiPlus 24/3000', ref: 'MULTI-24-3000', kind: 'inverter',
+    family: 'Photovoltaïque', poles: 2, w: 110, h: 130,
+    terminals: [
+      { id: 'B+', fx: 0.16, fy: 0.95 }, { id: 'B−', fx: 0.34, fy: 0.95 },
+      { id: 'L', fx: 0.58, fy: 0.95 }, { id: 'N', fx: 0.73, fy: 0.95 }, { id: 'PE', fx: 0.87, fy: 0.95 },
+    ],
+  }),
+  vector({
+    key: 'megafuse', name: 'Fusible batterie MEGA 125 A', ref: 'MEGA-125', kind: 'dc',
+    family: 'Photovoltaïque', poles: 1, w: 52, h: 60,
+    terminals: [{ id: '1', fx: 0.5, fy: 0.1 }, { id: '2', fx: 0.5, fy: 0.9 }],
+  }),
+  vector({
+    key: 'iddr', name: 'Interrupteur différentiel 30 mA · type A · 2P', ref: 'IDDR-30A-2P', kind: 'mcb',
+    family: 'Différentiels', poles: 2, w: 72, h: 120,
+    terminals: [
+      { id: 'L1', fx: 0.3, fy: 0.07 }, { id: 'N1', fx: 0.7, fy: 0.07 },
+      { id: 'L2', fx: 0.3, fy: 0.93 }, { id: 'N2', fx: 0.7, fy: 0.93 },
+    ],
+  }),
 ];
 
 export const CATALOGUE_BY_KEY: Record<string, CatalogueItem> = Object.fromEntries(CATALOGUE.map(c => [c.key, c]));

@@ -356,6 +356,63 @@ export function Cad32Svg() {
   );
 }
 
+/** Régulateur de charge MPPT : entrée PV en haut, sortie batterie en bas. */
+export function MpptSvg() {
+  return (
+    <svg viewBox="0 0 90 120" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x="3" y="4" width="84" height="112" rx="8" fill="#0A84FF" stroke="#0A5AB0" strokeWidth="1.5" />
+      <rect x="12" y="14" width="66" height="26" rx="3" fill="#08213F" />
+      <text x="45" y="31" textAnchor="middle" fontFamily={MONO} fontSize="9" fill="#5CFF9A">MPPT</text>
+      <text x="45" y="56" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#EAF4FF">150 / 70</text>
+      <text x="45" y="68" textAnchor="middle" fontFamily={SANS} fontSize="6" fill="#Bcdcff">régulateur solaire</text>
+      <circle cx="45" cy="86" r="9" fill="none" stroke="#EAF4FF" strokeWidth="1.5" /><text x="45" y="90" textAnchor="middle" fontFamily={MONO} fontSize="8" fill="#EAF4FF">☀</text>
+      <g fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#EAF4FF"><text x="20" y="12">PV+</text><text x="58" y="12">PV−</text><text x="19" y="114">B+</text><text x="59" y="114">B−</text></g>
+    </svg>
+  );
+}
+/** Convertisseur/chargeur MultiPlus : entrée batterie (DC) + sortie 230 V (AC). */
+export function MultiplusSvg() {
+  return (
+    <svg viewBox="0 0 110 130" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x="4" y="6" width="102" height="112" rx="8" fill="#0A84FF" stroke="#0A5AB0" strokeWidth="1.5" />
+      <rect x="12" y="14" width="86" height="30" rx="4" fill="#08213F" />
+      <text x="18" y="33" fontFamily={MONO} fontSize="8" fill="#5CFF9A">2400 W</text>
+      <text x="12" y="60" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#EAF4FF">MULTIPLUS 24/3000</text>
+      <text x="12" y="70" fontFamily={SANS} fontSize="6" fill="#Bcdcff">convertisseur · chargeur</text>
+      <rect x="12" y="82" width="86" height="20" rx="3" fill="#08213F" />
+      <text x="16" y="95" fontFamily={MONO} fontSize="6" fill="#5CFF9A">DC 24 V → AC 230 V · 50 Hz</text>
+      <g fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#EAF4FF"><text x="10" y="114">B+</text><text x="28" y="114">B−</text><text x="60" y="114">L</text><text x="77" y="114">N</text><text x="90" y="114">PE</text></g>
+    </svg>
+  );
+}
+/** Fusible batterie MEGA (forte intensité) : deux bornes à boulon. */
+export function MegaFuseSvg() {
+  return (
+    <svg viewBox="0 0 52 60" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="2" y="10" width="48" height="40" rx="6" fill="#3A2A00" stroke="#E39A00" strokeWidth="1.5" />
+      <circle cx="26" cy="8" r="4" fill="#8E969E" stroke="#4E555C" /><circle cx="26" cy="52" r="4" fill="#8E969E" stroke="#4E555C" />
+      <text x="26" y="28" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#FFD54A">MEGA</text>
+      <text x="26" y="40" textAnchor="middle" fontFamily={MONO} fontSize="7" fill="#FFD54A">125 A</text>
+    </svg>
+  );
+}
+/** Interrupteur différentiel 30 mA (tête de groupe du tableau). */
+export function IddrSvg() {
+  return (
+    <svg viewBox="0 0 72 120" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="70" height="118" rx="4" fill="#F4F5F7" stroke="#6E7780" />
+      <rect x="1" y="1" width="70" height="14" rx="4" fill="#C9CED4" />
+      <rect x="1" y="105" width="70" height="14" rx="4" fill="#C9CED4" />
+      <g fill="#3A4047"><circle cx="22" cy="8" r="3.5" /><circle cx="50" cy="8" r="3.5" /><circle cx="22" cy="112" r="3.5" /><circle cx="50" cy="112" r="3.5" /></g>
+      <rect x="26" y="30" width="20" height="30" rx="3" fill="#20262D" />
+      <rect x="30" y="34" width="12" height="10" rx="1" fill="#3DFF7A" />
+      <text x="36" y="74" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#3A4047">30 mA</text>
+      <text x="36" y="86" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#66717F">type A</text>
+      <rect x="26" y="92" width="20" height="9" rx="2" fill="#D93A3A" /><text x="36" y="99" textAnchor="middle" fontFamily={SANS} fontSize="5" fill="#fff">TEST</text>
+    </svg>
+  );
+}
+
 export function svgForKey(key: string): React.ReactNode | null {
   switch (key) {
     case 'pvpanel': return <PvPanelSvg />;
@@ -365,6 +422,10 @@ export function svgForKey(key: string): React.ReactNode | null {
     case 'dcfuse': return <DcModSvg kind="fuse" />;
     case 'battery': return <BatterySvg />;
     case 'agcp': return <AgcpSvg />;
+    case 'mppt': return <MpptSvg />;
+    case 'multiplus': return <MultiplusSvg />;
+    case 'megafuse': return <MegaFuseSvg />;
+    case 'iddr': return <IddrSvg />;
     case 'gk1es': return <Gk1Svg />;
     case 'lc1d50': return <Lc1D50Svg />;
     case 'lrd3357': return <Lrd3357Svg />;
