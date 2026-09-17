@@ -108,7 +108,8 @@ const FAULTS: Fault[] = [
 
 const NETS: Record<string, TerminalNet> = {
   // ---- champ PV (toujours « vif » en journée : c'est le sectionneur Q2 qui l'isole) ----
-  'PV1.+': { net: 'DC+', live: 'always' }, 'PV1.−': { net: 'DC-', live: 'always' },
+  // Les éléments de toiture exposent leurs bornes sous les repères X1/X2 (moteur de scène).
+  'PV1.X1': { net: 'DC+', live: 'always' }, 'PV1.X2': { net: 'DC-', live: 'always' },
   'f2.1+': { net: 'DC+', live: 'always' }, 'f2.3−': { net: 'DC-', live: 'always' },
   'f2.2+': { net: 'DC+', live: 'f2' }, 'f2.4−': { net: 'DC-', live: 'f2' },
   'dcspd.+': { net: 'DC+', live: 'f2' }, 'dcspd.−': { net: 'DC-', live: 'f2' }, 'dcspd.PE': { net: 'PE', live: 'always' },
@@ -116,7 +117,8 @@ const NETS: Record<string, TerminalNet> = {
   'dcfuse.2+': { net: 'DC+', live: 'f2' }, 'dcfuse.4−': { net: 'DC-', live: 'f2' },
   'mppt.PV+': { net: 'DC+', live: 'f2' }, 'mppt.PV−': { net: 'DC-', live: 'f2' },
   // ---- parc batterie et bus continu (Q1 = sectionnement général) ----
-  'BAT.+': { net: 'DC+', live: 'always' }, 'BAT.−': { net: 'DC-', live: 'always' },
+  // La batterie (élément de toiture/extérieur) expose ses bornes sous X1 (+) / X2 (−).
+  'BAT.X1': { net: 'DC+', live: 'always' }, 'BAT.X2': { net: 'DC-', live: 'always' },
   'megafuse.1': { net: 'DC+', live: 'always' }, 'megafuse.2': { net: 'DC+', live: 'always' },
   'q1.1+': { net: 'DC+', live: 'always' }, 'q1.3−': { net: 'DC-', live: 'always' },
   'q1.2+': { net: 'DC+', live: 'q1' }, 'q1.4−': { net: 'DC-', live: 'q1' },
@@ -419,7 +421,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   recvItems: RECV,
   liaisons: [
     // ---- champ PV (arrivée toiture posée par l'installateur) → sectionneur Q2 ----
-    L('PV1.+', 'f2.1+', 'DC+', 'pre'), L('PV1.−', 'f2.3−', 'DC-', 'pre'),
+    L('PV1.X1', 'f2.1+', 'DC+', 'pre'), L('PV1.X2', 'f2.3−', 'DC-', 'pre'),
     // ---- protections DC : Q2 → fusibles gPV, parafoudre en parallèle, → MPPT ----
     L('f2.2+', 'dcfuse.1+', 'DC+'), L('f2.4−', 'dcfuse.3−', 'DC-'),
     L('dcfuse.1+', 'dcspd.+', 'DC+'), L('dcfuse.3−', 'dcspd.−', 'DC-'),
@@ -429,8 +431,8 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
     L('mppt.B+', 'q1.2+', 'DC+'), L('mppt.B−', 'q1.4−', 'DC-'),
     L('km1.B+', 'q1.2+', 'DC+'), L('km1.B−', 'q1.4−', 'DC-'),
     // ---- parc batterie EXTÉRIEUR → fusible MEGA → sectionneur parc Q1 ----
-    L('BAT.+', 'megafuse.1', 'DC+'), L('megafuse.2', 'q1.1+', 'DC+'),
-    L('BAT.−', 'q1.3−', 'DC-'),
+    L('BAT.X1', 'megafuse.1', 'DC+'), L('megafuse.2', 'q1.1+', 'DC+'),
+    L('BAT.X2', 'q1.3−', 'DC-'),
     // ---- départ 230 V ~ : onduleur → différentiel Q3 → tableau de répartition ----
     L('km1.L', 'f3.L1', 'L1'), L('km1.N', 'f3.N1', 'N'), L('km1.PE', 'x1_5.a', 'PE'),
     L('f3.L2', 'x1_1.a', 'L1'), L('f3.N2', 'x1_4.a', 'N'),
