@@ -265,29 +265,46 @@ export default function ProfPage() {
     if (!currentId) return;
     refresh(currentId);
     const supabase = createClient();
-    const channel = supabase
-      .channel(`classe-${currentId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attempts' }, () => refresh(currentId))
-      // Présence en TEMPS RÉEL : chaque battement d'élève met à jour last_seen_at ;
-      // on l'applique directement (websocket, indépendant des timers), pour que TOUTES
-      // les sessions prof/admin voient le même état — fini la divergence PC / tableau.
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `class_id=eq.${currentId}` },
-        (payload) => {
-          const row = payload.new as { id?: string; last_seen_at?: string | null };
-          if (!row?.id) return;
-          setStudents((prev) => prev.map((s) => (s.id === row.id ? { ...s, last_seen_at: row.last_seen_at ?? s.last_seen_at } : s)));
-        },
-      )
-      .subscribe();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+
+    (async () => {
+      // IMPORTANT : le client @supabase/ssr ne propage pas toujours le jeton de session
+      // au canal Realtime. Sans lui, la RLS de `postgres_changes` ne délivre AUCUN
+      // événement (le serveur ne sait pas que c'est un enseignant). On le force donc,
+      // sinon la présence temps réel ne remonte jamais et un onglet bridé reste figé.
+      try {
+        const { data } = await supabase.auth.getSession();
+        supabase.realtime.setAuth(data.session?.access_token ?? null);
+      } catch { /* la présence reste sur le filet de sécurité (poll) */ }
+      if (cancelled) return;
+
+      channel = supabase
+        .channel(`classe-${currentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'attempts' }, () => refresh(currentId))
+        // Présence en TEMPS RÉEL : chaque battement d'élève met à jour last_seen_at ;
+        // on l'applique directement (websocket, indépendant des timers), pour que TOUTES
+        // les sessions prof/admin voient le même état — fini la divergence PC / tableau.
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `class_id=eq.${currentId}` },
+          (payload) => {
+            const row = payload.new as { id?: string; last_seen_at?: string | null };
+            if (!row?.id) return;
+            setStudents((prev) => prev.map((s) => (s.id === row.id ? { ...s, last_seen_at: row.last_seen_at ?? s.last_seen_at } : s)));
+          },
+        )
+        .subscribe();
+    })();
+
     // Filet de sécurité : re-synchro périodique et au retour de l'onglet (si le websocket a sauté).
-    const poll = window.setInterval(() => refresh(currentId), 30_000);
+    const poll = window.setInterval(() => refresh(currentId), 20_000);
     const onVisible = () => { if (document.visibilityState === 'visible') refresh(currentId); };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
       window.clearInterval(poll);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
