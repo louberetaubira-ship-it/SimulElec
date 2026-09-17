@@ -1,0 +1,21 @@
+/*
+ * Correctif de saisie du parcours élève.
+ * Les bornes de bornier sont au pas de 18 px et les bornes du coffret de porte à 14 px :
+ * le halo tactile de 40 px de `panel.css` recouvre alors le centre de ses voisines et
+ * rend certaines bornes inatteignables. On le ramène à 18 px dans le parcours (le point
+ * jaune fait 8 px) ; la platine reste zoomable et les appareils gardent des cibles larges.
+ */
+.se-panelwrap .se-hit {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+/* Zone de travail d'une étape : étagère de mesure + platine zoomable. */
+.tp-stage { display: flex; width: 100%; flex-direction: column; gap: 8px; }
+
+/* La platine descend jusqu'au bas de l'étape : la zone de travail prend ce qui reste
+   une fois l'étagère d'instruments posée. Voir `.se-ws-fill` dans workspace.css. */
+@media (min-width: 1024px) {
+  .tp-stage { flex: 1 1 auto; min-height: 0; }
+}

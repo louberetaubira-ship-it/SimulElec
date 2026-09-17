@@ -1,0 +1,74 @@
+/* Outils de correction du câblage : barre, menu contextuel, message d'annulation, dialogue. */
+
+.wt-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+.wt-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 40px; min-width: 40px; padding: 0 11px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  color: var(--text); font: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+}
+.wt-btn:hover:not(:disabled) { border-color: var(--accent); }
+.wt-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wt-btn:disabled { opacity: .45; cursor: default; }
+.wt-btn.ghost { background: var(--surface-2); color: var(--muted); }
+.wt-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.wt-btn.danger:not(:disabled) { color: var(--crit); border-color: color-mix(in srgb, var(--crit) 45%, var(--line)); }
+.wt-btn.crit { background: var(--crit); border-color: var(--crit); color: #fff; }
+
+/* barre haute du mode atelier : fond sombre, libellés masqués sur petit écran */
+.wt-bar.compact .wt-btn {
+  min-height: 34px; min-width: 34px; padding: 0 8px; font-size: 11.5px;
+  background: transparent; color: inherit; border-color: currentColor; opacity: .9;
+}
+.wt-bar.compact .wt-btn:disabled { opacity: .35; }
+@media (max-width: 900px) {
+  .wt-bar.compact .wt-btn .lbl { display: none; }
+}
+
+/* ---- menu contextuel (appui long) */
+.wt-menu {
+  position: fixed; z-index: 80; display: flex; flex-direction: column; gap: 4px;
+  min-width: 148px; padding: 5px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .28);
+}
+.wt-menu button {
+  min-height: 42px; border: 0; border-radius: 8px; background: transparent;
+  font: inherit; font-size: 13px; font-weight: 600; text-align: left; padding: 0 10px;
+  color: var(--text); cursor: pointer;
+}
+.wt-menu button:hover { background: var(--surface-2); }
+.wt-menu button.del { color: var(--crit); }
+
+/* ---- message « … supprimé · Annuler » */
+.wt-undo {
+  position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 70;
+  display: flex; align-items: center; gap: 10px; max-width: min(92vw, 460px);
+  padding: 7px 8px 7px 14px; border-radius: 999px;
+  background: var(--text); color: var(--app); font-size: 12.5px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .3);
+}
+.wt-undo span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wt-undo button {
+  flex: none; min-height: 34px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--accent); background: transparent; color: var(--accent);
+  font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.wt-undo button.x { min-width: 34px; padding: 0; border-color: transparent; color: inherit; font-size: 16px; }
+
+/* ---- dialogue de confirmation */
+.wt-modal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; }
+.wt-modal-back { position: absolute; inset: 0; background: rgba(20, 26, 33, .5); }
+.wt-modal-box {
+  position: relative; width: min(94vw, 430px); display: flex; flex-direction: column; gap: 10px;
+  padding: 16px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
+}
+.wt-modal-box h2 { margin: 0; font-family: var(--font-title), inherit; font-size: 18px; font-weight: 700; }
+.wt-modal-box .bd { font-size: 12.5px; line-height: 1.55; color: var(--muted); display: grid; gap: 6px; }
+.wt-modal-box .bd b { color: var(--text); }
+.wt-modal-box .ft { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.wt-modal-box .ft .wt-btn { flex: 1 1 auto; }
