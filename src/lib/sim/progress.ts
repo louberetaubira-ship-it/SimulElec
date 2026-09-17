@@ -379,14 +379,18 @@ export interface ServiceCheck { id: string; title: string; ok: boolean }
  * Les repères viennent du TP : « F2 » sur le démarrage direct, « Q2 » sur la perceuse.
  */
 export function serviceChecks(tp: TpDefinition, st: AttemptState, sim: SimState): ServiceCheck[] {
-  const marche = startButtons(tp)[0]?.rep ?? 'le bouton de marche';
   const km1 = repereSlot(tp, 'km1');
-  const voyant = (tp.pupitre ?? []).find(p => p.kind === 'lamp')?.rep ?? 'H1';
+  const btn = startButtons(tp)[0]?.rep;
+  const voyant = (tp.pupitre ?? []).find(p => p.kind === 'lamp')?.rep;
+  // Scène PV sans pupitre : on met l'onduleur en marche en cliquant dessus sur la platine.
+  const essaiTitle = btn
+    ? `Essai : ${btn} → ${km1} s'enclenche et ${voyant ?? 'le voyant'} s'allume`
+    : `Essai : mettre ${km1} en marche → le 230 V apparaît au tableau`;
   return [
     { id: 'unlock', title: 'Retirer le cadenas et l\'étiquette de consignation', ok: st.decons.unlock },
     { id: 'close', title: `Refermer ${listeMiseSousTension(tp)}`, ok: st.decons.close },
-    { id: 'essai', title: `Essai : ${marche} → ${km1} s'enclenche et ${voyant} s'allume`, ok: st.decons.essai },
-    { id: 'run', title: 'Moteur en marche', ok: isRunning(sim) || st.decons.essai },
+    { id: 'essai', title: essaiTitle, ok: st.decons.essai },
+    { id: 'run', title: tp.hasMotor ? 'Moteur en marche' : 'Installation en service (230 V présent)', ok: isRunning(sim) || st.decons.essai },
   ];
 }
 

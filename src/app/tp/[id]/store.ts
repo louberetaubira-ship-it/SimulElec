@@ -1013,7 +1013,23 @@ export const useParcours = create<ParcoursState>((set, get) => {
       }
       if (slotId === 'f3') { const r = toggleF3(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
       if (slotId === 'f1') { const r = resetF1(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
-      if (slotId === 'km1') { const rep = repereSlot(tp, 'km1'); say(sim.km1 ? `${rep} est enclenché.` : `${rep} est retombé.`); return; }
+      if (slotId === 'km1') {
+        const rep = repereSlot(tp, 'km1');
+        // Mise en service PV : sans pupitre, on enclenche l'onduleur en cliquant dessus
+        // une fois la platine refermée (Q1, Q2, Q3). L'essai devient concluant.
+        if (st.stage === ETAPE.MISE_EN_SERVICE && !sim.km1) {
+          if (sim.q1 && sim.f2 && sim.f3) {
+            set({ sim: { ...sim, km1: true } });
+            say(`${rep} : onduleur mis en marche — le 230 V apparaît au tableau.`);
+            evaluate();
+          } else {
+            say(`Referme d'abord ${listeMiseSousTension(tp, 'et')} avant de mettre ${rep} en marche.`);
+          }
+          return;
+        }
+        say(sim.km1 ? `${rep} est enclenché.` : `${rep} est retombé.`);
+        return;
+      }
       say(tp.slots.find(s => s.id === slotId)?.label ?? slotId);
     },
 

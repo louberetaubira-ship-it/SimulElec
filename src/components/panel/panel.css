@@ -107,6 +107,9 @@
   border: 1.5px solid #6B5A00; transform: translate(-50%, -50%); z-index: 5;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, .75); padding: 0;
 }
+/* polarité DC : plot rouge (+) et plot noir (−) sur le champ PV et le parc batterie */
+.se-term.pol-plus { background: #E23B3B; border-color: #7A1F1F; }
+.se-term.pol-minus { background: #23282E; border-color: #000; }
 .se-term.hl { background: #E39A00; box-shadow: 0 0 0 4px rgba(227, 154, 0, .45); }
 .se-term.pick { cursor: crosshair; outline: 2px solid rgba(227, 154, 0, .9); outline-offset: 1px; }
 /* borne visée : l'élève voit laquelle il va prendre AVANT de cliquer */

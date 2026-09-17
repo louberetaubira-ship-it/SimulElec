@@ -198,8 +198,13 @@ export default function Panel(props: PanelProps) {
   const annexTerms: TerminalMark[] = React.useMemo(() => {
     const out: TerminalMark[] = [];
     for (const it of tp.annexItems ?? []) {
+      const dc = it.key === 'battery' || it.key === 'pvpanel';
       for (const [id, p] of Object.entries(annexTerminals(it))) {
-        out.push({ id, pos: { x: p.x, y: p.y }, label: id.split('.')[1], dx: 8, dy: 0 });
+        const term = id.split('.')[1];
+        // Sur le champ PV et le parc batterie : X1 = pôle + (rouge), X2 = pôle − (noir).
+        const pol = dc ? (term === 'X1' ? 'plus' : term === 'X2' ? 'minus' : undefined) : undefined;
+        const label = pol === 'plus' ? `${term} +` : pol === 'minus' ? `${term} −` : term;
+        out.push({ id, pos: { x: p.x, y: p.y }, label, dx: 8, dy: 0, pol });
       }
     }
     return out;

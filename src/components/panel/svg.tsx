@@ -121,7 +121,7 @@ export function BatterySvg() {
         <rect key={i} x="18" y={30 + i * 13} width="64" height="9" rx="2" fill={i < 4 ? '#1E9E63' : '#DDE1E5'} />
       ))}
       <text x="50" y="106" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#3A4047">BATTERIE LiFePO₄</text>
-      <text x="50" y="116" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#66717F">48 V · 5 kWh · 80 %</text>
+      <text x="50" y="116" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#66717F">24 V · 1200 Ah · 80 %</text>
       <rect x="26" y="120" width="14" height="8" rx="2" fill="#D93A3A" />
       <rect x="60" y="120" width="14" height="8" rx="2" fill="#20262D" />
     </svg>

@@ -6,7 +6,7 @@
 import React from 'react';
 import type { Point } from '@/lib/scene/geometry';
 
-export interface TerminalMark { id: string; pos: Point; label?: string; dx?: number; dy?: number; rot?: boolean }
+export interface TerminalMark { id: string; pos: Point; label?: string; dx?: number; dy?: number; rot?: boolean; pol?: 'plus' | 'minus' }
 
 export interface TerminalsProps {
   terminals: TerminalMark[];
@@ -27,10 +27,11 @@ export default function Terminals({ terminals, marks, highlighted, aimed, pick, 
         const hl = highlighted?.has(t.id) ? ' hl' : '';
         const sv = survol === t.id ? ' sv' : '';
         const fx = aimed?.has(t.id) ? ' fx' : '';
+        const pol = t.pol ? ` pol-${t.pol}` : '';
         return (
           <React.Fragment key={t.id}>
             <div
-              className={`se-term${hl}${fx}${sv}${pick ? ' pick' : ''}`}
+              className={`se-term${hl}${fx}${sv}${pol}${pick ? ' pick' : ''}`}
               data-t={t.id}
               style={{ left: t.pos.x, top: t.pos.y }}
             />

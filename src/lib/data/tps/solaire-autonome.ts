@@ -176,10 +176,8 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
     { k: 'Mise en service', v: 'refermer Q1, Q2 puis Q3 et mettre l\'onduleur en marche : le 230 V doit apparaître au tableau.' },
     { k: 'Avant mise en service', v: 'consignation sur Q1 · VAT · continuité PE · isolement 500 V du départ AC.' },
   ],
-  pupitre: [
-    { rep: 'H1', kind: 'lamp', color: 'green', signals: 'run', label: 'voyant · départ 230 V présent' },
-    { rep: 'S2', kind: 'no', color: 'green', label: 'MARCHE · mise en service de l\'onduleur' },
-  ],
+  // Pas de pupitre moteur (voyant/bouton) sur une installation PV : la mise en
+  // service se fait en enclenchant l'onduleur MultiPlus directement sur la platine.
   preparation: {
     identification: [
       {
@@ -524,6 +522,6 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
     },
   ],
   motor: null,
-  station: true,
+  station: false,
   hasMotor: false,
 };
