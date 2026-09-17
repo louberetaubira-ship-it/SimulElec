@@ -21,7 +21,9 @@ import {
 } from '@/lib/db/classes';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
 import { eleveStats, noteSur20 } from '@/lib/eleve-stats';
-import { DIPLOMAS, type DiplomaId } from '@/lib/data/competences';
+import { DIPLOMAS, type CompetenceEval, type DiplomaId } from '@/lib/data/competences';
+import { tpById } from '@/lib/data/tps';
+import { liveEvaluation, liveNotes } from '@/lib/sim/live';
 import { generatePassword, loginFor } from '@/lib/eleves';
 import { telechargerIdentifiantsPdf } from '@/lib/pdfIdentifiants';
 import {
@@ -922,9 +924,26 @@ export default function ClassesPage() {
                 <tbody>
                   {students.map(({ student }) => {
                     const list = parEleve.get(student.id) ?? [];
-                    const encours = list.find((a) => a.status === 'en_cours') ?? list[0] ?? null;
+                    const encours = list.find((a) => a.status === 'en_cours')
+                      ?? list.find((a) => a.status === 'cloture') ?? list[0] ?? null;
                     const stats = eleveStats(list);
                     const derniere = list.find((a) => a.status === 'termine' && a.score != null) ?? null;
+                    // TP clôturé par le professeur : note projetée figée, réactivable.
+                    // Sa note et son bilan de compétences s'affichent « sous réserve »,
+                    // recalculés depuis l'état gelé (pas encore dans le bilan cumulé).
+                    const cloture = list.find((a) => a.status === 'cloture') ?? null;
+                    const clotDef = cloture ? tpById(cloture.tp_id) : undefined;
+                    const clotDip: DiplomaId | null =
+                      cloture?.diploma ?? student.diploma ?? current?.diploma ?? null;
+                    const clotNote = cloture
+                      ? (cloture.score != null
+                          ? noteSur20(cloture.score)
+                          : (clotDef ? liveNotes(clotDef, cloture.state).projetee : null))
+                      : null;
+                    const clotComp: CompetenceEval[] = cloture && clotDef && clotDip
+                      ? (liveEvaluation(clotDef, cloture.state, clotDip) ?? [])
+                      : [];
+                    const bilanComp = stats.competences.length ? stats.competences : clotComp;
                     return (
                       <tr key={student.id} className="border-t border-line align-top">
                         <td className="px-3 py-2.5">
@@ -944,7 +963,11 @@ export default function ClassesPage() {
                             <>
                               <div>{encours.tp_id}</div>
                               <div className="text-[11px] text-muted">
-                                {encours.status === 'termine' ? 'terminé' : 'en cours'} ·{' '}
+                                {encours.status === 'termine'
+                                  ? 'terminé'
+                                  : encours.status === 'cloture'
+                                    ? 'clôturé'
+                                    : 'en cours'} ·{' '}
                                 {dateCourte(encours.updated_at)}
                               </div>
                             </>
@@ -965,13 +988,30 @@ export default function ClassesPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 font-mono">
-                          {derniere?.score != null ? `${noteSur20(derniere.score)}/20` : '—'}
+                          {derniere?.score != null ? (
+                            `${noteSur20(derniere.score)}/20`
+                          ) : clotNote != null ? (
+                            <>
+                              <span className="text-[#1D6FE0]">{clotNote}/20</span>
+                              <div className="font-sans text-[11px] font-semibold text-[#1D6FE0]">
+                                projetée · clôturée
+                              </div>
+                              <div className="font-sans text-[10.5px] font-normal text-muted">
+                                sous réserve · réactivable
+                              </div>
+                            </>
+                          ) : (
+                            '—'
+                          )}
                           {stats.moyenne != null && (
                             <div className="text-[11px] font-normal text-muted">moy. {stats.moyenne}/20</div>
                           )}
                         </td>
                         <td className="px-3 py-2.5">
-                          <ResumeCompetences competences={stats.competences} />
+                          <ResumeCompetences competences={bilanComp} />
+                          {stats.competences.length === 0 && clotComp.length > 0 && (
+                            <div className="mt-0.5 text-[10.5px] text-muted">bilan sous réserve (TP clôturé)</div>
+                          )}
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
