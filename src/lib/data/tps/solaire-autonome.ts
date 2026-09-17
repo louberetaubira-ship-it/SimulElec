@@ -181,42 +181,42 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   preparation: {
     identification: [
       {
-        id: 'id-mppt', rep: 'MPPT',
+        id: 'id-mppt', rep: 'MPPT', focus: 'MPPT',
         invite: 'Quel appareil relie le champ PV au parc batterie en cherchant le point de puissance maximale ?',
         options: ['Un régulateur MPPT', 'Un onduleur réseau', 'Un parafoudre', 'Un disjoncteur de branchement'],
         answer: 0,
         why: 'Le MPPT 150/70 est le régulateur de charge : il adapte en permanence la tension du champ pour tirer le maximum de puissance et charger le parc 24 V.',
       },
       {
-        id: 'id-onduleur', rep: 'MultiPlus',
+        id: 'id-onduleur', rep: 'MultiPlus', focus: 'ONDU',
         invite: 'Quel appareil fabrique le 230 V de l\'auberge à partir du parc 24 V ?',
         options: ['L\'onduleur/chargeur MultiPlus', 'Le régulateur MPPT', 'Le parafoudre DC', 'Le sectionneur PV'],
         answer: 0,
         why: 'Le MultiPlus 24/3000 est l\'onduleur : il convertit le 24 V continu du parc en 230 V alternatif pour les récepteurs.',
       },
       {
-        id: 'id-mega', rep: 'MEGA',
+        id: 'id-mega', rep: 'MEGA', focus: 'FB',
         invite: 'Que protège le fusible MEGA 125 A placé au plus près du parc ?',
         options: ['La liaison batterie ↔ onduleur contre le court-circuit', 'Les modules PV', 'Le départ éclairage', 'Le régulateur contre la foudre'],
         answer: 0,
         why: 'Le parc peut débiter un très fort courant de court-circuit : le fusible MEGA 125 A protège la liaison batterie ↔ onduleur, au plus près des bornes.',
       },
       {
-        id: 'id-diff', rep: 'Q3',
+        id: 'id-diff', rep: 'Q3', focus: 'Q3',
         invite: 'Sur le départ 230 V, ce repère désigne :',
         options: ['Un interrupteur différentiel 30 mA', 'Un sectionneur DC', 'Un parafoudre DC', 'Un régulateur'],
         answer: 0,
         why: 'Q3 est l\'interrupteur différentiel 30 mA type A : il protège les personnes sur le départ alternatif de l\'onduleur.',
       },
       {
-        id: 'id-q2', rep: 'Q2',
+        id: 'id-q2', rep: 'Q2', focus: 'Q2',
         invite: 'En tête du champ PV, quel organe isole les modules côté continu ?',
         options: ['Un sectionneur DC 1000 V', 'Un différentiel AC', 'Un contacteur', 'Un porte-fusible AC'],
         answer: 0,
         why: 'Q2 est le sectionneur DC 1000 V : il coupe et sépare le champ PV. Le matériel DC est spécifique — un appareil AC ne coupe pas un arc continu.',
       },
       {
-        id: 'id-spd', rep: 'Parafoudre DC',
+        id: 'id-spd', rep: 'Parafoudre DC', focus: 'PF1',
         invite: 'À quoi sert le parafoudre DC type 2 du coffret ?',
         options: ['Écouler les surtensions atmosphériques côté continu', 'Réguler la charge du parc', 'Mesurer le courant PV', 'Découpler les branches'],
         answer: 0,
@@ -225,7 +225,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
     ],
     fonctions: [
       {
-        id: 'fn-3s4p',
+        id: 'fn-3s4p', focus: 'PV',
         invite: '12 modules 125 Wc en 3S4P : combien de branches en parallèle, et pourquoi 3 en série ?',
         options: [
           '4 branches ; 3 en série pour rester sous les 150 V d\'entrée du MPPT',
@@ -237,7 +237,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         why: '3S4P = 3 modules en série (Voc string ≈ 66 V à froid, bien sous 150 V) × 4 branches en parallèle. La série fixe la tension, le parallèle additionne le courant.',
       },
       {
-        id: 'fn-24v',
+        id: 'fn-24v', focus: 'BAT',
         invite: 'Pourquoi choisir un parc 24 V plutôt que 12 V pour cette puissance ?',
         options: [
           'À puissance égale, 24 V divise le courant par deux : câbles, fusibles et pertes plus faibles',
@@ -249,7 +249,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         why: 'P = U × I : pour 2300 W, le courant en 24 V est deux fois plus faible qu\'en 12 V. Les sections, le calibre du MEGA et les pertes en ligne diminuent d\'autant.',
       },
       {
-        id: 'fn-mppt-pwm',
+        id: 'fn-mppt-pwm', focus: 'MPPT',
         invite: 'MPPT ou PWM pour ce site ?',
         options: [
           'MPPT : il convertit la tension et récupère la puissance quand Vmp ≫ Ubat',
@@ -261,7 +261,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         why: 'Un PWM relie quasi directement le champ au parc : toute la différence Vmp − Ubat est perdue. Le MPPT convertit et va chercher le point de puissance maximale — indispensable ici.',
       },
       {
-        id: 'fn-onduleur',
+        id: 'fn-onduleur', focus: 'ONDU',
         invite: 'Pourquoi un MultiPlus 24/3000 et non un 24/1600 ?',
         options: [
           'Ses 2400 W continus couvrent les 2300 W simultanés du bilan',
@@ -273,7 +273,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         why: 'Puissance simultanée 2300 W : le 24/3000 (2400 W continus) passe, le 24/1600 (≈ 1300 W) décrocherait dès que la pompe et le réfrigérateur démarrent ensemble.',
       },
       {
-        id: 'fn-parc-ext',
+        id: 'fn-parc-ext', focus: 'BAT',
         invite: 'Pourquoi le parc batterie est-il posé à l\'EXTÉRIEUR du coffret ?',
         options: [
           'Ventilation, masse et accès : les batteries dégagent de la chaleur et doivent être accessibles',
@@ -285,7 +285,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         why: 'Un parc dégage de la chaleur (et de l\'hydrogène pour le plomb), doit être ventilé, mis à la masse et rester accessible : il ne se met pas dans le coffret des protections.',
       },
       {
-        id: 'fn-gtl-aval',
+        id: 'fn-gtl-aval', focus: 'X1',
         invite: 'Où se trouve le tableau de répartition (GTL) par rapport à l\'onduleur ?',
         options: [
           'EN AVAL de l\'onduleur : c\'est de là que partent les récepteurs 230 V',

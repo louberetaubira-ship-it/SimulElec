@@ -25,6 +25,7 @@ import { initialSim } from '@/lib/sim/engine';
 import { reseauCommande } from '@/lib/sim/commande';
 import SchemaPuissance from '@/components/schema/SchemaPuissance';
 import SchemaCommande from '@/components/schema/SchemaCommande';
+import SchemaPv from '@/components/schema/SchemaPv';
 import { Center, Side } from './StageLayout';
 
 interface Props {
@@ -149,6 +150,9 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
     [tp],
   );
 
+  // Schéma dédié pour le photovoltaïque : la chaîne off-grid n'entre pas dans le
+  // schéma de puissance triphasé générique.
+  const pv = tp.scene === 'pv';
   const surCommande = courante?.schema === 'commande';
   const focus = courante?.focus ?? null;
   const zone = React.useMemo(
@@ -238,7 +242,7 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
           <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,.88fr)]">
             {/* Colonne gauche : schéma zoomable + plein écran */}
             <div className="flex min-h-0 flex-col gap-2">
-              {(tp.puissance || tp.folio) && (
+              {(tp.puissance || tp.folio || pv) && (
                 <>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line)]">
@@ -267,9 +271,11 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
                   </div>
                   <div className="relative h-[46vh] overflow-auto lg:h-auto lg:min-h-0 lg:flex-1">
                     <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top center' }}>
-                      {surCommande && tp.folio
-                        ? <SchemaCommande tp={tp} reseau={reseau} zone={zone} focusRep={focus} />
-                        : <SchemaPuissance tp={tp} focus={focus} />}
+                      {pv
+                        ? <SchemaPv tp={tp} focus={focus} />
+                        : surCommande && tp.folio
+                          ? <SchemaCommande tp={tp} reseau={reseau} zone={zone} focusRep={focus} />
+                          : <SchemaPuissance tp={tp} focus={focus} />}
                     </div>
                   </div>
                   {courante?.focus && (
