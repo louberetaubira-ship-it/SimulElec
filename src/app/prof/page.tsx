@@ -266,12 +266,32 @@ export default function ProfPage() {
     refresh(currentId);
     const supabase = createClient();
     const channel = supabase
-      .channel(`attempts-${currentId}`)
+      .channel(`classe-${currentId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attempts' }, () => refresh(currentId))
+      // Présence en TEMPS RÉEL : chaque battement d'élève met à jour last_seen_at ;
+      // on l'applique directement (websocket, indépendant des timers), pour que TOUTES
+      // les sessions prof/admin voient le même état — fini la divergence PC / tableau.
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `class_id=eq.${currentId}` },
+        (payload) => {
+          const row = payload.new as { id?: string; last_seen_at?: string | null };
+          if (!row?.id) return;
+          setStudents((prev) => prev.map((s) => (s.id === row.id ? { ...s, last_seen_at: row.last_seen_at ?? s.last_seen_at } : s)));
+        },
+      )
       .subscribe();
-    // la présence (last_seen_at) ne passe pas par le canal des tentatives : on rafraîchit régulièrement
+    // Filet de sécurité : re-synchro périodique et au retour de l'onglet (si le websocket a sauté).
     const poll = window.setInterval(() => refresh(currentId), 30_000);
-    return () => { supabase.removeChannel(channel); window.clearInterval(poll); };
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(currentId); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      supabase.removeChannel(channel);
+      window.clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [currentId, refresh]);
 
   // horloge locale : rafraîchit les libellés « en ligne » / « il y a X » sans re-requêter
