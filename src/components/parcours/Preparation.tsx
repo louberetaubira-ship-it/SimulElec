@@ -154,6 +154,9 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
   // Schéma dédié pour le photovoltaïque : la chaîne off-grid n'entre pas dans le
   // schéma de puissance triphasé générique.
   const pv = tp.scene === 'pv';
+  // Pour le PV, l'étude de dimensionnement 11 étapes EST la préparation : on
+  // verrouille la validation tant qu'elle n'est pas terminée.
+  const [etudeDone, setEtudeDone] = React.useState(false);
   const surCommande = courante?.schema === 'commande';
   const focus = courante?.focus ?? null;
   const zone = React.useMemo(
@@ -226,12 +229,18 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
           <div className="font-mono-num text-[20px]">{nOk} / {total}</div>
           <Note>réponses justes</Note>
         </Card>
-        <Button variant="primary" disabled={!complete} onClick={onNext}>
+        <Button variant="primary" disabled={pv ? !etudeDone : !complete} onClick={onNext}>
           {total === 0 ? 'Passer au choix du matériel' : 'Valider la préparation'}
         </Button>
       </Side>
 
       <Center>
+        {pv ? (
+          // PV : l'étude de dimensionnement complète occupe toute la zone centrale.
+          <div className="flex min-h-0 w-full flex-1 flex-col overflow-auto">
+            <PreparationEtudePv tp={tp} onDone={setEtudeDone} />
+          </div>
+        ) : (
         <div
           ref={workRef}
           className={
@@ -289,9 +298,8 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
               )}
             </div>
 
-            {/* Colonne droite : étude (PV) puis questions */}
+            {/* Colonne droite : questions d'identification / fonctions */}
             <div className="flex min-h-0 flex-col gap-4 overflow-auto lg:pr-1">
-              {pv && <PreparationEtudePv />}
               {!p && (
                 <Note>
                   Ce TP n&apos;a pas encore de préparation guidée : passe directement au choix du
@@ -317,6 +325,7 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
             </div>
           </div>
         </div>
+        )}
       </Center>
     </>
   );

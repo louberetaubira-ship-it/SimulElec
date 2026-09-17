@@ -57,7 +57,7 @@ interface PvStore {
   /** Évaluation envoyée au professeur. */
   sent: boolean;
 
-  init: (tp: TpDefinition) => Promise<void>;
+  init: (tp: TpDefinition, attemptKey?: string) => Promise<void>;
   setStudent: (s: Student) => void;
   goStep: (i: number) => void;
   /** Valide l'étape courante ; renvoie `false` si un contrôle bloque. */
@@ -165,10 +165,10 @@ export const usePvParcours = create<PvStore>((set, get) => {
     turns: [],
     sent: false,
 
-    async init(tp) {
+    async init(tp, attemptKey) {
       set({ tp, s: initialPvState(), turns: [], offline: false, attemptId: null, sent: false });
       try {
-        const row = await getOrCreateAttempt(tp.id);
+        const row = await getOrCreateAttempt(attemptKey ?? tp.id);
         set({ attemptId: row.id, s: normalizePvState(row.state as Partial<PvState> | null) });
       } catch {
         set({ offline: true });
