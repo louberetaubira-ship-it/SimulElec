@@ -158,13 +158,17 @@ export default function ProfPage() {
   const [manage, setManage] = useState(false);
   const [presence, setPresence] = useState<Record<string, PresenceStat>>({});
   const [nowTs, setNowTs] = useState(() => Date.now());
+  // Décalage horloge-appareil ↔ serveur (ms). last_seen_at est en heure SERVEUR ;
+  // si l'horloge de l'appareil (tableau interactif, kiosque) est fausse, comparer à
+  // Date.now() ferait paraître tout le monde hors ligne. On corrige avec l'heure serveur.
+  const [clockOffset, setClockOffset] = useState(0);
 
   const studentsById = useMemo(() => new Map(students.map((s) => [s.id, s])), [students]);
   const lastSeenOf = useCallback((id: string) => studentsById.get(id)?.last_seen_at ?? null, [studentsById]);
   const isOnline = useCallback((id: string) => {
     const ls = lastSeenOf(id);
-    return ls ? nowTs - Date.parse(ls) < ONLINE_MS : false;
-  }, [lastSeenOf, nowTs]);
+    return ls ? (nowTs + clockOffset) - Date.parse(ls) < ONLINE_MS : false;
+  }, [lastSeenOf, nowTs, clockOffset]);
 
   const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
   const tpTitle = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
@@ -255,6 +259,13 @@ export default function ProfPage() {
       setStudents(st);
       setAttempts(at);
       setLastSync(new Date());
+      // Recale l'horloge sur le serveur : la présence ne dépend plus de l'heure de l'appareil.
+      void (async () => {
+        try {
+          const { data } = await createClient().rpc('server_now');
+          if (typeof data === 'string') setClockOffset(Date.parse(data) - Date.now());
+        } catch { /* on garde le décalage précédent */ }
+      })();
       presenceStats(st.map((s) => s.id)).then(setPresence).catch(() => {});
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erreur');
@@ -390,6 +401,11 @@ export default function ProfPage() {
             <span className="relative inline-flex h-2 w-2 rounded-full bg-[#1E9E63]" />
           </span>
           En direct · dernière synchro {hhmm(lastSync)}
+          {Math.abs(clockOffset) > 60_000 && (
+            <span className="ml-2 rounded bg-[#FEF3C7] px-1.5 py-0.5 text-[10px] font-semibold text-[#92400E]" title="Corrigé automatiquement grâce à l'heure serveur">
+              ⏰ horloge de cet écran décalée de {Math.round(clockOffset / 60000)} min
+            </span>
+          )}
         </span>
       </div>
 
