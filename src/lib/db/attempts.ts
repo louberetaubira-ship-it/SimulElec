@@ -47,6 +47,26 @@ export async function getOrCreateAttempt(tpId: string, fresh = false): Promise<A
   if (readError) throw new Error(readError.message);
   if (existing && !fresh) return existing as AttemptRow;
 
+  // Verrouillage : un TP TERMINÉ (validé) ou CLÔTURÉ par le professeur ne peut pas
+  // être rejoué par l'élève. Tant qu'il n'y a pas de tentative « en cours » (le prof
+  // n'a pas réactivé, et l'élève n'a pas de reprise possible), on RENVOIE cette
+  // tentative figée au lieu d'en créer une nouvelle : l'appelant lit `status` et
+  // affiche l'écran verrouillé (bilan en lecture seule). Seul le professeur peut
+  // rouvrir (réactivation → 'en_cours') ou réinitialiser (suppression) le TP.
+  if (!existing) {
+    const { data: locked, error: lockError } = await supabase
+      .from('attempts')
+      .select('*')
+      .eq('student_id', user.id)
+      .eq('tp_id', tpId)
+      .in('status', ['termine', 'cloture'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lockError) throw new Error(lockError.message);
+    if (locked) return locked as AttemptRow;
+  }
+
   if (existing && fresh) {
     const { error: closeError } = await supabase
       .from('attempts')

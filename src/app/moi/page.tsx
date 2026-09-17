@@ -147,6 +147,7 @@ export default function MoiPage() {
 
   const termines = attempts.filter((a) => a.status === 'termine');
   const enCours = attempts.filter((a) => a.status === 'en_cours');
+  const clotures = attempts.filter((a) => a.status === 'cloture');
   const dejaVus = new Set(attempts.map((a) => a.tp_id));
   const restants = aFaire.filter((id) => !dejaVus.has(id));
 
@@ -334,6 +335,36 @@ export default function MoiPage() {
           </>
         )}
 
+        {clotures.length > 0 && (
+          <>
+            <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[.06em] text-muted">
+              Clôturés par le professeur
+            </h3>
+            <ul className="mb-4 space-y-2">
+              {clotures.map((a) => (
+                <li
+                  key={a.id}
+                  className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3"
+                  style={{ background: 'repeating-linear-gradient(135deg,#fff,#fff 10px,#F3F5F8 10px,#F3F5F8 20px)' }}
+                >
+                  <Link href={`/tp/${a.tp_id}`} className="text-[15px] font-semibold underline">
+                    {titre(a.tp_id)}
+                  </Link>
+                  <span className="rounded-full border border-[#1D6FE0]/40 bg-[#1D6FE0]/10 px-2 py-0.5 text-[11px] font-semibold text-[#1D6FE0]">
+                    🔒 Clôturé
+                  </span>
+                  <span className="ml-auto font-mono text-[13px] text-[#1D6FE0]">
+                    {a.score != null ? `${Math.round((a.score / 5) * 10) / 10}/20` : '—'}
+                  </span>
+                  <span className="w-full text-[11px] text-muted sm:w-auto">
+                    projetée · sous réserve · réactivation par le professeur requise
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
         <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[.06em] text-muted">Terminés</h3>
         {termines.length === 0 ? (
           <p className="text-[13px] text-muted">
@@ -354,7 +385,7 @@ export default function MoiPage() {
                   {titre(a.tp_id)}
                 </Link>
                 <span className="rounded-full border border-good/50 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">
-                  terminé
+                  ✓ Terminé — validé
                 </span>
                 <span className="ml-auto font-mono text-[13px]">
                   {a.score != null ? `${Math.round((a.score / 5) * 10) / 10}/20` : '—'}

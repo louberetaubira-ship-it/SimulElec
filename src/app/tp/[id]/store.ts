@@ -111,6 +111,11 @@ interface ParcoursState {
   tp: TpDefinition;
   attemptId: string | null;
   offline: boolean;
+  /**
+   * TP verrouillé pour l'élève : 'termine' (validé, non rejouable) ou 'cloture'
+   * (clôturé par le professeur, réactivation requise). `null` = jouable.
+   */
+  locked: 'termine' | 'cloture' | null;
   /** Identité de l'élève (nom, diplôme préparé) : en-tête du parcours et rapports. */
   student: Student;
   /**
@@ -529,6 +534,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
   return {
     tp: null as unknown as TpDefinition,
     attemptId: null,
+    locked: null,
     offline: false,
     student: fallbackStudent(),
     evalDiploma: DEFAULT_DIPLOMA,
@@ -560,15 +566,18 @@ export const useParcours = create<ParcoursState>((set, get) => {
     async init(tp) {
       set({
         tp, st: initialState(), sim: initialSim(), mes: initialMes(), turns: [],
-        offline: false, attemptId: null,
+        offline: false, attemptId: null, locked: null,
         selWire: null, wireMenu: null, undoStack: [], redoStack: [], undoNotice: null,
         confirmScope: null, restarting: false,
       });
       try {
         const row = await getOrCreateAttempt(tp.id);
         const restored = normalizeState(row.state as Partial<AttemptState> | null);
+        // Un TP terminé ou clôturé revient verrouillé : l'élève ne peut pas le rejouer.
+        const locked = row.status === 'termine' || row.status === 'cloture' ? row.status : null;
         set({
           attemptId: row.id,
+          locked,
           st: restored,
           sim: isFaultId(restored.fault) && !restored.fixed
             ? { ...initialSim(), fault: restored.fault }
@@ -847,6 +856,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       set({
         restarting: true,
         attemptId: null,
+        locked: null,
         st: fresh,
         sim: initialSim(),
         mes: initialMes(),

@@ -25,9 +25,10 @@ import AideCours from '@/components/parcours/AideCours';
 import CompetencesStage from '@/components/parcours/CompetencesStage';
 import { ModeBadge, ModeChooser } from '@/components/parcours/ModeTp';
 import { DiplomaPicker, diplomesVises, SOURCE_LABEL, useDiploma } from '@/components/parcours/useDiploma';
-import { competenceCounts } from '@/lib/data/competences';
+import { competenceCounts, type DiplomaId } from '@/lib/data/competences';
 import { assignedMode } from '@/lib/db/classes';
-import type { EvaluationMode } from '@/lib/types';
+import { liveNotes, liveEvaluation } from '@/lib/sim/live';
+import type { AttemptState, EvaluationMode } from '@/lib/types';
 import { useStudent } from '@/lib/useStudent';
 import { diplomaShort } from '@/lib/student';
 import { useParcours, panelWires } from './store';
@@ -154,6 +155,19 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
     }
   })();
 
+  // TP verrouillé : terminé (validé) ou clôturé par le professeur → non rejouable.
+  if (s.locked) {
+    return (
+      <LockedScreen
+        tp={tp}
+        locked={s.locked}
+        st={st}
+        diploma={dip.diploma}
+        onHome={() => router.push('/moi')}
+      />
+    );
+  }
+
   /*
    * Coque d'application à partir de 1024 px : la page ne défile plus d'un bloc, chaque colonne
    * défile chez elle. C'est ce qui redonne une *hauteur définie* à la zone de travail — sans
@@ -253,6 +267,94 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
 
       <AideCours />
       <Toast message={s.toast} />
+    </div>
+  );
+}
+
+/**
+ * Écran affiché quand l'élève ouvre un TP qu'il ne peut plus rejouer :
+ * - `termine` : TP terminé et VALIDÉ, note finale, bilan en lecture seule ;
+ * - `cloture` : TP CLÔTURÉ par le professeur, note projetée « sous réserve »,
+ *   reprise possible uniquement après réactivation par le professeur.
+ * Aucune action de jeu n'est offerte : le parcours n'est pas monté.
+ */
+function LockedScreen({
+  tp, locked, st, diploma, onHome,
+}: {
+  tp: TpDefinition;
+  locked: 'termine' | 'cloture';
+  st: AttemptState;
+  diploma: DiplomaId;
+  onHome: () => void;
+}) {
+  const termine = locked === 'termine';
+  const note = liveNotes(tp, st).projetee;
+  const evalu = liveEvaluation(tp, st, diploma) ?? [];
+  const acquis = evalu.filter((c) => c.mastery === 'acquis').length;
+  const evalues = evalu.filter((c) => c.mastery !== 'nonEvalue').length;
+  const fr = (v: number) => v.toFixed(1).replace('.', ',');
+  const accent = termine ? 'var(--good)' : '#1D6FE0';
+
+  return (
+    <div className="flex min-h-screen items-start justify-center bg-[var(--app)] px-4 py-10">
+      <div className="w-full max-w-[560px] rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div
+            className="grid h-12 w-12 flex-none place-items-center rounded-xl text-[24px]"
+            style={{ background: termine ? 'rgba(30,158,99,.14)' : 'rgba(29,111,224,.12)' }}
+          >
+            {termine ? '✅' : '🔒'}
+          </div>
+          <div>
+            <div className="text-[12px] font-semibold uppercase tracking-[.1em]" style={{ color: accent }}>
+              {termine ? 'TP terminé · validé' : 'TP clôturé par le professeur'}
+            </div>
+            <h1 className="m-0 text-[20px] font-bold">{tp.title}</h1>
+          </div>
+        </div>
+
+        <p className="mt-4 text-[14px] text-muted">
+          {termine
+            ? 'Ce TP est terminé et validé : tu ne peux plus le refaire. Tu peux consulter ton bilan ci-dessous. Seul ton professeur peut le rouvrir.'
+            : 'Ce TP a été clôturé par ton professeur. La note ci-dessous est la note projetée figée, sous réserve. Tu pourras le reprendre s’il le réactive.'}
+        </p>
+
+        <div className="mt-5 flex items-center gap-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-4">
+          <div
+            className="grid h-16 w-16 flex-none place-items-center rounded-full font-mono-num text-[18px] font-bold"
+            style={{ border: `4px solid ${accent}`, color: accent }}
+          >
+            {fr(note)}
+          </div>
+          <div className="text-[13px]">
+            <div className="font-semibold">
+              {fr(note)}/20 · {termine ? 'note finale' : 'note projetée (sous réserve)'}
+            </div>
+            <div className="text-muted">
+              {evalues > 0 ? `${acquis}/${evalues} compétences acquises` : 'bilan de compétences indisponible'}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={onHome}
+            className="min-h-touch rounded-[10px] px-4 text-[13px] font-bold text-white"
+            style={{ background: '#141A21' }}
+          >
+            {termine ? 'Voir mon bilan dans mon espace' : 'Retour à mon espace'}
+          </button>
+          <button
+            type="button"
+            disabled
+            title={termine ? 'Seul le professeur peut rouvrir un TP terminé' : 'Réactivation par le professeur requise'}
+            className="min-h-touch cursor-not-allowed rounded-[10px] border border-[var(--line)] px-4 text-[13px] font-semibold text-muted opacity-60"
+          >
+            🔒 {termine ? 'Refaire le TP' : 'Reprendre'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
