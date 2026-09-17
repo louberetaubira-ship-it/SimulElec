@@ -4,6 +4,7 @@ import React from 'react';
 import type { AttemptState, CatalogueItem, TpDefinition } from '@/lib/types';
 import { CATALOGUE_BY_KEY, spriteUrl } from '@/lib/data/catalogue';
 import { libraryItemSync } from '@/lib/data/library';
+import { svgForKey } from '@/components/panel/svg';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { missingSlots, poseComplete } from '@/lib/sim/progress';
 import TpPanel from './TpPanel';
@@ -19,8 +20,18 @@ interface Props {
   preview?: boolean;
 }
 
-/** Vignette d'un appareil de la caisse : sprite du pack ou image de bibliothèque. */
+/** Vignette d'un appareil de la caisse : dessin SVG, sprite du pack ou image de bibliothèque. */
 function Thumb({ slotKey }: { slotKey: string }) {
+  // Les appareils dessinés en SVG (photovoltaïque, batterie…) n'ont pas de sprite PNG :
+  // on rend leur dessin, sinon on retombe sur l'image de bibliothèque ou le sprite.
+  const vector = svgForKey(slotKey);
+  if (vector) {
+    return (
+      <div className="grid h-[40px] w-[40px] place-items-center" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.25))' }}>
+        {vector}
+      </div>
+    );
+  }
   const lib: CatalogueItem | null = CATALOGUE_BY_KEY[slotKey] ? null : libraryItemSync(slotKey);
   const src = lib?.src ?? spriteUrl(slotKey);
   // eslint-disable-next-line @next/next/no-img-element

@@ -16,12 +16,14 @@ import { TP_PERCEUSE_RADIALE } from './perceuse-radiale';
 import { TP_VARIATEUR } from './variateur';
 import { TP_AUTOMATE_M221 } from './automate-m221';
 import { TP_PORTAIL } from './portail';
+import { TP_SOLAIRE_AUTONOME } from './solaire-autonome';
 
 export const TPS: TpDefinition[] = [
   TP_PERCEUSE_RADIALE,
   TP_VARIATEUR,
   TP_AUTOMATE_M221,
   TP_PORTAIL,
+  TP_SOLAIRE_AUTONOME,
 ];
 
 export const TP_BY_ID: Record<string, TpDefinition> = Object.fromEntries(TPS.map((t) => [t.id, t]));
@@ -30,4 +32,4 @@ export function tpById(id: string): TpDefinition | undefined {
   return TP_BY_ID[id];
 }
 
-export { TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_PORTAIL };
+export { TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_PORTAIL, TP_SOLAIRE_AUTONOME };

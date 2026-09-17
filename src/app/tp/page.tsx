@@ -40,7 +40,11 @@ export default async function CataloguePage() {
         </p>
       </header>
 
-      {/* TP « cycle complet » photovoltaïque autonome (parcours interactif dédié). */}
+      {/*
+       * TP photovoltaïque autonome : désormais joué en NATIF comme les autres TP
+       * (carte standard sous la famille « Photovoltaïque » ci-dessous, via TPS).
+       * L'ancien parcours HTML reste accessible en cycle complet dédié.
+       */}
       <Link
         href="/tp-solaire-autonome"
         className="mb-8 flex flex-col gap-4 rounded-2xl border border-accent/40 bg-gradient-to-br from-[var(--surface)] to-accent/5 p-4 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center"
@@ -48,12 +52,12 @@ export default async function CataloguePage() {
         <div className="grid h-16 w-16 flex-none place-items-center rounded-2xl bg-accent/15 text-[34px]">☀</div>
         <div className="min-w-0">
           <div className="font-title text-[11px] font-semibold uppercase tracking-[.12em] text-accent">
-            Nouveau · cycle complet
+            Cycle complet · dimensionnement guidé
           </div>
-          <div className="text-[18px] font-bold">Installation solaire autonome (24 V)</div>
+          <div className="text-[18px] font-bold">Installation solaire autonome — étude PVGIS pas à pas</div>
           <p className="mt-0.5 text-[13px] text-muted">
-            Dimensionnement → couplage série/parallèle → calepinage → pose sur toit → platine câblée
-            avec protections → simulation sous tension → mise en service, mesures et dépannage.
+            Localisation PVGIS → bilan → couplage série/parallèle → calepinage → choix du matériel.
+            Le TP câblé et jouable est plus bas, dans « Photovoltaïque ».
           </p>
         </div>
         <span className="ml-auto hidden text-[13px] font-semibold text-accent sm:block">Ouvrir →</span>

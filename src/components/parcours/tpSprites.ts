@@ -9,6 +9,9 @@ export function tpSprites(tpId: string): string[] {
     case 'perceuse-radiale': return ['motorcb', 'kontakt', 'therm'];
     case 'variateur': return ['gv2l', 'atv320', 'therm'];
     case 'automate-m221': return ['mcb1p', 'kontakt', 'meter'];
+    // TP photovoltaïque : pas de sprite PV (appareils dessinés en SVG sur la platine).
+    // On évoque le coffret par des vignettes existantes — sectionnement, mesure, terre.
+    case 'solaire-autonome': return ['fuseswitch', 'meter', 'earth'];
     default: return ['mcb1p', 'kontakt', 'earth'];
   }
 }
