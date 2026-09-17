@@ -156,7 +156,7 @@ export default function Workspace({
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [dockOpen, setDockOpen] = React.useState(dockDefaultOpen);
   const [prefsOpen, setPrefsOpen] = React.useState(false);
-  const [dark, setDark] = React.useState(true);
+  const [dark, setDark] = React.useState(false);
   const [autoHide, setAutoHide] = React.useState(true);
   const [portrait, setPortrait] = React.useState(false);
   const sentinel = React.useRef<Sentinel | null>(null);
@@ -194,7 +194,8 @@ export default function Workspace({
     setZoom(stored);
     zoomRef.current = stored;
     setReady(true);
-    setDark(read('ws.bg') !== 'light');
+    // Plein écran en thème CLAIR par défaut : sombre seulement si l'élève l'a choisi.
+    setDark(read('ws.bg') === 'dark');
     setAutoHide(read('ws.autohide') !== '0');
     const memoDock = read(`ws.dock.${storageKey}`);
     if (memoDock !== null) setDockOpen(memoDock === '1');
