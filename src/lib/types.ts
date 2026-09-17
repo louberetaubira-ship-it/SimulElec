@@ -589,6 +589,19 @@ export interface TpDefinition {
   diplomas?: DiplomaId[];
   /** Barème propre au TP (surcharge partielle de `DEFAULT_BAREME`). */
   bareme?: BaremeOverride;
+  /**
+   * Bornes du VAT de consignation, paramétrées par le TP. Absent = comportement
+   * moteur historique (source connue `RES.L1/RES.N`, trois paires en aval de Q1).
+   */
+  consignationVat?: {
+    /**
+     * Paire de bornes d'une source de tension CONNUE, prouvant que le VAT
+     * fonctionne. `null` : pas de source à contrôler (installation autonome).
+     */
+    sourceConnue?: [string, string] | null;
+    /** Paires de bornes en AVAL de l'appareil consigné, à contrôler en absence de tension. */
+    avalPairs?: [string, string][];
+  };
 }
 
 /** Lecture d'instrument persistée. */

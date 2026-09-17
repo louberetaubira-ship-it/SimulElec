@@ -11,7 +11,7 @@ import {
 } from '@/lib/sim/engine';
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
-import { reseauCommande } from '@/lib/sim/commande';
+import { liaisonCoupee, reseauCommande } from '@/lib/sim/commande';
 import {
   conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
 } from '@/lib/sim/diagnostic';
@@ -395,20 +395,50 @@ export const useParcours = create<ParcoursState>((set, get) => {
     if (stage === ETAPE.EPI && mes.inst === 'vat' && r && k) {
       const c = st.cons;
       const pair = (a: string, b: string) => (r === a && k === b) || (r === b && k === a);
-      if (pair('RES.L1', 'RES.N') || pair('RES.L1', 'RES.PE')) {
+      // Config du VAT paramétrée par le TP. Défaut (TP moteur) : source connue
+      // RES.L1/RES.N (avec RES.L1/RES.PE toléré) et toute paire hors réseau en aval,
+      // seuil 3 — comportement historique inchangé quand `consignationVat` est absent.
+      const cfg = tp.consignationVat;
+      const source: [string, string] | null =
+        cfg && cfg.sourceConnue !== undefined ? cfg.sourceConnue : ['RES.L1', 'RES.N'];
+      const avalPairs = cfg?.avalPairs;
+      const need = avalPairs ? avalPairs.length : 3;
+      const isDefaultRes = source != null && source[0] === 'RES.L1' && source[1] === 'RES.N';
+      const matchSource = (): boolean =>
+        source != null && (pair(source[0], source[1]) || (isDefaultRes && pair('RES.L1', 'RES.PE')));
+      const matchAval = (): boolean => avalPairs
+        ? avalPairs.some(p => pair(p[0], p[1]))
+        : (r !== k && !r.startsWith('RES.') && !k.startsWith('RES.'));
+
+      if (source != null && matchSource()) {
         if (!c.vatRef) {
           patch(s => ({ ...s, cons: { ...s.cons, vatRef: true } }));
-          mlog('VAT vérifié sur source connue : 230 V détectés.');
-        } else if (c.vat.length >= 3 && !c.vatRef2) {
+          mlog('VAT vérifié sur source connue : présence de tension détectée.');
+        } else if (c.vat.length >= need && !c.vatRef2) {
           patch(s => ({ ...s, cons: { ...s.cons, vatRef2: true } }));
           mlog('VAT re-vérifié : installation consignée.');
           say('Installation consignée : tu peux mesurer hors tension.');
         }
-      } else if (!sim.q1 && c.lock && c.vatRef && r !== k && !r.startsWith('RES.') && !k.startsWith('RES.')) {
+      } else if (!sim.q1 && c.lock && (source == null || c.vatRef) && matchAval()) {
         const known = c.vat.some(x => (x[0] === r && x[1] === k) || (x[0] === k && x[1] === r));
         if (!known && (out.value ?? 0) <= 50) {
-          patch(s => ({ ...s, cons: { ...s.cons, vat: [...s.cons.vat, [r, k] as [string, string]] } }));
+          const nextVat = [...c.vat, [r, k] as [string, string]];
+          // Pas d'étape « source connue » sur une installation autonome : dès que
+          // les paires en aval sont contrôlées, vatRef/vatRef2 sont satisfaits.
+          patch(s => ({
+            ...s,
+            cons: {
+              ...s.cons,
+              vat: nextVat,
+              ...(source == null
+                ? { vatRef: true, ...(nextVat.length >= need ? { vatRef2: true } : {}) }
+                : {}),
+            },
+          }));
           mlog(`VAT ${r} / ${k} : absence de tension.`);
+          if (source == null && nextVat.length >= need && !c.vatRef2) {
+            say('Installation consignée : tu peux mesurer hors tension.');
+          }
         }
       } else if (sim.q1 && (out.value ?? 0) > 50) {
         mlog(`⚠ Présence de tension : ${repereSlot(tp, 'q1')} n'est pas ouvert, ne touche à rien.`);
@@ -1024,6 +1054,12 @@ export const useParcours = create<ParcoursState>((set, get) => {
         // une fois la platine refermée (Q1, Q2, Q3). L'essai devient concluant.
         if (st.stage === ETAPE.MISE_EN_SERVICE && !sim.km1) {
           if (sim.q1 && sim.f2 && sim.f3) {
+            // Panne active coupant l'alimentation continue de l'onduleur : il ne
+            // peut pas démarrer tant que le fil + du bus (q1.2+ → km1.B+) est ouvert.
+            if (!st.fixed && liaisonCoupee(tp, st.fault, 'km1.B+', 'q1.2+')) {
+              say(`${rep} ne démarre pas : alimentation continue absente — cherche la coupure.`);
+              return;
+            }
             set({ sim: { ...sim, km1: true } });
             say(`${rep} : onduleur mis en marche — le 230 V apparaît au tableau.`);
             evaluate();

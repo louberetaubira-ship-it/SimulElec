@@ -34,6 +34,14 @@ export default function Consignation({ tp, st, sim, onAct }: ConsignationProps) 
   const c = st.cons;
   const nVat = c.vat.length;
 
+  // Bornes du VAT paramétrées par le TP. Défaut (TP moteur, champ absent) : source
+  // connue RES.L1/RES.N et les trois paires en aval de Q1 — comportement historique.
+  const cfg = tp.consignationVat;
+  const source: [string, string] | null =
+    cfg && cfg.sourceConnue !== undefined ? cfg.sourceConnue : ['RES.L1', 'RES.N'];
+  const avalPairs = cfg?.avalPairs;
+  const need = avalPairs ? avalPairs.length : 3;
+
   return (
     <div className="flex flex-col gap-1.5">
       <Step done={c.sep} n="1">
@@ -59,23 +67,41 @@ export default function Consignation({ tp, st, sim, onAct }: ConsignationProps) 
         )}
       </Step>
 
-      <Step done={c.vatRef} n="4a">
-        <b>VAT sur source connue</b> — prends le VAT, pointe rouge sur <span className="font-mono-num">RES.L1</span>,
-        pointe noire sur <span className="font-mono-num">RES.N</span> : il doit indiquer une présence de tension.
+      {source === null && (
+        <div className="rounded-[10px] border border-[var(--line)] bg-[var(--surface)] p-2 text-[12.5px] text-muted">
+          Installation autonome : pas de source réseau à contrôler. La preuve du VAT
+          se fait sur la seule absence de tension en aval de {q1}.
+        </div>
+      )}
+
+      {source !== null && (
+        <Step done={c.vatRef} n="4a">
+          <b>VAT sur source connue</b> — prends le VAT, pointe rouge sur <span className="font-mono-num">{source[0]}</span>,
+          pointe noire sur <span className="font-mono-num">{source[1]}</span> : il doit indiquer une présence de tension.
+        </Step>
+      )}
+
+      <Step done={nVat >= need} n="4b">
+        <b>VAT en aval de {q1}</b> — {avalPairs
+          ? (
+            <>vérifie l&apos;absence de tension : <span className="font-mono-num">{avalPairs.map(p => `${p[0]} / ${p[1]}`).join(', ')}</span>.</>
+          )
+          : (
+            <>vérifie l&apos;absence de tension entre phases et phase / neutre :
+              <span className="font-mono-num"> q1.2 / q1.4</span>, <span className="font-mono-num">q1.4 / q1.6</span>,
+              <span className="font-mono-num"> q1.2 / q1.6</span>.</>
+          )}
+        <span className="block text-muted">{Math.min(nVat, need)} paire{nVat > 1 ? 's' : ''} contrôlée{nVat > 1 ? 's' : ''} sur {need}.</span>
+        {source === null && c.vatRef2 ? <span className="block font-semibold text-good">Installation consignée.</span> : null}
       </Step>
 
-      <Step done={nVat >= 3} n="4b">
-        <b>VAT en aval de {q1}</b> — vérifie l&apos;absence de tension entre phases et phase / neutre :
-        <span className="font-mono-num"> q1.2 / q1.4</span>, <span className="font-mono-num">q1.4 / q1.6</span>,
-        <span className="font-mono-num"> q1.2 / q1.6</span>.
-        <span className="block text-muted">{Math.min(nVat, 3)} paire{nVat > 1 ? 's' : ''} contrôlée{nVat > 1 ? 's' : ''} sur 3.</span>
-      </Step>
-
-      <Step done={c.vatRef2} n="4c">
-        <b>Re-vérification du VAT</b> — repose les pointes sur <span className="font-mono-num">RES.L1 / RES.N</span>
-        {' '}pour prouver que l&apos;appareil fonctionne toujours.
-        {c.vatRef2 ? <span className="block font-semibold text-good">Installation consignée.</span> : null}
-      </Step>
+      {source !== null && (
+        <Step done={c.vatRef2} n="4c">
+          <b>Re-vérification du VAT</b> — repose les pointes sur <span className="font-mono-num">{source[0]} / {source[1]}</span>
+          {' '}pour prouver que l&apos;appareil fonctionne toujours.
+          {c.vatRef2 ? <span className="block font-semibold text-good">Installation consignée.</span> : null}
+        </Step>
+      )}
     </div>
   );
 }

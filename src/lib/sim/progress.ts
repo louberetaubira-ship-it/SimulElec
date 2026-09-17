@@ -539,7 +539,9 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
     }
     case ETAPE.EPI: {
       const c = st.cons;
-      const steps = [c.sep, c.lock, c.ident, c.vatRef, c.vat.length >= 3, c.vatRef2];
+      // Nombre de paires en aval requises : celui que le TP configure, 3 par défaut.
+      const needVat = tp.consignationVat?.avalPairs?.length ?? 3;
+      const steps = [c.sep, c.lock, c.ident, c.vatRef, c.vat.length >= needVat, c.vatRef2];
       const ordered = steps.filter(Boolean).length / steps.length;
       const epiPart = epiOk(st) ? 1 : Object.values(st.epi).filter(Boolean).length / 6;
       return clamp01(0.65 * ordered + 0.35 * clamp01(epiPart) - errReadings(st, ETAPE.EPI) * 0.1);

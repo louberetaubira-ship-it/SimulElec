@@ -55,7 +55,7 @@ function RoofDeco() {
         {Array.from({ length: 12 }, (_, i) => <path key={i} d={`M0 ${412 + i * 22} L118 ${392 + i * 22}`} />)}
       </g>
       <rect x="6" y="20" width="106" height="372" rx="3" fill="none" stroke="#7E8790" strokeWidth="2" />
-      <text x="8" y="404" fontSize="6" fill="#fff" fontWeight="700">rails de fixation · 2 strings de 4</text>
+      <text x="8" y="404" fontSize="6" fill="#fff" fontWeight="700">rails de fixation</text>
       <g stroke="#D93A3A" strokeWidth="2" fill="none"><path d="M18 120v88M18 208v88M18 296v70" /></g>
       <g stroke="#20262D" strokeWidth="2" fill="none"><path d="M98 120v88M98 208v88M98 296v70" /></g>
       <g stroke="#37B34A" strokeWidth="1.5" strokeDasharray="3 2" fill="none"><path d="M58 20v370" /></g>

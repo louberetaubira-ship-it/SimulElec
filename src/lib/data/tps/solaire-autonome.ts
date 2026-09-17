@@ -29,7 +29,7 @@ import type { AnnexItem, Fault, Slot, TerminalNet, TpDefinition } from '@/lib/ty
 import { L, TEST_ISO, TEST_PE, TEST_VAT, TEST_VISU } from './common';
 
 /* ------------------------------------------------------------------ toiture & parc
- * 12 modules 125 Wc couplés 3S4P (3 en série × 4 branches parallèles), calepinés 6 × 2
+ * 12 modules 180 Wc couplés 3S4P (3 en série × 4 branches parallèles), calepinés 6 × 2
  * sur un pan de 4,5 × 3,2 m, et le parc batterie 24 V · 1200 Ah, EXTÉRIEUR au coffret. */
 const ROOF: AnnexItem[] = [
   ...Array.from({ length: 12 }, (_, i) => {
@@ -38,7 +38,7 @@ const ROOF: AnnexItem[] = [
     return {
       key: 'pvpanel',
       rep: `PV${i + 1}`,
-      name: 'module 125 Wc · 3S4P',
+      name: 'module 180 Wc · 3S4P',
       x: 446 + c * 52,
       y: 24 + r * 58,
       w: 48,
@@ -98,11 +98,11 @@ const FAULTS: Fault[] = [
   },
   {
     id: 'x2',
-    title: 'Fil de MARCHE de l\'onduleur débranché',
-    symptom: 'Rien ne se passe à l\'appui sur MARCHE, pourtant le bus continu et le différentiel sont bons.',
-    fix: 'Reconnecter le fil de commande de mise en service sur l\'onduleur.',
-    coupe: 'S2.14>km1.A1',
-    action: 'Reconnecter le fil de commande MARCHE sur l\'onduleur',
+    title: 'Alimentation continue de l\'onduleur coupée',
+    symptom: 'L\'onduleur ne démarre pas : pas de tension continue à son entrée — le fil + du bus (q1.2+ → B+ de l\'onduleur) est débranché.',
+    fix: 'Reconnecter le fil + du bus continu (q1.2+) sur l\'entrée B+ de l\'onduleur et resserrer.',
+    coupe: 'km1.B+>q1.2+',
+    action: 'Reconnecter l\'alimentation continue B+ de l\'onduleur et resserrer',
   },
 ];
 
@@ -146,13 +146,13 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   competences: ['C3 Préparer', 'C5 Réaliser', 'C6 Mettre en service', 'C7 Maintenir'],
   diplomas: ['bacpro', 'bts'],
   summary:
-    'Site isolé 24 V off-grid (Auberge du Charmant Som). Champ PV 12 modules 125 Wc couplés 3S4P, protections DC (sectionneur 1000 V, parafoudre type 2, fusibles gPV), régulateur MPPT 150/70, parc batterie 24 V · 1200 Ah EXTÉRIEUR protégé par fusible MEGA 125 A, onduleur/chargeur MultiPlus 24/3000, départ 230 V protégé par différentiel 30 mA type A et tableau de répartition. Dimensionnement, câblage, mise en service, mesures et dépannage.',
+    'Site isolé 24 V off-grid (Auberge du Charmant Som). Champ PV 12 modules 180 Wc couplés 3S4P, protections DC (sectionneur 1000 V, parafoudre type 2, fusibles gPV), régulateur MPPT 150/70, parc batterie 24 V · 1200 Ah EXTÉRIEUR protégé par fusible MEGA 125 A, onduleur/chargeur MultiPlus 24/3000, départ 230 V protégé par différentiel 30 mA type A et tableau de répartition. Dimensionnement, câblage, mise en service, mesures et dépannage.',
   situation:
     'L\'Auberge du Charmant Som n\'est pas raccordée au réseau : elle est alimentée par une installation solaire autonome en 24 V. Tu dois dimensionner la chaîne (bilan des récepteurs, couplage des modules, choix du régulateur, du parc et de l\'onduleur), câbler le coffret sur la platine habitat/tertiaire — protections DC, régulateur, onduleur/chargeur, différentiel et tableau de répartition en aval — en laissant le parc batterie à l\'extérieur du coffret, puis mettre en service et mesurer le départ 230 V avant de traiter une panne.',
   plaque: {
     'Type': 'Site isolé (off-grid)',
     'Tension parc': '24 V',
-    'Champ PV': '12 × 125 Wc · 3S4P',
+    'Champ PV': '12 × 180 Wc · 3S4P',
     'Besoin Ej': '≈ 4602 Wh/j',
     'Production Epv': '≈ 7080 Wh/j',
     'P simultanée': '2300 W',
@@ -161,9 +161,9 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   },
   cahierDesCharges: [
     { k: 'Site', v: 'Auberge du Charmant Som, non raccordée au réseau : production et stockage sur place, aucun secours EDF.' },
-    { k: 'Bilan des récepteurs', v: 'éclairage LED 6 × 10 W, réfrigérateur 120 W, ventilation 2 × 60 W, télévision 100 W, ordinateur 80 W, pompe 750 W. Besoin Ej ≈ 4602 Wh/j, puissance simultanée retenue 2300 W.' },
-    { k: 'Production', v: 'ressource Guyane (HSP ≈ 4,6 h/j) et pertes de chaîne : production à viser Epv ≈ 7080 Wh/j, soit un champ de 12 modules 125 Wc.' },
-    { k: 'Champ PV', v: '12 modules 125 Wc couplés 3S4P — 3 en série (Voc string ≈ 66 V à froid, sous les 150 V du MPPT) × 4 branches en parallèle. Calepinage 6 × 2 sur un pan de 4,5 × 3,2 m.' },
+    { k: 'Bilan des récepteurs', v: 'éclairage LED 6 × 10 W, réfrigérateur 120 W, ventilation 2 × 60 W, pompe 750 W. Besoin Ej ≈ 4602 Wh/j, puissance simultanée retenue 2300 W.' },
+    { k: 'Production', v: 'ressource Guyane (HSP ≈ 4,6 h/j) et pertes de chaîne : production à viser Epv ≈ 7080 Wh/j, soit un champ de 12 modules 180 Wc.' },
+    { k: 'Champ PV', v: '12 modules 180 Wc couplés 3S4P — 3 en série (Voc string ≈ 71 V à froid, sous les 150 V du MPPT) × 4 branches en parallèle. Calepinage 6 × 2 sur un pan de 4,5 × 3,2 m.' },
     { k: 'Protection DC PV', v: 'sectionneur DC 1000 V (Q2), parafoudre DC type 2, porte-fusibles gPV — tri porté par la tension continue, jamais par du matériel AC.' },
     { k: 'Régulateur', v: 'MPPT 150/70 : recherche du point de puissance maximale, 150 V d\'entrée PV admissibles, 70 A de charge vers le parc 24 V.' },
     { k: 'Parc batterie', v: 'parc 24 V · 1200 Ah, À L\'EXTÉRIEUR du coffret (ventilation, masse, accès). Protégé par un fusible MEGA 125 A au plus près des bornes (I batt ≈ 95 A).' },
@@ -226,7 +226,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
     fonctions: [
       {
         id: 'fn-3s4p', focus: 'PV',
-        invite: '12 modules 125 Wc en 3S4P : combien de branches en parallèle, et pourquoi 3 en série ?',
+        invite: '12 modules 180 Wc en 3S4P : combien de branches en parallèle, et pourquoi 3 en série ?',
         options: [
           '4 branches ; 3 en série pour rester sous les 150 V d\'entrée du MPPT',
           '3 branches ; 4 en série pour augmenter le courant',
@@ -234,7 +234,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
           '1 branche ; tout en série pour monter à 150 V',
         ],
         answer: 0,
-        why: '3S4P = 3 modules en série (Voc string ≈ 66 V à froid, bien sous 150 V) × 4 branches en parallèle. La série fixe la tension, le parallèle additionne le courant.',
+        why: '3S4P = 3 modules en série (Voc string ≈ 71 V à froid, bien sous 150 V) × 4 branches en parallèle. La série fixe la tension, le parallèle additionne le courant.',
       },
       {
         id: 'fn-24v', focus: 'BAT',
@@ -302,11 +302,11 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
     {
       id: 'panneaux',
       name: 'Champ PV · couplage des modules',
-      need: 'Alimenter un MPPT 150/70 (parc 24 V) avec 12 modules 125 Wc sans dépasser 150 V d\'entrée',
+      need: 'Alimenter un MPPT 150/70 (parc 24 V) avec 12 modules 180 Wc sans dépasser 150 V d\'entrée',
       options: [
-        { key: 'pvpanel', ref: '12 modules 125 Wc · 3S4P', spec: '3 en série × 4 parallèles · Voc string ≈ 66 V', ok: true, why: '3 en série tiennent la tension sous les 150 V du MPPT même à froid ; 4 branches en parallèle additionnent le courant pour la puissance visée.' },
-        { key: 'pvpanel', ref: '12 modules 125 Wc · 6S2P', spec: '6 en série × 2 parallèles · Voc string ≈ 132 V', half: true, why: 'Ça fonctionne l\'été, mais à froid la Voc grimpe et frôle les 150 V du MPPT : marge insuffisante en Guyane comme en montagne.' },
-        { key: 'pvpanel', ref: '12 modules 125 Wc · 12S1P', spec: '12 en série · Voc string ≈ 264 V', why: 'Voc bien au-dessus des 150 V admissibles par le MPPT 150/70 : le régulateur serait détruit.' },
+        { key: 'pvpanel', ref: '12 modules 180 Wc · 3S4P', spec: '3 en série × 4 parallèles · Voc string ≈ 71 V', ok: true, why: '3 en série tiennent la tension sous les 150 V du MPPT même à froid ; 4 branches en parallèle additionnent le courant pour la puissance visée.' },
+        { key: 'pvpanel', ref: '12 modules 180 Wc · 6S2P', spec: '6 en série × 2 parallèles · Voc string ≈ 141 V', half: true, why: 'Ça fonctionne l\'été, mais à froid la Voc grimpe et frôle les 150 V du MPPT : marge insuffisante en Guyane comme en montagne.' },
+        { key: 'pvpanel', ref: '12 modules 180 Wc · 12S1P', spec: '12 en série · Voc string ≈ 282 V', why: 'Voc bien au-dessus des 150 V admissibles par le MPPT 150/70 : le régulateur serait détruit.' },
       ],
     },
     {
@@ -447,7 +447,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
       id: 'dc-polarite',
       title: 'Contrôle de polarité et de tension à vide du champ PV',
       how: 'Sectionneur Q2 ouvert, multimètre en V⎓ sur l\'arrivée des strings : vérifie la polarité (+ / −) et que la tension à vide reste sous les 150 V admissibles par le MPPT.',
-      expected: 'polarité correcte, Voc string < 150 V (≈ 66 V à froid pour 3S)',
+      expected: 'polarité correcte, Voc string < 150 V (≈ 71 V à froid pour 3S)',
     },
   ],
   mesures: [
@@ -471,7 +471,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   faults: FAULTS,
   quiz: [
     {
-      q: '12 modules 125 Wc sont couplés en 3S4P. Combien de branches en parallèle ?',
+      q: '12 modules 180 Wc sont couplés en 3S4P. Combien de branches en parallèle ?',
       options: ['4 branches de 3 modules', '3 branches de 4 modules', '12 branches', '1 seule branche'],
       answer: 0,
     },
@@ -524,4 +524,12 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   motor: null,
   station: false,
   hasMotor: false,
+  // VAT de consignation adapté à l'off-grid : plus de points fantômes hérités du
+  // moteur (RES.L1/RES.N du réseau, borne q1.6 inexistante). La SOURCE CONNUE est le
+  // parc batterie (BAT.X1/BAT.X2), toujours présent — on choisit cette option plutôt
+  // que de supprimer l'étape (`sourceConnue: null`) car la batterie prouve réellement
+  // que le VAT fonctionne. L'ABSENCE se contrôle sur les deux bornes DC réellement en
+  // aval du sectionneur de parc Q1 (q1.2+ / q1.4−). Toutes ces bornes existent et sont
+  // mesurables (voir NETS : BAT.X1/X2, q1.2+/q1.4−).
+  consignationVat: { sourceConnue: ['BAT.X1', 'BAT.X2'], avalPairs: [['q1.2+', 'q1.4−']] },
 };

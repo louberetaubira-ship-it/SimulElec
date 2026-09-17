@@ -167,6 +167,23 @@ export const effetDe = (f: Fault | undefined): EffetPanne =>
   f ? { coupe: f.coupe, ouvre: f.ouvre } : {};
 
 /**
+ * La panne active coupe-t-elle la liaison a–b ? Utile hors du calcul de réseau —
+ * par exemple pour empêcher la mise en marche d'un onduleur dont l'alimentation
+ * continue est débranchée. L'ordre des bornes est indifférent.
+ */
+export function liaisonCoupee(
+  tp: Pick<TpDefinition, 'faults'>,
+  faultId: string | null | undefined,
+  a: string,
+  b: string,
+): boolean {
+  const panne = effetDe(tp.faults.find(f => f.id === faultId));
+  if (panne.coupe == null) return false;
+  const [ca, cb] = panne.coupe.split('>') as [string, string];
+  return cle(ca, cb) === cle(a, b);
+}
+
+/**
  * Réseau du circuit de commande tel qu'il est câblé à cet instant.
  *
  * Rien n'est écrit en dur : les fils sont ceux que l'élève a posés, les contacts
