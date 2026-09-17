@@ -26,6 +26,7 @@ import { reseauCommande } from '@/lib/sim/commande';
 import SchemaPuissance from '@/components/schema/SchemaPuissance';
 import SchemaCommande from '@/components/schema/SchemaCommande';
 import SchemaPv from '@/components/schema/SchemaPv';
+import PreparationEtudePv from './PreparationEtudePv';
 import { Center, Side } from './StageLayout';
 
 interface Props {
@@ -288,8 +289,9 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
               )}
             </div>
 
-            {/* Colonne droite : questions */}
+            {/* Colonne droite : étude (PV) puis questions */}
             <div className="flex min-h-0 flex-col gap-4 overflow-auto lg:pr-1">
+              {pv && <PreparationEtudePv />}
               {!p && (
                 <Note>
                   Ce TP n&apos;a pas encore de préparation guidée : passe directement au choix du
