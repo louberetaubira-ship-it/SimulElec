@@ -1,27 +1,26 @@
 <!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TP PV — dimensionnement, calepinage, pose & simulation</title>
 <style>
-:root{--bg:#0e1622;--panel:#16212e;--panel2:#1d2a39;--line:#28394d;--ink:#eaf1f8;--muted:#8ea0b4;
---accent:#ffb400;--accent2:#38bdf8;--ok:#34d399;--warn:#f5a524;--crit:#f87171;--vic:#0a84ff;--pos:#f87171;--neg:#38bdf8;--ac:#c084fc}
+:root{--bg:#F5F6F8;--panel:#FFFFFF;--panel2:#EDF1F6;--line:#D3D9E1;--ink:#141A21;--muted:#5B6672;--accent:#E39A00;--accent2:#1D6FE0;--ok:#1E9E63;--warn:#D97706;--crit:#D93A3A;--vic:#0a84ff;--pos:#D93A3A;--neg:#1D6FE0;--ac:#7C3AED}
 *{box-sizing:border-box}
-body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);line-height:1.55;background:radial-gradient(1200px 600px at 80% -8%,#213247,var(--bg) 60%);padding:0 0 70px}
+body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);line-height:1.55;background:radial-gradient(1200px 600px at 80% -8%,#EAF2FB,var(--bg) 60%);padding:0 0 70px}
 .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
 .badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:rgba(255,180,0,.1);border:1px solid rgba(255,180,0,.3);padding:4px 10px;border-radius:999px}
-.hero{position:relative;overflow:hidden;border-radius:0 0 22px 22px;padding:26px 16px 30px;background:linear-gradient(160deg,#1b3a5b,#16212e 70%)}
+.hero{position:relative;overflow:hidden;border-radius:0 0 22px 22px;padding:26px 16px 30px;background:linear-gradient(160deg,#DCEBFB,#EEF3F8 70%)}
 .sun{position:absolute;top:-40px;right:-30px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,#ffe89a,#ffb400 60%,rgba(255,180,0,0) 72%);filter:blur(2px);animation:pulse 5s ease-in-out infinite}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.08);opacity:1}}
-h1{font-size:24px;margin:10px 0 4px}.hero p{color:#cfe0f0;max-width:72ch;margin:0}
-.ohm{display:flex;gap:12px;align-items:center;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:16px;max-width:700px}
+h1{font-size:24px;margin:10px 0 4px}.hero p{color:#141A21;max-width:72ch;margin:0}
+.ohm{display:flex;gap:12px;align-items:center;background:#F1F5FA;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:16px;max-width:700px}
 .ohm .face{width:50px;height:50px;border-radius:50%;flex:none;background-size:cover;background-position:center 22%;box-shadow:0 0 0 3px var(--accent)}
 .ohm .say{font-size:13px}.ohm .say b{color:var(--accent)}
-.bar{position:sticky;top:0;z-index:10;background:rgba(14,22,34,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:8px 0}
+.bar{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:8px 0}
 .steps{display:flex;gap:6px;overflow-x:auto}
 .steps button{white-space:nowrap;background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex:none}
 .steps button.done{border-color:var(--ok);color:var(--ok)}
 .phase{flex:none;align-self:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:0 4px}
 .prog{height:5px;background:var(--panel2);border-radius:3px;margin-top:7px;overflow:hidden}
 .prog>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--ok));transition:.4s}
-.score{font-size:12px;color:var(--muted);margin-top:5px}.score b{color:#ffd24d}
+.score{font-size:12px;color:var(--muted);margin-top:5px}.score b{color:#B8860B}
 section.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px;scroll-margin-top:120px}
 .phasehdr{max-width:1080px;margin:22px auto 0;padding:0 16px}
 .phasehdr div{background:linear-gradient(90deg,rgba(255,180,0,.15),transparent);border-left:4px solid var(--accent);border-radius:8px;padding:8px 12px;font-weight:800;font-size:14px;letter-spacing:.02em}
@@ -42,7 +41,7 @@ section.card{background:var(--panel);border:1px solid var(--line);border-radius:
 table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
 th,td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:left}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}th{color:var(--muted);font-size:11px;text-transform:uppercase}
-.tot td{font-weight:800;color:#ffd24d;border-top:2px solid var(--line)}
+.tot td{font-weight:800;color:#B8860B;border-top:2px solid var(--line)}
 .calc{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
 .formula{font-family:ui-monospace,monospace;font-size:13px;color:var(--accent2);background:rgba(56,189,248,.08);border-radius:8px;padding:8px 10px;margin:0 0 10px;display:inline-block}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
@@ -70,7 +69,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}th{color:var(--mute
 .seq .item.picked{border-color:var(--accent);color:var(--muted);opacity:.5}
 .chosen{min-height:34px;background:var(--panel);border:1px dashed var(--line);border-radius:9px;padding:8px;margin:8px 0;font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px}
 .chosen span{background:rgba(255,180,0,.14);color:var(--accent);border-radius:7px;padding:3px 8px}
-.wirewrap{background:#0c141d;border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:10px;overflow-x:auto}
+.wirewrap{background:#F2F5F9;border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:10px;overflow-x:auto}
 .wtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
 .legend{font-size:11.5px;color:var(--muted)}
 .legend b.p{color:var(--pos)}.legend b.n{color:var(--neg)}.legend b.a{color:var(--ac)}
@@ -79,7 +78,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}th{color:var(--mute
 .map{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:760px){.map{grid-template-columns:1fr}.row label{min-width:150px}}
 .map div{font-size:12.5px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}.map b{color:var(--accent)}
 
-.roofwrap{background:#0c141d;border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:10px;overflow-x:auto}
+.roofwrap{background:#F2F5F9;border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:10px;overflow-x:auto}
 .rtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
 </style></head><body>
 <div class="hero"><div class="sun"></div><div class="wrap">
@@ -100,17 +99,17 @@ document.querySelectorAll('.face').forEach(function(f){f.style.backgroundImage="
 function icon(t){var s='<svg viewBox="0 0 60 60">';
  if(t==='panel')s+='<rect x="8" y="8" width="44" height="34" rx="2" fill="#123a5c" stroke="#2f6da0"/>'+[0,1,2,3].map(function(i){return '<line x1="'+(8+i*11)+'" y1="8" x2="'+(8+i*11)+'" y2="42" stroke="#2f6da0"/>';}).join('')+'<line x1="8" y1="25" x2="52" y2="25" stroke="#2f6da0"/>';
  else if(t==='mppt')s+='<rect x="12" y="8" width="36" height="44" rx="4" fill="#0a84ff" stroke="#5aa9ff"/><text x="30" y="30" fill="#fff" font-size="9" text-anchor="middle" font-weight="bold">MPPT</text>';
- else if(t==='batt')s+='<rect x="10" y="16" width="40" height="30" rx="3" fill="#1a2c1e" stroke="#3a6b46"/><rect x="16" y="10" width="8" height="7" fill="#3a6b46"/><rect x="36" y="10" width="8" height="7" fill="#3a6b46"/><text x="19" y="36" fill="#f87171" font-size="12">+</text><text x="38" y="36" fill="#5aa9ff" font-size="12">-</text>';
+ else if(t==='batt')s+='<rect x="10" y="16" width="40" height="30" rx="3" fill="#1a2c1e" stroke="#3a6b46"/><rect x="16" y="10" width="8" height="7" fill="#3a6b46"/><rect x="36" y="10" width="8" height="7" fill="#3a6b46"/><text x="19" y="36" fill="#D93A3A" font-size="12">+</text><text x="38" y="36" fill="#5aa9ff" font-size="12">-</text>';
  else if(t==='inv')s+='<rect x="12" y="8" width="36" height="44" rx="4" fill="#0a84ff" stroke="#5aa9ff"/><path d="M20 32 h6 a2 2 0 0 1 2 2 a2 2 0 0 0 2 2 h6" fill="none" stroke="#fff" stroke-width="2"/><text x="30" y="20" fill="#fff" font-size="7" text-anchor="middle">Multi+</text>';
  else if(t==='shunt')s+='<rect x="10" y="20" width="40" height="20" rx="3" fill="#0a84ff" stroke="#5aa9ff"/><rect x="16" y="24" width="16" height="12" fill="#0c2b50"/><text x="24" y="33" fill="#3dd68c" font-size="7" text-anchor="middle">712</text>';
- else if(t==='busbar')s+='<rect x="8" y="26" width="44" height="8" rx="2" fill="#8ea0b4"/>'+[0,1,2,3].map(function(i){return '<circle cx="'+(14+i*11)+'" cy="30" r="2.5" fill="#3a4a5a"/>';}).join('');
+ else if(t==='busbar')s+='<rect x="8" y="26" width="44" height="8" rx="2" fill="#5B6672"/>'+[0,1,2,3].map(function(i){return '<circle cx="'+(14+i*11)+'" cy="30" r="2.5" fill="#3a4a5a"/>';}).join('');
  else if(t==='rail')s+='<rect x="8" y="26" width="44" height="8" rx="1" fill="#9aa6b2"/><rect x="8" y="34" width="44" height="3" fill="#5a6b7a"/>';
  else if(t==='clamp')s+='<path d="M20 40 V22 h20 v18" fill="none" stroke="#9aa6b2" stroke-width="3"/><rect x="26" y="16" width="8" height="8" fill="#5a6b7a"/>';
- else if(t==='mc4')s+='<rect x="10" y="24" width="18" height="12" rx="3" fill="#20262d" stroke="#8ea0b4"/><rect x="32" y="24" width="18" height="12" rx="3" fill="#20262d" stroke="#8ea0b4"/><line x1="28" y1="30" x2="32" y2="30" stroke="#ffb400" stroke-width="2"/>';
+ else if(t==='mc4')s+='<rect x="10" y="24" width="18" height="12" rx="3" fill="#20262d" stroke="#5B6672"/><rect x="32" y="24" width="18" height="12" rx="3" fill="#20262d" stroke="#5B6672"/><line x1="28" y1="30" x2="32" y2="30" stroke="#ffb400" stroke-width="2"/>';
  else if(t==='bolt')s+='<circle cx="30" cy="30" r="10" fill="none" stroke="#9aa6b2" stroke-width="3"/><path d="M30 20 v-6 M30 40 v6 M20 30 h-6 M40 30 h6" stroke="#9aa6b2" stroke-width="2"/>';
- else if(t==='gland')s+='<circle cx="30" cy="30" r="13" fill="#2a3a4a" stroke="#8ea0b4"/><circle cx="30" cy="30" r="5" fill="#0c141d"/>';
+ else if(t==='gland')s+='<circle cx="30" cy="30" r="13" fill="#2a3a4a" stroke="#5B6672"/><circle cx="30" cy="30" r="5" fill="#F2F5F9"/>';
  else if(t==='fuse')s+='<rect x="10" y="24" width="40" height="12" rx="6" fill="#3a2a00" stroke="#ffb400"/>';
- else if(t==='x')s+='<circle cx="30" cy="30" r="14" fill="#2a1a1a" stroke="#f87171"/><path d="M23 23 l14 14 M37 23 l-14 14" stroke="#f87171" stroke-width="3"/>';
+ else if(t==='x')s+='<circle cx="30" cy="30" r="14" fill="#2a1a1a" stroke="#D93A3A"/><path d="M23 23 l14 14 M37 23 l-14 14" stroke="#D93A3A" stroke-width="3"/>';
  return s+'</svg>';}
 
 var STEPS=[
@@ -244,24 +243,24 @@ function roofUI(){return '<div class="rtools"><span style="font-size:13px">Orien
 window.setOri=function(o){roofS.ori=o;[].forEach.call(document.getElementById('ori').children,function(b){b.classList.toggle('good',b.textContent===o);});drawRoof();};
 window.poser=function(){roofS.posed=true;drawRoof();};
 window.cabler=function(){roofS.cabled=roofS.posed;drawRoof();};
-function drawRoof(){var w=document.getElementById('roofwrap');if(!w)return;var comp=roofS.ori==='Sud'?'#34d399':'#8ea0b4';
+function drawRoof(){var w=document.getElementById('roofwrap');if(!w)return;var comp=roofS.ori==='Sud'?'#34d399':'#5B6672';
  var cells='';if(roofS.posed){for(var r=0;r<2;r++)for(var c=0;c<6;c++){var x=250+c*66,y=64+r*80;cells+='<rect x="'+x+'" y="'+y+'" width="58" height="72" rx="2" fill="#1e5a8a" stroke="#3a5b7a"/><line x1="'+(x+29)+'" y1="'+y+'" x2="'+(x+29)+'" y2="'+(y+72)+'" stroke="#2a4a68"/><line x1="'+x+'" y1="'+(y+36)+'" x2="'+(x+58)+'" y2="'+(y+36)+'" stroke="#2a4a68"/>';}}
- var racc=roofS.cabled?'<polyline points="250,120 220,120 220,250 150,250" fill="none" stroke="#f87171" stroke-width="3"/><rect x="108" y="236" width="46" height="40" rx="4" fill="#16212e" stroke="#28394d"/><text x="114" y="260" fill="#cfe0f0" font-size="10">Boîtier</text><circle cx="248" cy="120" r="4" fill="#ffb400"/><text x="240" y="112" fill="#ffb400" font-size="9">MC4</text>':'';
+ var racc=roofS.cabled?'<polyline points="250,120 220,120 220,250 150,250" fill="none" stroke="#D93A3A" stroke-width="3"/><rect x="108" y="236" width="46" height="40" rx="4" fill="#FFFFFF" stroke="#D3D9E1"/><text x="114" y="260" fill="#141A21" font-size="10">Boîtier</text><circle cx="248" cy="120" r="4" fill="#ffb400"/><text x="240" y="112" fill="#ffb400" font-size="9">MC4</text>':'';
  w.innerHTML='<svg viewBox="0 0 700 300" width="100%">'+
-  '<polygon points="230,54 690,54 660,240 200,240" fill="#243447" stroke="#35506e"/>'+
+  '<polygon points="230,54 690,54 660,240 200,240" fill="#E3E9F0" stroke="#B9C4D0"/>'+
   cells+racc+
-  '<g transform="translate(80,80)"><circle r="34" fill="#101c28" stroke="#35506e"/><text x="-4" y="-20" fill="#8ea0b4" font-size="11">N</text><text x="-3" y="30" fill="'+comp+'" font-size="11">S</text><text x="24" y="4" fill="#8ea0b4" font-size="11">E</text><text x="-30" y="4" fill="#8ea0b4" font-size="11">O</text><line x1="0" y1="0" x2="0" y2="24" stroke="'+comp+'" stroke-width="3"/></g>'+
-  '<text x="80" y="150" fill="#8ea0b4" font-size="11" text-anchor="middle">Disposition 6 × 2</text>'+
+  '<g transform="translate(80,80)"><circle r="34" fill="#EEF2F6" stroke="#B9C4D0"/><text x="-4" y="-20" fill="#5B6672" font-size="11">N</text><text x="-3" y="30" fill="'+comp+'" font-size="11">S</text><text x="24" y="4" fill="#5B6672" font-size="11">E</text><text x="-30" y="4" fill="#5B6672" font-size="11">O</text><line x1="0" y1="0" x2="0" y2="24" stroke="'+comp+'" stroke-width="3"/></g>'+
+  '<text x="80" y="150" fill="#5B6672" font-size="11" text-anchor="middle">Disposition 6 × 2</text>'+
   '</svg>';}
 window.checkPose=function(){var fb=document.getElementById('fb-pose');var okO=roofS.ori==='Sud',okP=roofS.posed,okC=roofS.cabled;if(okO&&okP&&okC){fb.className='fb ok';fb.textContent='✓ Champ plein sud, 12 panneaux (6×2) posés et raccordés en MC4. +100';markDone('pose');}else{var m=[];if(!okO)m.push('orientation plein sud');if(!okP)m.push('poser les 12 panneaux');if(!okC)m.push('raccorder en MC4');fb.className='fb no';fb.textContent='À corriger : '+m.join(', ')+'.';}};
 
 /* ---- Platine ---- */
 function wiringUI(){return '<div class="wirewrap"><svg id="board" viewBox="0 0 700 440" width="100%"></svg></div><div class="legend">Conducteurs : <b class="p">+ rouge</b> · <b class="n">− bleu</b> · <b class="a">~ AC violet</b>. Clique une borne puis une autre.</div><div class="wtools"><button class="btn" onclick="checkWiring()">Vérifier le câblage</button> <button class="btn ghost" onclick="undoWire()">Annuler</button> <button class="btn ghost" onclick="resetWiring()">Effacer</button> <button class="btn" id="energBtn" disabled onclick="energize()">⚡ Mettre sous tension</button></div><div class="fb" id="fb-wiring"></div>';}
-function termEl(t){return '<circle cx="'+t.x+'" cy="'+t.y+'" r="7" fill="#0c141d" stroke="'+(t.pol==='+'?'var(--pos)':t.pol==='-'?'var(--neg)':'var(--ac)')+'" stroke-width="2" style="cursor:pointer" onclick="termClick(\''+t.id+'\')" data-t="'+t.id+'"/><text x="'+t.x+'" y="'+(t.y-11)+'" fill="#8ea0b4" font-size="9" text-anchor="middle">'+t.lab+'</text>';}
-function blk(x,y,w,hh,title){return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+hh+'" rx="6" fill="#16212e" stroke="#28394d"/><text x="'+(x+8)+'" y="'+(y+16)+'" fill="#cfe0f0" font-size="11" font-weight="bold">'+title+'</text>';}
-function col(pol){return pol==='+'?'#f87171':pol==='-'?'#38bdf8':'#c084fc';}
+function termEl(t){return '<circle cx="'+t.x+'" cy="'+t.y+'" r="7" fill="#F2F5F9" stroke="'+(t.pol==='+'?'var(--pos)':t.pol==='-'?'var(--neg)':'var(--ac)')+'" stroke-width="2" style="cursor:pointer" onclick="termClick(\''+t.id+'\')" data-t="'+t.id+'"/><text x="'+t.x+'" y="'+(t.y-11)+'" fill="#5B6672" font-size="9" text-anchor="middle">'+t.lab+'</text>';}
+function blk(x,y,w,hh,title){return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+hh+'" rx="6" fill="#FFFFFF" stroke="#D3D9E1"/><text x="'+(x+8)+'" y="'+(y+16)+'" fill="#141A21" font-size="11" font-weight="bold">'+title+'</text>';}
+function col(pol){return pol==='+'?'#D93A3A':pol==='-'?'#1D6FE0':'#7C3AED';}
 function wireLine(w){var a=TERM.find(function(t){return t.id===w[0];}),b=TERM.find(function(t){return t.id===w[1];});return '<line'+(energ?' class="flow"':'')+' x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="'+col(a.pol)+'" stroke-width="3" stroke-linecap="round"/>';}
-function drawBoard(){var svg=document.getElementById('board');if(!svg)return;var h=blk(20,40,90,92,'Panneaux PV')+blk(150,40,130,92,'Protection DC')+blk(320,40,130,92,'MPPT 150/70')+blk(453,150,124,36,'Fusible 125 A')+blk(430,200,150,64,'Parc 24 V')+blk(100,326,160,92,'MultiPlus')+blk(300,326,160,92,'Protection AC')+blk(500,326,175,92,'Récepteurs 230 V');h+='<text x="156" y="126" fill="#8ea0b4" font-size="8">sect.+parafoudre+fus.</text>';h+='<text x="304" y="414" fill="#8ea0b4" font-size="8">disj.+diff 30mA+paraf.</text>';h+='<text x="506" y="414" fill="#8ea0b4" font-size="8">éclairage, congélateurs…</text>';h+='<circle id="lamp" cx="640" cy="370" r="12" fill="#26313d" stroke="#8ea0b4"/>';h+='<g id="wires">'+wires.map(wireLine).join('')+'</g>';TERM.forEach(function(t){h+=termEl(t);});svg.innerHTML=h;}
+function drawBoard(){var svg=document.getElementById('board');if(!svg)return;var h=blk(20,40,90,92,'Panneaux PV')+blk(150,40,130,92,'Protection DC')+blk(320,40,130,92,'MPPT 150/70')+blk(453,150,124,36,'Fusible 125 A')+blk(430,200,150,64,'Parc 24 V')+blk(100,326,160,92,'MultiPlus')+blk(300,326,160,92,'Protection AC')+blk(500,326,175,92,'Récepteurs 230 V');h+='<text x="156" y="126" fill="#5B6672" font-size="8">sect.+parafoudre+fus.</text>';h+='<text x="304" y="414" fill="#5B6672" font-size="8">disj.+diff 30mA+paraf.</text>';h+='<text x="506" y="414" fill="#5B6672" font-size="8">éclairage, congélateurs…</text>';h+='<circle id="lamp" cx="640" cy="370" r="12" fill="#E6EAF0" stroke="#5B6672"/>';h+='<g id="wires">'+wires.map(wireLine).join('')+'</g>';TERM.forEach(function(t){h+=termEl(t);});svg.innerHTML=h;}
 window.termClick=function(id){if(sel===null){sel=id;var e=document.querySelector('[data-t="'+id+'"]');if(e)e.setAttribute('stroke-width','4');return;}if(sel===id){sel=null;drawBoard();return;}wires.push([sel,id]);sel=null;drawBoard();document.getElementById('fb-wiring').className='fb';};
 window.undoWire=function(){wires.pop();drawBoard();};
 window.resetWiring=function(){wires=[];sel=null;energ=false;document.getElementById('energBtn').disabled=true;drawBoard();document.getElementById('fb-wiring').className='fb';};
