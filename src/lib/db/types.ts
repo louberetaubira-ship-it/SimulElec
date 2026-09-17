@@ -5,7 +5,7 @@ export interface AttemptRow {
   id: string;
   student_id: string;
   tp_id: string;
-  status: 'en_cours' | 'termine' | 'abandonne';
+  status: 'en_cours' | 'termine' | 'abandonne' | 'cloture';
   stage: number;
   score: number | null;
   state: AttemptState;

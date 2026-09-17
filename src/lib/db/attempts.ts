@@ -115,6 +115,24 @@ export async function finishAttempt(
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Prof/admin : clôturer un TP inachevé. Fige la note (échelle /100, = note projetée × 5)
+ * et passe le statut à 'cloture'. L'autorisation (prof de l'élève ou admin) et la
+ * protection d'un TP réellement 'termine' sont assurées par la fonction serveur.
+ */
+export async function closeAttempt(id: string, score: number): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc('close_attempt', { p_attempt: id, p_score: score });
+  if (error) throw new Error(error.message);
+}
+
+/** Prof/admin : réactiver un TP clôturé pour la reprise (repasse 'en_cours', note effacée). */
+export async function reopenAttempt(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc('reopen_attempt', { p_attempt: id });
+  if (error) throw new Error(error.message);
+}
+
 /** All the attempts of the signed-in student (catalogue badges, résumés). */
 export async function listMyAttempts(): Promise<AttemptRow[]> {
   const supabase = createClient();

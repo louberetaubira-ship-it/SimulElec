@@ -14,7 +14,7 @@ import {
   type AttemptWithStudent,
   type StudentBrief,
 } from '@/lib/db/classes';
-import { addMessage } from '@/lib/db/attempts';
+import { addMessage, closeAttempt, reopenAttempt } from '@/lib/db/attempts';
 import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
@@ -226,6 +226,9 @@ export default function ProfPage() {
     return { active, moy, avg, vig };
   }, [live]);
 
+  const [busy, setBusy] = useState(false);
+  const unfinishedCount = useMemo(() => live.filter((x) => x.a.status === 'en_cours').length, [live]);
+
   const dominantTp = useMemo(() => {
     const count: Record<string, number> = {};
     visibleAttempts.forEach((a) => { count[a.tp_id] = (count[a.tp_id] ?? 0) + 1; });
@@ -273,6 +276,36 @@ export default function ProfPage() {
       setErr(e instanceof Error ? e.message : 'Erreur');
     }
   }, []);
+
+  // ---- Clôture / réactivation des TP inachevés (prof/admin) --------------
+  /** Note projetée (/20) → échelle stockée (/100, car noteSur20 = score / 5). */
+  const projToScore = (proj: number | null | undefined) => Math.round((proj ?? 0) * 5 * 10) / 10;
+
+  const closeOne = useCallback(async (id: string, projetee: number | null | undefined) => {
+    setBusy(true);
+    try { await closeAttempt(id, projToScore(projetee)); if (currentId) await refresh(currentId); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
+    finally { setBusy(false); }
+  }, [currentId, refresh]);
+
+  const reopenOne = useCallback(async (id: string) => {
+    setBusy(true);
+    try { await reopenAttempt(id); if (currentId) await refresh(currentId); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
+    finally { setBusy(false); }
+  }, [currentId, refresh]);
+
+  const closeAllUnfinished = useCallback(async () => {
+    const todo = live.filter((x) => x.a.status === 'en_cours');
+    if (todo.length === 0) return;
+    if (!window.confirm(`Clôturer ${todo.length} TP inachevé(s) ? La note projetée de chacun sera figée comme note finale (réactivable ensuite).`)) return;
+    setBusy(true);
+    try {
+      for (const x of todo) await closeAttempt(x.a.id, projToScore(x.l?.notes.projetee));
+      if (currentId) await refresh(currentId);
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
+    finally { setBusy(false); }
+  }, [live, currentId, refresh]);
 
   useEffect(() => {
     if (!currentId) return;
@@ -409,6 +442,13 @@ export default function ProfPage() {
             </span>
           )}
         </span>
+        {unfinishedCount > 0 && (
+          <button onClick={closeAllUnfinished} disabled={busy}
+            title="Figer la note projetée de tous les TP encore en cours de la classe"
+            className="inline-flex items-center gap-2 rounded-full bg-[#1D6FE0] px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-[#1a5fc0] disabled:opacity-40">
+            ⏹ Clôturer les TP inachevés ({unfinishedCount})
+          </button>
+        )}
       </div>
 
       {/* Sélecteur de classe */}
@@ -539,11 +579,13 @@ export default function ProfPage() {
                 <tbody>
                   {live.map(({ a, l }) => {
                     const termine = a.status === 'termine';
-                    const noteProv = termine ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.provisoire ?? null;
-                    const noteProj = termine ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.projetee ?? null;
+                    const cloture = a.status === 'cloture';
+                    const finalized = termine || cloture; // note figée (finie ou clôturée)
+                    const noteProv = finalized ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.provisoire ?? null;
+                    const noteProj = finalized ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.projetee ?? null;
                     const evalu = termine ? a.evaluation : l?.evaluation ?? null;
                     const s = a.state as Partial<{ wireErrors: number; poseErrors: number; resets: number; diagTries: number }> | null;
-                    const errCount = !termine && s
+                    const errCount = !finalized && s
                       ? (s.wireErrors ?? 0) + (s.poseErrors ?? 0) + (s.resets ?? 0) + Math.max(0, (s.diagTries ?? 0) - 1)
                       : 0;
                     return (
@@ -583,14 +625,14 @@ export default function ProfPage() {
                             <div className="leading-tight">
                               <div className="font-[var(--font-mono)] text-[13.5px] font-bold">
                                 {noteProv != null ? fr(noteProv) : '—'}
-                                <span className="ml-1 text-[10px] font-normal text-[#94A3B8]">{termine ? 'finale' : 'prov.'}</span>
+                                <span className="ml-1 text-[10px] font-normal text-[#94A3B8]">{finalized ? (cloture ? 'clôturée' : 'finale') : 'prov.'}</span>
                               </div>
-                              {!termine && (
+                              {!finalized && (
                                 <div className="text-[11px] text-[#66717F]">
                                   projetée {noteProj != null ? fr(noteProj) : '—'}/20
                                 </div>
                               )}
-                              {!termine && errCount > 0 && (
+                              {!finalized && errCount > 0 && (
                                 <div className="text-[11px] font-semibold text-[#D93A3A]">
                                   ⚠ {errCount} erreur{errCount > 1 ? 's' : ''} en cours
                                 </div>
@@ -608,16 +650,35 @@ export default function ProfPage() {
                           {a.status === 'termine' && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F6EE] px-2.5 py-1 text-[12px] font-bold text-[#1E9E63]">Terminé</span>
                           )}
+                          {cloture && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E6EEFB] px-2.5 py-1 text-[12px] font-bold text-[#1D6FE0]">Clôturé</span>
+                          )}
                           {a.status === 'abandonne' && (
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F5F6F8] px-2.5 py-1 text-[12px] font-bold text-[#66717F]">Abandonné</span>
                           )}
                         </td>
                         <td className="px-4 py-3.5 font-[var(--font-mono)] text-[12.5px] text-[#66717F]">{when(a.updated_at)}</td>
                         <td className="px-4 py-3.5 text-right">
-                          <button onClick={() => setOpenId(a.id)}
-                            className="rounded-lg border border-[#D3D9E1] bg-white px-3 py-2 text-[12.5px] font-bold hover:border-[#E39A00] hover:text-[#B45309]">
-                            Détail
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {a.status === 'en_cours' && (
+                              <button onClick={() => closeOne(a.id, l?.notes.projetee)} disabled={busy}
+                                title="Figer la note projetée comme note finale"
+                                className="rounded-lg bg-[#1D6FE0] px-3 py-2 text-[12.5px] font-bold text-white hover:bg-[#1a5fc0] disabled:opacity-40">
+                                Clôturer
+                              </button>
+                            )}
+                            {cloture && (
+                              <button onClick={() => reopenOne(a.id)} disabled={busy}
+                                title="Rouvrir le TP pour la reprise"
+                                className="rounded-lg border border-[#D3D9E1] bg-white px-3 py-2 text-[12.5px] font-bold text-[#66717F] hover:border-[#1D6FE0] hover:text-[#1D6FE0] disabled:opacity-40">
+                                Réactiver
+                              </button>
+                            )}
+                            <button onClick={() => setOpenId(a.id)}
+                              className="rounded-lg border border-[#D3D9E1] bg-white px-3 py-2 text-[12.5px] font-bold hover:border-[#E39A00] hover:text-[#B45309]">
+                              Détail
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
