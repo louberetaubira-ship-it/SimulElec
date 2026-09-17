@@ -19,6 +19,8 @@ import Deconsignation from '@/components/parcours/Deconsignation';
 import MesuresSousTension from '@/components/parcours/MesuresSousTension';
 import Validation from '@/components/parcours/Validation';
 import ProfBot from '@/components/parcours/ProfBot';
+import ProfAvatar from '@/components/parcours/ProfAvatar';
+import ProfCoach from '@/components/parcours/ProfCoach';
 import AideCours from '@/components/parcours/AideCours';
 import CompetencesStage from '@/components/parcours/CompetencesStage';
 import { ModeBadge, ModeChooser } from '@/components/parcours/ModeTp';
@@ -230,9 +232,11 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
           type="button"
           onClick={() => setBotOpen(!botOpen)}
           aria-expanded={botOpen}
-          className="min-h-touch w-full px-4 py-2 text-left text-[12.5px] font-semibold"
+          className="flex min-h-touch w-full items-center gap-2.5 px-4 py-2 text-left text-[12.5px] font-semibold"
         >
-          {botOpen ? '▾' : '▴'} Professeur virtuel — {STAGES[st.stage]}
+          <ProfAvatar state={botOpen ? 'idle' : 'guide'} size={30} />
+          <span>Professeur virtuel — {STAGES[st.stage]}</span>
+          <span className="ml-auto text-[var(--muted)]">{botOpen ? '▾' : '▴'}</span>
         </button>
         {botOpen && ready && (
           <div className="lg:hidden">
@@ -244,6 +248,8 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
       {ready && tp.playable && !modeChosen(st) && (
         <ModeChooser impose={impose} onPick={(m, forced) => s.setMode(m, forced)} />
       )}
+
+      {ready && tp.playable && <ProfCoach tp={tp} />}
 
       <AideCours />
       <Toast message={s.toast} />

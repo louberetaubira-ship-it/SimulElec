@@ -141,3 +141,13 @@ button:focus-visible, a:focus-visible, input:focus-visible {
   .print-sheet details > div { display: block !important; content-visibility: visible !important; }
   .print-sheet summary { list-style: none; }
 }
+
+/* ---- Professeur virtuel : avatar animé (respiration + anneau) ---- */
+@keyframes prof-spin { to { transform: rotate(360deg); } }
+@keyframes prof-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+@keyframes prof-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+@keyframes prof-pop { 0% { opacity:0; transform: translateY(8px) scale(.96); } 100% { opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce) {
+  .prof-ring { animation: none !important; }
+  .prof-avatar-breathe { animation: none !important; }
+}
