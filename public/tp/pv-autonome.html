@@ -1,0 +1,273 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TP PV — dimensionnement, calepinage, pose & simulation</title>
+<style>
+:root{--bg:#0e1622;--panel:#16212e;--panel2:#1d2a39;--line:#28394d;--ink:#eaf1f8;--muted:#8ea0b4;
+--accent:#ffb400;--accent2:#38bdf8;--ok:#34d399;--warn:#f5a524;--crit:#f87171;--vic:#0a84ff;--pos:#f87171;--neg:#38bdf8;--ac:#c084fc}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;color:var(--ink);line-height:1.55;background:radial-gradient(1200px 600px at 80% -8%,#213247,var(--bg) 60%);padding:0 0 70px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+.badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:rgba(255,180,0,.1);border:1px solid rgba(255,180,0,.3);padding:4px 10px;border-radius:999px}
+.hero{position:relative;overflow:hidden;border-radius:0 0 22px 22px;padding:26px 16px 30px;background:linear-gradient(160deg,#1b3a5b,#16212e 70%)}
+.sun{position:absolute;top:-40px;right:-30px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,#ffe89a,#ffb400 60%,rgba(255,180,0,0) 72%);filter:blur(2px);animation:pulse 5s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.08);opacity:1}}
+h1{font-size:24px;margin:10px 0 4px}.hero p{color:#cfe0f0;max-width:72ch;margin:0}
+.ohm{display:flex;gap:12px;align-items:center;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:16px;max-width:700px}
+.ohm .face{width:50px;height:50px;border-radius:50%;flex:none;background-size:cover;background-position:center 22%;box-shadow:0 0 0 3px var(--accent)}
+.ohm .say{font-size:13px}.ohm .say b{color:var(--accent)}
+.bar{position:sticky;top:0;z-index:10;background:rgba(14,22,34,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);padding:8px 0}
+.steps{display:flex;gap:6px;overflow-x:auto}
+.steps button{white-space:nowrap;background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:6px 10px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex:none}
+.steps button.done{border-color:var(--ok);color:var(--ok)}
+.phase{flex:none;align-self:center;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:0 4px}
+.prog{height:5px;background:var(--panel2);border-radius:3px;margin-top:7px;overflow:hidden}
+.prog>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--ok));transition:.4s}
+.score{font-size:12px;color:var(--muted);margin-top:5px}.score b{color:#ffd24d}
+section.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px;scroll-margin-top:120px}
+.phasehdr{max-width:1080px;margin:22px auto 0;padding:0 16px}
+.phasehdr div{background:linear-gradient(90deg,rgba(255,180,0,.15),transparent);border-left:4px solid var(--accent);border-radius:8px;padding:8px 12px;font-weight:800;font-size:14px;letter-spacing:.02em}
+.card h2{font-size:17px;margin:0 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card h2 .num{width:26px;height:26px;border-radius:8px;background:var(--accent);color:#3a2a00;display:grid;place-items:center;font-size:13px;font-weight:800;flex:none}
+.card .lead{color:var(--muted);font-size:13.5px;margin:0 0 12px}
+.tag{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:6px;background:rgba(255,180,0,.15);color:var(--accent)}
+.tag.ext{background:rgba(52,211,153,.15);color:var(--ok)}.tag.pl{background:rgba(10,132,255,.18);color:#5aa9ff}
+.zone{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;margin-bottom:8px}
+.zone.ext{background:rgba(52,211,153,.12);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+.zone.pl{background:rgba(10,132,255,.12);color:#5aa9ff;border:1px solid rgba(10,132,255,.4)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.chip{font-size:12px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 11px}.chip b{color:var(--accent2)}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0}
+.comp{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.comp svg{width:100%;height:52px}.comp .nm{font-size:12px;font-weight:700;margin-top:5px}.comp .sp{font-size:10.5px;color:var(--muted)}.comp .vic{font-size:9.5px;color:#5aa9ff;font-weight:700;text-transform:uppercase}
+.comp .lk{font-size:10px;color:var(--accent);margin-top:3px}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+th,td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:left}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}th{color:var(--muted);font-size:11px;text-transform:uppercase}
+.tot td{font-weight:800;color:#ffd24d;border-top:2px solid var(--line)}
+.calc{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:12px}
+.formula{font-family:ui-monospace,monospace;font-size:13px;color:var(--accent2);background:rgba(56,189,248,.08);border-radius:8px;padding:8px 10px;margin:0 0 10px;display:inline-block}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.row label{font-size:13px;min-width:240px}
+.row input[type=text]{width:120px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 9px;font-size:14px}
+.row .unit{color:var(--muted);font-size:13px}
+.btn{background:var(--accent);color:#3a2a00;border:0;border-radius:9px;padding:8px 13px;font-weight:700;font-size:13px;cursor:pointer;margin-top:6px}
+.btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opt{background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.opt.good{border-color:var(--ok);background:rgba(52,211,153,.12);color:var(--ok)}
+.opt.bad{border-color:var(--crit);background:rgba(248,113,113,.12);color:var(--crit)}
+.fb{margin-top:10px;font-size:13px;border-radius:8px;padding:9px 11px;display:none}
+.fb.ok{display:block;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.4);color:var(--ok)}
+.fb.no{display:block;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:var(--crit)}
+.sol{margin-top:8px;font-size:12.5px;color:var(--muted);border-left:3px solid var(--accent);padding-left:10px;display:none}
+.sol.show{display:block}.sol b{color:var(--ink)}
+.sim{margin-top:12px;font-size:12.5px;background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.22);border-radius:10px;padding:9px 11px}.sim b{color:var(--accent2)}
+.devgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:6px 0 10px}
+.dev{text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:9px 11px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.dev svg{width:32px;height:32px;flex:none}.dev b{display:block;font-size:12px}.dev small{color:var(--muted);font-size:10.5px}.dev.on{border-color:var(--ok);background:rgba(52,211,153,.1)}
+.seq{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.seq .item{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12.5px;cursor:pointer}
+.seq .item.picked{border-color:var(--accent);color:var(--muted);opacity:.5}
+.chosen{min-height:34px;background:var(--panel);border:1px dashed var(--line);border-radius:9px;padding:8px;margin:8px 0;font-size:12.5px;display:flex;flex-wrap:wrap;gap:6px}
+.chosen span{background:rgba(255,180,0,.14);color:var(--accent);border-radius:7px;padding:3px 8px}
+.wirewrap{background:#0c141d;border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:10px;overflow-x:auto}
+.wtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.legend{font-size:11.5px;color:var(--muted)}
+.legend b.p{color:var(--pos)}.legend b.n{color:var(--neg)}.legend b.a{color:var(--ac)}
+.foot{margin-top:26px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+.foot h3{margin:0 0 8px;font-size:16px}
+.map{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:760px){.map{grid-template-columns:1fr}.row label{min-width:150px}}
+.map div{font-size:12.5px;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}.map b{color:var(--accent)}
+
+.roofwrap{background:#0c141d;border:1px solid var(--line);border-radius:12px;padding:8px;margin-top:10px;overflow-x:auto}
+.rtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
+</style></head><body>
+<div class="hero"><div class="sun"></div><div class="wrap">
+<span class="badge">Bac Pro MELEC · TP fusionné · matériel Victron</span>
+<h1>☀ Système photovoltaïque autonome — du dimensionnement à la mise en service</h1>
+<p>Suite du TP « Dimensionnement d'un système PV » (Auberge · <b>24 V</b>). Calculs → matériel Victron adapté → <b>calepinage du toit</b> → matériel de pose → <b>pose des panneaux</b> → <b>platine câblée</b> → simulation → mise en service, mesures, maintenance.</p>
+<div class="ohm"><div class="face"></div><div class="say"><b>Ohm :</b> « Avant de poser, on calcule combien de panneaux tiennent sur le toit. Puis on choisit rails, brides et MC4, on pose, on câble la platine et on met sous tension. »</div></div>
+</div></div>
+<div class="bar"><div class="wrap"><div class="steps" id="steps"></div><div class="prog"><i id="progbar"></i></div>
+<div class="score">Progression : <span id="doneN">0</span>/<span id="totN">0</span> validés · Score <b id="score">0</b></div></div></div>
+<div class="wrap" id="content"></div>
+<div class="wrap"><div class="foot"><h3>🎯 Dans SimulElec — un parcours cohérent</h3>
+<div class="map"><div><b>Étude</b> → bilan, Ep, Pc/12 panneaux, 24 V, 1200 Ah, sections</div><div><b>Matériel</b> → choisi À PARTIR des calculs</div><div><b>Extérieur</b> → calepinage (toit×panneau) → matériel de pose → pose & MC4</div><div><b>Platine & exploitation</b> → câblage, simulation, mise en service, mesures, maintenance</div></div>
+<p style="color:var(--muted);font-size:11.5px;margin:10px 0 0">Composants redessinés à la charte. Fiches Victron/DualSun déposables pour visuels exacts.</p></div></div>
+<script>
+var IMG="/prof-avatar.png";
+document.querySelectorAll('.face').forEach(function(f){f.style.backgroundImage="url("+IMG+")";});
+function icon(t){var s='<svg viewBox="0 0 60 60">';
+ if(t==='panel')s+='<rect x="8" y="8" width="44" height="34" rx="2" fill="#123a5c" stroke="#2f6da0"/>'+[0,1,2,3].map(function(i){return '<line x1="'+(8+i*11)+'" y1="8" x2="'+(8+i*11)+'" y2="42" stroke="#2f6da0"/>';}).join('')+'<line x1="8" y1="25" x2="52" y2="25" stroke="#2f6da0"/>';
+ else if(t==='mppt')s+='<rect x="12" y="8" width="36" height="44" rx="4" fill="#0a84ff" stroke="#5aa9ff"/><text x="30" y="30" fill="#fff" font-size="9" text-anchor="middle" font-weight="bold">MPPT</text>';
+ else if(t==='batt')s+='<rect x="10" y="16" width="40" height="30" rx="3" fill="#1a2c1e" stroke="#3a6b46"/><rect x="16" y="10" width="8" height="7" fill="#3a6b46"/><rect x="36" y="10" width="8" height="7" fill="#3a6b46"/><text x="19" y="36" fill="#f87171" font-size="12">+</text><text x="38" y="36" fill="#5aa9ff" font-size="12">-</text>';
+ else if(t==='inv')s+='<rect x="12" y="8" width="36" height="44" rx="4" fill="#0a84ff" stroke="#5aa9ff"/><path d="M20 32 h6 a2 2 0 0 1 2 2 a2 2 0 0 0 2 2 h6" fill="none" stroke="#fff" stroke-width="2"/><text x="30" y="20" fill="#fff" font-size="7" text-anchor="middle">Multi+</text>';
+ else if(t==='shunt')s+='<rect x="10" y="20" width="40" height="20" rx="3" fill="#0a84ff" stroke="#5aa9ff"/><rect x="16" y="24" width="16" height="12" fill="#0c2b50"/><text x="24" y="33" fill="#3dd68c" font-size="7" text-anchor="middle">712</text>';
+ else if(t==='busbar')s+='<rect x="8" y="26" width="44" height="8" rx="2" fill="#8ea0b4"/>'+[0,1,2,3].map(function(i){return '<circle cx="'+(14+i*11)+'" cy="30" r="2.5" fill="#3a4a5a"/>';}).join('');
+ else if(t==='rail')s+='<rect x="8" y="26" width="44" height="8" rx="1" fill="#9aa6b2"/><rect x="8" y="34" width="44" height="3" fill="#5a6b7a"/>';
+ else if(t==='clamp')s+='<path d="M20 40 V22 h20 v18" fill="none" stroke="#9aa6b2" stroke-width="3"/><rect x="26" y="16" width="8" height="8" fill="#5a6b7a"/>';
+ else if(t==='mc4')s+='<rect x="10" y="24" width="18" height="12" rx="3" fill="#20262d" stroke="#8ea0b4"/><rect x="32" y="24" width="18" height="12" rx="3" fill="#20262d" stroke="#8ea0b4"/><line x1="28" y1="30" x2="32" y2="30" stroke="#ffb400" stroke-width="2"/>';
+ else if(t==='bolt')s+='<circle cx="30" cy="30" r="10" fill="none" stroke="#9aa6b2" stroke-width="3"/><path d="M30 20 v-6 M30 40 v6 M20 30 h-6 M40 30 h6" stroke="#9aa6b2" stroke-width="2"/>';
+ else if(t==='gland')s+='<circle cx="30" cy="30" r="13" fill="#2a3a4a" stroke="#8ea0b4"/><circle cx="30" cy="30" r="5" fill="#0c141d"/>';
+ else if(t==='fuse')s+='<rect x="10" y="24" width="40" height="12" rx="6" fill="#3a2a00" stroke="#ffb400"/>';
+ else if(t==='x')s+='<circle cx="30" cy="30" r="14" fill="#2a1a1a" stroke="#f87171"/><path d="M23 23 l14 14 M37 23 l-14 14" stroke="#f87171" stroke-width="3"/>';
+ return s+'</svg>';}
+
+var STEPS=[
+ {id:'situ',num:'0',phase:'Étude',title:'Continuité du dimensionnement',point:false,
+  lead:"Suite directe du TP « Dimensionnement d'un système PV » (Auberge du Charmant Som, 24 V). On refait les calculs, on choisit le matériel Victron adapté, on réalise (toit + platine câblée), on simule, on met en service, on mesure et on entretient.",
+  chips:[['Bus','24 V CC'],['Autonomie','5 jours'],['Ir','5 kWh/m²/j'],['k','0,65'],['Onduleur cible','~2300 W']]},
+
+ {id:'bilan',num:'1',phase:'Étude',title:'Bilan de puissance',point:true,lead:"L'élève calcule le total des récepteurs.",
+  calc:{formula:'P_TOT=ΣP · E_c=Σ(P×t)',inputs:[{id:'ptot',label:'P_TOT',unit:'W',ans:576,tol:2},{id:'ec',label:'E_c / jour',unit:'Wh',ans:4602,tol:5}],sol:'576 W · 4602 Wh/j.'}},
+ {id:'ep',num:'2',phase:'Étude',title:'Énergie à produire E_p',point:true,lead:"Majoration des pertes (k=0,65).",
+  calc:{formula:'E_p=E_c/k=4602/0,65',inputs:[{id:'ep',label:'E_p',unit:'Wh',ans:7080,tol:20}],sol:'7080 Wh.'}},
+ {id:'pc',num:'3',phase:'Étude',title:'Puissance crête & nombre de panneaux',point:true,lead:"N découle de la puissance d'un module (125 Wc).",
+  calc:{formula:'Pc=E_p/Ir=7080/5 · N=Pc/125',inputs:[{id:'pc',label:'Pc',unit:'Wc',ans:1416,tol:10},{id:'np',label:'Nombre de panneaux (↑)',unit:'',ans:12,tol:0}],sol:'Pc=1416 Wc · N=11,3 → <b>12 panneaux</b>.'}},
+ {id:'tension',num:'4',phase:'Étude',title:'Tension système',point:true,lead:"Elle conditionne les courants et le matériel.",
+  choices:[{q:'Tension bus ?',opts:[{t:'12 V',ok:false,why:'Courants trop forts.'},{t:'24 V',ok:true,why:'Imposée par le CDC / l’onduleur, bon compromis.'},{t:'48 V',ok:false,why:'Au-delà de 3 kW ; ici 24 V.'}]}]},
+ {id:'batt',num:'5',phase:'Étude',title:'Batterie : couplage & capacité',point:true,lead:"24 V à partir d'accus 2 V, capacité pour 5 jours.",
+  choices:[{q:'Couplage accus 2 V pour 24 V ?',opts:[{t:'12 en série',ok:true,why:'12×2 V=24 V.'},{t:'12 en parallèle',ok:false,why:'Parallèle = capacités, pas la tension.'},{t:'6 en série',ok:false,why:'12 V seulement.'}]}],
+  calc:{formula:'C=(E_c×N)/(D×U)=(4602×5)/(0,8×24)',inputs:[{id:'cap',label:'Capacité C',unit:'Ah',ans:1200,tol:30}],sol:'C≈1200 Ah · 12 accus 2 V série.'}},
+ {id:'cables',num:'6',phase:'Étude',title:'Courants & sections (a→f)',point:true,lead:"Ces sections imposeront les calibres de protection.",
+  multi:[{t:'a) I panneau',f:'125/24',id:'ia',unit:'A',ans:5.2,tol:.2,sol:'5,2 A.'},{t:'b) Section panneaux→boîtier',f:'ρL/R',id:'sa',unit:'mm²',ans:2.5,tol:.6,sol:'2,5 mm².'},{t:'c) I champ→onduleur',f:'1500/24',id:'ib',unit:'A',ans:62.5,tol:1,sol:'62,5 A.'},{t:'d) Section champ→onduleur',f:'ρL/R',id:'sb',unit:'mm²',ans:50,tol:9,sol:'50 mm².'},{t:'e) I batteries→onduleur',f:'2300/24',id:'ic',unit:'A',ans:95.3,tol:1.5,sol:'95,3 A.'},{t:'f) Section batteries→onduleur',f:'ρL/R',id:'sc',unit:'mm²',ans:25,tol:6,sol:'25 mm².'}]},
+
+ {id:'choix',num:'7',phase:'Matériel',title:'Choix du matériel Victron — adapté aux calculs',point:true,lead:"Chaque équipement découle d'un résultat de calcul.",
+  gallery:[['panel','12 × module 125 Wc','1500 Wc (calc N=12)','DualSun/gén.'],['mppt','MPPT 150/70','70 A > 62,5 A · 24 V','Victron'],['inv','MultiPlus 24/3000','2400 W > 2300 W','Victron'],['batt','Parc 24 V 1200 Ah','12 accus 2 V série','OPzV'],['busbar','Lynx + MEGA 125 A','I batt 95 A','Victron'],['shunt','BMV-712','contrôle parc','Victron']],
+  choices:[{q:'Régulateur (I champ ≈ 59 A) ?',opts:[{t:'MPPT 100/30',ok:false,why:'30 A << 59 A.'},{t:'MPPT 150/70',ok:true,why:'70 A > 59 A.'},{t:'MPPT 100/50',ok:false,why:'50 A < 59 A.'}]},{q:'Onduleur (~2300 W / 24 V) ?',opts:[{t:'MultiPlus 24/1600',ok:false,why:'Trop faible.'},{t:'MultiPlus 24/3000',ok:true,why:'2400 W > 2300 W.'},{t:'MultiPlus 12/3000',ok:false,why:'Mauvaise tension.'}]},{q:'Fusible batterie (I≈95 A) ?',opts:[{t:'40 A',ok:false,why:'Fond en service.'},{t:'MEGA 125 A',ok:true,why:'Juste au-dessus de 95 A.'},{t:'400 A',ok:false,why:'Ne protège plus le câble.'}]}]},
+
+ {id:'coupl',num:'8',phase:'Matériel',title:'Couplage série / parallèle & strings',point:true,lead:"La SÉRIE augmente la tension, le PARALLÈLE augmente le courant (panneaux) ou la capacité (batteries). On choisit, puis on vérifie avec le régulateur (MPPT 150 V / 70 A) et le bus 24 V.",chips:[['Panneau BP 3125','Vmp 17,6 V · Voc 22,1 V · Imp 7,1 A'],['MPPT','150 V max · 70 A'],['Accu','2 V · 1200 Ah'],['Bus','24 V']],choices:[{q:'Couplage du champ (12 panneaux) avec un MPPT 150/70 ?',opts:[{t:'12 en série (12S)',ok:false,why:'Voc = 12×22,1 = 265 V > 150 V : on détruit le MPPT.'},{t:'3 série × 4 parallèle (3S4P)',ok:true,why:'Voc string 66 V < 150 V, I total 28 A < 70 A, 1500 W : adapté.'},{t:'12 en parallèle (1S12P)',ok:false,why:'Tension trop faible (17,6 V) et I = 12×7,1 = 85 A > 70 A.'}]}],calc:{formula:'PANNEAUX : Voc_string = n_s×22,1 (<150 V) · I_tot = n_p×7,1 (<70 A) · n_p = 12/n_s   ||   BATTERIES : n_série = U_bus/U_accu · n_parallèle = C_besoin/C_accu',inputs:[{id:'vocs',label:'Voc d\u2019un string de 3 panneaux',unit:'V',ans:66.3,tol:3},{id:'itot',label:'Courant total du champ (4 strings)',unit:'A',ans:28.4,tol:2},{id:'nstr',label:'Nombre de strings en parallèle',unit:'',ans:4,tol:0},{id:'nsb',label:'Accus en série (pour 24 V)',unit:'',ans:12,tol:0},{id:'npb',label:'Branches d\u2019accus en parallèle (pour 1200 Ah)',unit:'',ans:1,tol:0}],sol:'PANNEAUX 3S4P : Voc string = 3×22,1 = <b>66,3 V</b> (&lt;150) · I = 4×7,1 = <b>28,4 A</b> (&lt;70) · <b>4 strings</b> · 3×4 = 12 panneaux (1500 W). BATTERIES : série = 24/2 = <b>12 accus</b> (tension) · parallèle = 1200/1200 = <b>1 branche</b> (capacité) → 12S1P. La série additionne les tensions, le parallèle les courants/capacités.'},sim:"SimulElec : couplage série/parallèle des panneaux (strings) et des accus, vérifié avec le régulateur et le bus."},
+ {id:'dispo',num:'9',phase:'Réalisation',title:'Extérieur — Disposition des panneaux',point:true,zone:'ext',
+  lead:"Avant de poser, on calcule combien de panneaux tiennent sur le toit et comment les agencer, selon la taille du toit et les dimensions du panneau.",
+  chips:[['Toit sud','4,5 m × 3,2 m'],['Panneau BP 3125','1510 × 674 mm'],['Masse','12 kg / panneau'],['Orientation','portrait']],
+  calc:{formula:'Par rangée = ⌊L_toit / l_pan⌋ = ⌊4500/674⌋   ·   Rangées = ⌊H_toit / L_pan⌋ = ⌊3200/1510⌋   ·   Capacité = par rangée × rangées',
+   inputs:[{id:'col',label:'Panneaux par rangée (largeur 4,5 m)',unit:'',ans:6,tol:0},
+    {id:'rang',label:'Nombre de rangées (rampant 3,2 m)',unit:'',ans:2,tol:0},
+    {id:'cap',label:'Capacité du toit',unit:'panneaux',ans:12,tol:0}],
+   sol:'⌊4500/674⌋=<b>6</b> par rangée · ⌊3200/1510⌋=<b>2</b> rangées · 6×2=<b>12</b> → exactement les 12 panneaux calculés. Disposition <b>6 × 2</b> en portrait.'},
+  sim:"SimulElec : calcul de calepinage (toit × panneau) avant la pose."},
+
+ {id:'equip',num:'10',phase:'Réalisation',title:'Extérieur — Matériel de pose & connecteurs',point:true,zone:'ext',
+  lead:"On choisit les équipements à installer sur le toit pour fixer les panneaux et les raccorder.",
+  equip:{title:'Sélectionne le matériel de pose nécessaire :',items:[
+   {t:'Rails de fixation aluminium',d:'supportent les panneaux',ic:'rail',req:true},
+   {t:'Pattes / crochets de toiture',d:'fixent les rails au toit',ic:'clamp',req:true},
+   {t:'Brides de milieu (inter-clamps)',d:'serrent 2 panneaux voisins',ic:'clamp',req:true},
+   {t:'Brides d’extrémité (end-clamps)',d:'serrent le panneau de bout',ic:'clamp',req:true},
+   {t:'Boulonnerie inox',d:'tenue mécanique + anticorrosion',ic:'bolt',req:true},
+   {t:'Connecteurs MC4 (mâle/femelle)',d:'raccord des strings',ic:'mc4',req:true},
+   {t:'Câble solaire 6 mm²',d:'liaison panneaux → boîtier',ic:'busbar',req:true},
+   {t:'Traversée de toit étanche',d:'passage des câbles',ic:'gland',req:true},
+   {t:'Chevilles à béton',d:'pour mur — hors sujet',ic:'x',req:false,why:'On est sur une toiture, pas un mur béton.'},
+   {t:'Domino / Wago',d:'connexion intérieure — hors sujet',ic:'x',req:false,why:'En DC extérieur, on raccorde en MC4, pas en domino.'},
+   {t:'Ruban adhésif',d:'aucune tenue mécanique',ic:'x',req:false,why:'Ne fixe rien : proscrit pour une pose PV.'}]},
+  sim:"SimulElec : sélection du matériel de pose et des connecteurs."},
+
+ {id:'pose',num:'11',phase:'Réalisation',title:'Extérieur — Pose & raccordement',point:true,zone:'ext',
+  lead:"On oriente le champ plein sud, on pose les 12 panneaux selon la disposition 6 × 2, on raccorde en MC4 vers le boîtier.",
+  roof:true,
+  sim:"SimulElec : pose sur toiture (orientation, disposition calculée, MC4) et raccordement."},
+
+ {id:'wiring',num:'12',phase:'Réalisation',title:'Platine de câblage & simulation',point:true,zone:'pl',
+  lead:"Platine complète : arrivée des panneaux, protections DC et AC, régulateur, batterie, onduleur et récepteurs alimentés. Relie les bornes avec les bons conducteurs (+ rouge, − bleu, ~ AC), puis mets SOUS TENSION.",
+  wiring:true,
+  sim:"SimulElec : platine réelle, conducteurs entre bornes, simulation du fonctionnement."},
+
+ {id:'service',num:'13',phase:'Exploitation',title:'Mise en service',point:true,zone:'pl',lead:"Batterie AVANT le PV, puis paramétrage.",
+  order:{title:'Séquence :',correct:['Vérifier câblage, polarités, serrages','Fermer le sectionneur / fusible batterie','Connecter la batterie au MPPT','Activer le champ PV','Paramétrer le MPPT (accus) via VictronConnect','Régler le BMV (1200 Ah)','Démarrer le MultiPlus, vérifier 230 V']}},
+ {id:'mesures',num:'14',phase:'Exploitation',title:'Mesures',point:true,zone:'pl',lead:"Vérification aux appareils / BMV.",
+  calc:{formula:'I panneau · I champ · U bus · U sortie',inputs:[{id:'ip',label:'I panneau',unit:'A',ans:5.2,tol:.4},{id:'ich',label:'I champ',unit:'A',ans:62.5,tol:3},{id:'ubus',label:'U bus (charge)',unit:'V',ans:27.6,tol:1.5},{id:'uac',label:'U sortie onduleur',unit:'V',ans:230,tol:5}],sol:'5,2 A · 62,5 A · ~27,6 V · 230 V.'}},
+ {id:'maint',num:'15',phase:'Exploitation',title:'Maintenance',point:true,lead:"Contrôles périodiques.",
+  checklist:['Nettoyer les panneaux, vérifier l’ombrage','Contrôler serrage cosses/barres','Vérifier MC4 et étanchéité toiture','Contrôler état/charge du parc (BMV)','Vérifier fusibles (MEGA) et sectionneurs','Mettre à jour le firmware Victron','Contrôler la ventilation du MultiPlus']}
+ ,{id:'diag',num:'16',phase:'Exploitation',title:'Validation — Maintenance corrective (dépannage)',point:true,lead:"Comme dans les autres TP : une panne survient. L'élève diagnostique PAR LA MESURE (on n'élimine pas une hypothèse sans mesurer), identifie la cause et applique le remède.",diag:{symptom:"L'auberge n'a plus le 230 V : les récepteurs ne sont plus alimentés. Pourtant le MPPT indique qu'il charge encore la batterie.",measures:[{p:'U batterie (parc)',v:'26,4 V — OK',bad:false},{p:'État sectionneur batterie',v:'fermé — OK',bad:false},{p:'U entrée DC du MultiPlus',v:'0 V — anomalie',bad:true},{p:'Fusible batterie MEGA',v:'coupé — anomalie',bad:true},{p:'U sortie 230 V',v:'0 V',bad:true}]},choices:[{q:'Cause retenue (après mesures) ?',opts:[{t:'Panneaux défaillants',ok:false,why:'Non : le MPPT charge, la partie PV fonctionne.'},{t:'Fusible batterie MEGA fondu',ok:true,why:'Batterie OK (26,4 V) mais 0 V à l\u2019entrée du MultiPlus et fusible coupé : l\u2019alimentation DC de l\u2019onduleur est coupée.'},{t:'Batterie déchargée',ok:false,why:'Non : 26,4 V, batterie chargée.'}]},{q:'Remède ?',opts:[{t:'Réorienter les panneaux',ok:false,why:'Hors sujet : le défaut est côté protection DC.'},{t:'Remplacer le fusible MEGA 125 A et chercher la cause de la surintensité',ok:true,why:'Même calibre (125 A) ET recherche du défaut (court-circuit / surcharge) qui l\u2019a fait fondre.'},{t:'Remplacer la batterie',ok:false,why:'La batterie est bonne : inutile.'}]}],sim:"SimulElec : étape Validation — hypothèses, mesure obligatoire aux points de contrôle, cause + remède justifiés (maintenance corrective)."}
+];
+
+var content=document.getElementById('content'),stepsEl=document.getElementById('steps');
+var pointSteps=STEPS.filter(function(s){return s.point;});
+document.getElementById('totN').textContent=pointSteps.length;
+var doneSet={},score=0,ordPick={},choiceState={},equipSel={},lastPhase='';
+/* platine data */
+var TERM=[{id:'PVp',x:110,y:72,pol:'+',lab:'+'},{id:'PVn',x:110,y:104,pol:'-',lab:'−'},{id:'Dip',x:150,y:72,pol:'+',lab:'+'},{id:'Din',x:150,y:104,pol:'-',lab:'−'},{id:'Dop',x:280,y:72,pol:'+',lab:'+'},{id:'Don',x:280,y:104,pol:'-',lab:'−'},{id:'mPVp',x:320,y:72,pol:'+',lab:'PV+'},{id:'mPVn',x:320,y:104,pol:'-',lab:'PV−'},{id:'mBp',x:450,y:72,pol:'+',lab:'B+'},{id:'mBn',x:450,y:104,pol:'-',lab:'B−'},{id:'Fbp',x:455,y:168,pol:'+',lab:'in'},{id:'Fbo',x:575,y:168,pol:'+',lab:'out'},{id:'BATp',x:470,y:240,pol:'+',lab:'+'},{id:'BATn',x:540,y:240,pol:'-',lab:'−'},{id:'mpBp',x:100,y:352,pol:'+',lab:'B+'},{id:'mpBn',x:100,y:380,pol:'-',lab:'B−'},{id:'mpL',x:260,y:352,pol:'ac',lab:'L'},{id:'mpN',x:260,y:380,pol:'ac',lab:'N'},{id:'aLi',x:300,y:352,pol:'ac',lab:'L'},{id:'aNi',x:300,y:380,pol:'ac',lab:'N'},{id:'aLo',x:460,y:352,pol:'ac',lab:'L'},{id:'aNo',x:460,y:380,pol:'ac',lab:'N'},{id:'RL',x:500,y:352,pol:'ac',lab:'L'},{id:'RN',x:500,y:380,pol:'ac',lab:'N'}];
+var PAIRS=[['PVp','Dip'],['PVn','Din'],['Dop','mPVp'],['Don','mPVn'],['mBp','Fbp'],['Fbo','BATp'],['mBn','BATn'],['BATp','mpBp'],['BATn','mpBn'],['mpL','aLi'],['mpN','aNi'],['aLo','RL'],['aNo','RN']];
+function key(a,b){return [a,b].sort().join('|');}
+var CORRECT={};PAIRS.forEach(function(p){CORRECT[key(p[0],p[1])]=1;});
+var wires=[],sel=null,energ=false;
+/* roof state */
+var roofS={ori:'',posed:false,cabled:false};
+
+STEPS.forEach(function(s){
+  if(s.phase&&s.phase!==lastPhase){lastPhase=s.phase;var pp=document.createElement('span');pp.className='phase';pp.textContent='· '+s.phase+' ·';stepsEl.appendChild(pp);}
+  var b=document.createElement('button');b.textContent=(s.num!=='0'?s.num+'. ':'')+s.title.replace(/\(.*\)/,'').replace(/—/,'·').trim();b.dataset.id=s.id;b.onclick=function(){document.getElementById('sec-'+s.id).scrollIntoView({behavior:'smooth'});};stepsEl.appendChild(b);
+  var sec=document.createElement('section');sec.className='card';sec.id='sec-'+s.id;
+  var tag=s.point?'<span class="tag'+(s.zone==='ext'?' ext':s.zone==='pl'?' pl':'')+'">'+(s.zone==='ext'?'extérieur':s.zone==='pl'?'platine':s.phase)+'</span>':'';
+  var h='<h2><span class="num">'+s.num+'</span>'+s.title+tag+'</h2>';
+  if(s.zone==='ext')h+='<span class="zone ext">◄ EXTÉRIEUR · toit</span>';
+  if(s.zone==='pl')h+='<span class="zone pl">■ PLATINE · intérieur</span>';
+  h+='<p class="lead">'+s.lead+'</p>';if(s.diag)h+=diagUI(s);
+  if(s.chips)h+='<div class="chips">'+s.chips.map(function(c){return '<span class="chip">'+c[0]+' <b>'+c[1]+'</b></span>';}).join('')+'</div>';
+  if(s.gallery)h+='<div class="gal">'+s.gallery.map(function(g){return '<div class="comp">'+icon(g[0])+'<div class="nm">'+g[1]+'</div><div class="sp">'+g[2]+'</div><div class="vic">'+g[3]+'</div></div>';}).join('')+'</div>';
+  if(s.choices)s.choices.forEach(function(c,ci){var cid=s.id+'_'+ci;h+='<div class="calc"><div style="font-weight:600;margin-bottom:8px">'+c.q+'</div><div class="opts" id="opt-'+cid+'">';c.opts.forEach(function(o,i){h+='<button class="opt" data-ok="'+(o.ok?1:0)+'" data-why="'+o.why.replace(/"/g,'&quot;')+'" onclick="pickOpt(\''+cid+'\','+i+',\''+s.id+'\','+s.choices.length+')">'+o.t+'</button>';});h+='</div><div class="fb" id="fb-'+cid+'"></div></div>';});
+  if(s.multi){h+='<div class="calc">';s.multi.forEach(function(m){h+='<div style="margin:8px 0;padding-bottom:8px;border-bottom:1px solid var(--line)"><div style="font-weight:600;font-size:13px">'+m.t+'</div><span class="formula">'+m.f+'</span><div class="row"><label>Résultat</label><input id="in-'+m.id+'" type="text"><span class="unit">'+m.unit+'</span></div><div class="sol" id="sol-'+m.id+'">'+m.sol+'</div></div>';});h+='<button class="btn" onclick="checkMulti(\''+s.id+'\')">Vérifier</button> <button class="btn ghost" onclick="showSols(\''+s.id+'\')">Correction</button><div class="fb" id="fb-'+s.id+'"></div></div>';sec._multi=s.multi;}
+  if(s.calc){h+='<div class="calc"><span class="formula">'+s.calc.formula+'</span>';s.calc.inputs.forEach(function(inp){h+='<div class="row"><label>'+inp.label+'</label><input id="in-'+inp.id+'" type="text"><span class="unit">'+inp.unit+'</span></div>';});h+='<button class="btn" onclick="checkCalc(\''+s.id+'\')">Vérifier</button> <button class="btn ghost" onclick="document.getElementById(\'sol-'+s.id+'\').classList.add(\'show\')">Solution</button><div class="fb" id="fb-'+s.id+'"></div><div class="sol" id="sol-'+s.id+'">'+s.calc.sol+'</div></div>';sec._calc=s.calc;}
+  if(s.equip){h+='<div class="calc"><div style="font-weight:600;margin-bottom:8px">'+s.equip.title+'</div><div class="devgrid" id="eq-'+s.id+'">';s.equip.items.forEach(function(it,i){h+='<button class="dev" data-i="'+i+'" onclick="togEquip(\''+s.id+'\','+i+')">'+icon(it.ic)+'<span><b>'+it.t+'</b><small>'+it.d+'</small></span></button>';});h+='</div><button class="btn" onclick="checkEquip(\''+s.id+'\')">Vérifier le matériel</button><div class="fb" id="fb-'+s.id+'"></div></div>';sec._equip=s.equip.items;}
+  if(s.order){h+='<div class="calc"><div style="font-weight:600;margin-bottom:8px">'+s.order.title+'</div><div class="chosen" id="ch-'+s.id+'"></div><div class="seq" id="sq-'+s.id+'"></div><button class="btn" onclick="checkOrder(\''+s.id+'\')">Vérifier l’ordre</button> <button class="btn ghost" onclick="resetOrder(\''+s.id+'\')">Recommencer</button><div class="fb" id="fb-'+s.id+'"></div></div>';sec._order=s.order.correct;}
+  if(s.roof)h+=roofUI();
+  if(s.wiring)h+=wiringUI();
+  if(s.checklist){h+='<div class="calc"><div class="devgrid" id="cl-'+s.id+'">';s.checklist.forEach(function(c){h+='<button class="dev" onclick="this.classList.toggle(\'on\')"><span><b>'+c+'</b></span></button>';});h+='</div><button class="btn" onclick="checkList(\''+s.id+'\')">Valider</button><div class="fb" id="fb-'+s.id+'"></div></div>';}
+  if(s.sim)h+='<div class="sim"><b>Dans SimulElec :</b> '+s.sim+'</div>';
+  sec.innerHTML=h;content.appendChild(sec);
+  if(s.order)buildSeq(s.id,s.order.correct);
+  if(s.roof)drawRoof();
+  if(s.wiring)initWiring();
+});
+
+function num(v){return parseFloat(String(v).replace(',','.').replace(/\s/g,''));}
+function markDone(id){if(!doneSet[id]){doneSet[id]=1;score+=100;upd();var b=[].find.call(stepsEl.children,function(x){return x.dataset&&x.dataset.id===id;});if(b)b.classList.add('done');}}
+function upd(){var n=Object.keys(doneSet).length;document.getElementById('doneN').textContent=n;document.getElementById('score').textContent=score;document.getElementById('progbar').style.width=(100*n/pointSteps.length)+'%';}
+window.checkCalc=function(id){var c=document.getElementById('sec-'+id)._calc,fb=document.getElementById('fb-'+id),ok=true,miss=[];c.inputs.forEach(function(inp){var v=num(document.getElementById('in-'+inp.id).value);var g=isFinite(v)&&Math.abs(v-inp.ans)<=inp.tol;if(!g){ok=false;miss.push(inp.label);}document.getElementById('in-'+inp.id).style.borderColor=g?'var(--ok)':'var(--crit)';});if(ok){fb.className='fb ok';fb.textContent='✓ +100';markDone(id);document.getElementById('sol-'+id).classList.add('show');}else{fb.className='fb no';fb.textContent='À revoir : '+miss.join(', ');}};
+window.checkMulti=function(id){var arr=document.getElementById('sec-'+id)._multi,fb=document.getElementById('fb-'+id),ok=true,n=0;arr.forEach(function(m){var v=num(document.getElementById('in-'+m.id).value);var g=isFinite(v)&&Math.abs(v-m.ans)<=m.tol;if(g){n++;document.getElementById('sol-'+m.id).classList.add('show');}else ok=false;document.getElementById('in-'+m.id).style.borderColor=g?'var(--ok)':'var(--crit)';});if(ok){fb.className='fb ok';fb.textContent='✓ Les 6 points ! +100';markDone(id);}else{fb.className='fb no';fb.textContent=n+'/6 corrects.';}};
+window.showSols=function(id){document.getElementById('sec-'+id)._multi.forEach(function(m){document.getElementById('sol-'+m.id).classList.add('show');});};
+window.pickOpt=function(cid,i,sid,total){var wrap=document.getElementById('opt-'+cid),btns=wrap.children,fb=document.getElementById('fb-'+cid),b=btns[i];var ok=b.dataset.ok==='1';[].forEach.call(btns,function(x){x.classList.remove('good','bad');});b.classList.add(ok?'good':'bad');fb.className='fb '+(ok?'ok':'no');fb.innerHTML=(ok?'✓ ':'✗ ')+b.dataset.why;choiceState[cid]=ok;var all=true;for(var k=0;k<total;k++)if(!choiceState[sid+'_'+k])all=false;if(all)markDone(sid);};
+window.togEquip=function(sid,i){equipSel[sid]=equipSel[sid]||{};equipSel[sid][i]=!equipSel[sid][i];document.querySelector('#eq-'+sid+' .dev[data-i="'+i+'"]').classList.toggle('on',!!equipSel[sid][i]);};
+window.checkEquip=function(sid){var items=document.getElementById('sec-'+sid)._equip,fb=document.getElementById('fb-'+sid),sel=equipSel[sid]||{},miss=[],wrong=[];items.forEach(function(it,i){if(it.req&&!sel[i])miss.push(it.t);if(!it.req&&sel[i])wrong.push(it);});if(miss.length===0&&wrong.length===0){fb.className='fb ok';fb.textContent='✓ Bon matériel de pose ! +100';markDone(sid);}else{fb.className='fb no';var m='';if(wrong.length)m+='À retirer : '+wrong.map(function(x){return x.t;}).join(', ')+'. '+(wrong[0].why||'');if(miss.length)m+=(m?' ':'')+'Manque '+miss.length+' élément(s).';fb.innerHTML=m;}};
+function buildSeq(id,correct){var pool=correct.slice();for(var i=pool.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=pool[i];pool[i]=pool[j];pool[j]=t;}ordPick[id]=[];var sq=document.getElementById('sq-'+id);sq.innerHTML='';pool.forEach(function(txt){var d=document.createElement('div');d.className='item';d.textContent=txt;d.onclick=function(){if(d.classList.contains('picked'))return;d.classList.add('picked');ordPick[id].push(txt);renderChosen(id);};sq.appendChild(d);});renderChosen(id);}
+function renderChosen(id){var c=document.getElementById('ch-'+id);if(!ordPick[id].length){c.innerHTML='<span style="background:none;color:var(--muted)">clique dans l’ordre…</span>';return;}c.innerHTML=ordPick[id].map(function(t,i){return '<span>'+(i+1)+'. '+t+'</span>';}).join('');}
+window.resetOrder=function(id){buildSeq(id,document.getElementById('sec-'+id)._order);document.getElementById('fb-'+id).className='fb';};
+window.checkOrder=function(id){var correct=document.getElementById('sec-'+id)._order,fb=document.getElementById('fb-'+id);if(ordPick[id].length<correct.length){fb.className='fb no';fb.textContent='Place toutes les étapes.';return;}var ok=correct.every(function(t,i){return ordPick[id][i]===t;});if(ok){fb.className='fb ok';fb.textContent='✓ Bon ordre ! +100';markDone(id);}else{fb.className='fb no';fb.textContent='Ordre incorrect (batterie avant PV).';}};
+window.checkList=function(id){var g=document.getElementById('cl-'+id),all=g.querySelectorAll('.dev'),on=g.querySelectorAll('.dev.on'),fb=document.getElementById('fb-'+id);if(on.length===all.length){fb.className='fb ok';fb.textContent='✓ Maintenance complète ! +100';markDone(id);}else{fb.className='fb no';fb.textContent='Reste '+(all.length-on.length)+' contrôle(s).';}};
+
+/* ---- Toit interactif (disposition 6×2) ---- */
+function roofUI(){return '<div class="rtools"><span style="font-size:13px">Orientation :</span><span class="opts" id="ori">'+['Nord','Est','Sud','Ouest'].map(function(o){return '<button class="opt" onclick="setOri(\''+o+'\')">'+o+'</button>';}).join('')+'</span></div>'+
+ '<div class="rtools"><button class="btn" onclick="poser()">Poser les 12 panneaux (6×2)</button> <button class="btn" onclick="cabler()">Raccorder en MC4 → boîtier</button></div>'+
+ '<div class="roofwrap" id="roofwrap"></div>'+
+ '<div class="fb" id="fb-pose"></div><button class="btn ghost" onclick="checkPose()">Valider la pose</button>';}
+window.setOri=function(o){roofS.ori=o;[].forEach.call(document.getElementById('ori').children,function(b){b.classList.toggle('good',b.textContent===o);});drawRoof();};
+window.poser=function(){roofS.posed=true;drawRoof();};
+window.cabler=function(){roofS.cabled=roofS.posed;drawRoof();};
+function drawRoof(){var w=document.getElementById('roofwrap');if(!w)return;var comp=roofS.ori==='Sud'?'#34d399':'#8ea0b4';
+ var cells='';if(roofS.posed){for(var r=0;r<2;r++)for(var c=0;c<6;c++){var x=250+c*66,y=64+r*80;cells+='<rect x="'+x+'" y="'+y+'" width="58" height="72" rx="2" fill="#1e5a8a" stroke="#3a5b7a"/><line x1="'+(x+29)+'" y1="'+y+'" x2="'+(x+29)+'" y2="'+(y+72)+'" stroke="#2a4a68"/><line x1="'+x+'" y1="'+(y+36)+'" x2="'+(x+58)+'" y2="'+(y+36)+'" stroke="#2a4a68"/>';}}
+ var racc=roofS.cabled?'<polyline points="250,120 220,120 220,250 150,250" fill="none" stroke="#f87171" stroke-width="3"/><rect x="108" y="236" width="46" height="40" rx="4" fill="#16212e" stroke="#28394d"/><text x="114" y="260" fill="#cfe0f0" font-size="10">Boîtier</text><circle cx="248" cy="120" r="4" fill="#ffb400"/><text x="240" y="112" fill="#ffb400" font-size="9">MC4</text>':'';
+ w.innerHTML='<svg viewBox="0 0 700 300" width="100%">'+
+  '<polygon points="230,54 690,54 660,240 200,240" fill="#243447" stroke="#35506e"/>'+
+  cells+racc+
+  '<g transform="translate(80,80)"><circle r="34" fill="#101c28" stroke="#35506e"/><text x="-4" y="-20" fill="#8ea0b4" font-size="11">N</text><text x="-3" y="30" fill="'+comp+'" font-size="11">S</text><text x="24" y="4" fill="#8ea0b4" font-size="11">E</text><text x="-30" y="4" fill="#8ea0b4" font-size="11">O</text><line x1="0" y1="0" x2="0" y2="24" stroke="'+comp+'" stroke-width="3"/></g>'+
+  '<text x="80" y="150" fill="#8ea0b4" font-size="11" text-anchor="middle">Disposition 6 × 2</text>'+
+  '</svg>';}
+window.checkPose=function(){var fb=document.getElementById('fb-pose');var okO=roofS.ori==='Sud',okP=roofS.posed,okC=roofS.cabled;if(okO&&okP&&okC){fb.className='fb ok';fb.textContent='✓ Champ plein sud, 12 panneaux (6×2) posés et raccordés en MC4. +100';markDone('pose');}else{var m=[];if(!okO)m.push('orientation plein sud');if(!okP)m.push('poser les 12 panneaux');if(!okC)m.push('raccorder en MC4');fb.className='fb no';fb.textContent='À corriger : '+m.join(', ')+'.';}};
+
+/* ---- Platine ---- */
+function wiringUI(){return '<div class="wirewrap"><svg id="board" viewBox="0 0 700 440" width="100%"></svg></div><div class="legend">Conducteurs : <b class="p">+ rouge</b> · <b class="n">− bleu</b> · <b class="a">~ AC violet</b>. Clique une borne puis une autre.</div><div class="wtools"><button class="btn" onclick="checkWiring()">Vérifier le câblage</button> <button class="btn ghost" onclick="undoWire()">Annuler</button> <button class="btn ghost" onclick="resetWiring()">Effacer</button> <button class="btn" id="energBtn" disabled onclick="energize()">⚡ Mettre sous tension</button></div><div class="fb" id="fb-wiring"></div>';}
+function termEl(t){return '<circle cx="'+t.x+'" cy="'+t.y+'" r="7" fill="#0c141d" stroke="'+(t.pol==='+'?'var(--pos)':t.pol==='-'?'var(--neg)':'var(--ac)')+'" stroke-width="2" style="cursor:pointer" onclick="termClick(\''+t.id+'\')" data-t="'+t.id+'"/><text x="'+t.x+'" y="'+(t.y-11)+'" fill="#8ea0b4" font-size="9" text-anchor="middle">'+t.lab+'</text>';}
+function blk(x,y,w,hh,title){return '<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+hh+'" rx="6" fill="#16212e" stroke="#28394d"/><text x="'+(x+8)+'" y="'+(y+16)+'" fill="#cfe0f0" font-size="11" font-weight="bold">'+title+'</text>';}
+function col(pol){return pol==='+'?'#f87171':pol==='-'?'#38bdf8':'#c084fc';}
+function wireLine(w){var a=TERM.find(function(t){return t.id===w[0];}),b=TERM.find(function(t){return t.id===w[1];});return '<line'+(energ?' class="flow"':'')+' x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="'+col(a.pol)+'" stroke-width="3" stroke-linecap="round"/>';}
+function drawBoard(){var svg=document.getElementById('board');if(!svg)return;var h=blk(20,40,90,92,'Panneaux PV')+blk(150,40,130,92,'Protection DC')+blk(320,40,130,92,'MPPT 150/70')+blk(453,150,124,36,'Fusible 125 A')+blk(430,200,150,64,'Parc 24 V')+blk(100,326,160,92,'MultiPlus')+blk(300,326,160,92,'Protection AC')+blk(500,326,175,92,'Récepteurs 230 V');h+='<text x="156" y="126" fill="#8ea0b4" font-size="8">sect.+parafoudre+fus.</text>';h+='<text x="304" y="414" fill="#8ea0b4" font-size="8">disj.+diff 30mA+paraf.</text>';h+='<text x="506" y="414" fill="#8ea0b4" font-size="8">éclairage, congélateurs…</text>';h+='<circle id="lamp" cx="640" cy="370" r="12" fill="#26313d" stroke="#8ea0b4"/>';h+='<g id="wires">'+wires.map(wireLine).join('')+'</g>';TERM.forEach(function(t){h+=termEl(t);});svg.innerHTML=h;}
+window.termClick=function(id){if(sel===null){sel=id;var e=document.querySelector('[data-t="'+id+'"]');if(e)e.setAttribute('stroke-width','4');return;}if(sel===id){sel=null;drawBoard();return;}wires.push([sel,id]);sel=null;drawBoard();document.getElementById('fb-wiring').className='fb';};
+window.undoWire=function(){wires.pop();drawBoard();};
+window.resetWiring=function(){wires=[];sel=null;energ=false;document.getElementById('energBtn').disabled=true;drawBoard();document.getElementById('fb-wiring').className='fb';};
+window.checkWiring=function(){var fb=document.getElementById('fb-wiring');var short=wires.find(function(w){var a=TERM.find(function(t){return t.id===w[0];}),b=TERM.find(function(t){return t.id===w[1];});return (a.pol==='+'&&b.pol==='-')||(a.pol==='-'&&b.pol==='+');});if(short){fb.className='fb no';fb.innerHTML='⚠ Court-circuit ! Un + relié à un −. Corrige.';return;}var set={};wires.forEach(function(w){set[key(w[0],w[1])]=1;});var miss=PAIRS.filter(function(p){return !set[key(p[0],p[1])];});var extra=wires.filter(function(w){return !CORRECT[key(w[0],w[1])];});if(miss.length===0&&extra.length===0){fb.className='fb ok';fb.textContent='✓ Câblage correct ! Tu peux mettre sous tension.';document.getElementById('energBtn').disabled=false;}else{fb.className='fb no';fb.textContent='Incomplet : '+miss.length+' liaison(s) manquante(s)'+(extra.length?', '+extra.length+' en trop':'')+'.';}};
+window.energize=function(){energ=true;drawBoard();var lamp=document.getElementById('lamp');if(lamp){lamp.setAttribute('fill','#ffe27a');lamp.setAttribute('stroke','#ffb400');}var fb=document.getElementById('fb-wiring');fb.className='fb ok';fb.innerHTML='⚡ SOUS TENSION — bus 24 V ✓, 230 V ✓, charge alimentée. PV → protection DC → MPPT → fusible → batterie → MultiPlus → protection AC → récepteurs. +100';markDone('wiring');};
+function initWiring(){drawBoard();var st=document.createElement('style');st.textContent='.flow{stroke-dasharray:6 6;animation:flow 1s linear infinite}@keyframes flow{to{stroke-dashoffset:-12}}#lamp{transition:.3s}';document.head.appendChild(st);}
+function diagUI(s){var d=s.diag;var h='<div class=\"calc\"><div style=\"font-weight:700;color:var(--crit)\">\ud83d\udd27 Panne constat\u00e9e</div><p style=\"font-size:13px;margin:4px 0 10px\">'+d.symptom+'</p><div style=\"font-weight:600;margin-bottom:6px\">1) Rel\u00e8ve aux points de contr\u00f4le (clique) :</div><div class=\"devgrid\">';d.measures.forEach(function(m){h+='<button class=\"dev\" onclick=\"var v=this.querySelector(String.fromCharCode(46)+String.fromCharCode(109,118));v.style.display=String.fromCharCode(98,108,111,99,107);this.classList.add(String.fromCharCode(111,110))\"><span><b>'+m.p+'</b><small class=\"mv\" style=\"display:none;color:'+(m.bad?'var(--crit)':'var(--ok)')+'\">'+m.v+'</small></span></button>';});h+='</div><div style=\"font-weight:600;margin-top:8px\">2) Conclus : cause puis rem\u00e8de.</div></div>';return h;}
+upd();
+</script></body></html>

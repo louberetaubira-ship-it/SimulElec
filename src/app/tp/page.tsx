@@ -40,6 +40,25 @@ export default async function CataloguePage() {
         </p>
       </header>
 
+      {/* TP « cycle complet » photovoltaïque autonome (parcours interactif dédié). */}
+      <Link
+        href="/tp-solaire-autonome"
+        className="mb-8 flex flex-col gap-4 rounded-2xl border border-accent/40 bg-gradient-to-br from-[var(--surface)] to-accent/5 p-4 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center"
+      >
+        <div className="grid h-16 w-16 flex-none place-items-center rounded-2xl bg-accent/15 text-[34px]">☀</div>
+        <div className="min-w-0">
+          <div className="font-title text-[11px] font-semibold uppercase tracking-[.12em] text-accent">
+            Nouveau · cycle complet
+          </div>
+          <div className="text-[18px] font-bold">Installation solaire autonome (24 V)</div>
+          <p className="mt-0.5 text-[13px] text-muted">
+            Dimensionnement → couplage série/parallèle → calepinage → pose sur toit → platine câblée
+            avec protections → simulation sous tension → mise en service, mesures et dépannage.
+          </p>
+        </div>
+        <span className="ml-auto hidden text-[13px] font-semibold text-accent sm:block">Ouvrir →</span>
+      </Link>
+
       {FAMILIES.map(fam => {
         const list = TPS.filter(t => t.family === fam);
         if (!list.length) return null;
