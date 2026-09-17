@@ -105,7 +105,7 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
   return (
     <div className="flex min-h-0 flex-col bg-[var(--surface)] lg:border-l lg:border-[var(--line)]">
       <header className="flex items-center gap-2.5 border-b border-[var(--line)] px-3.5 py-3">
-        <div className="grid h-[34px] w-[34px] place-items-center rounded-full font-title font-bold text-white" style={{ background: 'linear-gradient(135deg,#1E9E63,#0E5C3A)' }}>Pr</div>
+        <div className="h-[34px] w-[34px] flex-none rounded-full bg-cover ring-2 ring-[var(--good)]" style={{ backgroundImage: 'url(/prof-avatar.png)', backgroundPosition: 'center 22%' }} aria-hidden />
         <div>
           <b className="block text-[13px]">Professeur virtuel · électrotechnique</b>
           <small className="text-[11px] text-muted">

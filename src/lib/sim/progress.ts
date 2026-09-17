@@ -571,7 +571,7 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
  * (−0,1 par ouverture, plancher 0,3 quand l'étape est réussie malgré tout).
  */
 /** Erreurs « dures » imputables à une étape (comptées pour le plafond de niveau). */
-function stageErrors(st: AttemptState, stage: number): number {
+export function stageErrors(st: AttemptState, stage: number): number {
   switch (stage) {
     case ETAPE.POSE: return st.poseErrors ?? 0;
     case ETAPE.CABLAGE: return (st.wireErrors ?? 0) + (st.resets ?? 0);

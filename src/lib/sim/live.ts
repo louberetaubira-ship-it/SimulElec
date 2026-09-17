@@ -17,7 +17,7 @@
 
 import type { AttemptState, Bareme, TpDefinition } from '../types';
 import {
-  ETAPE, baremeOf, buildEvaluation, coursForStage, scoreLines, stageReached, type ScoreLine,
+  ETAPE, baremeOf, buildEvaluation, coursForStage, scoreLines, stageErrors, stageReached, type ScoreLine,
 } from './progress';
 import type { CompetenceEval, DiplomaId } from '../data/competences';
 import { COURS } from '../data/cours';
@@ -42,12 +42,22 @@ const VIGILANCE_MAX = 0.55;
 
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
-/** Une ligne de barème est-elle déjà évaluable (étape atteinte et poids non nul) ? */
+/**
+ * Une ligne de barème est-elle déjà évaluable ?
+ *
+ * Une étape franchie compte toujours. L'étape EN COURS compte dès qu'une erreur
+ * y a été commise (refus de liaison, erreur de pose, essai de dépannage…) : sans
+ * cela, la note provisoire reste optimiste — un élève en plein câblage avec des
+ * dizaines de liaisons refusées apparaissait à 20/20 tant qu'il n'avait pas
+ * validé l'étape (corrigé le 2026-09-17). La note baisse donc dès la première
+ * erreur, sans pénaliser une étape juste entamée et encore propre.
+ */
 function lineReached(st: AttemptState, l: ScoreLine): boolean {
   if (l.max <= 0) return false;
   const stage = RUBRIC_STAGE[l.key];
   if (stage == null) return false;
-  return stageReached(st, stage);
+  if (stageReached(st, stage)) return true;
+  return stage === st.stage && stageErrors(st, stage) > 0;
 }
 
 export interface LiveNotes {

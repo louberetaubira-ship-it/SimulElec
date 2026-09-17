@@ -487,6 +487,10 @@ export default function ProfPage() {
                     const noteProv = termine ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.provisoire ?? null;
                     const noteProj = termine ? (a.score != null ? noteSur20(a.score) : null) : l?.notes.projetee ?? null;
                     const evalu = termine ? a.evaluation : l?.evaluation ?? null;
+                    const s = a.state as Partial<{ wireErrors: number; poseErrors: number; resets: number; diagTries: number }> | null;
+                    const errCount = !termine && s
+                      ? (s.wireErrors ?? 0) + (s.poseErrors ?? 0) + (s.resets ?? 0) + Math.max(0, (s.diagTries ?? 0) - 1)
+                      : 0;
                     return (
                       <tr key={a.id} className="border-t border-[#E7EAEF] transition-colors hover:bg-[#FAFBFC]">
                         <td className="px-4 py-3.5">
@@ -529,6 +533,11 @@ export default function ProfPage() {
                               {!termine && (
                                 <div className="text-[11px] text-[#66717F]">
                                   projetée {noteProj != null ? fr(noteProj) : '—'}/20
+                                </div>
+                              )}
+                              {!termine && errCount > 0 && (
+                                <div className="text-[11px] font-semibold text-[#D93A3A]">
+                                  ⚠ {errCount} erreur{errCount > 1 ? 's' : ''} en cours
                                 </div>
                               )}
                             </div>
