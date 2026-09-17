@@ -49,8 +49,12 @@ export default function Deconsignation({ tp, st, sim, onAct }: DeconsignationPro
         </span>
       </Step>
       <Step done={d.essai} n="3">
-        <b>Essai de fonctionnement</b> — appuie sur {marche?.rep ?? 'le bouton de marche'}
-        {marche ? ` (${marche.label})` : ''} en porte : {km1} s&apos;enclenche, {voyant} s&apos;allume.
+        <b>Essai de fonctionnement</b>
+        {marche ? (
+          <> — appuie sur {marche.rep} ({marche.label}) en porte : {km1} s&apos;enclenche, {voyant} s&apos;allume.</>
+        ) : (
+          <> — mets {km1} en marche en le cliquant sur la platine : l&apos;installation se met en service (le 230 V apparaît au tableau).</>
+        )}
         {d.essai ? <span className="block font-semibold text-good">Déconsignée, essais concluants.</span> : null}
       </Step>
     </div>

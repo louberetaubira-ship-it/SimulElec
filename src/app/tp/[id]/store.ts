@@ -381,7 +381,12 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const essai = (d.close || close) && sim.km1;
       if (close !== d.close || essai !== d.essai) {
         if (close && !d.close) mlog(`${listeMiseSousTension(tp, 'et')} refermés : la platine est remise sous tension.`);
-        if (essai && !d.essai) mlog(`Essai concluant : ${repereSlot(tp, 'km1')} s'enclenche, le voyant s'allume.`);
+        if (essai && !d.essai) {
+          const lampe = (tp.pupitre ?? []).some(p => p.kind === 'lamp');
+          mlog(lampe
+            ? `Essai concluant : ${repereSlot(tp, 'km1')} s'enclenche, le voyant s'allume.`
+            : `Essai concluant : ${repereSlot(tp, 'km1')} en marche, le 230 V apparaît au tableau.`);
+        }
         patch(s => ({ ...s, decons: { ...s.decons, close: close || s.decons.close, essai: essai || s.decons.essai } }));
       }
     }
