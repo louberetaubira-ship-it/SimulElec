@@ -203,8 +203,16 @@ export default function Panel(props: PanelProps) {
         const term = id.split('.')[1];
         // Sur le champ PV et le parc batterie : X1 = pôle + (rouge), X2 = pôle − (noir).
         const pol = dc ? (term === 'X1' ? 'plus' : term === 'X2' ? 'minus' : undefined) : undefined;
-        const label = pol === 'plus' ? `${term} +` : pol === 'minus' ? `${term} −` : term;
-        out.push({ id, pos: { x: p.x, y: p.y }, label, dx: 8, dy: 0, pol });
+        // Un module n'a qu'un + et un − : on n'affiche QUE la polarité (« + » / « − »),
+        // pas « X1/X2 » (l'identifiant interne reste inchangé pour le câblage). Le repère
+        // se pose À GAUCHE de la pastille, DANS le module, pour ne plus déborder sur le
+        // panneau voisin, sur les numéros PV ni sur le titre. Les autres annexes gardent leur repère.
+        const compact = pol === 'plus' || pol === 'minus';
+        const label = pol === 'plus' ? '+' : pol === 'minus' ? '−' : term;
+        out.push({
+          id, pos: { x: p.x, y: p.y }, label,
+          dx: compact ? -9 : 8, dy: 0, pol,
+        });
       }
     }
     return out;

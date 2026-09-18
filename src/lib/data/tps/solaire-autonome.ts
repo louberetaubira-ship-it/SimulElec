@@ -43,10 +43,12 @@ const ROOF: AnnexItem[] = [
       key: 'pvpanel',
       rep: `PV${n}`,
       name: 'module 180 Wc · 3S4P',
-      x: 20 + c * 46,
-      y: 16 + r * 44,
-      w: 40,
-      h: 32,
+      // Modules un peu plus espacés, DÉCALÉS SOUS le titre « ① TOITURE » (y 26)
+      // pour laisser respirer les repères de polarité + / − et les numéros PV.
+      x: 18 + c * 50,
+      y: 26 + r * 50,
+      w: 44,
+      h: 34,
     } as AnnexItem;
   }),
   // Boîte de jonction (combiner) à 4 fusibles gPV, à DROITE du bandeau : elle raccorde
