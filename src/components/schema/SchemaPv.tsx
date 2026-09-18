@@ -1,135 +1,222 @@
 'use client';
 
 /**
- * Schéma UNIFILAIRE de l'installation solaire autonome (off-grid), pour la
- * PRÉPARATION du TP photovoltaïque.
+ * FOLIO DE MAINTENANCE de l'installation solaire autonome (off-grid), affiché à
+ * l'étape de dépannage à la place du folio de commande (qui n'existe pas pour ce TP).
  *
- * Le schéma de puissance générique (`SchemaPuissance`) est bâti pour un départ
- * moteur triphasé : il ne sait pas dessiner une chaîne PV → régulateur → parc →
- * onduleur → tableau. On dessine donc ici la chaîne off-grid, du champ PV aux
- * récepteurs, en continu (orange) puis en alternatif 230 V (bleu), avec le parc
- * batterie EXTÉRIEUR au coffret. L'organe visé par la question en cours
- * (`focus`, un repère) s'entoure d'un cadre, comme sur les autres schémas.
+ * Schéma unifilaire conforme aux conventions NF C 15-712 / installations off-grid
+ * (Victron MultiPlus + régulateur MPPT + parc) : coffret DC et coffret AC en cadres
+ * pointillés, symboles normalisés (interrupteur-sectionneur, différentiel à tore,
+ * parafoudre en dérivation, onduleur = / ~), réseau de terre et régime TT.
+ *
+ * Chaque POINT DE TEST porte l'identifiant réel d'une borne : cliquer un point pose
+ * la pointe de touche, exactement comme sur la platine. Les repères affichés sont
+ * ceux de la platine (`repereBorne`), pas les identifiants internes.
  */
 import React from 'react';
 import type { TpDefinition } from '@/lib/types';
+import { repereBorne } from '@/lib/sim/reperes';
 
-const DC = '#D9711E';
-const AC = '#1D6FE0';
-const GOOD = '#1E9E63';
+const DC = '#C8641C';
+const AC = '#1663C7';
+const PE = '#159A52';
+const BOX = '#0A84FF';
 const INK = '#141A21';
 const MUTED = '#66717F';
-const LINE = '#E3E7EC';
+const LINE = '#C8CED6';
 const ACCENT = '#E39A00';
 
-interface Node {
-  id: string;            // repère servant de cible au focus
-  rep: string;           // repère affiché
-  label: string;         // fonction courte
-  x: number; y: number; w: number; h: number;
-  side: 'dc' | 'ac' | 'bat';
-  sym?: React.ReactNode; // symbole dessiné à l'intérieur
-}
+interface Node { id: string; rep: string; label: string; x: number; y: number; w: number; h: number; sym?: React.ReactNode; }
 
-/** Un sectionneur (lame ouverte) dessiné dans le cadre d'un nœud. */
-function Sect(x: number, y: number, c: string) {
-  return (
-    <g>
-      <circle cx={x} cy={y} r={3} fill={c} />
-      <line x1={x} y1={y} x2={x + 16} y2={y + 20} stroke={c} strokeWidth={2.4} />
-      <circle cx={x} cy={y + 28} r={3} fill={c} />
-    </g>
-  );
-}
+/** Point de test : une borne réelle, cliquable pour poser une pointe. */
+interface TestPt { id: string; x: number; y: number; pol: '+' | '-' | '~'; node: string }
 
 const NODES: Node[] = [
-  { id: 'PV', rep: 'Champ PV', label: '12 × 180 Wc · 3S4P', x: 40, y: 24, w: 104, h: 52, side: 'dc',
-    sym: <path d="M56 40 h72 v22 h-72 z M74 40 v22 M92 40 v22 M110 40 v22 M56 51 h72" fill="none" stroke={DC} strokeWidth={1.5} /> },
-  { id: 'JB', rep: 'JB', label: 'boîte de jonction · 4 gPV', x: 200, y: 24, w: 160, h: 52, side: 'dc',
-    sym: <g fill="none" stroke={DC} strokeWidth={1.8}>
-      <path d="M212 66 H300" />
-      <rect x={216} y={44} width={7} height={16} rx={2} /><rect x={236} y={44} width={7} height={16} rx={2} />
-      <rect x={256} y={44} width={7} height={16} rx={2} /><rect x={276} y={44} width={7} height={16} rx={2} />
-    </g> },
-  { id: 'Q2', rep: 'Q2', label: 'sectionneur DC PV', x: 40, y: 98, w: 104, h: 52, side: 'dc',
-    sym: Sect(64, 112, DC) },
-  { id: 'PF1', rep: 'PF1', label: 'parafoudre DC T2', x: 40, y: 172, w: 104, h: 46, side: 'dc',
-    sym: <path d="M64 180 v14 M56 194 h16 l-8 12 z" fill="none" stroke={DC} strokeWidth={2} /> },
-  { id: 'F1', rep: 'F1', label: 'fusibles gPV', x: 40, y: 240, w: 104, h: 46, side: 'dc',
-    sym: <rect x={58} y={248} width={12} height={30} rx={2} fill="none" stroke={DC} strokeWidth={2} /> },
-  { id: 'MPPT', rep: 'MPPT', label: 'régulateur 150/70', x: 200, y: 240, w: 150, h: 52, side: 'dc',
-    sym: <path d="M220 278 q14 -26 28 0" fill="none" stroke={DC} strokeWidth={2} /> },
-  { id: 'Q1', rep: 'Q1', label: 'sect. parc · consignation', x: 380, y: 240, w: 150, h: 52, side: 'dc',
-    sym: Sect(400, 254, DC) },
-  { id: 'FB', rep: 'FB', label: 'fusible MEGA 125 A', x: 452, y: 120, w: 92, h: 44, side: 'dc',
-    sym: <rect x={470} y={128} width={12} height={28} rx={2} fill="none" stroke={DC} strokeWidth={2} /> },
-  { id: 'BAT', rep: 'Parc 24 V', label: 'extérieur · 1200 Ah', x: 452, y: 172, w: 92, h: 60, side: 'bat',
-    sym: <path d="M474 196 v16 M474 200 h-6 M494 192 v24 M494 192 h16 M510 192 v24" fill="none" stroke={GOOD} strokeWidth={2} /> },
-  { id: 'ONDU', rep: 'ONDU', label: 'MultiPlus 24/3000', x: 200, y: 330, w: 150, h: 52, side: 'ac',
-    sym: <path d="M222 356 h10 l6 -12 v24 l6 -12 h10" fill="none" stroke={AC} strokeWidth={2} /> },
-  { id: 'Q3', rep: 'Q3', label: 'différentiel 30 mA', x: 380, y: 330, w: 120, h: 52, side: 'ac',
-    sym: <g>{Sect(400, 344, AC)}<ellipse cx={404} cy={372} rx={9} ry={5} fill="none" stroke={AC} strokeWidth={1.5} /></g> },
-  { id: 'X1', rep: 'X1', label: 'tableau (GTL)', x: 40, y: 330, w: 140, h: 52, side: 'ac',
-    sym: <path d="M150 340 v32 M158 340 v32 M166 340 v32" stroke={AC} strokeWidth={2} /> },
+  { id: 'Q2', rep: 'Q2', label: 'sect. DC champ', x: 60, y: 96, w: 90, h: 44 },
+  { id: 'PF1', rep: 'PF1', label: 'parafoudre DC', x: 60, y: 152, w: 90, h: 40 },
+  { id: 'F1', rep: 'F1', label: 'fusible principal', x: 60, y: 204, w: 90, h: 40 },
+  { id: 'MPPT', rep: 'MPPT', label: 'régulateur 150/70', x: 320, y: 206, w: 110, h: 56 },
+  { id: 'Q1', rep: 'Q1', label: 'sect. parc · consignation', x: 560, y: 178, w: 150, h: 46 },
+  { id: 'FB', rep: 'FB', label: 'MEGA 125 A', x: 640, y: 120, w: 60, h: 40 },
+  { id: 'BAT', rep: 'Parc 24 V', label: 'extérieur · 1200 Ah', x: 620, y: 56, w: 140, h: 48 },
+  { id: 'ONDU', rep: 'ONDU', label: 'MultiPlus 24/3000', x: 250, y: 372, w: 130, h: 66 },
+  { id: 'Q3', rep: 'Q3', label: 'différentiel 30 mA type A', x: 470, y: 372, w: 140, h: 56 },
+  { id: 'X1', rep: 'X1', label: 'tableau de répartition', x: 560, y: 440, w: 90, h: 48 },
 ];
 
-const WIRES: { d: string; side: 'dc' | 'ac' }[] = [
-  { d: 'M144 50 H200', side: 'dc' },             // champ PV -> boîte de jonction (3S4P)
-  { d: 'M92 76 V98', side: 'dc' },               // PV/JB -> Q2
-  { d: 'M92 150 V172', side: 'dc' },             // Q2 -> PF1
-  { d: 'M92 218 V240', side: 'dc' },             // PF1 -> F1
-  { d: 'M92 286 V266 H200', side: 'dc' },        // F1 -> MPPT
-  { d: 'M350 266 H380', side: 'dc' },            // MPPT -> Q1
-  { d: 'M498 164 V172', side: 'dc' },            // MEGA -> parc
-  { d: 'M498 232 V266 H530', side: 'dc' },       // parc -> Q1 (retour bus)
-  { d: 'M455 266 H470 M470 240 V164', side: 'dc' }, // Q1 -> MEGA branch
-  { d: 'M275 292 V330', side: 'ac' },            // ONDU DC in (visual link to Q1 bus) simplified
-  { d: 'M350 356 H380', side: 'ac' },            // ONDU -> Q3
-  { d: 'M380 356 H360 M360 356 H180', side: 'ac' }, // Q3 -> tableau (feed)
+/** Bornes réelles rattachées à chaque organe, avec leur position sur le folio. */
+const TESTPTS: TestPt[] = [
+  // amont / aval Q2 (champ PV, ≈72 V continu)
+  { id: 'f2.1+', x: 96, y: 92, pol: '+', node: 'Q2' }, { id: 'f2.3−', x: 114, y: 92, pol: '-', node: 'Q2' },
+  { id: 'f2.2+', x: 96, y: 144, pol: '+', node: 'Q2' }, { id: 'f2.4−', x: 114, y: 144, pol: '-', node: 'Q2' },
+  // entrée régulateur
+  { id: 'mppt.PV+', x: 320, y: 224, pol: '+', node: 'MPPT' }, { id: 'mppt.PV−', x: 320, y: 250, pol: '-', node: 'MPPT' },
+  // parc 24 V
+  { id: 'BT1.X1', x: 648, y: 100, pol: '+', node: 'BAT' }, { id: 'BT2.X2', x: 724, y: 100, pol: '-', node: 'BAT' },
+  // aval Q1 (bus consigné)
+  { id: 'q1.2+', x: 566, y: 196, pol: '+', node: 'Q1' }, { id: 'q1.4−', x: 584, y: 196, pol: '-', node: 'Q1' },
+  // fusible MEGA
+  { id: 'megafuse.1', x: 662, y: 120, pol: '+', node: 'FB' }, { id: 'megafuse.2', x: 678, y: 158, pol: '+', node: 'FB' },
+  // onduleur : entrée DC + sortie AC + PE
+  { id: 'km1.B+', x: 256, y: 372, pol: '+', node: 'ONDU' }, { id: 'km1.B−', x: 274, y: 372, pol: '-', node: 'ONDU' },
+  { id: 'km1.PE', x: 300, y: 440, pol: '~', node: 'ONDU' },
+  // tableau 230 V (L / N / PE)
+  { id: 'x1_1.a', x: 604, y: 448, pol: '~', node: 'X1' }, { id: 'x1_4.a', x: 620, y: 448, pol: '~', node: 'X1' },
+  { id: 'x1_5.a', x: 636, y: 448, pol: '~', node: 'X1' },
 ];
 
-export default function SchemaPv({
-  focus, className = '',
-}: { tp?: TpDefinition; focus?: string | null; className?: string }) {
+/** Interrupteur-sectionneur (lame ouverte) dans le cadre d'un nœud. */
+function Sect(x: number, y: number, c: string) {
+  return (<g><circle cx={x} cy={y} r={3} fill={c} /><line x1={x} y1={y} x2={x + 20} y2={y - 16} stroke={c} strokeWidth={2.2} /><circle cx={x + 24} cy={y - 18} r={3} fill={c} /></g>);
+}
+
+export interface SchemaPvProps {
+  tp: TpDefinition;
+  /** Organe visé par l'hypothèse en cours (repère de nœud, encadré). */
+  focus?: string | null;
+  /** Bornes mises en évidence (zone de l'hypothèse). */
+  zone?: readonly string[];
+  /** Pointes de touche posées. */
+  probes?: { r?: string | null; k?: string | null };
+  /** Pose une pointe sur la borne cliquée. */
+  onBorne?: (id: string) => void;
+  className?: string;
+}
+
+export default function SchemaPv({ tp, focus, zone, probes, onBorne, className = '' }: SchemaPvProps) {
+  const zoneSet = React.useMemo(() => new Set(zone ?? []), [zone]);
+  // Un organe est mis en évidence par la question (focus) ou parce que l'un de ses points
+  // de test appartient à la zone de l'hypothèse en cours.
+  const nodesOn = React.useMemo(() => {
+    const s = new Set<string>();
+    if (focus) s.add(focus);
+    for (const t of TESTPTS) if (zoneSet.has(t.id)) s.add(t.node);
+    return s;
+  }, [focus, zoneSet]);
+  const colPol = (p: TestPt['pol']) => (p === '+' ? DC : p === '-' ? '#20262D' : AC);
+
   return (
     <div className={`rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 ${className}`}>
-      <div className="mb-1 font-title text-[12px] font-semibold uppercase tracking-[.14em] text-accent">
-        Schéma — installation solaire autonome
+      <div className="mb-1 flex items-baseline justify-between">
+        <span className="font-title text-[12px] font-semibold uppercase tracking-[.14em] text-accent">
+          Folio de maintenance — installation solaire autonome
+        </span>
+        <span className="text-[10px] text-muted">Régime TT</span>
       </div>
       <p className="m-0 mb-2 text-[11.5px] text-muted">
-        Du champ PV aux récepteurs : continu (orange), puis 230&nbsp;V alternatif (bleu). Le parc
-        batterie est à l&apos;extérieur du coffret. L&apos;organe demandé s&apos;encadre.
+        Coffret DC / coffret AC (pointillés), réseau de terre en{' '}
+        <span className="font-semibold" style={{ color: PE }}>vert</span>, symboles normalisés. Les{' '}
+        <span className="font-semibold" style={{ color: DC }}>points de test</span> portent le repère
+        de la platine : clique deux points pour y poser tes pointes.
       </p>
-      <svg viewBox="0 0 600 400" className="block h-auto w-full" role="img" aria-label="Schéma de l'installation solaire autonome">
-        {/* fils */}
-        {WIRES.map((w, i) => (
-          <path key={i} d={w.d} fill="none" stroke={w.side === 'ac' ? AC : DC} strokeWidth={2.2} strokeLinejoin="round" />
-        ))}
-        {/* étiquettes de nature */}
-        <text x={188} y={262} fontSize={9} fontWeight={700} fill={DC}>DC</text>
-        <text x={188} y={352} fontSize={9} fontWeight={700} fill={AC}>230 V</text>
 
-        {/* organes */}
+      <svg viewBox="0 0 800 520" className="block h-auto w-full touch-manipulation" role="img"
+        aria-label="Folio unifilaire de l'installation solaire autonome, points de test cliquables">
+
+        {/* coffret DC */}
+        <rect x={40} y={70} width={140} height={190} rx={6} fill="none" stroke={MUTED} strokeDasharray="5 4" />
+        <text x={46} y={86} fontSize={9.5} fontWeight={700} fill={MUTED}>COFFRET DC · classe II</text>
+        {/* coffret AC */}
+        <rect x={450} y={362} width={230} height={110} rx={6} fill="none" stroke={MUTED} strokeDasharray="5 4" />
+        <text x={458} y={378} fontSize={9.5} fontWeight={700} fill={MUTED}>COFFRET AC · 230 V</text>
+
+        {/* champ PV + JB (hors coffret) */}
+        <g stroke={INK} strokeWidth={1.5} fill="none">
+          <rect x={70} y={10} width={26} height={18} /><path d="M70 19 h26 M83 10 v18" />
+          <rect x={112} y={10} width={26} height={18} /><path d="M112 19 h26 M125 10 v18" />
+          <rect x={154} y={10} width={26} height={18} /><path d="M154 19 h26 M167 10 v18" />
+        </g>
+        <g fill="none" stroke={DC} strokeWidth={1.5}>
+          <rect x={80} y={38} width={6} height={14} rx={1} /><rect x={122} y={38} width={6} height={14} rx={1} /><rect x={164} y={38} width={6} height={14} rx={1} />
+        </g>
+        <text x={192} y={22} fontSize={9} fill={MUTED}>Champ PV</text>
+        <text x={192} y={33} fontSize={8} fill={MUTED}>3S4P · Voc≈72 V</text>
+        <path d="M188 18 h16" stroke={PE} strokeWidth={1.3} strokeDasharray="3 2" />
+
+        {/* conducteurs DC */}
+        <g fill="none" stroke={INK} strokeWidth={1.7}>
+          <path d="M105 52 V96" /><path d="M105 140 V152" /><path d="M105 192 V204" />
+          <path d="M105 244 V300 H375 V262" />          {/* F1 -> MPPT */}
+          <path d="M430 234 H470" />                     {/* MPPT -> bus */}
+        </g>
+
+        {/* busbar 24 V */}
+        <line x1={490} y1={140} x2={490} y2={320} stroke={DC} strokeWidth={5} />
+        <line x1={520} y1={140} x2={520} y2={320} stroke="#20262D" strokeWidth={5} />
+        <text x={484} y={136} fontSize={9} fontWeight={700} fill={DC} textAnchor="end">+</text>
+        <text x={526} y={136} fontSize={9} fontWeight={700} fill="#20262D">−</text>
+        <text x={505} y={334} fontSize={8.5} fill={MUTED} textAnchor="middle">busbar 24 V</text>
+        <path d="M470 234 H490" stroke={INK} strokeWidth={1.7} fill="none" />
+        <path d="M490 200 H560" stroke={INK} strokeWidth={1.7} fill="none" />  {/* bus -> Q1 */}
+        <path d="M520 300 V330 H320 V300" stroke={INK} strokeWidth={1.7} fill="none" /> {/* bus- vers onduleur */}
+
+        {/* Q1 -> FB -> parc */}
+        <path d="M710 194 H640" stroke={INK} strokeWidth={1.7} fill="none" />
+        <path d="M640 140 V120 M640 120 H690 V104" stroke={INK} strokeWidth={1.7} fill="none" />
+
+        {/* conducteurs AC */}
+        <g fill="none" stroke={AC} strokeWidth={1.7}>
+          <path d="M380 405 H470" />                     {/* ONDU -> Q3 */}
+          <path d="M610 400 H650 V440" />                {/* Q3 -> X1 */}
+        </g>
+        <text x={330} y={300} fontSize={8.5} fontWeight={700} fill={DC}>DC 24 V</text>
+        <text x={392} y={398} fontSize={8.5} fontWeight={700} fill={AC}>230 V</text>
+
+        {/* réseau de terre */}
+        <rect x={50} y={498} width={600} height={9} rx={2} fill="none" stroke={PE} strokeWidth={1.5} />
+        <text x={56} y={493} fontSize={9} fontWeight={700} fill={PE}>Répartiteur de terre — liaison équipotentielle</text>
+        <g stroke={PE} strokeWidth={1.7}><path d="M350 507 V520 M340 520 H360 M344 525 H356 M347 530 H353" /></g>
+        <g stroke={PE} strokeWidth={1.4} fill="none" strokeDasharray="4 3">
+          <path d="M90 160 V498" /><path d="M315 438 V498" /><path d="M690 104 V44 H720 V498" /><path d="M650 488 V498" />
+        </g>
+        <text x={96} y={486} fontSize={7.5} fill={PE}>10 mm²</text>
+        <text x={700} y={486} fontSize={7.5} fill={PE}>16 mm²</text>
+
+        {/* organes (nœuds) */}
         {NODES.map((n) => {
-          const on = focus === n.id;
+          const on = nodesOn.has(n.id);
+          const bat = n.id === 'BAT';
+          const acN = n.id === 'ONDU' || n.id === 'Q3' || n.id === 'X1';
+          const col = bat ? PE : acN ? AC : DC;
           return (
             <g key={n.id}>
-              <rect
-                x={n.x} y={n.y} width={n.w} height={n.h} rx={9}
+              <rect x={n.x} y={n.y} width={n.w} height={n.h} rx={7}
                 fill={on ? ACCENT : '#fff'} fillOpacity={on ? 0.14 : 1}
-                stroke={on ? ACCENT : (n.side === 'bat' ? GOOD : LINE)}
-                strokeWidth={on ? 2.4 : 1.4}
-                strokeDasharray={n.side === 'bat' ? '4 3' : undefined}
-              />
-              {n.sym}
-              <text x={n.x + n.w - 8} y={n.y + 18} textAnchor="end"
-                fontSize={12} fontWeight={800} fontFamily="ui-monospace, monospace" fill={INK}>
-                {n.rep}
-              </text>
-              <text x={n.x + n.w - 8} y={n.y + n.h - 8} textAnchor="end"
-                fontSize={10} fill={MUTED}>
-                {n.label}
-              </text>
+                stroke={on ? ACCENT : (bat ? PE : LINE)} strokeWidth={on ? 2.2 : 1.3}
+                strokeDasharray={bat ? '4 3' : undefined} />
+              {/* symbole */}
+              {(n.id === 'Q1' || n.id === 'Q2') && Sect(n.x + 16, n.y + n.h - 12, DC)}
+              {n.id === 'Q3' && <g>{Sect(n.x + 16, n.y + n.h - 14, AC)}<ellipse cx={n.x + 22} cy={n.y + n.h - 8} rx={9} ry={4} fill="none" stroke={AC} strokeWidth={1.3} /></g>}
+              {n.id === 'PF1' && <path d={`M${n.x + 16} ${n.y + 10} v12 M${n.x + 10} ${n.y + 22} h12 l-6 9 z`} fill="none" stroke={DC} strokeWidth={1.5} />}
+              {n.id === 'F1' && <rect x={n.x + 12} y={n.y + 8} width={11} height={24} rx={2} fill="none" stroke={DC} strokeWidth={1.6} />}
+              {n.id === 'FB' && <rect x={n.x + 10} y={n.y + 6} width={11} height={24} rx={2} fill="none" stroke={DC} strokeWidth={1.6} />}
+              {n.id === 'MPPT' && <><path d={`M${n.x + 14} ${n.y + 34} q9 -16 18 0`} fill="none" stroke={DC} strokeWidth={1.6} /><text x={n.x + 12} y={n.y + 16} fontSize={9} fill={MUTED}>=</text></>}
+              {n.id === 'ONDU' && <><line x1={n.x} y1={n.y} x2={n.x + n.w} y2={n.y + n.h} stroke={BOX} strokeWidth={1} /><text x={n.x + 12} y={n.y + 24} fontSize={13} fontWeight={700} fill={DC}>=</text><path d={`M${n.x + n.w - 40} ${n.y + n.h - 16} q5 -9 10 0 q5 9 10 0`} fill="none" stroke={AC} strokeWidth={1.5} /></>}
+              {n.id === 'BAT' && <path d={`M${n.x + 20} ${n.y + 16} v14 M${n.x + 20} ${n.y + 20} h-6 M${n.x + 40} ${n.y + 12} v22 M${n.x + 40} ${n.y + 12} h14`} fill="none" stroke={PE} strokeWidth={1.7} />}
+              {n.id === 'X1' && <path d={`M${n.x + 14} ${n.y + 10} v${n.h - 20} M${n.x + 24} ${n.y + 10} v${n.h - 20} M${n.x + 34} ${n.y + 10} v${n.h - 20}`} stroke={AC} strokeWidth={1.5} />}
+              <text x={n.x + n.w - 6} y={n.y + 15} textAnchor="end" fontSize={11} fontWeight={800} fontFamily="ui-monospace, monospace" fill={col}>{n.rep}</text>
+              <text x={n.x + n.w - 6} y={n.y + n.h - 5} textAnchor="end" fontSize={8.5} fill={MUTED}>{n.label}</text>
+            </g>
+          );
+        })}
+
+        {/* onduleur box outline (redessiné pour porter le cadre) */}
+        <rect x={250} y={372} width={130} height={66} rx={7} fill="none" stroke={nodesOn.has('ONDU') ? ACCENT : BOX} strokeWidth={nodesOn.has('ONDU') ? 2.2 : 1.6} />
+        <rect x={320} y={206} width={110} height={56} rx={7} fill="none" stroke={nodesOn.has('MPPT') ? ACCENT : BOX} strokeWidth={nodesOn.has('MPPT') ? 2.2 : 1.6} />
+
+        {/* points de test cliquables */}
+        {TESTPTS.map((t) => {
+          const isR = probes?.r === t.id, isK = probes?.k === t.id;
+          const inZone = zoneSet.has(t.id);
+          const base = colPol(t.pol);
+          return (
+            <g key={t.id} data-noeud={t.id} style={{ cursor: onBorne ? 'pointer' : 'default' }}
+              onClick={onBorne ? () => onBorne(t.id) : undefined}>
+              {inZone && <circle cx={t.x} cy={t.y} r={8} fill={ACCENT} fillOpacity={0.25} />}
+              <circle cx={t.x} cy={t.y} r={4.5}
+                fill={isR ? '#D93A3A' : isK ? '#20262D' : '#fff'}
+                stroke={isR ? '#D93A3A' : isK ? '#20262D' : base} strokeWidth={1.8} />
+              <title>{repereBorne(tp, t.id)}</title>
             </g>
           );
         })}

@@ -19,6 +19,7 @@ import Evaluation from './Evaluation';
 import AutoEvaluation from './AutoEvaluation';
 import TpPanel from './TpPanel';
 import SchemaCommande from '@/components/schema/SchemaCommande';
+import SchemaPv from '@/components/schema/SchemaPv';
 import { deviceStateOf, lampsOf } from './panelState';
 import { Center, Hint, Side } from './StageLayout';
 
@@ -533,17 +534,35 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
             </div>
             <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
               <div className="flex min-h-0 flex-col overflow-auto">
-                <SchemaCommande
-                  tp={tp}
-                  reseau={reseau}
-                  zone={zone}
-                  probes={mes.probes}
-                  onBorne={s.clickTerminal}
-                />
-                <Note className="mt-2">
-                  Le folio ne montre que la commande. Une panne du circuit de puissance — une phase
-                  coupée, par exemple — se cherche sur la platine, à droite.
-                </Note>
+                {tp.scene === 'pv' ? (
+                  <>
+                    <SchemaPv
+                      tp={tp}
+                      focus={mes.vise || null}
+                      zone={zone}
+                      probes={mes.probes}
+                      onBorne={s.clickTerminal}
+                    />
+                    <Note className="mt-2">
+                      Folio de puissance : chaque point de test porte le repère de la platine. Clique
+                      deux points pour y poser tes pointes, comme sur la platine à droite.
+                    </Note>
+                  </>
+                ) : (
+                  <>
+                    <SchemaCommande
+                      tp={tp}
+                      reseau={reseau}
+                      zone={zone}
+                      probes={mes.probes}
+                      onBorne={s.clickTerminal}
+                    />
+                    <Note className="mt-2">
+                      Le folio ne montre que la commande. Une panne du circuit de puissance — une phase
+                      coupée, par exemple — se cherche sur la platine, à droite.
+                    </Note>
+                  </>
+                )}
               </div>
               <div className="flex min-h-0 flex-col overflow-auto">
                 {platine}
