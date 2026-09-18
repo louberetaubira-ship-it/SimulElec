@@ -47,7 +47,7 @@ const ROOF: AnnexItem[] = [
       // modules plus grands. + à gauche / − à droite (voir annexTerminals) → la série est
       // un saut court dans l'écart, et les départs/retours sont rangés en couloirs.
       x: 16 + c * 54,
-      y: 48 + r * 102,
+      y: 60 + r * 102,
       w: 44,
       h: 44,
     } as AnnexItem;
@@ -59,21 +59,17 @@ const ROOF: AnnexItem[] = [
 
 /**
  * Bloc du bas, HORS COFFRET : le PARC BATTERIES (4 batteries 12 V · 600 Ah couplées 2S2P
- * → 24 V · 1200 Ah), à GAUCHE, et les RÉCEPTEURS 230 V de l'auberge, à DROITE. Toutes ces
- * arrivées entrent dans le coffret par le BAS (presse-étoupes). L'élève réalise le couplage
- * du parc comme il a réalisé le couplage 3S4P du champ.
+ * → 24 V · 1200 Ah). Son bus + / − entre dans le coffret par le BAS (presse-étoupes).
+ * Les récepteurs 230 V (bilan de dimensionnement) ne sont PAS raccordés dans ce câblage :
+ * on ne les dessine donc pas ici, pour ne garder que ce que l'élève câble réellement.
+ * L'élève réalise le couplage du parc comme il a réalisé le couplage 3S4P du champ.
  */
 const RECV: AnnexItem[] = [
-  // Parc batteries — 2 rangées × 2 (2S2P), à gauche du bloc.
-  { key: 'battery', rep: 'BT1', name: 'batterie 12 V · 600 Ah', x: 18, y: 22, w: 94, h: 52, recv: true },
-  { key: 'battery', rep: 'BT2', name: 'batterie 12 V · 600 Ah', x: 120, y: 22, w: 94, h: 52, recv: true },
-  { key: 'battery', rep: 'BT3', name: 'batterie 12 V · 600 Ah', x: 18, y: 100, w: 94, h: 52, recv: true },
-  { key: 'battery', rep: 'BT4', name: 'batterie 12 V · 600 Ah', x: 120, y: 100, w: 94, h: 52, recv: true },
-  // Récepteurs 230 V, à droite du bloc.
-  { key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'éclairage LED · 6 × 10 W', x: 256, y: 30, w: 52, h: 52, recv: true },
-  { key: 'l_recepteu_chauffe_eau', rep: 'FR', name: 'réfrigérateur 120 W', x: 322, y: 24, w: 44, h: 96, recv: true },
-  { key: 'l_recepteu_vmc2', rep: 'VE', name: 'ventilation 2 × 60 W', x: 378, y: 30, w: 62, h: 80, recv: true },
-  { key: 'l_recepteu_convecteur', rep: 'PO', name: 'pompe 750 W', x: 452, y: 44, w: 92, h: 60, recv: true },
+  // Parc batteries — 2 rangées × 2 (2S2P), centrées dans le bloc.
+  { key: 'battery', rep: 'BT1', name: 'batterie 12 V · 600 Ah', x: 96, y: 22, w: 150, h: 54, recv: true },
+  { key: 'battery', rep: 'BT2', name: 'batterie 12 V · 600 Ah', x: 260, y: 22, w: 150, h: 54, recv: true },
+  { key: 'battery', rep: 'BT3', name: 'batterie 12 V · 600 Ah', x: 96, y: 104, w: 150, h: 54, recv: true },
+  { key: 'battery', rep: 'BT4', name: 'batterie 12 V · 600 Ah', x: 260, y: 104, w: 150, h: 54, recv: true },
 ];
 
 /**

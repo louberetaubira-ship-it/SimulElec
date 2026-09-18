@@ -223,8 +223,13 @@ export default function Panel(props: PanelProps) {
   const recvTerms: TerminalMark[] = React.useMemo(() => {
     const out: TerminalMark[] = [];
     for (const it of recvItems) {
+      const bat = it.key === 'battery';
       for (const [id, p] of Object.entries(recvTerminals(geo, it))) {
-        out.push({ id, pos: { x: p.x, y: p.y }, label: id.split('.')[1], dy: -9 });
+        const term = id.split('.')[1];
+        // Batteries du parc : X1 = pôle + (rouge), X2 = pôle − (noir), repère « + » / « − ».
+        const pol = bat ? (term === 'X1' ? 'plus' : term === 'X2' ? 'minus' : undefined) : undefined;
+        const label = pol === 'plus' ? '+' : pol === 'minus' ? '−' : term;
+        out.push({ id, pos: { x: p.x, y: p.y }, label, dy: -9, pol });
       }
     }
     return out;

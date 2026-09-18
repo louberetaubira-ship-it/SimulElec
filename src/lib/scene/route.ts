@@ -91,12 +91,13 @@ export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
       [`${it.rep}.P`]: { x: it.x + it.w, y: it.y + it.h * 0.5, ext: 'door', free: true },
     };
   }
-  // Module PV : + (X1) au bord GAUCHE, − (X2) au bord DROIT. La série relie alors le −
-  // d'un module au + du suivant par un saut court dans l'écart, sans passer sur un panneau.
+  // Module PV : + (X1) en HAUT-GAUCHE, − (X2) en HAUT-DROITE (disposition réelle d'un
+  // module, plus pratique au câblage). La série relie le − d'un module au + du suivant
+  // par un saut court le long du HAUT, et les départs/retours remontent au-dessus.
   if (it.key === 'pvpanel') {
     return {
-      [`${it.rep}.X1`]: { x: it.x, y: it.y + it.h * 0.24, ext: 'door', free: true, roof: true },
-      [`${it.rep}.X2`]: { x: it.x + it.w, y: it.y + it.h * 0.76, ext: 'door', free: true, roof: true },
+      [`${it.rep}.X1`]: { x: it.x + it.w * 0.14, y: it.y, ext: 'door', free: true, roof: true },
+      [`${it.rep}.X2`]: { x: it.x + it.w * 0.86, y: it.y, ext: 'door', free: true, roof: true },
     };
   }
   // Parc batterie (et autres annexes) : bornes X1 / X2 sur le bord droit.
@@ -232,14 +233,14 @@ function roofRoute(A: TPos, B: TPos, aId: string, bId: string): Pt[] {
   const P = pvA ? A : B;                 // borne du module
   const J = pvA ? B : A;                 // borne de la boîte de jonction
   const pId = pvA ? aId : bId;
-  const plus = /\.X1$/.test(pId);        // X1 = + (bord gauche) ; X2 = − (bord droit)
-  const dir = plus ? -1 : 1;             // couloir au-dessus (+) / en dessous (−) de la rangée
-  const side = plus ? P.x - 5 : P.x + 5; // sortie latérale dans l'écart, hors du module
-  // décalage de couloir pour séparer les fils parallèles (déterministe) :
-  //  · côté +, on sépare par le fusible visé (J.y distinct) ;
-  //  · côté −, tous vont au bus M → on sépare par la colonne du module (P.x).
-  const spread = plus ? (J.y - 40) * 0.08 : (P.x - 40) * 0.05;
-  const laneY = P.y + dir * (20 + Math.max(0, spread));
+  const plus = /\.X1$/.test(pId);        // X1 = + (haut-gauche) ; X2 = − (haut-droite)
+  // Les DEUX bornes sont en haut du module : + et − remontent AU-DESSUS de la rangée,
+  // puis filent vers la boîte de jonction (fusible pour +, bus M pour −). Couloirs
+  // distincts (− un cran plus haut que +), décalés pour ne pas se croiser.
+  const side = plus ? P.x - 6 : P.x + 6; // sortie latérale (+ à gauche, − à droite)
+  const base = plus ? 16 : 30;
+  const spread = plus ? (J.y - 40) * 0.05 : (P.x - 40) * 0.03;
+  const laneY = P.y - (base + Math.max(0, spread));
   const full: Pt[] = [[P.x, P.y], [side, P.y], [side, laneY], [J.x, laneY], [J.x, J.y]];
   return pvA ? full : full.reverse();
 }

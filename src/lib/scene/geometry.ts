@@ -354,7 +354,7 @@ export const RECV_TITLE: Record<AnnexKind, string> = {
   door: 'Récepteurs · moteur M1 hors armoire',
   room: 'Récepteurs · pièce',
   local: 'Récepteurs · local',
-  roof: 'Parc batteries (2S2P) + récepteurs 230 V · hors coffret',
+  roof: 'Parc batteries · 4 × 12 V couplées 2S2P → 24 V · 1200 Ah (hors coffret)',
 };
 
 /**
