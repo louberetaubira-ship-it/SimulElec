@@ -333,7 +333,7 @@ export const NET_COLOR: Record<NetKind, string> = {
 export const ROW_LABELS: Record<SceneKind, string[]> = {
   ind: ['goulotte 1', 'goulotte 2', 'goulotte 3', 'goulotte 4'],
   ter: ['goulotte 1', 'goulotte 2', 'goulotte 3', 'goulotte 4'],
-  pv: ['coffret DC · 1000 V', 'onduleur · coffret AC', 'AGCP · comptage', 'départ réseau'],
+  pv: ['② Coffret DC · 1000 V', '③ Onduleur + batterie', '④ Tableau de répartition', '⑤ Départ récepteurs 230 V'],
   hab: ['rangée 1 · AGCP · DDR', 'rangée 2 · circuits', 'rangée 3 · bornier', 'arrivée branchement'],
 };
 
@@ -347,7 +347,7 @@ export const RECV_TITLE: Record<AnnexKind, string> = {
   door: 'Récepteurs · moteur M1 hors armoire',
   room: 'Récepteurs · pièce',
   local: 'Récepteurs · local',
-  roof: 'Récepteurs · charges du logement (autoconsommation)',
+  roof: '⑤ Récepteurs · charges 230 V de l\'auberge',
 };
 
 /**

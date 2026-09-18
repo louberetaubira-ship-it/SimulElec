@@ -229,9 +229,11 @@ export default function Panel(props: PanelProps) {
     return Array.from(xs);
   }, [recvItems, tp.hasMotor, geo]);
 
+  // Installation autonome (off-grid) : pas d'arrivée réseau. Le TP le déclare via
+  // `arriveeReseau: false` ; on n'affiche alors ni presse-étoupes réseau ni libellé.
   const netTerminals: TerminalMark[] = React.useMemo(
-    () => resIds(tp.scene).map((id) => ({ id, pos: resOf(geo)[id] })),
-    [tp.scene, geo],
+    () => (tp.arriveeReseau === false ? [] : resIds(tp.scene).map((id) => ({ id, pos: resOf(geo)[id] }))),
+    [tp.scene, tp.arriveeReseau, geo],
   );
 
   /* ------------------------------------------------- arbitrage du clic sur les bornes
@@ -458,7 +460,7 @@ export default function Panel(props: PanelProps) {
           {resLabel(t.id, tp.scene)}
         </div>
       ))}
-      {mono ? (
+      {mono && tp.arriveeReseau !== false ? (
         <div className="se-res" style={{ left: 200, top: resOf(geo)['RES.L1'].y + 6 }}>
           arrivée réseau mono 230 V · AGCP
         </div>

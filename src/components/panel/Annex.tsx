@@ -71,7 +71,7 @@ function RoofBand() {
       </g>
       {/* libellé en haut à gauche du bandeau */}
       <text x="16" y="20" fontSize="8" fontWeight="700" fill="#2C5E8A" letterSpacing=".04em">
-        TOITURE · champ PV 3S4P
+        ① TOITURE · champ PV 3S4P
       </text>
     </svg>
   );
@@ -99,7 +99,9 @@ export default function Annex({ annex, items, catalogue }: AnnexProps) {
   return (
     <div className={band ? 'se-annex band' : 'se-annex'}>
       {band ? <RoofBand /> : React.createElement(DECO[annex])}
-      <span className="t">{ANNEX_TITLE[annex]}</span>
+      {/* En bandeau toiture, le libellé « ① TOITURE » est déjà porté par le SVG :
+          on ne réaffiche pas le titre d'annexe pour éviter le double libellé. */}
+      {band ? null : <span className="t">{ANNEX_TITLE[annex]}</span>}
       {items.map((it) => {
         const item = catalogue[it.key];
         const vector = svgForKey(it.key);

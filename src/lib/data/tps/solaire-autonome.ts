@@ -52,8 +52,9 @@ const ROOF: AnnexItem[] = [
   // Boîte de jonction (combiner) à 4 fusibles gPV, à DROITE du bandeau : elle raccorde
   // le champ 3S4P (4 chaînes de 3 modules) et sort un couple bus + / − vers Q2.
   { key: 'combiner', rep: 'JB', name: 'boîte de jonction · 4 fusibles gPV', x: 340, y: 20, w: 120, h: 84 },
-  // Parc batterie 24 V · 1200 Ah, à l'EXTÉRIEUR du coffret, à DROITE sous le bandeau.
-  { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 470, y: 150, w: 78, h: 104 },
+  // Parc batterie 24 V · 1200 Ah, à l'EXTÉRIEUR du coffret : posé À DROITE de
+  // l'onduleur (bloc ③ « onduleur + batterie »), au niveau du rail 2 de la platine.
+  { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 464, y: 400, w: 84, h: 108 },
 ];
 
 /** Charges de l'auberge alimentées par le départ 230 V (bilan des récepteurs). */
@@ -435,19 +436,25 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
       ],
     },
   ],
-  rails: [150, 346, 542],
+  // Scène en 5 blocs empilés (haut → bas) : ① toiture (bandeau PV, en annexe) ·
+  // ② coffret DC (rail 0) · ③ onduleur + batterie (rail 1) · ④ tableau de
+  // répartition (rail 2) · ⑤ récepteurs (bloc sous la platine). Les rails sont
+  // descendus pour laisser à la toiture une zone propre, sans chevauchement.
+  rails: [250, 446, 642],
+  armoire: 792,
+  arriveeReseau: false,
   slots: [
-    // Rail 1 (DC) : champ PV → protections → MPPT → sectionneur parc → MEGA
+    // ② Coffret DC (rail 0) : champ PV → protections → MPPT → sectionneur parc → MEGA
     { id: 'f2', label: 'Q2 · Sectionneur DC champ PV', key: 'dcswitch', rail: 0, x: 40, rep: 'Q2' },
     { id: 'dcspd', label: 'Parafoudre DC type 2', key: 'dcspd', rail: 0, x: 96, rep: 'PF1' },
     { id: 'dcfuse', label: 'Porte-fusibles gPV', key: 'dcfuse', rail: 0, x: 152, rep: 'F1' },
     { id: 'mppt', label: 'MPPT 150/70', key: 'mppt', rail: 0, x: 212, rep: 'MPPT' },
     { id: 'q1', label: 'Q1 · Sectionneur DC parc (consignation)', key: 'dcswitch', rail: 0, x: 330, rep: 'Q1' },
     { id: 'megafuse', label: 'Fusible batterie MEGA 125 A', key: 'megafuse', rail: 0, x: 392, rep: 'FB' },
-    // Rail 2 (AC) : onduleur → différentiel
+    // ③ Onduleur + batterie (rail 1) : l'onduleur sur la platine, le parc à sa DROITE (annexe)
     { id: 'km1', label: 'Onduleur/chargeur MultiPlus 24/3000', key: 'multiplus', rail: 1, x: 50, rep: 'ONDU' },
-    { id: 'f3', label: 'Q3 · Différentiel 30 mA type A', key: 'iddr', rail: 1, x: 210, rep: 'Q3' },
-    // Rail 3 : tableau de répartition (GTL en aval)
+    // ④ Tableau de répartition (rail 2) : différentiel Q3 en tête, puis bornier X1
+    { id: 'f3', label: 'Q3 · Différentiel 30 mA type A', key: 'iddr', rail: 2, x: 232, rep: 'Q3' },
     ...XT,
   ],
   annexItems: ROOF,

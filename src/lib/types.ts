@@ -575,6 +575,12 @@ export interface TpDefinition {
    * sans quoi il faudrait le dessiner plus petit qu'il n'est.
    */
   armoire?: number;
+  /**
+   * Arrivée réseau (presse-étoupes L/N/PE en bas d'armoire + libellé « arrivée
+   * réseau »). `false` pour une installation AUTONOME (off-grid) : il n'y a pas
+   * de raccordement au réseau, l'énergie vient du champ PV et du parc batterie.
+   */
+  arriveeReseau?: boolean;
   /** Folio du circuit de commande, dessiné à l'étape de dépannage. */
   folio?: FolioDef;
   /**
