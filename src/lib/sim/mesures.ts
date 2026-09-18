@@ -5,7 +5,7 @@
  */
 import type { AttemptState, ExpectedMeasure, InstrumentKind, ReadingRecord, TerminalNet, TpDefinition } from '../types';
 import { f3Ok, isControlLive, isRunning, motorOf, type SimState } from './engine';
-import { resistanceCommande, tensionCommande, type Arete } from './commande';
+import { resistanceCommande, tensionCommande, liaisonCoupee, type Arete } from './commande';
 import { estBorneMoteur, resistancePlaque } from './plaque';
 
 /* ------------------------------------------------------------------ EPI */
@@ -77,6 +77,9 @@ function liveWhen(cond: TerminalNet['live'], sim: SimState): boolean {
     // débite ET Q3 est fermé et non déclenché. C'est ce qui rend le défaut « Q3 déclenché »
     // visible — 230 V à la sortie de l'onduleur, mais 0 V au tableau.
     case 'q3': return isRunning(sim) && f3Ok(sim);
+    // Entrée continue de l'onduleur (B+/B−) : alimentée par le bus 24 V (Q1), sauf si le
+    // fil + du bus est débranché (défaut x2) — alors l'entrée est isolée et lit 0 V.
+    case 'onduDC': return sim.q1 && sim.fault !== 'x2';
     case 'f2': return sim.q1 && sim.f2;
     case 'f3':
     case 'ctl': return isControlLive(sim);
@@ -257,6 +260,11 @@ export function ohms(
     const r = resistanceCommande(reseau, a as string, b as string);
     return r == null ? 'OL' : r;
   }
+
+  // Défaut injecté qui COUPE cette liaison précise (fusible fondu, fil débranché) : l'ohmmètre
+  // ne voit plus la continuité — circuit ouvert. C'est ce qui rend les pannes du continu
+  // (MEGA fondu, alimentation B+ de l'onduleur coupée) diagnosticables à la mesure.
+  if (a && b && liaisonCoupee(tp, sim.fault, a, b)) return 'OL';
 
   if (A.net === B.net && A.net === 'PE') return 0.3;
   if (A.net === B.net) return 0.2;

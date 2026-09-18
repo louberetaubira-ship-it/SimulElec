@@ -469,7 +469,7 @@ export interface TerminalNet {
    * Q2 est fermé, que Q1 le soit ou non). À distinguer de 'f2' (aval de q1 ET f2, modèle
    * moteur où f2 est une protection en aval du sectionneur général).
    */
-  live: 'always' | 'q1' | 'q2' | 'q3' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
+  live: 'always' | 'q1' | 'q2' | 'q3' | 'onduDC' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
 }
 
 /**

@@ -108,7 +108,9 @@ const FAULTS: Fault[] = [
     title: 'Fusible batterie MEGA fondu (parc déconnecté)',
     symptom: 'L\'onduleur ne tient pas : 0 V au tableau, le fusible MEGA est ouvert côté batterie.',
     fix: 'Vérifier le courant de court-circuit qui a fondu la cartouche, remplacer le MEGA 125 A et resserrer.',
-    coupe: 'megafuse.2>q1.1+',
+    // La cartouche est fondue : la coupure est DANS le fusible (entre ses deux bornes), c'est
+    // ce qu'on mesure en continuité — FB:1 / FB:2 → circuit ouvert.
+    coupe: 'megafuse.1>megafuse.2',
     action: 'Remplacer le fusible MEGA 125 A et resserrer les cosses du parc',
   },
   {
@@ -160,7 +162,7 @@ const NETS: Record<string, TerminalNet> = {
   'q1.1+': { net: 'DC+', live: 'always' }, 'q1.3−': { net: 'DC-', live: 'always' },
   'q1.2+': { net: 'DC+', live: 'q1' }, 'q1.4−': { net: 'DC-', live: 'q1' },
   'mppt.B+': { net: 'DC+', live: 'q1' }, 'mppt.B−': { net: 'DC-', live: 'q1' },
-  'km1.B+': { net: 'DC+', live: 'q1' }, 'km1.B−': { net: 'DC-', live: 'q1' },
+  'km1.B+': { net: 'DC+', live: 'onduDC' }, 'km1.B−': { net: 'DC-', live: 'onduDC' },
   // ---- départ 230 V ~ : onduleur → différentiel Q3 → tableau ----
   'km1.L': { net: 'L1', live: 'run' }, 'km1.N': { net: 'N', live: 'always' }, 'km1.PE': { net: 'PE', live: 'always' },
   // Amont de Q3 = sortie onduleur : présent dès que l'onduleur débite ('run').
