@@ -1073,9 +1073,14 @@ export const useParcours = create<ParcoursState>((set, get) => {
           if (!sim.km1) {
             if (sim.q1 && sim.f2 && sim.f3) {
               // Panne active coupant l'alimentation continue de l'onduleur : il ne
-              // peut pas démarrer tant que le fil + du bus (q1.2+ → km1.B+) est ouvert.
+              // peut pas démarrer tant que le fil + du bus (q1.2+ → km1.B+) est ouvert…
               if (!st.fixed && liaisonCoupee(tp, st.fault, 'km1.B+', 'q1.2+')) {
                 say(`${rep} ne démarre pas : alimentation continue absente — cherche la coupure.`);
+                return;
+              }
+              // …ou tant que le fusible MEGA du parc est fondu (le parc ne débite plus).
+              if (!st.fixed && liaisonCoupee(tp, st.fault, 'megafuse.1', 'megafuse.2')) {
+                say(`${rep} ne tient pas : le parc ne débite plus — contrôle le fusible batterie.`);
                 return;
               }
               set({ sim: { ...sim, km1: true } });
