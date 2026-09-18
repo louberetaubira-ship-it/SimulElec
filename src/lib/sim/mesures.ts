@@ -4,7 +4,7 @@
  * de `docs/reference/illustration-v3.tpl.html`, généralisé par la table `nets` des TP.
  */
 import type { AttemptState, ExpectedMeasure, InstrumentKind, ReadingRecord, TerminalNet, TpDefinition } from '../types';
-import { isControlLive, isRunning, motorOf, type SimState } from './engine';
+import { f3Ok, isControlLive, isRunning, motorOf, type SimState } from './engine';
 import { resistanceCommande, tensionCommande, type Arete } from './commande';
 import { estBorneMoteur, resistancePlaque } from './plaque';
 
@@ -73,6 +73,10 @@ function liveWhen(cond: TerminalNet['live'], sim: SimState): boolean {
     // Champ PV : source indépendante, vive dès que le sectionneur Q2 (f2) est fermé,
     // que Q1 le soit ou non. (À l'inverse de 'f2', modèle moteur où f2 est en aval de q1.)
     case 'q2': return sim.f2;
+    // Aval du différentiel Q3 (départ 230 V du tableau) : sous tension seulement si l'onduleur
+    // débite ET Q3 est fermé et non déclenché. C'est ce qui rend le défaut « Q3 déclenché »
+    // visible — 230 V à la sortie de l'onduleur, mais 0 V au tableau.
+    case 'q3': return isRunning(sim) && f3Ok(sim);
     case 'f2': return sim.q1 && sim.f2;
     case 'f3':
     case 'ctl': return isControlLive(sim);

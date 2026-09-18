@@ -163,12 +163,15 @@ const NETS: Record<string, TerminalNet> = {
   'km1.B+': { net: 'DC+', live: 'q1' }, 'km1.B−': { net: 'DC-', live: 'q1' },
   // ---- départ 230 V ~ : onduleur → différentiel Q3 → tableau ----
   'km1.L': { net: 'L1', live: 'run' }, 'km1.N': { net: 'N', live: 'always' }, 'km1.PE': { net: 'PE', live: 'always' },
+  // Amont de Q3 = sortie onduleur : présent dès que l'onduleur débite ('run').
   'f3.L1': { net: 'L1', live: 'run' }, 'f3.N1': { net: 'N', live: 'always' },
-  'f3.L2': { net: 'L1', live: 'run' }, 'f3.N2': { net: 'N', live: 'always' },
-  'x1_1.a': { net: 'L1', live: 'run' }, 'x1_1.b': { net: 'L1', live: 'run' },
+  // Aval de Q3 = départ 230 V du tableau : présent seulement si Q3 est fermé ('q3').
+  // Rend le défaut « Q3 déclenché » cohérent — 230 V en sortie onduleur, 0 V au tableau.
+  'f3.L2': { net: 'L1', live: 'q3' }, 'f3.N2': { net: 'N', live: 'always' },
+  'x1_1.a': { net: 'L1', live: 'q3' }, 'x1_1.b': { net: 'L1', live: 'q3' },
   'x1_4.a': { net: 'N', live: 'always' }, 'x1_4.b': { net: 'N', live: 'always' },
   'x1_5.a': { net: 'PE', live: 'always' }, 'x1_5.b': { net: 'PE', live: 'always' },
-  'x1_6.a': { net: 'L1', live: 'run' }, 'x1_6.b': { net: 'L1', live: 'run' },
+  'x1_6.a': { net: 'L1', live: 'q3' }, 'x1_6.b': { net: 'L1', live: 'q3' },
   'x1_7.a': { net: 'N', live: 'always' }, 'x1_7.b': { net: 'N', live: 'always' },
 };
 
