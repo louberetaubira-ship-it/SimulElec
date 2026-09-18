@@ -36,6 +36,9 @@ export interface ExtPoint extends Point {
   ext: ExtKind;
   /** Élément libre en annexe (pièce / local / toiture) : trunk à x = 546. */
   free?: boolean;
+  /** Borne du bandeau toiture (module PV ou boîte de jonction) : routage dédié
+   *  (série en saut court, départs/retours rangés en couloirs), pas de trunk droit. */
+  roof?: boolean;
 }
 
 export interface SceneCtx {
@@ -54,6 +57,7 @@ export interface SceneCtx {
 export interface TPos extends Point {
   ext?: ExtKind;
   free?: boolean;
+  roof?: boolean;
   top?: boolean;
   slot?: ResolvedSlot;
 }
@@ -74,17 +78,28 @@ export const emptyPlan = (): LanePlan => ({ lanes: {}, len: {} });
 
 /** Bornes d'un élément d'annexe, sur son bord droit (X1 / X2), ou bornes propres au combiner. */
 export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
-  // Boîte de jonction (combiner) : 4 entrées de fusibles en haut, 2 sorties de bus à droite.
+  // Boîte de jonction (combiner) : entrées sur le bord GAUCHE (face aux modules) —
+  // 4 fusibles F1..F4 puis le bus M (retour −) ; sortie bus P+ sur le bord droit,
+  // qui redescend vers Q2 (coffret dessous).
   if (it.key === 'combiner') {
     return {
-      [`${it.rep}.F1`]: { x: it.x + it.w * 0.18, y: it.y + it.h * 0.28, ext: 'door', free: true },
-      [`${it.rep}.F2`]: { x: it.x + it.w * 0.40, y: it.y + it.h * 0.28, ext: 'door', free: true },
-      [`${it.rep}.F3`]: { x: it.x + it.w * 0.60, y: it.y + it.h * 0.28, ext: 'door', free: true },
-      [`${it.rep}.F4`]: { x: it.x + it.w * 0.82, y: it.y + it.h * 0.28, ext: 'door', free: true },
-      [`${it.rep}.P`]: { x: it.x + it.w, y: it.y + it.h * 0.62, ext: 'door', free: true },
-      [`${it.rep}.M`]: { x: it.x + it.w, y: it.y + it.h * 0.85, ext: 'door', free: true },
+      [`${it.rep}.F1`]: { x: it.x, y: it.y + it.h * 0.16, ext: 'door', free: true, roof: true },
+      [`${it.rep}.F2`]: { x: it.x, y: it.y + it.h * 0.34, ext: 'door', free: true, roof: true },
+      [`${it.rep}.F3`]: { x: it.x, y: it.y + it.h * 0.52, ext: 'door', free: true, roof: true },
+      [`${it.rep}.F4`]: { x: it.x, y: it.y + it.h * 0.70, ext: 'door', free: true, roof: true },
+      [`${it.rep}.M`]: { x: it.x, y: it.y + it.h * 0.88, ext: 'door', free: true, roof: true },
+      [`${it.rep}.P`]: { x: it.x + it.w, y: it.y + it.h * 0.5, ext: 'door', free: true },
     };
   }
+  // Module PV : + (X1) au bord GAUCHE, − (X2) au bord DROIT. La série relie alors le −
+  // d'un module au + du suivant par un saut court dans l'écart, sans passer sur un panneau.
+  if (it.key === 'pvpanel') {
+    return {
+      [`${it.rep}.X1`]: { x: it.x, y: it.y + it.h * 0.24, ext: 'door', free: true, roof: true },
+      [`${it.rep}.X2`]: { x: it.x + it.w, y: it.y + it.h * 0.76, ext: 'door', free: true, roof: true },
+    };
+  }
+  // Parc batterie (et autres annexes) : bornes X1 / X2 sur le bord droit.
   return {
     [`${it.rep}.X1`]: { x: it.x + it.w, y: it.y + it.h * 0.35, ext: 'door', free: true },
     [`${it.rep}.X2`]: { x: it.x + it.w, y: it.y + it.h * 0.7, ext: 'door', free: true },
@@ -140,7 +155,7 @@ export function sceneContext(tp: TpDefinition, items: Record<string, CatalogueIt
 /** Position d'une borne « slot.borne » ou d'une borne extérieure (RES.L1, M.U1, S1.21, PV1.X1…). */
 export function tpos(ctx: SceneCtx, id: string): TPos | null {
   const e = ctx.extra[id];
-  if (e) return { x: e.x, y: e.y, ext: e.ext, free: e.free };
+  if (e) return { x: e.x, y: e.y, ext: e.ext, free: e.free, roof: e.roof };
   const dot = id.indexOf('.');
   if (dot < 0) return null;
   const sid = id.slice(0, dot), tid = id.slice(dot + 1);
@@ -191,10 +206,42 @@ const dY = (ctx: SceneCtx, i: number): number => {
 /** Goulotte de pied : la dernière, celle qui dessert les presse-étoupes. */
 const dPied = (ctx: SceneCtx): number => dY(ctx, ctx.geo.ducts.length - 1);
 
+/**
+ * Cheminement dans le bandeau TOITURE (module ↔ module ou module ↔ boîte de jonction).
+ * Ne funnel PLUS tout au bord droit : la série est un saut court dans l'écart entre
+ * panneaux, et les départs (+ → fusible) / retours (− → bus M) sont rangés dans des
+ * couloirs au-dessus (+) et en dessous (−) de la rangée, décalés pour ne pas se croiser.
+ */
+function roofRoute(A: TPos, B: TPos, aId: string, bId: string): Pt[] {
+  const isPV = (id: string) => /^PV\d+\./.test(id);
+  // Série module ↔ module : Z court, le segment vertical tombe dans l'écart entre les deux.
+  if (isPV(aId) && isPV(bId)) {
+    const mx = (A.x + B.x) / 2;
+    return [[A.x, A.y], [mx, A.y], [mx, B.y], [B.x, B.y]];
+  }
+  // Départ / retour module ↔ boîte de jonction.
+  const pvA = isPV(aId);
+  const P = pvA ? A : B;                 // borne du module
+  const J = pvA ? B : A;                 // borne de la boîte de jonction
+  const pId = pvA ? aId : bId;
+  const plus = /\.X1$/.test(pId);        // X1 = + (bord gauche) ; X2 = − (bord droit)
+  const dir = plus ? -1 : 1;             // couloir au-dessus (+) / en dessous (−) de la rangée
+  const side = plus ? P.x - 5 : P.x + 5; // sortie latérale dans l'écart, hors du module
+  // décalage de couloir pour séparer les fils parallèles (déterministe) :
+  //  · côté +, on sépare par le fusible visé (J.y distinct) ;
+  //  · côté −, tous vont au bus M → on sépare par la colonne du module (P.x).
+  const spread = plus ? (J.y - 40) * 0.08 : (P.x - 40) * 0.05;
+  const laneY = P.y + dir * (20 + Math.max(0, spread));
+  const full: Pt[] = [[P.x, P.y], [side, P.y], [side, laneY], [J.x, laneY], [J.x, J.y]];
+  return pvA ? full : full.reverse();
+}
+
 /** Cheminement brut, orthogonal, avant ordonnancement des nappes. */
 function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
   const A = tpos(ctx, a), B = tpos(ctx, b);
   if (!A || !B) return null;
+  // Bandeau toiture : les deux bornes y sont libres → routage dédié (jamais le trunk droit).
+  if (A.roof && B.roof) return roofRoute(A, B, a, b);
   const pts: Pt[] = [];
   const push = (x: number, y: number) => { pts.push([x, y]); };
   const pickVx = (x: number, ax: number | null, bx: number): number => {

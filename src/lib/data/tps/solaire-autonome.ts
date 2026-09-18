@@ -43,20 +43,21 @@ const ROOF: AnnexItem[] = [
       key: 'pvpanel',
       rep: `PV${n}`,
       name: 'module 180 Wc · 3S4P',
-      // Modules un peu plus espacés, DÉCALÉS SOUS le titre « ① TOITURE » (y 26)
-      // pour laisser respirer les repères de polarité + / − et les numéros PV.
-      x: 18 + c * 50,
-      y: 26 + r * 50,
+      // Toiture AGRANDIE : deux rangées bien séparées (écart pour les couloirs de câbles),
+      // modules plus grands. + à gauche / − à droite (voir annexTerminals) → la série est
+      // un saut court dans l'écart, et les départs/retours sont rangés en couloirs.
+      x: 16 + c * 50,
+      y: 48 + r * 102,
       w: 44,
-      h: 34,
+      h: 44,
     } as AnnexItem;
   }),
   // Boîte de jonction (combiner) à 4 fusibles gPV, à DROITE du bandeau : elle raccorde
   // le champ 3S4P (4 chaînes de 3 modules) et sort un couple bus + / − vers Q2.
-  { key: 'combiner', rep: 'JB', name: 'boîte de jonction · 4 fusibles gPV', x: 340, y: 20, w: 120, h: 84 },
+  { key: 'combiner', rep: 'JB', name: 'boîte de jonction · 4 fusibles gPV', x: 344, y: 48, w: 158, h: 162 },
   // Parc batterie 24 V · 1200 Ah, à l'EXTÉRIEUR du coffret : posé À DROITE de
-  // l'onduleur (bloc ③ « onduleur + batterie »), au niveau du rail 2 de la platine.
-  { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 464, y: 400, w: 84, h: 108 },
+  // l'onduleur (bloc ③ « onduleur + batterie »), aligné sur le rail 1 (onduleur).
+  { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 464, y: 482, w: 84, h: 108 },
 ];
 
 /** Charges de l'auberge alimentées par le départ 230 V (bilan des récepteurs). */
@@ -442,8 +443,8 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   // ② coffret DC (rail 0) · ③ onduleur + batterie (rail 1) · ④ tableau de
   // répartition (rail 2) · ⑤ récepteurs (bloc sous la platine). Les rails sont
   // descendus pour laisser à la toiture une zone propre, sans chevauchement.
-  rails: [250, 446, 642],
-  armoire: 792,
+  rails: [326, 522, 718],
+  armoire: 860,
   arriveeReseau: false,
   slots: [
     // ② Coffret DC (rail 0) : champ PV → protections → MPPT → sectionneur parc → MEGA

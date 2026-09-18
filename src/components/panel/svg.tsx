@@ -424,32 +424,32 @@ export function IddrSvg() {
  * viewBox proportionné à la boîte réelle (100 × 74).
  */
 export function CombinerSvg() {
+  // Boîte agrandie : entrées sur le bord GAUCHE (face aux modules) — 4 porte-fusibles
+  // F1..F4 puis le bus M ; bus + vertical qui sort à droite en P+ (vers Q2). Les repères
+  // suivent les fractions de `annexTerminals` (combiner) : F1..F4 à 16/34/52/70 %, M à 88 %.
+  const fy = [16, 34, 52, 70];
   return (
-    <svg viewBox="0 0 100 74" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
-      <rect x="1" y="1" width="98" height="72" rx="4" fill="#D5D9DE" stroke="#7E8790" strokeWidth="1.5" />
-      <rect x="1" y="1" width="98" height="12" rx="4" fill="#C1C6CC" />
-      <text x="50" y="10" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">BOÎTE DE JONCTION</text>
-      {/* 4 porte-fusibles gPV : corps + cartouche + repère F1..F4 en tête */}
-      {[0.18, 0.40, 0.60, 0.82].map((fx, i) => {
-        const cx = fx * 100;
-        return (
-          <g key={i}>
-            <rect x={cx - 5} y="18" width="10" height="24" rx="2" fill="#8E969E" stroke="#4E555C" />
-            <rect x={cx - 3} y="21" width="6" height="18" rx="3" fill="#EDEFF2" stroke="#B9BEC4" />
-            <circle cx={cx} cy="18" r="2.2" fill="#3A4047" />
-            <text x={cx} y="50" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#141A21">{`F${i + 1}`}</text>
-          </g>
-        );
-      })}
-      {/* barrette bus + (rouge) : relie les 4 fusibles, sort à droite en P+ */}
-      <rect x="14" y="55" width="72" height="4" rx="2" fill="#D93A3A" />
-      {[0.18, 0.40, 0.60, 0.82].map((fx, i) => (
-        <path key={`p${i}`} d={`M${fx * 100} 42v13`} stroke="#D93A3A" strokeWidth="1.5" />
+    <svg viewBox="0 0 112 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x="1" y="1" width="110" height="98" rx="4" fill="#D5D9DE" stroke="#7E8790" strokeWidth="1.5" />
+      <rect x="1" y="1" width="110" height="11" rx="4" fill="#C1C6CC" />
+      <text x="56" y="9" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">BOÎTE DE JONCTION</text>
+      {/* bus + (rouge) vertical : relie les 4 fusibles, sort à droite en P+ */}
+      <rect x="70" y={fy[0]} width="4" height={fy[3] - fy[0]} rx="2" fill="#D93A3A" />
+      {fy.map((cy, i) => (
+        <g key={i}>
+          {/* porte-fusible horizontal, depuis le bord gauche */}
+          <rect x="3" y={cy - 6} width="34" height="12" rx="2" fill="#8E969E" stroke="#4E555C" />
+          <rect x="7" y={cy - 3.5} width="18" height="7" rx="3" fill="#EDEFF2" stroke="#B9BEC4" />
+          <text x="46" y={cy + 2.5} textAnchor="middle" fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#141A21">{`F${i + 1}`}</text>
+          <path d={`M37 ${cy}H72`} stroke="#D93A3A" strokeWidth="1.5" />
+        </g>
       ))}
-      <text x="90" y="47" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#D93A3A">P+</text>
-      {/* barrette bus − (noir) : sort à droite en M− */}
-      <rect x="14" y="64" width="72" height="4" rx="2" fill="#20262D" />
-      <text x="90" y="63" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#20262D">M−</text>
+      {/* sortie P+ à droite (vers Q2) */}
+      <path d="M74 50H112" stroke="#D93A3A" strokeWidth="2" />
+      <text x="104" y="46" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#D93A3A">P+</text>
+      {/* bus − (noir) : M en bas gauche, reçoit les 4 retours puis part vers Q2 */}
+      <rect x="3" y="86" width="66" height="4" rx="2" fill="#20262D" />
+      <text x="20" y="84" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#20262D">M −</text>
     </svg>
   );
 }

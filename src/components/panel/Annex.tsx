@@ -54,17 +54,17 @@ function RoofBand() {
           <stop offset="0" stopColor="#BFE0FA" /><stop offset="1" stopColor="#EAF4FC" />
         </linearGradient>
       </defs>
-      {/* ciel du bandeau : bord haut du coffret, au-dessus du rail 1 */}
-      <rect x="8" y="8" width="544" height="114" rx="10" fill={`url(#${sky})`} stroke="#8FB8D8" />
+      {/* ciel du bandeau AGRANDI : 2 rangées de modules + couloirs + boîte de jonction */}
+      <rect x="8" y="8" width="544" height="224" rx="10" fill={`url(#${sky})`} stroke="#8FB8D8" />
       {/* soleil */}
-      <circle cx="520" cy="30" r="11" fill="#FFD84D" stroke="#F0B429" />
+      <circle cx="524" cy="28" r="11" fill="#FFD84D" stroke="#F0B429" />
       <g stroke="#F0B429" strokeWidth="1.5">
         {Array.from({ length: 8 }, (_, i) => {
           const a = (i * Math.PI) / 4;
           return (
             <path
               key={i}
-              d={`M${520 + Math.cos(a) * 15} ${30 + Math.sin(a) * 15}L${520 + Math.cos(a) * 20} ${30 + Math.sin(a) * 20}`}
+              d={`M${524 + Math.cos(a) * 15} ${28 + Math.sin(a) * 15}L${524 + Math.cos(a) * 20} ${28 + Math.sin(a) * 20}`}
             />
           );
         })}

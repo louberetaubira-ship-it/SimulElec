@@ -209,10 +209,11 @@ export default function Panel(props: PanelProps) {
         // panneau voisin, sur les numéros PV ni sur le titre. Les autres annexes gardent leur repère.
         const compact = pol === 'plus' || pol === 'minus';
         const label = pol === 'plus' ? '+' : pol === 'minus' ? '−' : term;
-        out.push({
-          id, pos: { x: p.x, y: p.y }, label,
-          dx: compact ? -9 : 8, dy: 0, pol,
-        });
+        // Repère À L'INTÉRIEUR du module, du côté de la pastille : borne au bord gauche
+        // → repère à droite ; borne au bord droit → repère à gauche. Jamais de débordement.
+        const onLeft = p.x < it.x + it.w / 2;
+        const dx = compact ? (onLeft ? 9 : -9) : 8;
+        out.push({ id, pos: { x: p.x, y: p.y }, label, dx, dy: 0, pol });
       }
     }
     return out;
