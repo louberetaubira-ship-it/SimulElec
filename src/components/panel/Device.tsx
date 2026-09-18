@@ -19,7 +19,8 @@ export interface DeviceProps {
 
 /** Corps de l'appareil : vectoriel, data URI de bibliothèque, ou sprite photo. */
 function body(slot: ResolvedSlot, state?: DeviceState): React.ReactNode {
-  const vector = svgForKey(slot.key);
+  // L'onduleur MultiPlus n'allume son afficheur que lorsqu'il est en marche.
+  const vector = svgForKey(slot.key, state === 'on');
   if (vector) return vector;
   if (slot.item.src) return <img src={slot.item.src} alt={slot.slot.rep || slot.id} />;
   if (slot.key === 'trafo') return <img src="/sprites/trafo.png" alt="Transformateur de commande" />;

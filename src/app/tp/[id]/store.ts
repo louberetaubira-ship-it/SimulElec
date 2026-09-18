@@ -1065,21 +1065,29 @@ export const useParcours = create<ParcoursState>((set, get) => {
       if (slotId === 'f1') { const r = resetF1(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
       if (slotId === 'km1') {
         const rep = repereSlot(tp, 'km1');
-        // Mise en service PV : sans pupitre, on enclenche l'onduleur en cliquant dessus
-        // une fois la platine refermée (Q1, Q2, Q3). L'essai devient concluant.
-        if (st.stage === ETAPE.MISE_EN_SERVICE && !sim.km1) {
-          if (sim.q1 && sim.f2 && sim.f3) {
-            // Panne active coupant l'alimentation continue de l'onduleur : il ne
-            // peut pas démarrer tant que le fil + du bus (q1.2+ → km1.B+) est ouvert.
-            if (!st.fixed && liaisonCoupee(tp, st.fault, 'km1.B+', 'q1.2+')) {
-              say(`${rep} ne démarre pas : alimentation continue absente — cherche la coupure.`);
-              return;
+        // Sans pupitre, on enclenche l'onduleur en cliquant dessus. Manœuvrable dès la
+        // mise en service et à toutes les étapes suivantes (mesures sous tension,
+        // validation/dépannage) — c'est ce qui fait apparaître le 230 V pour les mesures.
+        // Reste bloqué pendant la consignation / le hors tension (étapes < mise en service).
+        if (st.stage >= ETAPE.MISE_EN_SERVICE) {
+          if (!sim.km1) {
+            if (sim.q1 && sim.f2 && sim.f3) {
+              // Panne active coupant l'alimentation continue de l'onduleur : il ne
+              // peut pas démarrer tant que le fil + du bus (q1.2+ → km1.B+) est ouvert.
+              if (!st.fixed && liaisonCoupee(tp, st.fault, 'km1.B+', 'q1.2+')) {
+                say(`${rep} ne démarre pas : alimentation continue absente — cherche la coupure.`);
+                return;
+              }
+              set({ sim: { ...sim, km1: true } });
+              say(`${rep} : onduleur mis en marche — le 230 V apparaît au tableau.`);
+              evaluate();
+            } else {
+              say(`Referme d'abord ${listeMiseSousTension(tp, 'et')} avant de mettre ${rep} en marche.`);
             }
-            set({ sim: { ...sim, km1: true } });
-            say(`${rep} : onduleur mis en marche — le 230 V apparaît au tableau.`);
-            evaluate();
           } else {
-            say(`Referme d'abord ${listeMiseSousTension(tp, 'et')} avant de mettre ${rep} en marche.`);
+            set({ sim: { ...sim, km1: false } });
+            say(`${rep} : onduleur arrêté — plus de 230 V au tableau.`);
+            evaluate();
           }
           return;
         }

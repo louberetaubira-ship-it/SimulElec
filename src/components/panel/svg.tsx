@@ -377,17 +377,22 @@ export function MpptSvg() {
     </svg>
   );
 }
-/** Convertisseur/chargeur MultiPlus : entrée batterie (DC) + sortie 230 V (AC). */
-export function MultiplusSvg() {
+/**
+ * Convertisseur/chargeur MultiPlus : entrée batterie (DC) + sortie 230 V (AC).
+ * L'écran ne s'allume (puissance + conversion en vert) que lorsque l'onduleur est EN MARCHE.
+ * À l'arrêt, il est en veille : afficheur sombre, sortie 230 V coupée.
+ */
+export function MultiplusSvg({ running = false }: { running?: boolean }) {
+  const lcd = running ? '#5CFF9A' : '#2E5C86';
   return (
     <svg viewBox="0 0 110 130" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
       <rect x="4" y="6" width="102" height="112" rx="8" fill="#0A84FF" stroke="#0A5AB0" strokeWidth="1.5" />
       <rect x="12" y="14" width="86" height="30" rx="4" fill="#08213F" />
-      <text x="18" y="33" fontFamily={MONO} fontSize="8" fill="#5CFF9A">2400 W</text>
+      <text x="18" y="33" fontFamily={MONO} fontSize="8" fill={lcd}>{running ? '2400 W' : 'veille'}</text>
       <text x="12" y="60" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#EAF4FF">MULTIPLUS 24/3000</text>
       <text x="12" y="70" fontFamily={SANS} fontSize="6" fill="#Bcdcff">convertisseur · chargeur</text>
       <rect x="12" y="82" width="86" height="20" rx="3" fill="#08213F" />
-      <text x="16" y="95" fontFamily={MONO} fontSize="6" fill="#5CFF9A">DC 24 V → AC 230 V · 50 Hz</text>
+      <text x="16" y="95" fontFamily={MONO} fontSize="6" fill={lcd}>{running ? 'DC 24 V → AC 230 V · 50 Hz' : 'sortie 230 V coupée'}</text>
       <g fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#EAF4FF"><text x="10" y="114">B+</text><text x="28" y="114">B−</text><text x="60" y="114">L</text><text x="77" y="114">N</text><text x="90" y="114">PE</text></g>
     </svg>
   );
@@ -457,7 +462,7 @@ export function CombinerSvg() {
   );
 }
 
-export function svgForKey(key: string): React.ReactNode | null {
+export function svgForKey(key: string, running = false): React.ReactNode | null {
   switch (key) {
     case 'pvpanel': return <PvPanelSvg />;
     case 'combiner': return <CombinerSvg />;
@@ -468,7 +473,7 @@ export function svgForKey(key: string): React.ReactNode | null {
     case 'battery': return <BatterySvg />;
     case 'agcp': return <AgcpSvg />;
     case 'mppt': return <MpptSvg />;
-    case 'multiplus': return <MultiplusSvg />;
+    case 'multiplus': return <MultiplusSvg running={running} />;
     case 'megafuse': return <MegaFuseSvg />;
     case 'iddr': return <IddrSvg />;
     case 'gk1es': return <Gk1Svg />;
