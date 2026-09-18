@@ -109,6 +109,14 @@ export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
 /** Bornes X1 / X2 d'un récepteur du bloc du bas, sur son bord haut. */
 export function recvTerminals(geo: Pick<SceneGeom, 'recvY'>, it: AnnexItem): Record<string, ExtPoint> {
   const b = recvBoxOf(geo, it);
+  // Batteries du parc (bloc du bas, hors coffret) : + (X1) au bord haut-GAUCHE, − (X2)
+  // au bord haut-DROIT → la mise en série (− d'une → + de la voisine) est un saut court.
+  if (it.key === 'battery') {
+    return {
+      [`${it.rep}.X1`]: { x: b.x + b.w * 0.16, y: b.y, ext: 'recv' },
+      [`${it.rep}.X2`]: { x: b.x + b.w * 0.84, y: b.y, ext: 'recv' },
+    };
+  }
   return {
     [`${it.rep}.X1`]: { x: b.x + b.w * 0.34, y: b.y, ext: 'recv' },
     [`${it.rep}.X2`]: { x: b.x + b.w * 0.66, y: b.y, ext: 'recv' },

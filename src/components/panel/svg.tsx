@@ -117,17 +117,20 @@ export function DcModSvg({ kind }: { kind: DcKind }) {
 }
 
 export function BatterySvg() {
+  // Batterie individuelle 12 V · 600 Ah, en PAYSAGE (le parc est assemblé à partir de
+  // plusieurs). Bornes + (rouge) en haut-gauche et − (noir) en haut-droite, alignées sur
+  // les fractions de `recvTerminals` (battery : X1 à 16 %, X2 à 84 %).
   return (
-    <svg viewBox="0 0 100 130" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
-      <rect x="6" y="4" width="88" height="122" rx="10" fill="#F4F5F7" stroke="#6E7780" strokeWidth="1.5" />
-      <rect x="14" y="14" width="72" height="8" rx="4" fill="#DDE1E5" />
-      {[0, 1, 2, 3, 4].map((i) => (
-        <rect key={i} x="18" y={30 + i * 13} width="64" height="9" rx="2" fill={i < 4 ? '#1E9E63' : '#DDE1E5'} />
+    <svg viewBox="0 0 100 56" preserveAspectRatio="none" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x="2" y="8" width="96" height="46" rx="6" fill="#F4F5F7" stroke="#6E7780" strokeWidth="1.5" />
+      {/* plots de raccordement sur le dessus */}
+      <rect x="12" y="2" width="12" height="9" rx="2" fill="#D93A3A" stroke="#7A1F1F" />
+      <rect x="76" y="2" width="12" height="9" rx="2" fill="#20262D" stroke="#000" />
+      {/* cellules */}
+      {[0, 1, 2].map((i) => (
+        <rect key={i} x="12" y={16 + i * 9} width="76" height="6" rx="1.5" fill="#1E9E63" />
       ))}
-      <text x="50" y="106" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#3A4047">BATTERIE LiFePO₄</text>
-      <text x="50" y="116" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#66717F">24 V · 1200 Ah · 80 %</text>
-      <rect x="26" y="120" width="14" height="8" rx="2" fill="#D93A3A" />
-      <rect x="60" y="120" width="14" height="8" rx="2" fill="#20262D" />
+      <text x="50" y="50" textAnchor="middle" fontFamily={MONO} fontSize="7" fontWeight="700" fill="#3A4047">12 V · 600 Ah</text>
     </svg>
   );
 }

@@ -9,7 +9,7 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  PANEL_W, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
+  PANEL_W, TOIT_TOP, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
   pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
@@ -209,10 +209,11 @@ export default function Panel(props: PanelProps) {
         // panneau voisin, sur les numéros PV ni sur le titre. Les autres annexes gardent leur repère.
         const compact = pol === 'plus' || pol === 'minus';
         const label = pol === 'plus' ? '+' : pol === 'minus' ? '−' : term;
-        // Repère À L'INTÉRIEUR du module, du côté de la pastille : borne au bord gauche
-        // → repère à droite ; borne au bord droit → repère à gauche. Jamais de débordement.
+        // Repère de polarité À L'EXTÉRIEUR de la pastille (de part et d'autre du module) :
+        // pastille + au bord gauche → « + » posé à SA GAUCHE ; pastille − au bord droit
+        // → « − » posé à SA DROITE. Le repère ne chevauche plus la pastille ni les cellules.
         const onLeft = p.x < it.x + it.w / 2;
-        const dx = compact ? (onLeft ? 9 : -9) : 8;
+        const dx = compact ? (onLeft ? -11 : 11) : 8;
         out.push({ id, pos: { x: p.x, y: p.y }, label, dx, dy: 0, pol });
       }
     }
@@ -356,7 +357,8 @@ export default function Panel(props: PanelProps) {
       onPointerLeave={picking ? () => setSurvol(null) : undefined}
     >
       {/* cadre de l'armoire (560 × 720) : fond, bordure, grille Lina */}
-      <div className="se-cab" style={{ height: geo.cabH }} />
+      {/* Sur la scène PV, le coffret commence SOUS le bloc champ PV (bloc distinct au-dessus). */}
+      <div className="se-cab" style={tp.annex === 'roof' ? { top: TOIT_TOP, height: geo.cabH - TOIT_TOP } : { height: geo.cabH }} />
       {tp.scene === 'hab' ? <div className="se-tab" /> : null}
       {/* bloc récepteurs, sous la platine */}
       <Recv annex={tp.annex} items={recvItems} catalogue={items} y={geo.recvY} h={geo.recvH} />

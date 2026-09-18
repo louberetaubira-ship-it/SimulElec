@@ -46,7 +46,7 @@ const ROOF: AnnexItem[] = [
       // Toiture AGRANDIE : deux rangées bien séparées (écart pour les couloirs de câbles),
       // modules plus grands. + à gauche / − à droite (voir annexTerminals) → la série est
       // un saut court dans l'écart, et les départs/retours sont rangés en couloirs.
-      x: 16 + c * 50,
+      x: 16 + c * 54,
       y: 48 + r * 102,
       w: 44,
       h: 44,
@@ -55,17 +55,25 @@ const ROOF: AnnexItem[] = [
   // Boîte de jonction (combiner) à 4 fusibles gPV, à DROITE du bandeau : elle raccorde
   // le champ 3S4P (4 chaînes de 3 modules) et sort un couple bus + / − vers Q2.
   { key: 'combiner', rep: 'JB', name: 'boîte de jonction · 4 fusibles gPV', x: 344, y: 48, w: 158, h: 162 },
-  // Parc batterie 24 V · 1200 Ah, à l'EXTÉRIEUR du coffret : posé À DROITE de
-  // l'onduleur (bloc ③ « onduleur + batterie »), aligné sur le rail 1 (onduleur).
-  { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 464, y: 482, w: 84, h: 108 },
 ];
 
-/** Charges de l'auberge alimentées par le départ 230 V (bilan des récepteurs). */
+/**
+ * Bloc du bas, HORS COFFRET : le PARC BATTERIES (4 batteries 12 V · 600 Ah couplées 2S2P
+ * → 24 V · 1200 Ah), à GAUCHE, et les RÉCEPTEURS 230 V de l'auberge, à DROITE. Toutes ces
+ * arrivées entrent dans le coffret par le BAS (presse-étoupes). L'élève réalise le couplage
+ * du parc comme il a réalisé le couplage 3S4P du champ.
+ */
 const RECV: AnnexItem[] = [
-  { key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'éclairage LED · 6 × 10 W', x: 26, y: 34, w: 56, h: 56, recv: true },
-  { key: 'l_recepteu_chauffe_eau', rep: 'FR', name: 'réfrigérateur 120 W', x: 120, y: 22, w: 50, h: 104, recv: true },
-  { key: 'l_recepteu_vmc2', rep: 'VE', name: 'ventilation 2 × 60 W', x: 210, y: 30, w: 70, h: 86, recv: true },
-  { key: 'l_recepteu_convecteur', rep: 'PO', name: 'pompe 750 W', x: 320, y: 50, w: 150, h: 70, recv: true },
+  // Parc batteries — 2 rangées × 2 (2S2P), à gauche du bloc.
+  { key: 'battery', rep: 'BT1', name: 'batterie 12 V · 600 Ah', x: 18, y: 22, w: 94, h: 52, recv: true },
+  { key: 'battery', rep: 'BT2', name: 'batterie 12 V · 600 Ah', x: 120, y: 22, w: 94, h: 52, recv: true },
+  { key: 'battery', rep: 'BT3', name: 'batterie 12 V · 600 Ah', x: 18, y: 100, w: 94, h: 52, recv: true },
+  { key: 'battery', rep: 'BT4', name: 'batterie 12 V · 600 Ah', x: 120, y: 100, w: 94, h: 52, recv: true },
+  // Récepteurs 230 V, à droite du bloc.
+  { key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'éclairage LED · 6 × 10 W', x: 256, y: 30, w: 52, h: 52, recv: true },
+  { key: 'l_recepteu_chauffe_eau', rep: 'FR', name: 'réfrigérateur 120 W', x: 322, y: 24, w: 44, h: 96, recv: true },
+  { key: 'l_recepteu_vmc2', rep: 'VE', name: 'ventilation 2 × 60 W', x: 378, y: 30, w: 62, h: 80, recv: true },
+  { key: 'l_recepteu_convecteur', rep: 'PO', name: 'pompe 750 W', x: 452, y: 44, w: 92, h: 60, recv: true },
 ];
 
 /**
@@ -143,9 +151,12 @@ const NETS: Record<string, TerminalNet> = {
   'dcfuse.1+': { net: 'DC+', live: 'f2' }, 'dcfuse.3−': { net: 'DC-', live: 'f2' },
   'dcfuse.2+': { net: 'DC+', live: 'f2' }, 'dcfuse.4−': { net: 'DC-', live: 'f2' },
   'mppt.PV+': { net: 'DC+', live: 'f2' }, 'mppt.PV−': { net: 'DC-', live: 'f2' },
-  // ---- parc batterie et bus continu (Q1 = sectionnement général) ----
-  // La batterie (élément de toiture/extérieur) expose ses bornes sous X1 (+) / X2 (−).
-  'BAT.X1': { net: 'DC+', live: 'always' }, 'BAT.X2': { net: 'DC-', live: 'always' },
+  // ---- parc batteries (bloc du bas, hors coffret) : 4 batteries 12 V couplées 2S2P ----
+  // Chaque batterie expose + (X1) et − (X2) ; toutes vives en permanence.
+  'BT1.X1': { net: 'DC+', live: 'always' }, 'BT1.X2': { net: 'DC-', live: 'always' },
+  'BT2.X1': { net: 'DC+', live: 'always' }, 'BT2.X2': { net: 'DC-', live: 'always' },
+  'BT3.X1': { net: 'DC+', live: 'always' }, 'BT3.X2': { net: 'DC-', live: 'always' },
+  'BT4.X1': { net: 'DC+', live: 'always' }, 'BT4.X2': { net: 'DC-', live: 'always' },
   'megafuse.1': { net: 'DC+', live: 'always' }, 'megafuse.2': { net: 'DC+', live: 'always' },
   'q1.1+': { net: 'DC+', live: 'always' }, 'q1.3−': { net: 'DC-', live: 'always' },
   'q1.2+': { net: 'DC+', live: 'q1' }, 'q1.4−': { net: 'DC-', live: 'q1' },
@@ -276,7 +287,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         why: '3S4P = 3 modules en série (Voc string ≈ 71 V à froid, bien sous 150 V) × 4 branches en parallèle. La série fixe la tension, le parallèle additionne le courant.',
       },
       {
-        id: 'fn-24v', focus: 'BAT',
+        id: 'fn-24v', focus: 'BT1',
         invite: 'Pourquoi choisir un parc 24 V plutôt que 12 V pour cette puissance ?',
         options: [
           'À puissance égale, 24 V divise le courant par deux : câbles, fusibles et pertes plus faibles',
@@ -312,7 +323,7 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
         why: 'Puissance simultanée 2300 W : le 24/3000 (2400 W continus) passe, le 24/1600 (≈ 1300 W) décrocherait dès que la pompe et le réfrigérateur démarrent ensemble.',
       },
       {
-        id: 'fn-parc-ext', focus: 'BAT',
+        id: 'fn-parc-ext', focus: 'BT1',
         invite: 'Pourquoi le parc batterie est-il posé à l\'EXTÉRIEUR du coffret ?',
         options: [
           'Ventilation, masse et accès : les batteries dégagent de la chaleur et doivent être accessibles',
@@ -443,8 +454,8 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   // ② coffret DC (rail 0) · ③ onduleur + batterie (rail 1) · ④ tableau de
   // répartition (rail 2) · ⑤ récepteurs (bloc sous la platine). Les rails sont
   // descendus pour laisser à la toiture une zone propre, sans chevauchement.
-  rails: [326, 522, 718],
-  armoire: 860,
+  rails: [352, 548, 744],
+  armoire: 884,
   arriveeReseau: false,
   slots: [
     // ② Coffret DC (rail 0) : champ PV → protections → MPPT → sectionneur parc → MEGA
@@ -485,9 +496,14 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
     // ---- bus continu : MPPT et onduleur sur l'aval du sectionneur parc Q1 ----
     L('mppt.B+', 'q1.2+', 'DC+'), L('mppt.B−', 'q1.4−', 'DC-'),
     L('km1.B+', 'q1.2+', 'DC+'), L('km1.B−', 'q1.4−', 'DC-'),
-    // ---- parc batterie EXTÉRIEUR → fusible MEGA → sectionneur parc Q1 ----
-    L('BAT.X1', 'megafuse.1', 'DC+'), L('megafuse.2', 'q1.1+', 'DC+'),
-    L('BAT.X2', 'q1.3−', 'DC-'),
+    // ---- parc batteries HORS COFFRET, couplage 2S2P réalisé par l'élève ----
+    // 2 mises en série (− d'une batterie → + de la voisine) : deux strings de 24 V.
+    L('BT1.X2', 'BT2.X1', 'DC+'), L('BT3.X2', 'BT4.X1', 'DC+'),
+    // 2 mises en parallèle : les + de tête ensemble (bus +), les − de queue ensemble (bus −).
+    L('BT1.X1', 'BT3.X1', 'DC+'), L('BT2.X2', 'BT4.X2', 'DC-'),
+    // Bus + du parc → fusible MEGA → sectionneur parc Q1 ; bus − → Q1. Entrée par le bas.
+    L('BT1.X1', 'megafuse.1', 'DC+'), L('megafuse.2', 'q1.1+', 'DC+'),
+    L('BT2.X2', 'q1.3−', 'DC-'),
     // ---- départ 230 V ~ : onduleur → différentiel Q3 → tableau de répartition ----
     L('km1.L', 'f3.L1', 'L1'), L('km1.N', 'f3.N1', 'N'), L('km1.PE', 'x1_5.a', 'PE'),
     L('f3.L2', 'x1_1.a', 'L1'), L('f3.N2', 'x1_4.a', 'N'),
@@ -588,5 +604,5 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   // que le VAT fonctionne. L'ABSENCE se contrôle sur les deux bornes DC réellement en
   // aval du sectionneur de parc Q1 (q1.2+ / q1.4−). Toutes ces bornes existent et sont
   // mesurables (voir NETS : BAT.X1/X2, q1.2+/q1.4−).
-  consignationVat: { sourceConnue: ['BAT.X1', 'BAT.X2'], avalPairs: [['q1.2+', 'q1.4−']] },
+  consignationVat: { sourceConnue: ['BT1.X1', 'BT2.X2'], avalPairs: [['q1.2+', 'q1.4−']] },
 };

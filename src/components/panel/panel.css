@@ -291,9 +291,9 @@
 .se-panel.ter .se-duct .lbl { color: #4E555C; }
 .se-panel.ter .se-rail { background: linear-gradient(#B8BFC7, #8F979F 40%, #A5ADB5 60%, #767E86); }
 
-/* Zone toiture (ciel) AGRANDIE : bleu jusqu'à 232 px (2 rangées de modules + couloirs
-   de câbles + boîte de jonction), puis gris coffret. Les rails (② à 326) sont dessous. */
-.se-panel.pv .se-cab { background: linear-gradient(#DCEBF7 0 232px, #F3F4F6 232px); border-color: #8E969E; }
+/* Le champ PV est un BLOC DISTINCT au-dessus (dessiné dans .se-annex.band) : le coffret
+   est gris uni et démarre sous ce bloc (top posé en ligne par <Panel>, voir TOIT_TOP). */
+.se-panel.pv .se-cab { background: #F3F4F6; border-color: #8E969E; }
 .se-panel.pv .se-duct { background: #D8DCE0; border-color: #9AA3AD; box-shadow: inset 0 0 0 2px #E8EAEC; }
 .se-panel.pv .se-duct::after { display: none; }
 .se-panel.pv .se-duct.open { background: #AEB4BA; }

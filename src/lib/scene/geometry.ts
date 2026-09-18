@@ -17,6 +17,13 @@ export const PANEL_W = 560;
 export const PANEL_H = 920;
 /** Hauteur de l'armoire (cadre `.se-cab`), en haut de la scène. */
 export const CAB_H = 720;
+/**
+ * Sur la scène PV, le champ (toiture) est un BLOC DISTINCT au-dessus du coffret :
+ * le cadre `.se-cab` ne part donc pas de y=0 mais de `TOIT_TOP`, en laissant un espace
+ * franc sous le bloc PV. Les rails du TP sont placés sous cette valeur (rail 0 ≥ TOIT_TOP+104
+ * pour que la goulotte de tête reste dans le coffret). Nul sur les autres scènes.
+ */
+export const TOIT_TOP = 244;
 /** y du haut du bloc récepteurs (pointillés) et sa hauteur. */
 export const RECV_Y = 734;
 export const RECV_H = PANEL_H - RECV_Y;
@@ -333,7 +340,7 @@ export const NET_COLOR: Record<NetKind, string> = {
 export const ROW_LABELS: Record<SceneKind, string[]> = {
   ind: ['goulotte 1', 'goulotte 2', 'goulotte 3', 'goulotte 4'],
   ter: ['goulotte 1', 'goulotte 2', 'goulotte 3', 'goulotte 4'],
-  pv: ['② Coffret DC · 1000 V', '③ Onduleur + batterie', '④ Tableau de répartition', '⑤ Départ récepteurs 230 V'],
+  pv: ['Coffret DC · Q2·PF1·F1·MPPT·Q1·FB', 'Onduleur MultiPlus · différentiel Q3', 'Tableau de répartition X1', 'Pied de coffret · presse-étoupes (arrivées par le bas)'],
   hab: ['rangée 1 · AGCP · DDR', 'rangée 2 · circuits', 'rangée 3 · bornier', 'arrivée branchement'],
 };
 
@@ -347,7 +354,7 @@ export const RECV_TITLE: Record<AnnexKind, string> = {
   door: 'Récepteurs · moteur M1 hors armoire',
   room: 'Récepteurs · pièce',
   local: 'Récepteurs · local',
-  roof: '⑤ Récepteurs · charges 230 V de l\'auberge',
+  roof: 'Parc batteries (2S2P) + récepteurs 230 V · hors coffret',
 };
 
 /**

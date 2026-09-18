@@ -54,8 +54,8 @@ function RoofBand() {
           <stop offset="0" stopColor="#BFE0FA" /><stop offset="1" stopColor="#EAF4FC" />
         </linearGradient>
       </defs>
-      {/* ciel du bandeau AGRANDI : 2 rangées de modules + couloirs + boîte de jonction */}
-      <rect x="8" y="8" width="544" height="224" rx="10" fill={`url(#${sky})`} stroke="#8FB8D8" />
+      {/* Bloc CHAMP PV DISTINCT (hors coffret) : cadre ciel bien marqué, séparé du coffret. */}
+      <rect x="8" y="8" width="544" height="224" rx="12" fill={`url(#${sky})`} stroke="#5E8FBE" strokeWidth="2.5" />
       {/* soleil */}
       <circle cx="524" cy="28" r="11" fill="#FFD84D" stroke="#F0B429" />
       <g stroke="#F0B429" strokeWidth="1.5">
@@ -71,7 +71,7 @@ function RoofBand() {
       </g>
       {/* libellé en haut à gauche du bandeau */}
       <text x="16" y="20" fontSize="8" fontWeight="700" fill="#2C5E8A" letterSpacing=".04em">
-        ① TOITURE · champ PV 3S4P
+        ① CHAMP PV · 3S4P (hors coffret)
       </text>
     </svg>
   );
