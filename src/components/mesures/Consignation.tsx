@@ -7,7 +7,7 @@
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import type { SimState } from '@/lib/sim/engine';
-import { repereSlot } from '@/lib/sim/reperes';
+import { repereSlot, repereBorne } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 
 export interface ConsignationProps {
@@ -89,20 +89,21 @@ export default function Consignation({ tp, st, sim, onAct }: ConsignationProps) 
 
       {source !== null && (
         <Step done={c.vatRef} n="4a">
-          <b>VAT sur source connue</b> — prends le VAT, pointe rouge sur <span className="font-mono-num">{source[0]}</span>,
-          pointe noire sur <span className="font-mono-num">{source[1]}</span> : il doit indiquer une présence de tension.
+          <b>VAT sur source connue</b> — prends le VAT, pointe rouge sur <span className="font-mono-num">{repereBorne(tp, source[0])}</span>,
+          pointe noire sur <span className="font-mono-num">{repereBorne(tp, source[1])}</span> : il doit indiquer une présence de tension.
         </Step>
       )}
 
       <Step done={nVat >= need} n="4b">
-        <b>VAT en aval de {q1}</b> — {avalPairs
+        <b>VAT en aval de {organes}</b> — {avalPairs
           ? (
-            <>vérifie l&apos;absence de tension : <span className="font-mono-num">{avalPairs.map(p => `${p[0]} / ${p[1]}`).join(', ')}</span>.</>
+            <>vérifie l&apos;absence de tension : <span className="font-mono-num">{avalPairs.map(p => `${repereBorne(tp, p[0])} / ${repereBorne(tp, p[1])}`).join(', ')}</span>.</>
           )
           : (
             <>vérifie l&apos;absence de tension entre phases et phase / neutre :
-              <span className="font-mono-num"> q1.2 / q1.4</span>, <span className="font-mono-num">q1.4 / q1.6</span>,
-              <span className="font-mono-num"> q1.2 / q1.6</span>.</>
+              <span className="font-mono-num"> {repereBorne(tp, 'q1.2')} / {repereBorne(tp, 'q1.4')}</span>,
+              <span className="font-mono-num"> {repereBorne(tp, 'q1.4')} / {repereBorne(tp, 'q1.6')}</span>,
+              <span className="font-mono-num"> {repereBorne(tp, 'q1.2')} / {repereBorne(tp, 'q1.6')}</span>.</>
           )}
         <span className="block text-muted">{Math.min(nVat, need)} paire{nVat > 1 ? 's' : ''} contrôlée{nVat > 1 ? 's' : ''} sur {need}.</span>
         {source === null && c.vatRef2 ? <span className="block font-semibold text-good">Installation consignée.</span> : null}
@@ -110,7 +111,7 @@ export default function Consignation({ tp, st, sim, onAct }: ConsignationProps) 
 
       {source !== null && (
         <Step done={c.vatRef2} n="4c">
-          <b>Re-vérification du VAT</b> — repose les pointes sur <span className="font-mono-num">{source[0]} / {source[1]}</span>
+          <b>Re-vérification du VAT</b> — repose les pointes sur <span className="font-mono-num">{repereBorne(tp, source[0])} / {repereBorne(tp, source[1])}</span>
           {' '}pour prouver que l&apos;appareil fonctionne toujours.
           {c.vatRef2 ? <span className="block font-semibold text-good">Installation consignée.</span> : null}
         </Step>

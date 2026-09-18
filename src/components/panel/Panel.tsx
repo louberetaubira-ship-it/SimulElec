@@ -338,9 +338,17 @@ export default function Panel(props: PanelProps) {
 
   const lockBox = React.useMemo(() => {
     if (!lock) return null;
-    const q = ctx.slots.find((s) => s.id === 'q1');
-    return q ? { x: q.x, y: q.y, w: q.w, h: q.h } : null;
-  }, [lock, ctx]);
+    // Un cadenas + macaron par organe de séparation consigné : Q1 (parc) et,
+    // sur une installation à deux sources, l'organe du champ PV (Q2).
+    const ids = ['q1'];
+    const champ = tp.consignationVat?.champ;
+    if (champ) ids.push(champ);
+    const boxes = ids
+      .map((id) => ctx.slots.find((s) => s.id === id))
+      .filter((s): s is NonNullable<typeof s> => !!s)
+      .map((s) => ({ x: s.x, y: s.y, w: s.w, h: s.h }));
+    return boxes.length ? boxes : null;
+  }, [lock, ctx, tp.consignationVat]);
 
   const mono = tp.scene === 'pv' || tp.scene === 'hab';
 
