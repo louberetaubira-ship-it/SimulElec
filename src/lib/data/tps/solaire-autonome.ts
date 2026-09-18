@@ -31,26 +31,29 @@ import { L, TEST_ISO, TEST_PE, TEST_VAT, TEST_VISU } from './common';
 /* ------------------------------------------------------------------ toiture & parc
  * 12 modules 180 Wc couplés 3S4P (3 en série × 4 branches parallèles), calepinés 6 × 2
  * sur un pan de 4,5 × 3,2 m, et le parc batterie 24 V · 1200 Ah, EXTÉRIEUR au coffret. */
+// Ordre de calepinage gauche → droite : rangée 0 (chaînes 1 & 2) puis rangée 1
+// (chaînes 3 & 4). Les strings 3S sont ainsi groupés horizontalement dans le bandeau.
+const ORDER = [1, 3, 5, 2, 4, 6, 7, 9, 11, 8, 10, 12];
 const ROOF: AnnexItem[] = [
-  // 12 modules regroupés EN HAUT de la toiture : grille 6 × 2 compacte.
-  ...Array.from({ length: 12 }, (_, i) => {
-    const r = Math.floor(i / 2);
-    const c = i % 2;
+  // 12 modules en BANDEAU horizontal EN HAUT du coffret : 2 rangées × 6 modules.
+  ...ORDER.map((n, j) => {
+    const c = j % 6;
+    const r = Math.floor(j / 6);
     return {
       key: 'pvpanel',
-      rep: `PV${i + 1}`,
+      rep: `PV${n}`,
       name: 'module 180 Wc · 3S4P',
-      x: 446 + c * 52,
-      y: 18 + r * 38,
-      w: 48,
-      h: 34,
+      x: 20 + c * 46,
+      y: 16 + r * 44,
+      w: 40,
+      h: 32,
     } as AnnexItem;
   }),
-  // Boîte de jonction (combiner) à 4 fusibles gPV : elle raccorde le champ 3S4P
-  // (4 chaînes de 3 modules) et sort un couple bus + / − vers le sectionneur Q2.
-  { key: 'combiner', rep: 'JB', name: 'boîte de jonction · 4 fusibles gPV', x: 446, y: 250, w: 100, h: 74 },
-  // Parc batterie 24 V · 1200 Ah, à l'EXTÉRIEUR du coffret (bas de la colonne toiture).
-  { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 452, y: 388, w: 92, h: 118 },
+  // Boîte de jonction (combiner) à 4 fusibles gPV, à DROITE du bandeau : elle raccorde
+  // le champ 3S4P (4 chaînes de 3 modules) et sort un couple bus + / − vers Q2.
+  { key: 'combiner', rep: 'JB', name: 'boîte de jonction · 4 fusibles gPV', x: 340, y: 20, w: 120, h: 84 },
+  // Parc batterie 24 V · 1200 Ah, à l'EXTÉRIEUR du coffret, à DROITE sous le bandeau.
+  { key: 'battery', rep: 'BAT', name: 'parc batterie 24 V · 1200 Ah (extérieur)', x: 470, y: 150, w: 78, h: 104 },
 ];
 
 /** Charges de l'auberge alimentées par le départ 230 V (bilan des récepteurs). */

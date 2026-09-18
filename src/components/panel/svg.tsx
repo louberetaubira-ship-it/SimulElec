@@ -14,25 +14,29 @@ const MONO = 'var(--font-mono), monospace';
 const SANS = 'var(--font-sans), sans-serif';
 const COND = 'var(--font-title), sans-serif';
 
+/**
+ * Module PV en format PAYSAGE (viewBox 100 × 80, ratio 1.25 = celui d'une cellule du
+ * bandeau toiture 40 × 32) : il remplit la case sans marges. Grille de cellules 6 × 3.
+ */
 export function PvPanelSvg() {
   const gid = React.useId();
   return (
-    <svg viewBox="0 0 60 100" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+    <svg viewBox="0 0 100 80" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#1B2C5E" /><stop offset=".5" stopColor="#0E1A3C" /><stop offset="1" stopColor="#25407A" />
         </linearGradient>
       </defs>
-      <rect x="1" y="1" width="58" height="98" rx="2" fill="#B9BEC4" stroke="#5E656D" />
-      <rect x="3" y="3" width="54" height="94" fill={`url(#${gid})`} />
+      <rect x="1" y="1" width="98" height="78" rx="3" fill="#B9BEC4" stroke="#5E656D" />
+      <rect x="4" y="4" width="92" height="72" fill={`url(#${gid})`} />
       <g fill="none" stroke="#9FB3D9" strokeWidth=".8" opacity=".8">
-        {[0, 1, 2, 3, 4, 5].map((i) => <path key={`h${i}`} d={`M3 ${3 + i * 15.7}h54`} />)}
-        {[0, 1, 2, 3].map((i) => <path key={`v${i}`} d={`M${3 + i * 13.5} 3v94`} />)}
+        {[0, 1, 2, 3].map((i) => <path key={`h${i}`} d={`M4 ${4 + i * 24}h92`} />)}
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => <path key={`v${i}`} d={`M${4 + i * (92 / 6)} 4v72`} />)}
       </g>
-      <g stroke="#DCE6F5" strokeWidth=".5" opacity=".7">
-        {Array.from({ length: 12 }, (_, i) => <path key={i} d={`M${5 + i * 4.5} 3v94`} />)}
+      <g stroke="#DCE6F5" strokeWidth=".4" opacity=".6">
+        {Array.from({ length: 6 }, (_, i) => <path key={i} d={`M4 ${4 + i * 12}h92`} />)}
       </g>
-      <rect x="4" y="4" width="20" height="30" fill="#fff" opacity=".08" />
+      <rect x="6" y="6" width="26" height="14" fill="#fff" opacity=".08" />
     </svg>
   );
 }

@@ -39,35 +39,46 @@ function LocalDeco() {
   );
 }
 
-function RoofDeco() {
+/**
+ * Bandeau « toiture » en plein cadre (560 × 720) : un rectangle de ciel dégradé
+ * couvre le haut du coffret (x 8..552, y 8..122), au-dessus du rail 1. Les panneaux
+ * PV et la boîte de jonction se posent dessus (z-index supérieur) ; le parc batterie,
+ * lui, est un bloc à part, sous le bandeau. Dessiné derrière les organes (z-index bas).
+ */
+function RoofBand() {
   const sky = React.useId();
   return (
-    <svg className="deco" viewBox="0 0 118 680" preserveAspectRatio="none">
+    <svg className="deco" viewBox="0 0 560 720" preserveAspectRatio="none">
       <defs>
         <linearGradient id={sky} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#BFE0FA" /><stop offset="1" stopColor="#EAF4FC" />
         </linearGradient>
       </defs>
-      <rect x="0" y="0" width="118" height="680" fill={`url(#${sky})`} />
-      <circle cx="96" cy="14" r="9" fill="#FFD84D" />
-      <path d="M0 400 L118 380 L118 680 L0 680Z" fill="#B65C3A" />
-      <g stroke="#8C4529" strokeWidth="1">
-        {Array.from({ length: 12 }, (_, i) => <path key={i} d={`M0 ${412 + i * 22} L118 ${392 + i * 22}`} />)}
+      {/* ciel du bandeau : bord haut du coffret, au-dessus du rail 1 */}
+      <rect x="8" y="8" width="544" height="114" rx="10" fill={`url(#${sky})`} stroke="#8FB8D8" />
+      {/* soleil */}
+      <circle cx="520" cy="30" r="11" fill="#FFD84D" stroke="#F0B429" />
+      <g stroke="#F0B429" strokeWidth="1.5">
+        {Array.from({ length: 8 }, (_, i) => {
+          const a = (i * Math.PI) / 4;
+          return (
+            <path
+              key={i}
+              d={`M${520 + Math.cos(a) * 15} ${30 + Math.sin(a) * 15}L${520 + Math.cos(a) * 20} ${30 + Math.sin(a) * 20}`}
+            />
+          );
+        })}
       </g>
-      <rect x="6" y="20" width="106" height="372" rx="3" fill="none" stroke="#7E8790" strokeWidth="2" />
-      <text x="8" y="404" fontSize="6" fill="#fff" fontWeight="700">rails de fixation</text>
-      <g stroke="#D93A3A" strokeWidth="2" fill="none"><path d="M18 120v88M18 208v88M18 296v70" /></g>
-      <g stroke="#20262D" strokeWidth="2" fill="none"><path d="M98 120v88M98 208v88M98 296v70" /></g>
-      <g stroke="#37B34A" strokeWidth="1.5" strokeDasharray="3 2" fill="none"><path d="M58 20v370" /></g>
-      <text x="10" y="450" fontSize="6" fill="#fff">câble solaire 6 mm² · MC4</text>
-      <path d="M18 366 C 18 380 -6 380 -6 396" stroke="#D93A3A" strokeWidth="2" fill="none" />
-      <path d="M98 366 C 98 386 -6 386 -6 402" stroke="#20262D" strokeWidth="2" fill="none" />
+      {/* libellé en haut à gauche du bandeau */}
+      <text x="16" y="20" fontSize="8" fontWeight="700" fill="#2C5E8A" letterSpacing=".04em">
+        TOITURE · champ PV 3S4P
+      </text>
     </svg>
   );
 }
 
-const DECO: Record<Exclude<AnnexKind, 'door'>, () => React.ReactElement> = {
-  room: RoomDeco, local: LocalDeco, roof: RoofDeco,
+const DECO: Record<'room' | 'local', () => React.ReactElement> = {
+  room: RoomDeco, local: LocalDeco,
 };
 
 export interface AnnexProps {
@@ -80,10 +91,14 @@ export default function Annex({ annex, items, catalogue }: AnnexProps) {
   if (annex === 'door') {
     return <div className="se-door"><span className="t">PORTE</span></div>;
   }
-  const Deco = DECO[annex];
+  // Toiture : bandeau horizontal EN PLEIN CADRE (560 × 720). Les items s'y affichent à
+  // leur coordonnée scène ABSOLUE (position écran = it.x/it.y), pour rester alignés sur
+  // les bornes (`annexTerminals`, en coordonnées absolues). Pour 'room'/'local', on garde
+  // la colonne d'annexe historique (item posé à `it.x - ANNEX_X` dans un conteneur décalé).
+  const band = annex === 'roof';
   return (
-    <div className="se-annex">
-      <Deco />
+    <div className={band ? 'se-annex band' : 'se-annex'}>
+      {band ? <RoofBand /> : React.createElement(DECO[annex])}
       <span className="t">{ANNEX_TITLE[annex]}</span>
       {items.map((it) => {
         const item = catalogue[it.key];
@@ -92,7 +107,11 @@ export default function Annex({ annex, items, catalogue }: AnnexProps) {
           <div
             key={it.rep}
             className="item"
-            style={{ left: it.x - ANNEX_X, top: it.y - ANNEX_Y, width: it.w, height: it.h }}
+            style={
+              band
+                ? { left: it.x, top: it.y, width: it.w, height: it.h }
+                : { left: it.x - ANNEX_X, top: it.y - ANNEX_Y, width: it.w, height: it.h }
+            }
           >
             {vector ?? (item?.src ? <img src={item.src} alt={it.name} /> : <img src={`/sprites/${it.key}.png`} alt={it.name} />)}
             <div className="rep">{it.rep}</div>

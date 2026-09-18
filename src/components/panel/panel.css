@@ -169,6 +169,14 @@
 }
 .se-annex svg.deco { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 
+/* ---- toiture en BANDEAU horizontal (plein cadre) ---- */
+/* Pour la scène « roof », l'annexe n'est plus une colonne de droite mais un bandeau
+   posé en haut du coffret : conteneur plein cadre, sans clip, items à leur coordonnée
+   scène absolue (voir Annex.tsx). Le décor reste derrière les organes (z-index 0). */
+.se-annex.band { left: 0; top: 0; width: 560px; height: 720px; z-index: 0; }
+.se-annex.band .t { left: 16px; top: 2px; color: #2C5E8A; }
+.se-annex.band svg.deco { z-index: 0; }
+
 /* ---- coffret de porte XALD ---- */
 /* Plus de coffret : les organes sont posés directement sur la porte. */
 .se-station {
