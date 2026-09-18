@@ -278,6 +278,20 @@ export interface ReadOut {
   bad?: boolean;
   /** VAT : absence de tension confirmée. */
   ok?: boolean;
+  /** Continuité sonore : l'appareil doit émettre un bip (position •))). */
+  beep?: boolean;
+}
+
+/**
+ * Nature du réseau de la paire mesurée : continu (bornes DC+/DC−) ou alternatif (phases /
+ * neutre). Sert à router la lecture sur le bon calibre — un réseau continu ne se lit qu'en
+ * V⎓, un réseau alternatif qu'en V~. `null` si une borne est inconnue.
+ */
+function pairKind(tp: TpDefinition, sim: SimState, a: string | null, b: string | null): 'DC' | 'AC' | null {
+  const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
+  if (!A || !B) return null;
+  const dc = (n: string) => n === 'DC+' || n === 'DC-';
+  return (dc(A.net) || dc(B.net)) ? 'DC' : 'AC';
 }
 
 const EMPTY: ReadOut = { value: null, display: '', unit: '' };
@@ -329,13 +343,20 @@ export function read(
 
   if (need) return { value: null, display: '----', unit: 'brancher les 2 cordons' };
 
-  if (dial === 'V~') {
+  // Tension : on la lit sur le calibre qui correspond au réseau. Continu (parc, champ, bus
+  // DC) → V⎓ ; alternatif (départ 230 V après onduleur, TP moteur) → V~. Le mauvais calibre
+  // affiche ≈ 0, comme un vrai appareil : un voltmètre AC ne « voit » pas le continu et
+  // inversement. C'est la même règle pour tous les TP.
+  if (dial === 'V~' || dial === 'V⎓' || dial === 'mV') {
     const u = voltage(tp, sim, r, k, reseau);
-    return u == null
-      ? { value: null, display: '--', unit: 'V~' }
-      : { value: u, display: fr(u, 1), unit: 'V~' };
+    if (u == null) return { value: null, display: '--', unit: dial };
+    const kind = pairKind(tp, sim, r, k);
+    const wantDC = dial === 'V⎓' || dial === 'mV';
+    const bon = wantDC ? kind === 'DC' : kind === 'AC';
+    if (!bon) return { value: 0, display: fr(0, dial === 'mV' ? 1 : 1), unit: `${dial} · mauvais calibre` };
+    if (dial === 'mV') return { value: u * 1000, display: fr(u * 1000, 0), unit: 'mV⎓' };
+    return { value: u, display: fr(u, 1), unit: dial };
   }
-  if (dial === 'V⎓' || dial === 'mV') return { value: 0, display: '0.0', unit: dial };
 
   if (dial === 'Ω' || dial === 'RPE 200 mA' || dial === '•))') {
     const o = ohms(tp, sim, r, k, poses, reseau);
@@ -345,6 +366,8 @@ export function read(
       value: o,
       display: dial === '•))' ? `●))) ${fr(o, 1)}` : fr(o, 2),
       unit: dial === '•))' ? 'Ω · bip' : 'Ω',
+      // Continuité sonore : l'appareil bipe tant qu'il « voit » une liaison (faible résistance).
+      beep: dial === '•))',
     };
   }
 

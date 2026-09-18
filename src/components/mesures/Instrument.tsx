@@ -54,6 +54,24 @@ function useInstrumentPhotos(): Record<string, string> {
   }, [src]);
 }
 
+/** Couleur du repère de cadran : rouge = alternatif, bleu = continu, violet = continuité. */
+function dialColor(t: string, active: boolean): string {
+  if (active) return '#FFD84D';
+  if (t.includes('⎓') || t === 'mV') return '#5FA3FF';
+  if (t.includes('~')) return '#FF6B5E';
+  if (t.includes('•))')) return '#C58BFF';
+  return '#E8ECF0';
+}
+
+/** Grand symbole de mode affiché sur l'écran (⎓ continu, ~ alternatif, •))) continuité). */
+function modeSymbol(dial: string): string {
+  if (dial.includes('⎓') || dial === 'mV') return '⎓';
+  if (dial === '•))') return '•)))';
+  if (dial.includes('~')) return '~';
+  if (dial === 'Ω' || dial.startsWith('R') || dial.startsWith('Z') || dial.startsWith('DDR')) return 'Ω';
+  return '';
+}
+
 export default function Instrument(p: InstrumentProps) {
   const photos = useInstrumentPhotos();
   const def = instrumentDef(p.inst);
@@ -61,6 +79,28 @@ export default function Instrument(p: InstrumentProps) {
   const n = dials.length;
   const dial = def ? dials[Math.min(p.dial, n - 1)] : 'OFF';
   const ang = -120 + p.dial * (240 / Math.max(1, n - 1));
+
+  // Bip de continuité : jouer un son sur le front montant (contact établi), pas à chaque rendu.
+  const audioRef = React.useRef<AudioContext | null>(null);
+  const wasBeeping = React.useRef(false);
+  React.useEffect(() => {
+    const on = !!p.out.beep;
+    if (on && !wasBeeping.current) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioRef.current = audioRef.current ?? new AC();
+        const ac = audioRef.current;
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = 'square'; o.frequency.value = 2300;
+        g.gain.setValueAtTime(0.0001, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.22, ac.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.22);
+        o.connect(g); g.connect(ac.destination);
+        o.start(); o.stop(ac.currentTime + 0.24);
+      } catch { /* audio indisponible : silencieux */ }
+    }
+    wasBeeping.current = on;
+  }, [p.out.beep, p.out.display]);
   const short = (id: string | null) => (id ? repereBorne(p.tp, id) : '');
 
   return (
@@ -132,21 +172,29 @@ export default function Instrument(p: InstrumentProps) {
                 <rect x="55" y="50" width="140" height="70" rx="6" fill="#DDE5D0" stroke="#20262D" />
                 <text x="188" y="98" textAnchor="end" fontSize="26" fontFamily="var(--font-mono)" fill={p.out.bad ? '#D93A3A' : '#141A21'}>{p.out.display}</text>
                 <text x="60" y="66" fontSize="8" fill="#3A4047" fontWeight="700">{def.name}</text>
+                {/* Grand symbole de mode : continu (⎓), alternatif (~) ou continuité (•)) — bien lisible. */}
+                <text
+                  x="188" y="70" textAnchor="end" fontSize="18" fontWeight="800"
+                  fill={dial.includes('⎓') || dial === 'mV' ? '#14508C' : dial.includes('~') ? '#9C2B22' : dial === '•))' ? '#6A2C86' : '#3A4047'}
+                >
+                  {modeSymbol(dial)}
+                </text>
                 <text x="60" y="112" fontSize="7.5" fill={p.out.bad ? '#D93A3A' : '#3A4047'}>{p.out.unit}</text>
                 <g transform="translate(125 205)">
                   <circle r="52" fill="#2A2E33" />
                   <circle r="44" fill="#3A4047" stroke="#555" strokeWidth="2" />
                   {dials.map((t, i) => {
                     const a = (-120 + i * (240 / Math.max(1, n - 1))) * Math.PI / 180;
+                    const active = i === p.dial;
                     return (
                       <text
                         key={t}
-                        x={Math.sin(a) * 66}
-                        y={-Math.cos(a) * 66 + 4}
+                        x={Math.sin(a) * 68}
+                        y={-Math.cos(a) * 68 + 4.5}
                         textAnchor="middle"
-                        fontSize="8"
-                        fontWeight="700"
-                        fill={i === p.dial ? '#FFD84D' : '#E8ECF0'}
+                        fontSize={active ? 13 : 11}
+                        fontWeight="800"
+                        fill={dialColor(t, active)}
                       >
                         {t}
                       </text>
