@@ -6,12 +6,15 @@
  * prises A / COM / VΩ, afficheur, pointes de touche et pince.
  */
 import React from 'react';
-import type { InstrumentKind } from '@/lib/types';
+import type { InstrumentKind, TpDefinition } from '@/lib/types';
 import { INSTRUMENTS, instrumentDef, type ReadOut } from '@/lib/sim/mesures';
+import { repereBorne } from '@/lib/sim/reperes';
 import { libraryItemSync, loadLibraryItem } from '@/lib/data/library';
 import { Note } from '@/components/ui';
 
 export interface InstrumentProps {
+  /** Le TP fournit les repères gravés des bornes (« ONDU PE », et non « km1 PE »). */
+  tp: TpDefinition;
   inst: InstrumentKind | null;
   dial: number;
   out: ReadOut;
@@ -58,7 +61,7 @@ export default function Instrument(p: InstrumentProps) {
   const n = dials.length;
   const dial = def ? dials[Math.min(p.dial, n - 1)] : 'OFF';
   const ang = -120 + p.dial * (240 / Math.max(1, n - 1));
-  const short = (id: string | null) => (id ? id.replace('.', ' ') : '');
+  const short = (id: string | null) => (id ? repereBorne(p.tp, id) : '');
 
   return (
     <div className="flex flex-col gap-2">

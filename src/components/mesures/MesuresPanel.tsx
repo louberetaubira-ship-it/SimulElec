@@ -4,6 +4,7 @@
 import React from 'react';
 import type { AttemptState, ExpectedMeasure, TpDefinition } from '@/lib/types';
 import { mesureDone, mesuresFor } from '@/lib/sim/mesures';
+import { repereBorne } from '@/lib/sim/reperes';
 import { Card, Note } from '@/components/ui';
 
 export interface MesuresPanelProps {
@@ -13,9 +14,14 @@ export interface MesuresPanelProps {
   log: string[];
 }
 
-function where(m: ExpectedMeasure): string {
-  if (m.wire) return `pince sur ${m.wire.replace('>', ' → ')}`;
-  if (m.a && m.b) return `${m.a.replace('.', ' ')} / ${m.b.replace('.', ' ')}`;
+function where(tp: TpDefinition, m: ExpectedMeasure): string {
+  // Toujours nommer les bornes comme la platine les grave, pas par l'identifiant interne du
+  // simulateur (« ONDU PE / X1:3 PE », et non « km1 PE / x1_5 a »).
+  if (m.wire) {
+    const [a, b] = m.wire.split('>');
+    return `pince sur ${repereBorne(tp, a)} → ${repereBorne(tp, b)}`;
+  }
+  if (m.a && m.b) return `${repereBorne(tp, m.a)} / ${repereBorne(tp, m.b)}`;
   return 'sur l\'arbre du moteur';
 }
 
@@ -38,7 +44,7 @@ export default function MesuresPanel({ tp, st, stage, log }: MesuresPanelProps) 
               >
                 <b className="block font-medium">{ok ? '✔ ' : ''}{m.title}</b>
                 <span className="block font-mono-num text-[11px] text-muted">
-                  {m.dial} · {where(m)} → attendu {m.min} à {m.max} {m.unit}
+                  {m.dial} · {where(tp, m)} → attendu {m.min} à {m.max} {m.unit}
                   {m.when === 'run' ? ' · moteur en marche' : m.when === 'ctl' ? ' · commande sous tension' : ''}
                 </span>
                 {rec && <span className="block font-mono-num text-[11px] text-good">lu : {rec.display}</span>}

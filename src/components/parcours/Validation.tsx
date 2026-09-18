@@ -13,6 +13,7 @@ import {
 } from '@/lib/sim/diagnostic';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
 import { reseauCommande } from '@/lib/sim/commande';
+import { repereBorne } from '@/lib/sim/reperes';
 import { shuffledOrder } from '@/lib/sim/shuffle';
 import Evaluation from './Evaluation';
 import AutoEvaluation from './AutoEvaluation';
@@ -364,7 +365,7 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
   // Appareil de mesure : mêmes points de test qu'aux étapes de mesure.
   const out = s.currentRead();
   const clampLabel = mes.clamp != null && wires[mes.clamp]
-    ? `${wires[mes.clamp].a.replace('.', ' ')} → ${wires[mes.clamp].b.replace('.', ' ')}`
+    ? `${repereBorne(tp, wires[mes.clamp].a)} → ${repereBorne(tp, wires[mes.clamp].b)}`
     : null;
   const instruments = React.useMemo(() => INSTRUMENTS.map((i) => i.id), []);
 
@@ -427,6 +428,7 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
 
           <Card title="Appareil de mesure">
             <Instrument
+              tp={tp}
               inst={mes.inst}
               dial={mes.dial}
               out={out}

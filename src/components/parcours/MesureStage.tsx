@@ -19,7 +19,7 @@ import MesuresPanel from '@/components/mesures/MesuresPanel';
 import SecuriteGate from '@/components/mesures/SecuriteGate';
 import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
 import { secuComplete } from '@/lib/sim/securite';
-import { listeMiseSousTension, repereSlot } from '@/lib/sim/reperes';
+import { listeMiseSousTension, repereSlot, repereBorne } from '@/lib/sim/reperes';
 import { useParcours, panelWires } from '@/app/tp/[id]/store';
 import TpPanel from './TpPanel';
 import { deviceStateOf, lampsOf } from './panelState';
@@ -41,7 +41,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
   const wires = React.useMemo(() => panelWires(tp, st, sim), [tp, st, sim]);
   const out = s.currentRead();
   const clampLabel = mes.clamp != null && wires[mes.clamp]
-    ? `${wires[mes.clamp].a.replace('.', ' ')} → ${wires[mes.clamp].b.replace('.', ' ')}`
+    ? `${repereBorne(tp, wires[mes.clamp].a)} → ${repereBorne(tp, wires[mes.clamp].b)}`
     : null;
 
   const ready =
@@ -147,6 +147,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         ) : (
           <Card title="Appareil de mesure">
             <Instrument
+              tp={tp}
               inst={mes.inst}
               dial={mes.dial}
               out={out}
