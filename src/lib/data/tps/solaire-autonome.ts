@@ -141,12 +141,15 @@ const NETS: Record<string, TerminalNet> = {
   'JB.F1': { net: 'DC+', live: 'always' }, 'JB.F2': { net: 'DC+', live: 'always' },
   'JB.F3': { net: 'DC+', live: 'always' }, 'JB.F4': { net: 'DC+', live: 'always' },
   'JB.P': { net: 'DC+', live: 'always' }, 'JB.M': { net: 'DC-', live: 'always' },
+  // Aval du sectionneur champ Q2 (parafoudre, fusibles gPV, entrée MPPT) : SOURCE
+  // INDÉPENDANTE (live 'q2' = sim.f2 seul). Le champ est vif dès que Q2 est fermé, que
+  // Q1 le soit ou non — c'est ce qui impose de consigner Q2 en plus de Q1.
   'f2.1+': { net: 'DC+', live: 'always' }, 'f2.3−': { net: 'DC-', live: 'always' },
-  'f2.2+': { net: 'DC+', live: 'f2' }, 'f2.4−': { net: 'DC-', live: 'f2' },
-  'dcspd.+': { net: 'DC+', live: 'f2' }, 'dcspd.−': { net: 'DC-', live: 'f2' }, 'dcspd.PE': { net: 'PE', live: 'always' },
-  'dcfuse.1+': { net: 'DC+', live: 'f2' }, 'dcfuse.3−': { net: 'DC-', live: 'f2' },
-  'dcfuse.2+': { net: 'DC+', live: 'f2' }, 'dcfuse.4−': { net: 'DC-', live: 'f2' },
-  'mppt.PV+': { net: 'DC+', live: 'f2' }, 'mppt.PV−': { net: 'DC-', live: 'f2' },
+  'f2.2+': { net: 'DC+', live: 'q2' }, 'f2.4−': { net: 'DC-', live: 'q2' },
+  'dcspd.+': { net: 'DC+', live: 'q2' }, 'dcspd.−': { net: 'DC-', live: 'q2' }, 'dcspd.PE': { net: 'PE', live: 'always' },
+  'dcfuse.1+': { net: 'DC+', live: 'q2' }, 'dcfuse.3−': { net: 'DC-', live: 'q2' },
+  'dcfuse.2+': { net: 'DC+', live: 'q2' }, 'dcfuse.4−': { net: 'DC-', live: 'q2' },
+  'mppt.PV+': { net: 'DC+', live: 'q2' }, 'mppt.PV−': { net: 'DC-', live: 'q2' },
   // ---- parc batteries (bloc du bas, hors coffret) : 4 batteries 12 V couplées 2S2P ----
   // Chaque batterie expose + (X1) et − (X2) ; toutes vives en permanence.
   'BT1.X1': { net: 'DC+', live: 'always' }, 'BT1.X2': { net: 'DC-', live: 'always' },
@@ -600,5 +603,14 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   // que le VAT fonctionne. L'ABSENCE se contrôle sur les deux bornes DC réellement en
   // aval du sectionneur de parc Q1 (q1.2+ / q1.4−). Toutes ces bornes existent et sont
   // mesurables (voir NETS : BAT.X1/X2, q1.2+/q1.4−).
-  consignationVat: { sourceConnue: ['BT1.X1', 'BT2.X2'], avalPairs: [['q1.2+', 'q1.4−']] },
+  // Consignation à DEUX sources (spécificité PV) : le parc (Q1) ET le champ (Q2, source
+  // indépendante). Source CONNUE pour prouver le VAT = l'AMONT de Q2 (f2.1+/f2.3−), toujours
+  // vif le jour (~72 V) et qu'on ne peut pas éteindre — c'est le point pédagogique. Absence
+  // à contrôler en aval de Q1 (q1.2+/q1.4−, parc 24 V) ET en aval de Q2 côté champ
+  // (f2.2+/f2.4−, mort seulement si Q2 est ouvert) → l'élève doit ouvrir Q1 ET Q2.
+  consignationVat: {
+    sourceConnue: ['f2.1+', 'f2.3−'],
+    avalPairs: [['q1.2+', 'q1.4−'], ['f2.2+', 'f2.4−']],
+    champ: 'f2',
+  },
 };

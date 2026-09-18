@@ -365,13 +365,26 @@ export const useParcours = create<ParcoursState>((set, get) => {
     const out = read(tp, sim, mes.inst, dial, mes.probes, clampWire(), posesEnPlace(), reseau());
     const stage = st.stage;
 
-    // ---- séparation (étape 6) : Q1 ouvert met toute la platine hors tension
-    if (stage === ETAPE.EPI && st.cons.sep !== !sim.q1) {
-      patch(s => ({ ...s, cons: { ...s.cons, sep: !sim.q1 } }));
+    // ---- séparation (étape 6)
+    // Champ PV : SOURCE INDÉPENDANTE. Ouvrir Q1 (parc) coupe le parc et l'aval de
+    // l'onduleur, mais PAS le champ (Q2/f2) — les modules produisent tant qu'il fait
+    // jour. La séparation exige donc la double coupure Q1 ET Q2.
+    const champId = tp.consignationVat?.champ; // ex. 'f2' (sectionneur champ PV)
+    if (stage === ETAPE.EPI) {
+      const sepDone = !sim.q1 && (!champId || !sim.f2);
+      if (st.cons.sep !== sepDone) patch(s => ({ ...s, cons: { ...s.cons, sep: sepDone } }));
     }
-    if (stage === ETAPE.EPI && !sim.q1 && (sim.f2 || sim.f3)) {
-      set(s => ({ sim: { ...s.sim, f2: false, f3: false, km1: false } }));
-      mlog(`Séparation : ${repereSlot(tp, 'q1')} ouvert, ${repereSlot(tp, 'f2')} et ${repereSlot(tp, 'f3')} retombent avec lui.`);
+    if (stage === ETAPE.EPI && !sim.q1) {
+      if (champId) {
+        // Le champ ne retombe PAS avec Q1 : seul l'aval de l'onduleur (Q3, onduleur) suit.
+        if (sim.f3 || sim.km1) {
+          set(s => ({ sim: { ...s.sim, f3: false, km1: false } }));
+          mlog(`Séparation : ${repereSlot(tp, 'q1')} ouvert — l'aval de l'onduleur retombe. Le champ PV (${repereSlot(tp, 'f2')}) reste une source : ouvre-le séparément.`);
+        }
+      } else if (sim.f2 || sim.f3) {
+        set(s => ({ sim: { ...s.sim, f2: false, f3: false, km1: false } }));
+        mlog(`Séparation : ${repereSlot(tp, 'q1')} ouvert, ${repereSlot(tp, 'f2')} et ${repereSlot(tp, 'f3')} retombent avec lui.`);
+      }
     }
 
     // ---- déconsignation (étape 8)
@@ -439,6 +452,8 @@ export const useParcours = create<ParcoursState>((set, get) => {
           if (source == null && nextVat.length >= need && !c.vatRef2) {
             say('Installation consignée : tu peux mesurer hors tension.');
           }
+        } else if (!known && champId && (out.value ?? 0) > 50) {
+          mlog(`⚠ ${r} / ${k} : présence de tension — le champ PV (${repereSlot(tp, 'f2')}) n'est pas ouvert. C'est une source indépendante : ouvre ${repereSlot(tp, 'f2')} pour la couper.`);
         }
       } else if (sim.q1 && (out.value ?? 0) > 50) {
         mlog(`⚠ Présence de tension : ${repereSlot(tp, 'q1')} n'est pas ouvert, ne touche à rien.`);

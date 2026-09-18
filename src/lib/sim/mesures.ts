@@ -70,6 +70,9 @@ function liveWhen(cond: TerminalNet['live'], sim: SimState): boolean {
   switch (cond) {
     case 'always': return true;
     case 'q1': return sim.q1;
+    // Champ PV : source indépendante, vive dès que le sectionneur Q2 (f2) est fermé,
+    // que Q1 le soit ou non. (À l'inverse de 'f2', modèle moteur où f2 est en aval de q1.)
+    case 'q2': return sim.f2;
     case 'f2': return sim.q1 && sim.f2;
     case 'f3':
     case 'ctl': return isControlLive(sim);
@@ -129,6 +132,18 @@ export function voltage(
   const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
   if (!A || !B) return null;
   if (!A.live && !B.live) return 0;
+  // ---- tensions CONTINUES (PV) : le réseau ne porte que la polarité (DC+/DC−), pas la
+  // grandeur. On la reconstitue par zone : côté CHAMP (modules → Q2 → parafoudre →
+  // fusibles → entrée MPPT) ≈ 72 V (Voc string 3S), côté BUS/PARC (sortie MPPT, batteries,
+  // onduleur) = 24 V. Une borne hors tension (sectionneur ouvert) → absence.
+  const isDC = (n: string) => n === 'DC+' || n === 'DC-';
+  if (isDC(A.net) && isDC(B.net)) {
+    if (!A.live || !B.live) return 0;
+    if (A.net === B.net) return 0;
+    const champ = /^(PV\d+\.|JB\.|f2\.|dcfuse\.|dcspd\.|mppt\.PV)/.test(a ?? '')
+      || /^(PV\d+\.|JB\.|f2\.|dcfuse\.|dcspd\.|mppt\.PV)/.test(b ?? '');
+    return champ ? 72 : 24;
+  }
   const va = A.live ? asPhase(A.net) : '0';
   const vb = B.live ? asPhase(B.net) : '0';
   const uc = sim.u2 ?? tp.trafo?.bobine ?? 24;

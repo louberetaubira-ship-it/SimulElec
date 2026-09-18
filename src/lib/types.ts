@@ -463,8 +463,13 @@ export interface TerminalNet {
     // commande : les mettre en commun, c'est relier deux alimentations.
     | 'VAR1' | 'VAR2' | 'VAR3' | 'BUS+' | 'BUS-'
     | 'P24' | 'P0' | 'LI1' | 'LI2' | 'AI1' | 'RES-X2';
-  /** Condition de présence de tension : 'always' | 'q1' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off'. */
-  live: 'always' | 'q1' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
+  /**
+   * Condition de présence de tension.
+   * 'q2' = SOURCE INDÉPENDANTE en aval du sectionneur f2 SEUL (champ PV : vif dès que
+   * Q2 est fermé, que Q1 le soit ou non). À distinguer de 'f2' (aval de q1 ET f2, modèle
+   * moteur où f2 est une protection en aval du sectionneur général).
+   */
+  live: 'always' | 'q1' | 'q2' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
 }
 
 /**
@@ -607,6 +612,14 @@ export interface TpDefinition {
     sourceConnue?: [string, string] | null;
     /** Paires de bornes en AVAL de l'appareil consigné, à contrôler en absence de tension. */
     avalPairs?: [string, string][];
+    /**
+     * Slot d'une SECONDE source d'énergie INDÉPENDANTE, qu'ouvrir Q1 ne coupe pas
+     * (ex. le sectionneur du champ PV `f2` : les modules produisent tant qu'il fait
+     * jour). Présent = double coupure : la séparation exige d'ouvrir Q1 ET cette
+     * source, le champ ne « retombe » pas avec Q1, et son absence de tension doit
+     * être contrôlée séparément (via une paire d'`avalPairs` côté champ).
+     */
+    champ?: string;
   };
 }
 
