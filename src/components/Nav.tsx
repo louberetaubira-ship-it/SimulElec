@@ -50,6 +50,7 @@ export default function Nav() {
     links.push({ href: '/ressources', label: 'Ressources' });
     links.push({ href: '/prof/classes', label: 'Mes classes' });
     links.push({ href: '/prof', label: 'Suivi' });
+    links.push({ href: '/prof/bilans', label: 'Bilans' });
     links.push({ href: '/prof/tp', label: 'Mes TP' });
     if (role === 'admin') links.push({ href: '/admin', label: 'Établissement' });
   }
