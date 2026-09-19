@@ -283,31 +283,46 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, pct, coef, 
 
       <section className="mb-4 rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-3.5">
         <h2 className="m-0 mb-2 text-[14px] font-bold">Bilan par compétence — référentiel {diplomaShort(diploma)}</h2>
-        <div className="flex flex-wrap gap-1.5">
-          {COMPETENCES[diploma].map((c) => {
-            const a = avgs[c.code];
-            const evaluated = a != null;
-            const niv = niveauOf(a?.score ?? 0, evaluated);
-            const eps = epreuvesOfCompetence(diploma, c.code);
-            return (
-              <div key={c.code} className="min-w-[130px] flex-1 basis-[150px] rounded-[9px] border border-[var(--line)] p-2" style={evaluated ? {} : { opacity: 0.5 }}>
-                <div className="flex items-center gap-1.5">
-                  <b className="text-[12px]">{c.code}</b>
-                  <span className="rounded-full px-1.5 text-[10px] font-bold" style={{ background: NIVEAU_COLOR[niv], color: NIVEAU_ON[niv] }}>{NIVEAU_BILAN[niv]}</span>
-                </div>
-                <div className="mt-0.5 text-[10.5px] leading-tight text-muted">{c.label}</div>
-                <div className="mt-0.5 text-[10px] font-semibold text-accent">
-                  {eps.length ? eps.map((e) => `${e.code} ${e.pct}%`).join(' · ') : 'hors épreuve'}
-                </div>
-                {evaluated && (
-                  <div className="mt-1 h-[7px] overflow-hidden rounded bg-[var(--line)]">
-                    <i className="block h-full" style={{ width: `${Math.round(a.score * 100)}%`, background: NIVEAU_COLOR[niv] }} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+
+        {/* En-tête de colonnes (masqué sur mobile, où chaque ligne se replie) */}
+        <div className="hidden items-center gap-x-3 border-b border-[var(--line)] px-2 py-1.5 text-[10.5px] font-bold uppercase tracking-wide text-muted sm:flex">
+          <span className="w-[42px] shrink-0">Comp.</span>
+          <span className="min-w-[180px] flex-1">Intitulé</span>
+          <span className="w-[86px] shrink-0">Épreuve</span>
+          <span className="w-[46px] shrink-0 text-right">/20</span>
+          <span className="w-[110px] shrink-0" />
+          <span className="w-[136px] shrink-0 text-right">Niveau</span>
         </div>
+
+        {COMPETENCES[diploma].map((c) => {
+          const a = avgs[c.code];
+          const evaluated = a != null;
+          const niv = niveauOf(a?.score ?? 0, evaluated);
+          const eps = epreuvesOfCompetence(diploma, c.code);
+          return (
+            <div
+              key={c.code}
+              className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--line)] px-2 py-2 hover:bg-[var(--surface-2)] ${evaluated ? '' : 'opacity-50'}`}
+            >
+              <span className="w-[42px] shrink-0 text-[12.5px] font-extrabold">{c.code}</span>
+              <span className="min-w-[180px] flex-1 text-[12.5px] leading-tight">{c.label}</span>
+              <span className="w-[86px] shrink-0 text-[10.5px] font-bold text-accent">
+                {eps.length ? eps.map((e) => `${e.code} ${e.pct}%`).join(' · ') : 'hors épreuve'}
+              </span>
+              <span className="w-[46px] shrink-0 text-right font-mono-num text-[12.5px] font-bold" style={evaluated ? { color: NIVEAU_COLOR[niv] } : {}}>
+                {evaluated ? fmt1(a.score * 20) : '—'}
+              </span>
+              <span className="hidden h-[8px] w-[110px] shrink-0 overflow-hidden rounded bg-[var(--line)] sm:block">
+                {evaluated && <i className="block h-full" style={{ width: `${Math.round(a.score * 100)}%`, background: NIVEAU_COLOR[niv] }} />}
+              </span>
+              <span className="w-[136px] shrink-0 text-right">
+                <span className="inline-block rounded-full px-2 py-0.5 text-[10.5px] font-bold" style={{ background: NIVEAU_COLOR[niv], color: NIVEAU_ON[niv] }}>
+                  {NIVEAU_BILAN[niv]}
+                </span>
+              </span>
+            </div>
+          );
+        })}
       </section>
 
       <section className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-3.5">
