@@ -41,23 +41,26 @@ import { BASE_TESTS, L } from './common';
 
 /**
  * Bornier X1 du tableau tertiaire : arrivée (L · N · PE) puis les deux départs
- * d'éclairage, chacun avec sa phase coupée et son neutre. Pas de X2 : il n'y a
- * pas de circuit de commande filaire — c'est tout l'intérêt du bus.
+ * d'éclairage, chacun avec sa phase coupée, son neutre ET SA TERRE — les hublots
+ * sont des récepteurs de classe I, leur masse se raccorde comme le reste.
+ * Pas de X2 : il n'y a pas de circuit de commande filaire, c'est l'intérêt du bus.
  */
 const X1_TER: Slot[] = ([
   ['x1_1', 'termred', '1', 'L', 'Arrivée phase'],
   ['x1_2', 'termblue', '2', 'N', 'Arrivée neutre'],
-  ['x1_3', 'earth', '3', 'PE', 'Terre'],
+  ['x1_3', 'earth', '3', 'PE', 'Arrivée terre'],
   ['x1_4', 'termred', '4', 'L1', 'Accueil · phase coupée'],
   ['x1_5', 'termblue', '5', 'N1', 'Accueil · neutre'],
-  ['x1_6', 'termred', '6', 'L2', 'Réunion · phase coupée'],
-  ['x1_7', 'termblue', '7', 'N2', 'Réunion · neutre'],
+  ['x1_6', 'earth', '6', 'PE1', 'Accueil · terre'],
+  ['x1_7', 'termred', '7', 'L2', 'Réunion · phase coupée'],
+  ['x1_8', 'termblue', '8', 'N2', 'Réunion · neutre'],
+  ['x1_9', 'earth', '9', 'PE2', 'Réunion · terre'],
 ] as const).map(([id, key, mark, sub, label], i) => ({
   id,
   label: `X1:${mark} · ${label}`,
   key,
   rail: 2,
-  x: 46 + i * 18 + (i >= 3 ? 10 : 0),
+  x: 46 + i * 18 + (i >= 3 ? 10 : 0) + (i >= 6 ? 10 : 0),
   mark,
   sub,
   group: 'X1',
@@ -77,6 +80,10 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
   // Tension continue du bus : 29 V, valeur normalisée KNX. C'est elle que lit le
   // voltmètre en V⎓, et elle contredit deux réponses du corrigé du TP 1.1.
   uContinu: 29,
+  // Tableau divisionnaire d'étage : l'arrivée est MONOPHASÉE. Sans cela la scène
+  // tertiaire sort cinq presse-étoupes L1 · L2 · L3 · N · PE, dont trois ne sont
+  // jamais câblés — et l'élève pose ses pointes de VAT sur une borne inutile.
+  arriveeMono: true,
   summary:
     'Plateau de bureaux KNX sur banc DOMO-KNX. Alimentation de bus MTN684032, interface USB MTN681829, '
     + 'actionneur de commutation MTN649202 (2 × 230 V / 10 A) et poussoir Unica KNX MGU3.531.18. '
@@ -112,10 +119,76 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     { k: 'Couleurs', v: 'bus (+) rouge · bus (−) noir · phase rouge · phase coupée noir · neutre bleu · PE vert-jaune' },
     { k: 'Avant mise en service', v: 'consignation sur Q1 · VAT · continuité PE · contrôle de polarité et d’absence de boucle sur le bus' },
   ],
+  /**
+   * Schéma de puissance — le conducteur COMMUTÉ, du réseau aux deux hublots.
+   *
+   * Le neutre et le PE ne sont pas tracés : ils traversent l'installation sans
+   * être commutés, et les légendes le disent. Ce qui compte ici, c'est que la
+   * phase arrive au bornier, traverse les deux protections, puis SE DÉDOUBLE sur
+   * les deux voies de l'actionneur — d'où la paire K2 / K2, deux contacts de
+   * sortie alimentés par une seule borne d'entrée commune.
+   */
+  puissance: {
+    phases: ['L'],
+    reseau: '230 V + N + PE · 50 Hz',
+    organes: [
+      { type: 'bornier', rep: 'X1', legende: 'arrivée réseau · borne 1', bornes: [['1', '']] },
+      { type: 'disjoncteur', rep: 'Q1', legende: 'différentiel 30 mA · coupe la phase ET le neutre' },
+      { type: 'disjoncteur', rep: 'Q3', legende: 'départs éclairage · phase + neutre' },
+      // Une SEULE voie est tracée : la voie 2 est strictement identique, prise sur
+      // la même borne d'entrée commune. Le mécanisme `paire` du rendu croise les
+      // phases — c'est fait pour un contacteur-inverseur, pas pour deux départs.
+      {
+        type: 'contacteur', rep: 'K2',
+        legende: 'actionneur KNX · voie 1 → accueil (voie 2 identique → réunion)',
+        bornes: [['L', '1']],
+      },
+      { type: 'bornier', rep: 'X1', legende: 'départs · phases coupées vers E1 et E2', bornes: [['4', '']] },
+    ],
+  },
+  /**
+   * Folio du BUS — l'équivalent KNX du circuit de commande.
+   *
+   * Deux rails, comme un folio de commande 24 V, mais ce sont les deux
+   * conducteurs de la paire torsadée. Les trois participants sont EN PARALLÈLE
+   * sur le bus : c'est le dessin de la guirlande, et il montre du même coup
+   * pourquoi une boucle n'a pas de sens ici.
+   */
+  folio: {
+    railHaut: 'BUS KNX (+) · 29 V DC · conducteur rouge',
+    railBas: 'BUS KNX (−) · conducteur noir',
+    source: 'a1.+', repSource: 'A1:+',
+    retour: 'a1.−', repRetour: 'A1:−',
+    // TBTS non reliée à la terre : le (−) du bus KNX n'est PAS mis à la terre.
+    retourALaTerre: false,
+    colonnes: [
+      {
+        id: 'k1', dx: 0,
+        elements: [{
+          type: 'voyant', a: 'k1.+', b: 'k1.−', rep: 'K1',
+          legende: 'interface USB',
+        }],
+      },
+      {
+        id: 'k2', dx: 1,
+        elements: [{
+          type: 'voyant', a: 'k2.+', b: 'k2.−', rep: 'K2',
+          legende: 'actionneur 2 sorties',
+        }],
+      },
+      {
+        id: 'bp1', dx: 2,
+        elements: [{
+          type: 'voyant', a: 'BP1.X1', b: 'BP1.X2', rep: 'BP1',
+          legende: 'poussoir 4 touches',
+        }],
+      },
+    ],
+  },
   preparation: {
     identification: [
       {
-        id: 'id-a1', rep: 'A1', focus: 'A1',
+        id: 'id-a1', rep: 'A1', focus: 'A1', schema: 'commande',
         invite: 'Quel appareil porte ce repère, entre le 230 V et la paire torsadée ?',
         options: [
           'L’alimentation de bus KNX',
@@ -127,7 +200,7 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
         why: 'MTN684032 : elle transforme le 230 V AC en 29 V DC pour le bus et alimente jusqu’à 64 participants. Sans elle, aucun appareil ne communique, même alimenté en 230 V.',
       },
       {
-        id: 'id-k1', rep: 'K1', focus: 'K1',
+        id: 'id-k1', rep: 'K1', focus: 'K1', schema: 'commande',
         invite: 'Ce module à prise USB type B sert à :',
         options: [
           'Relier le PC et son logiciel ETS5 au bus KNX',
@@ -139,7 +212,7 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
         why: 'MTN681829 : c’est l’interface de mise en service. C’est par elle qu’ETS5 attribue les adresses individuelles et télécharge les programmes — sans elle, pas d’adressage.',
       },
       {
-        id: 'id-k2', rep: 'K2', focus: 'K2',
+        id: 'id-k2', rep: 'K2', focus: 'K2', schema: 'puissance',
         invite: 'Cet appareil à deux leviers verts en façade est :',
         options: [
           'L’actionneur de commutation, à deux sorties 230 V',
@@ -151,7 +224,19 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
         why: 'MTN649202, actionneur 2 × 230 V / 10 A. Les deux leviers sont sa commande manuelle locale : il ferme ses contacts même sans télégramme.',
       },
       {
-        id: 'id-bp', rep: 'BP1', focus: 'BP1',
+        id: 'id-q1', rep: 'Q1', focus: 'Q1', schema: 'puissance',
+        invite: 'En tête du tableau, ce repère désigne :',
+        options: [
+          'Un interrupteur différentiel 30 mA',
+          'Un sectionneur porte-fusibles',
+          'Un contacteur de puissance',
+          'Un parafoudre',
+        ],
+        answer: 0,
+        why: 'Interrupteur différentiel 30 mA : il protège les personnes et sert d’organe de consignation — c’est lui qu’on ouvre, cadenasse et étiquette avant toute intervention.',
+      },
+      {
+        id: 'id-bp', rep: 'BP1', focus: 'BP1', schema: 'commande',
         invite: 'Combien de fonctions différentes ce poussoir peut-il commander ?',
         options: ['Quatre', 'Une', 'Deux', 'Huit'],
         answer: 0,
@@ -160,14 +245,14 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     ],
     fonctions: [
       {
-        id: 'fn-ug', rep: 'A1', focus: 'A1',
+        id: 'fn-ug', rep: 'A1', focus: 'A1', schema: 'commande',
         invite: 'Quelle tension mesure-t-on entre les deux conducteurs du bus KNX ?',
         options: ['29 V continu', '50 V continu', '24 V alternatif', '230 V alternatif'],
         answer: 0,
         why: '29 V DC. Le 230 V alternatif n’est présent QUE sur l’alimentation de bus et sur les sorties de l’actionneur : les capteurs, eux, ne voient jamais que le bus.',
       },
       {
-        id: 'fn-boucle', rep: 'BUS', focus: 'K2',
+        id: 'fn-boucle', rep: 'BUS', focus: 'K2', schema: 'commande',
         invite: 'Pourquoi le bus ne doit-il jamais être câblé en boucle ?',
         options: [
           'La boucle perturbe la transmission des télégrammes et fausse la topologie',
@@ -179,7 +264,7 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
         why: 'La topologie KNX admet la guirlande, l’étoile et l’arbre, jamais l’anneau : une boucle crée des chemins multiples et rend la transmission aléatoire. C’est la consigne en rouge du TP 1.1.',
       },
       {
-        id: 'fn-etat', rep: 'BP1', focus: 'BP1',
+        id: 'fn-etat', rep: 'BP1', focus: 'BP1', schema: 'commande',
         invite: 'À quoi sert l’adresse de groupe 1/1/2 « Accueil — État L1 » ?',
         options: [
           'L’actionneur y publie l’état réel de sa sortie, que la LED du poussoir affiche',
@@ -191,7 +276,19 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
         why: 'C’est le retour d’état : l’émetteur est l’actionneur, le récepteur est la LED. La LED suit donc la LAMPE, et non l’appui sur le bouton — elle reste juste même si quelqu’un a éteint à la main.',
       },
       {
-        id: 'fn-central', rep: 'K2', focus: 'K2',
+        id: 'fn-pe', rep: 'E1', focus: 'X1', schema: 'puissance',
+        invite: 'Pourquoi tirer un conducteur de protection jusqu’à chaque hublot ?',
+        options: [
+          'Le hublot est un récepteur de classe I : sa masse doit être reliée à la terre',
+          'Pour fermer le circuit d’éclairage',
+          'Pour alimenter l’électronique du bus',
+          'Ce n’est pas nécessaire, le neutre suffit',
+        ],
+        answer: 0,
+        why: 'Classe I : un défaut d’isolement mettrait la masse sous tension. Le PE la relie à la terre, le différentiel 30 mA détecte le courant de défaut et coupe. Sans PE, le différentiel ne voit rien tant que personne ne touche.',
+      },
+      {
+        id: 'fn-central', rep: 'K2', focus: 'K2', schema: 'commande',
         invite: 'Comment une seule adresse de groupe peut-elle éteindre les deux circuits ?',
         options: [
           'Les deux sorties sont associées à la même adresse 0/0/1 et reçoivent le même télégramme',
@@ -284,9 +381,11 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
   annexItems: [
     { key: 'knxbp', rep: 'BP1', name: 'poussoir Unica KNX 4 poussoirs · circulation', x: 468, y: 250, w: 56, h: 56 },
   ],
+  // Hublots de CLASSE I : trois bornes chacun — phase coupée, neutre et TERRE.
+  // La masse d'un luminaire se raccorde, et l'élève doit tirer le vert-jaune.
   recvItems: [
-    { key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'hublot E27 · accueil', x: 90, y: 30, w: 66, h: 66, recv: true },
-    { key: 'l_ampoule_plexo_hublot', rep: 'E2', name: 'hublot E27 · salle de réunion', x: 310, y: 30, w: 66, h: 66, recv: true },
+    { key: 'l_ampoule_plexo_hublot', rep: 'E1', name: 'hublot E27 · accueil', x: 80, y: 26, w: 84, h: 74, recv: true, pe: true },
+    { key: 'l_ampoule_plexo_hublot', rep: 'E2', name: 'hublot E27 · salle de réunion', x: 300, y: 26, w: 84, h: 74, recv: true, pe: true },
   ],
   liaisons: [
     // ---- arrivée réseau : câblage de l'installateur, déjà en place ----
@@ -298,7 +397,7 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     // ---- répartition en aval de Q1 vers les deux divisionnaires ----
     L('q1.2', 'f2.1', 'L1'), L('q1.N2', 'f2.N', 'N'),
     L('q1.2', 'f3.1', 'L1'), L('q1.N2', 'f3.N', 'N'),
-    // ---- alimentation de bus : 230 V en entrée, terre au bornier ----
+    // ---- alimentation de bus : 230 V en entrée, masse à la terre ----
     L('f2.2', 'a1.L', 'L1'), L('f2.N2', 'a1.N', 'N'), L('x1_3.a', 'a1.PE', 'PE'),
     // ---- BUS KNX en guirlande : alimentation → interface → actionneur → poussoir.
     // Aucun retour vers l'alimentation : la boucle est précisément ce qui est interdit.
@@ -307,21 +406,25 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     L('k2.+', 'BP1.X1', 'DC+'), L('k2.−', 'BP1.X2', 'DC-'),
     // ---- puissance de l'actionneur : phase commune en entrée, deux phases coupées en sortie ----
     L('f3.2', 'k2.L', 'L1'),
-    L('k2.1', 'x1_4.a', 'L1'), L('k2.2', 'x1_6.a', 'L1'),
-    L('f3.N2', 'x1_5.a', 'N'), L('f3.N2', 'x1_7.a', 'N'),
-    // ---- départs vers les deux hublots ----
-    L('x1_4.b', 'E1.X1', 'L1'), L('x1_5.b', 'E1.X2', 'N'),
-    L('x1_6.b', 'E2.X1', 'L1'), L('x1_7.b', 'E2.X2', 'N'),
+    L('k2.1', 'x1_4.a', 'L1'), L('k2.2', 'x1_7.a', 'L1'),
+    L('f3.N2', 'x1_5.a', 'N'), L('f3.N2', 'x1_8.a', 'N'),
+    // ---- répartition du conducteur de protection vers les deux départs ----
+    L('x1_3.a', 'x1_6.a', 'PE'), L('x1_3.a', 'x1_9.a', 'PE'),
+    // ---- départs vers les deux hublots : phase coupée, neutre et terre ----
+    L('x1_4.b', 'E1.X1', 'L1'), L('x1_5.b', 'E1.X2', 'N'), L('x1_6.b', 'E1.PE', 'PE'),
+    L('x1_7.b', 'E2.X1', 'L1'), L('x1_8.b', 'E2.X2', 'N'), L('x1_9.b', 'E2.PE', 'PE'),
   ],
   nets: {
-    // bornier X1 — arrivée toujours vive, départs sous Q3
+    // bornier X1 — arrivée toujours vive, départs sous Q3, terre toujours au potentiel de terre
     'x1_1.a': { net: 'L1', live: 'always' }, 'x1_1.b': { net: 'L1', live: 'always' },
     'x1_2.a': { net: 'N', live: 'always' }, 'x1_2.b': { net: 'N', live: 'always' },
     'x1_3.a': { net: 'PE', live: 'always' }, 'x1_3.b': { net: 'PE', live: 'always' },
     'x1_4.a': { net: 'L1', live: 'f3' }, 'x1_4.b': { net: 'L1', live: 'f3' },
     'x1_5.a': { net: 'N', live: 'always' }, 'x1_5.b': { net: 'N', live: 'always' },
-    'x1_6.a': { net: 'L1', live: 'f3' }, 'x1_6.b': { net: 'L1', live: 'f3' },
-    'x1_7.a': { net: 'N', live: 'always' }, 'x1_7.b': { net: 'N', live: 'always' },
+    'x1_6.a': { net: 'PE', live: 'always' }, 'x1_6.b': { net: 'PE', live: 'always' },
+    'x1_7.a': { net: 'L1', live: 'f3' }, 'x1_7.b': { net: 'L1', live: 'f3' },
+    'x1_8.a': { net: 'N', live: 'always' }, 'x1_8.b': { net: 'N', live: 'always' },
+    'x1_9.a': { net: 'PE', live: 'always' }, 'x1_9.b': { net: 'PE', live: 'always' },
     // Q1 · différentiel de tête (organe de consignation)
     'q1.1': { net: 'L1', live: 'always' }, 'q1.N': { net: 'N', live: 'always' },
     'q1.2': { net: 'L1', live: 'q1' }, 'q1.N2': { net: 'N', live: 'always' },
@@ -344,9 +447,11 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     'k2.1': { net: 'L1', live: 'f3' }, 'k2.2': { net: 'L1', live: 'f3' },
     // BP1 · poussoir au mur de la circulation, alimenté par le bus
     'BP1.X1': { net: 'DC+', live: 'f2' }, 'BP1.X2': { net: 'DC-', live: 'f2' },
-    // hublots
+    // hublots de classe I : phase coupée, neutre, masse
     'E1.X1': { net: 'L1', live: 'f3' }, 'E1.X2': { net: 'N', live: 'always' },
+    'E1.PE': { net: 'PE', live: 'always' },
     'E2.X1': { net: 'L1', live: 'f3' }, 'E2.X2': { net: 'N', live: 'always' },
+    'E2.PE': { net: 'PE', live: 'always' },
   },
   tests: [
     ...BASE_TESTS,
@@ -371,8 +476,12 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
   ],
   mesures: [
     {
-      id: 'rpe', title: 'Continuité du conducteur de protection', stage: 'horsTension',
-      instrument: 'ctrl', dial: 'RPE 200 mA', a: 'x1_3.a', b: 'RES.PE', min: 0, max: 2, unit: 'Ω',
+      id: 'rpe', title: 'Continuité du PE jusqu’au hublot de l’accueil', stage: 'horsTension',
+      instrument: 'ctrl', dial: 'RPE 200 mA', a: 'x1_3.a', b: 'E1.PE', min: 0, max: 2, unit: 'Ω',
+    },
+    {
+      id: 'rpe2', title: 'Continuité du PE jusqu’au hublot de la salle de réunion', stage: 'horsTension',
+      instrument: 'ctrl', dial: 'RPE 200 mA', a: 'x1_3.a', b: 'E2.PE', min: 0, max: 2, unit: 'Ω',
     },
     {
       id: 'contbus', title: 'Continuité du (+) du bus jusqu’au poussoir', stage: 'horsTension',
@@ -400,7 +509,7 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     },
     {
       id: 'uB', title: 'Tension en sortie B de l’actionneur (salle de réunion)', stage: 'sousTension',
-      instrument: 'mm', dial: 'V~', a: 'k2.2', b: 'x1_7.a', min: 220, max: 240, unit: 'V', when: 'ctl',
+      instrument: 'mm', dial: 'V~', a: 'k2.2', b: 'x1_8.a', min: 220, max: 240, unit: 'V', when: 'ctl',
     },
   ],
   faults: [
@@ -425,8 +534,16 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
       title: 'Neutre du hublot de la salle de réunion coupé',
       symptom: 'La sortie B donne bien 230 V au bornier, et le hublot reste éteint. Rien ne bouge côté bus.',
       fix: 'Reprendre le conducteur bleu entre X1:7 et le hublot E2.',
-      coupe: 'x1_7.b>E2.X2',
+      coupe: 'x1_8.b>E2.X2',
       action: 'Reprendre le neutre entre X1:7 et le hublot de la salle de réunion',
+    },
+    {
+      id: 'terreE1',
+      title: 'Conducteur de protection du hublot d’accueil non raccordé',
+      symptom: 'Tout fonctionne : les deux lampes s’allument, le poussoir répond. Rien ne se voit à l’œil — seule la mesure de continuité du PE révèle le défaut, et c’est la sécurité des personnes qui est en jeu.',
+      fix: 'Reprendre le vert-jaune entre X1:6 et la borne de terre du hublot E1, puis refaire la mesure de continuité.',
+      coupe: 'x1_6.b>E1.PE',
+      action: 'Reprendre le conducteur de protection entre X1:6 et le hublot de l’accueil',
     },
     {
       id: 'f3',

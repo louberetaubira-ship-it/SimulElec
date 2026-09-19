@@ -301,7 +301,7 @@ export function rendreFolio(
     points.push({ id: f.retour, x: railG + 40, y: yBas, rep: f.repRetour });
     g += `<text class="folio-borne" x="${railG + 26}" y="${yBas - 10}" text-anchor="end">${f.repRetour}</text>`;
   }
-  g += S.terre(railD - 40, yBas + 6);
+  if (f.retourALaTerre !== false) g += S.terre(railD - 40, yBas + 6);
 
   // L'organe dont parle la question, encadré : sur un folio à trente organes,
   // nommer le repère ne suffit pas, il faut le montrer.

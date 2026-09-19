@@ -396,9 +396,15 @@ export const useParcours = create<ParcoursState>((set, get) => {
         if (close && !d.close) mlog(`${listeMiseSousTension(tp, 'et')} refermés : la platine est remise sous tension.`);
         if (essai && !d.essai) {
           const lampe = (tp.pupitre ?? []).some(p => p.kind === 'lamp');
+          // Tous les TP n'ont pas de contacteur : un tableau tertiaire sur bus n'a
+          // ni `km1` ni pupitre. `repereSlot` rendrait « KM1 », un repère qui ne
+          // figure sur aucun appareil de la platine.
+          const contacteur = tp.slots.some(sl => sl.id === 'km1');
           mlog(lampe
             ? `Essai concluant : ${repereSlot(tp, 'km1')} s'enclenche, le voyant s'allume.`
-            : `Essai concluant : ${repereSlot(tp, 'km1')} en marche, le 230 V apparaît au tableau.`);
+            : contacteur
+              ? `Essai concluant : ${repereSlot(tp, 'km1')} en marche, le 230 V apparaît au tableau.`
+              : 'Essai concluant : le 230 V apparaît au tableau.');
         }
         patch(s => ({ ...s, decons: { ...s.decons, close: close || s.decons.close, essai: essai || s.decons.essai } }));
       }

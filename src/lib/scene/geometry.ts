@@ -276,9 +276,14 @@ export function mt2Of(geo: Pick<SceneGeom, 'recvY'>): Record<string, Point> {
   return { 'M.W2': ttOf(tb, 30, 40), 'M.U2': ttOf(tb, 58, 40), 'M.V2': ttOf(tb, 86, 40) };
 }
 
-/** Bornes réseau visibles selon la scène (mono pour hab / pv). */
-export function resIds(scene: SceneKind): string[] {
-  return scene === 'pv' || scene === 'hab'
+/**
+ * Bornes réseau visibles selon la scène (mono pour hab / pv).
+ *
+ * `mono` force l'arrivée monophasée sur une scène qui ne l'est pas d'office —
+ * un tableau d'étage tertiaire, par exemple (voir `TpDefinition.arriveeMono`).
+ */
+export function resIds(scene: SceneKind, mono = false): string[] {
+  return mono || scene === 'pv' || scene === 'hab'
     ? ['RES.L1', 'RES.N', 'RES.PE']
     : Object.keys(RES);
 }

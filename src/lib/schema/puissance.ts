@@ -53,7 +53,18 @@ export function rendrePuissance(
   const xsPaire = phases.map((_, i) => X0 + (n + 3 + i) * PAS);
 
   const largeurMax = Math.max(...def.organes.map(o => largeurOrgane(o, n)));
-  const largeur = X0 + largeurMax * PAS + 210;
+  /**
+   * La marge de droite doit contenir la LÉGENDE la plus longue, pas une constante.
+   *
+   * Les 210 px d'origine suffisaient tant que tous les schémas étaient triphasés :
+   * trois colonnes poussent déjà le texte loin. Sur un départ monophasé — un
+   * tableau tertiaire — le texte commençait à 100 px et se faisait couper net.
+   * On estime la largeur du texte à 5,6 px par caractère (classe `sym-leg`, 11 px).
+   */
+  const legendeMax = Math.max(0, ...def.organes.flatMap(o => [
+    (o.legende ?? '').length, (o.paire?.legende ?? '').length,
+  ]));
+  const largeur = X0 + largeurMax * PAS + Math.max(210, Math.round(legendeMax * 5.6) + 90);
   const hBas = def.moteur ? 150 : 40;
   const nInv = def.organes.filter(o => o.paire).length;
   const hauteur = Y_RAIL + def.organes.length * H_ORGANE + nInv * H_INVERSEUR + hBas;

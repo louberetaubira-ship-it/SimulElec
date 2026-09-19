@@ -247,7 +247,7 @@ export default function Panel(props: PanelProps) {
   // Installation autonome (off-grid) : pas d'arrivée réseau. Le TP le déclare via
   // `arriveeReseau: false` ; on n'affiche alors ni presse-étoupes réseau ni libellé.
   const netTerminals: TerminalMark[] = React.useMemo(
-    () => (tp.arriveeReseau === false ? [] : resIds(tp.scene).map((id) => ({ id, pos: resOf(geo)[id] }))),
+    () => (tp.arriveeReseau === false ? [] : resIds(tp.scene, tp.arriveeMono).map((id) => ({ id, pos: resOf(geo)[id] }))),
     [tp.scene, tp.arriveeReseau, geo],
   );
 

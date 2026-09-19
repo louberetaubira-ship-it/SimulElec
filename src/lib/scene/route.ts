@@ -118,6 +118,15 @@ export function recvTerminals(geo: Pick<SceneGeom, 'recvY'>, it: AnnexItem): Rec
       [`${it.rep}.X2`]: { x: b.x + b.w * 0.84, y: b.y, ext: 'recv' },
     };
   }
+  // Récepteur de classe I : la masse se raccorde. Trois bornes réparties sur le
+  // bord haut — phase coupée, neutre, terre — au lieu des deux habituelles.
+  if (it.pe) {
+    return {
+      [`${it.rep}.X1`]: { x: b.x + b.w * 0.25, y: b.y, ext: 'recv' },
+      [`${it.rep}.X2`]: { x: b.x + b.w * 0.5, y: b.y, ext: 'recv' },
+      [`${it.rep}.PE`]: { x: b.x + b.w * 0.75, y: b.y, ext: 'recv' },
+    };
+  }
   return {
     [`${it.rep}.X1`]: { x: b.x + b.w * 0.34, y: b.y, ext: 'recv' },
     [`${it.rep}.X2`]: { x: b.x + b.w * 0.66, y: b.y, ext: 'recv' },

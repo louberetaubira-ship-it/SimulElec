@@ -296,6 +296,16 @@ export interface FolioDef {
   repRetour: string;
   colonnes: FolioColonne[];
   cadres?: FolioCadre[];
+  /**
+   * Le conducteur de retour est-il relié à la terre ? `true` par défaut, ce qui
+   * est le cas d'une commande 24 V prise au secondaire d'un transformateur : le
+   * 0 V y est mis à la terre, et le folio le dessine.
+   *
+   * `false` pour une TBTS qui n'est PAS reliée à la terre — le bus KNX, par
+   * exemple. Dessiner une terre sous son conducteur (−) apprendrait à l'élève
+   * exactement le contraire de ce qu'il doit retenir.
+   */
+  retourALaTerre?: boolean;
 }
 
 /**
@@ -481,6 +491,15 @@ export interface AnnexItem {
   key: string; rep: string; name: string; x: number; y: number; w: number; h: number;
   /** Récepteur du bloc du bas : bornes sur le bord haut, cheminement par la goulotte 4 et un presse-étoupe. */
   recv?: boolean;
+  /**
+   * Le récepteur porte une borne de TERRE en plus de X1 / X2.
+   *
+   * Un hublot de classe I, un convecteur, une réglette métallique : leur masse se
+   * raccorde, et l'élève doit tirer le vert-jaune comme les deux autres conducteurs.
+   * Sans ce champ le récepteur n'a que deux bornes et la terre s'arrête au bornier —
+   * ce qui laisse croire qu'un point lumineux n'a pas besoin d'être relié.
+   */
+  pe?: boolean;
 }
 
 /**
@@ -586,6 +605,16 @@ export interface TpDefinition {
    * de raccordement au réseau, l'énergie vient du champ PV et du parc batterie.
    */
   arriveeReseau?: boolean;
+  /**
+   * Arrivée MONOPHASÉE : seuls L1, N et PE sont amenés en bas d'armoire.
+   *
+   * Les scènes `pv` et `hab` sont monophasées d'office. Une scène `ter` ne l'est
+   * pas : un TGBT tertiaire est triphasé. Mais un tableau divisionnaire d'étage
+   * ne l'est pas forcément — et laisser trois phases sous les presse-étoupes d'une
+   * installation qui n'en câble qu'une n'est pas seulement inexact : l'élève pose
+   * ses pointes de VAT sur une borne qui ne sert à rien.
+   */
+  arriveeMono?: boolean;
   /**
    * Tension CONTINUE du TP (V), quand elle ne se reconstitue pas par zone comme
    * sur l'installation photovoltaïque (champ 72 V / parc 24 V). Le bus KNX, lui,
