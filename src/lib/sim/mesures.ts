@@ -147,6 +147,9 @@ export function voltage(
   if (isDC(A.net) && isDC(B.net)) {
     if (!A.live || !B.live) return 0;
     if (A.net === B.net) return 0;
+    // Tension continue DÉCLARÉE par le TP (bus KNX : 29 V) : elle prime sur la
+    // reconstitution par zone, qui ne vaut que pour l'installation photovoltaïque.
+    if (tp.uContinu != null) return tp.uContinu;
     const champ = /^(PV\d+\.|JB\.|f2\.|dcfuse\.|dcspd\.|mppt\.PV)/.test(a ?? '')
       || /^(PV\d+\.|JB\.|f2\.|dcfuse\.|dcspd\.|mppt\.PV)/.test(b ?? '');
     return champ ? 72 : 24;

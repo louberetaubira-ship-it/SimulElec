@@ -586,6 +586,13 @@ export interface TpDefinition {
    * de raccordement au réseau, l'énergie vient du champ PV et du parc batterie.
    */
   arriveeReseau?: boolean;
+  /**
+   * Tension CONTINUE du TP (V), quand elle ne se reconstitue pas par zone comme
+   * sur l'installation photovoltaïque (champ 72 V / parc 24 V). Le bus KNX, lui,
+   * a une tension unique et normalisée : 29 V. Absente, le calcul historique
+   * s'applique — aucun TP existant n'est touché.
+   */
+  uContinu?: number;
   /** Folio du circuit de commande, dessiné à l'étape de dépannage. */
   folio?: FolioDef;
   /**

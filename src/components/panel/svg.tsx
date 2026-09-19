@@ -462,6 +462,130 @@ export function CombinerSvg() {
   );
 }
 
+/* ------------------------------------------------------------------ KNX
+ *
+ * Les quatre appareils du banc DOMO-KNX de l'établissement. Aucune photo dans le
+ * pack : ils sont dessinés, comme les modules photovoltaïques et l'automate.
+ *
+ * Le code couleur des bornes suit la sérigraphie des platines Langlois : bus (+)
+ * ROUGE, bus (−) NOIR, 230 V sur bornes de sécurité classiques. C'est le même
+ * repérage que l'élève a sous les yeux en atelier.
+ */
+
+/** Alimentation de bus KNX REG-K 320 mA (MTN684032) : 230 V AC en haut, bus 29 V DC en bas. */
+export function KnxAlimSvg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 104 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F7F8F9" /><stop offset="1" stopColor="#D7DBE0" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="102" height="121" rx="4" fill={`url(#${gid})`} stroke="#6E7780" />
+      <rect x="1" y="1" width="102" height="16" rx="4" fill="#C3C8CE" />
+      <rect x="1" y="106" width="102" height="16" rx="4" fill="#C3C8CE" />
+      {/* Le repère de slot (« A1 ») se pose au CENTRE de l'appareil : la sérigraphie
+          laisse donc la bande médiane libre, sinon la référence passe dessous. */}
+      <text x="52" y="30" textAnchor="middle" fontFamily={SANS} fontSize="8" fontWeight="700" fill="#2E7D4F">Schneider</text>
+      <text x="52" y="42" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#3A4047">ALIMENTATION KNX</text>
+      <rect x="22" y="76" width="60" height="18" rx="3" fill="#20262D" />
+      <text x="40" y="89" textAnchor="middle" fontFamily={MONO} fontSize="7" fill="#9AA1A8">320 mA</text>
+      <circle cx="66" cy="85" r="3" fill="#3DFF7A" /><circle cx="76" cy="85" r="3" fill="#FFD479" />
+      <text x="52" y="72" textAnchor="middle" fontFamily={MONO} fontSize="6.5" fill="#66717F">MTN684032</text>
+      {/* bornes : 230 V en haut, bus en bas (rouge / noir comme sur la platine) */}
+      <g fill="#3A4047"><rect x="17" y="5" width="12" height="8" rx="1.5" /><rect x="46" y="5" width="12" height="8" rx="1.5" /></g>
+      <rect x="75" y="5" width="12" height="8" rx="1.5" fill="#2E7D32" />
+      <rect x="30" y="110" width="12" height="8" rx="1.5" fill="#C62828" />
+      <rect x="62" y="110" width="12" height="8" rx="1.5" fill="#20262D" />
+      <text x="52" y="103" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#66717F">BUS 29 V DC</text>
+    </svg>
+  );
+}
+
+/** Interface USB KNX REG-K (MTN681829) : la prise par laquelle ETS5 adresse les participants. */
+export function KnxUsbSvg() {
+  return (
+    <svg viewBox="0 0 52 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="50" height="121" rx="4" fill="#F4F5F7" stroke="#6E7780" />
+      <rect x="1" y="1" width="50" height="16" rx="4" fill="#C3C8CE" />
+      <rect x="10" y="110" width="32" height="4" fill="#2E7D4F" />
+      <text x="26" y="34" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">INTERFACE</text>
+      <text x="26" y="43" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">USB</text>
+      {/* prise USB type B, face avant */}
+      <rect x="14" y="54" width="24" height="22" rx="2" fill="#20262D" />
+      <rect x="18" y="59" width="16" height="12" rx="1" fill="#4A5058" />
+      <circle cx="26" cy="86" r="3" fill="#3DFF7A" />
+      <text x="26" y="101" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#66717F">MTN681829</text>
+      {/* bornes de bus en haut */}
+      <rect x="10" y="5" width="11" height="8" rx="1.5" fill="#C62828" />
+      <rect x="31" y="5" width="11" height="8" rx="1.5" fill="#20262D" />
+    </svg>
+  );
+}
+
+/**
+ * Actionneur de commutation REG-K 2 × 230 V / 10 A (MTN649202).
+ *
+ * Les deux basculeurs verts sont sa COMMANDE MANUELLE locale : l'appareil ferme
+ * ses contacts sans télégramme. C'est ce qui rend le diagnostic possible — un
+ * actionneur qui répond à la main mais pas au bouton désigne le bus, pas lui.
+ */
+export function KnxActSvg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 104 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F7F8F9" /><stop offset="1" stopColor="#D7DBE0" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="102" height="121" rx="4" fill={`url(#${gid})`} stroke="#6E7780" />
+      <rect x="1" y="1" width="102" height="16" rx="4" fill="#C3C8CE" />
+      <rect x="1" y="106" width="102" height="16" rx="4" fill="#C3C8CE" />
+      <text x="52" y="36" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#3A4047">ACTIONNEUR 2 × 10 A</text>
+      <text x="52" y="47" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#66717F">MTN649202</text>
+      {/* commande manuelle : deux basculeurs + LED d'état par voie */}
+      {[0, 1].map((i) => (
+        <g key={i}>
+          <rect x={22 + i * 34} y="56" width="22" height="30" rx="3" fill="#20262D" />
+          <rect x={25 + i * 34} y="60" width="16" height="12" rx="2" fill="#3FA65C" />
+          <circle cx={33 + i * 34} cy="80" r="3" fill="#3DFF7A" />
+          <text x={33 + i * 34} y="98" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#3A4047">{i + 1}</text>
+        </g>
+      ))}
+      {/* bornes : L commun et deux sorties en haut, bus en bas */}
+      <g fill="#3A4047"><rect x="15" y="5" width="12" height="8" rx="1.5" /><rect x="46" y="5" width="12" height="8" rx="1.5" /><rect x="77" y="5" width="12" height="8" rx="1.5" /></g>
+      <rect x="30" y="110" width="12" height="8" rx="1.5" fill="#C62828" />
+      <rect x="62" y="110" width="12" height="8" rx="1.5" fill="#20262D" />
+    </svg>
+  );
+}
+
+/**
+ * Bouton-poussoir Unica KNX 2 touches / 4 poussoirs (MGU3.531.18), posé en annexe.
+ *
+ * Quatre poussoirs et une LED d'état par touche : c'est cette LED qui rend le
+ * RETOUR D'ÉTAT visible, et le TP 1.1 ne s'en servait pas.
+ */
+export function KnxBpSvg() {
+  return (
+    <svg viewBox="0 0 60 60" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="58" height="58" rx="4" fill="#FAFAFA" stroke="#B9BEC4" />
+      <rect x="7" y="7" width="46" height="46" rx="2" fill="#F1F2F4" stroke="#CDD2D8" />
+      {[0, 1].map((c) => (
+        <g key={c}>
+          <rect x={9 + c * 23} y="9" width="21" height="20" rx="1.5" fill="#fff" stroke="#DDE1E5" />
+          <rect x={9 + c * 23} y="31" width="21" height="20" rx="1.5" fill="#fff" stroke="#DDE1E5" />
+          <path d={`M${15 + c * 23} 21l4-5 4 5`} fill="none" stroke="#8A94A0" strokeWidth="1.2" />
+          <path d={`M${15 + c * 23} 39l4 5 4-5`} fill="none" stroke="#8A94A0" strokeWidth="1.2" />
+          <circle cx={19.5 + c * 23} cy="30" r="1.6" fill="#3FA65C" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export function svgForKey(key: string, running = false): React.ReactNode | null {
   switch (key) {
     case 'pvpanel': return <PvPanelSvg />;
@@ -476,6 +600,10 @@ export function svgForKey(key: string, running = false): React.ReactNode | null 
     case 'multiplus': return <MultiplusSvg running={running} />;
     case 'megafuse': return <MegaFuseSvg />;
     case 'iddr': return <IddrSvg />;
+    case 'knxalim': return <KnxAlimSvg />;
+    case 'knxusb': return <KnxUsbSvg />;
+    case 'knxact': return <KnxActSvg />;
+    case 'knxbp': return <KnxBpSvg />;
     case 'gk1es': return <Gk1Svg />;
     case 'lc1d50': return <Lc1D50Svg />;
     case 'lrd3357': return <Lrd3357Svg />;

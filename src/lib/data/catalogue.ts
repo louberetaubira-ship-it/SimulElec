@@ -388,6 +388,44 @@ export const CATALOGUE: CatalogueItem[] = [
     family: 'Photovoltaïque', poles: 1, w: 52, h: 60,
     terminals: [{ id: '1', fx: 0.5, fy: 0.1 }, { id: '2', fx: 0.5, fy: 0.9 }],
   }),
+  // ---- KNX : les quatre appareils du banc DOMO-KNX de l'établissement ----
+  //
+  // Cotes : « 8 pas de 9 mm » à la fiche pour l'alimentation (72 mm), pas modulaire
+  // normalisé pour les deux autres. Le bus sort sur deux bornes repérées + et −,
+  // comme sur la platine Langlois ; le 230 V reste sur des bornes L / N / PE.
+  vector({
+    key: 'knxalim', name: 'Alimentation de bus KNX REG-K 320 mA', ref: 'MTN684032', brand: 'Schneider',
+    kind: 'dc', family: 'KNX', poles: 2, w: 104, h: 123,
+    dims: { largeur: 72, hauteur: 85, profondeur: 78.5, source: 'norme' },
+    terminals: [
+      { id: 'L', fx: 0.22, fy: 0.07 }, { id: 'N', fx: 0.5, fy: 0.07 }, { id: 'PE', fx: 0.78, fy: 0.07 },
+      { id: '+', fx: 0.35, fy: 0.93 }, { id: '−', fx: 0.65, fy: 0.93 },
+    ],
+  }),
+  vector({
+    key: 'knxusb', name: 'Interface USB KNX REG-K', ref: 'MTN681829', brand: 'Schneider',
+    kind: 'dc', family: 'KNX', poles: 2, w: 52, h: 123,
+    dims: { largeur: 36, hauteur: 85, profondeur: 78.5, source: 'norme' },
+    terminals: [{ id: '+', fx: 0.3, fy: 0.07 }, { id: '−', fx: 0.7, fy: 0.07 }],
+  }),
+  vector({
+    key: 'knxact', name: 'Actionneur de commutation KNX REG-K 2 × 230 V / 10 A', ref: 'MTN649202', brand: 'Schneider',
+    kind: 'dc', family: 'KNX', poles: 2, w: 104, h: 123,
+    dims: { largeur: 72, hauteur: 85, profondeur: 78.5, source: 'norme' },
+    terminals: [
+      { id: 'L', fx: 0.2, fy: 0.07 }, { id: '1', fx: 0.5, fy: 0.07 }, { id: '2', fx: 0.8, fy: 0.07 },
+      { id: '+', fx: 0.35, fy: 0.93 }, { id: '−', fx: 0.65, fy: 0.93 },
+    ],
+  }),
+  // Posé en ANNEXE (mur du local) : ses deux bornes de bus sont X1 (+) et X2 (−),
+  // convention commune à tous les éléments d'annexe (voir `annexTerminals`).
+  vector({
+    key: 'knxbp', name: 'Bouton-poussoir Unica KNX 2 touches · 4 poussoirs', ref: 'MGU3.531.18', brand: 'Schneider',
+    kind: 'button', family: 'KNX', poles: 2, w: 60, h: 60,
+    dims: { largeur: 86, hauteur: 86, profondeur: 32, source: 'norme' },
+    terminals: [{ id: 'X1', fx: 1, fy: 0.35 }, { id: 'X2', fx: 1, fy: 0.7 }],
+    door: true,
+  }),
   vector({
     key: 'iddr', name: 'Interrupteur différentiel 30 mA · type A · 2P', ref: 'IDDR-30A-2P', kind: 'mcb',
     family: 'Différentiels', poles: 2, w: 72, h: 120,
