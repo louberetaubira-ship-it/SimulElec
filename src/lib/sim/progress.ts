@@ -61,6 +61,7 @@ export function initialState(): AttemptState {
     done: {},
     prep: {},
     choices: {},
+    qcmErr: {},
     placed: {},
     wires: [],
     wireErrors: 0,
@@ -96,6 +97,8 @@ export function normalizeState(raw: Partial<AttemptState> | null | undefined): A
     // étape de préparation ajoutée après coup : une tentative plus ancienne n'en a pas
     prep: raw.prep ?? base.prep,
     choices: raw.choices ?? base.choices,
+    // barème QCM ajouté après coup : une tentative sans compteur d'erreurs vaut {}
+    qcmErr: raw.qcmErr ?? base.qcmErr,
     placed: raw.placed ?? base.placed,
     wires: raw.wires ?? base.wires,
     tests: raw.tests ?? base.tests,
@@ -233,10 +236,35 @@ export const baremeOf = (tp: TpDefinition): Bareme => resolveBareme(tp.bareme);
 export const baremeTotal = (b: Bareme): number =>
   Object.values(b.poids).reduce((a, v) => a + v, 0);
 
+// ------------------------------------------------ barème QCM et mesures (validé le 2026-09-18)
+
 /**
- * Pénalités appliquées au score 0..1 d'une étape, déduites du barème en points :
- * une liaison refusée vaut le quarantième du coût en points, un fil retiré le vingt-cinquième.
- * Avec le barème par défaut : 0,05 · 0,01 · 0,02, plafond 0,15 — les valeurs historiques.
+ * Deux familles de notation revues le 2026-09-18, chacune rendant une note 0..1.
+ * (Le câblage, la pose et le calcul dégressif ont été rétablis à leur barème
+ * historique à la demande du professeur : seuls le QCM et les mesures changent.)
+ *
+ * 1. QCM / activité — une question à N choix, une seule bonne réponse :
+ *      note = max(0, (N − erreurs) / N)
+ *    Juste au 1ᵉʳ coup = 1 ; chaque réponse fausse retire 1/N ; au-delà de N
+ *    erreurs la note reste 0 (aucune pénalité négative).
+ *
+ * 2. Mesures — chaque mesure conforme est un point, chaque lecture fautive (ERR)
+ *    retire un point :  note = max(0, (n − erreurs) / n).
+ */
+export const noteQcm = (n: number, erreurs: number): number =>
+  n <= 0 ? 1 : Math.max(0, (n - Math.max(0, erreurs)) / n);
+
+/** Barème « chaque élément juste vaut 1/n, chaque erreur retire 1/n » (QCM et mesures). */
+export const noteSurN = (n: number, erreurs: number): number =>
+  n <= 0 ? 1 : Math.max(0, (n - Math.max(0, erreurs)) / n);
+
+/** Tentatives fautives enregistrées sur une question à choix. */
+export const qcmErrCount = (st: AttemptState, id: string): number => st.qcmErr?.[id] ?? 0;
+
+/**
+ * Pénalités appliquées au score 0..1 du câblage (barème historique), déduites du
+ * barème en points : une liaison refusée vaut le quarantième du coût en points,
+ * un fil retiré le vingt-cinquième. Défaut : 0,05 · 0,01 · 0,02, plafond 0,15.
  */
 function scorePenalties(b: Bareme) {
   return {
@@ -445,10 +473,33 @@ export function stageSatisfied(tp: TpDefinition, st: AttemptState, sim: SimState
 
 export interface ScoreLine { key: string; label: string; points: number; max: number; detail: string }
 
+/**
+ * Note QCM moyenne d'une étape faite de questions à choix (préparation, matériel).
+ * Chaque question rend `noteQcm(N, erreurs)` ; l'étape est leur moyenne (0..1).
+ */
+export function prepNote(tp: TpDefinition, st: AttemptState): number {
+  const qs = prepQuestions(tp);
+  if (qs.length === 0) return 1;
+  // une question sans réponse ne rapporte rien (le barème QCM ne note que le répondu)
+  return qs.reduce((a, q) => a + (st.prep?.[q.id] == null ? 0 : noteQcm(q.options.length, qcmErrCount(st, q.id))), 0) / qs.length;
+}
+
+export function materielNote(tp: TpDefinition, st: AttemptState): number {
+  if (tp.postes.length === 0) return 1;
+  return tp.postes.reduce((a, p) => a + (st.choices?.[p.id] == null ? 0 : noteQcm(p.options.length, qcmErrCount(st, p.id))), 0) / tp.postes.length;
+}
+
+/** Note d'une série de mesures : chaque mesure conforme est un point, chaque ERR une erreur. */
+function mesuresNote(tp: TpDefinition, st: AttemptState, stage: 'horsTension' | 'sousTension', etape: number): number {
+  const list = mesuresFor(tp, stage);
+  if (list.length === 0) return 1;
+  const ok = list.filter(m => mesureDone(st, m.id)).length;
+  return noteSurN(list.length, (list.length - ok) + errReadings(st, etape));
+}
+
 export function scoreLines(tp: TpDefinition, st: AttemptState, bareme?: Bareme): ScoreLine[] {
   const b = bareme ?? baremeOf(tp);
   const w = b.poids;
-  const nPostes = Math.max(1, tp.postes.length);
   const ok = goodChoices(tp, st);
   const req = requiredLiaisons(tp).length;
   const wired = st.wires.length;
@@ -461,21 +512,21 @@ export function scoreLines(tp: TpDefinition, st: AttemptState, bareme?: Bareme):
   const epiN = Object.values(st.epi).filter(Boolean).length;
 
   const clamp = (v: number, max: number) => Math.max(0, Math.min(max, Math.round(v)));
-
-  const nPrep = Math.max(1, prepQuestions(tp).length);
-  const prepOk = goodPrep(tp, st);
+  // note 0..1 × poids : chaque section applique le barème unifié, puis est ramenée à ses points.
+  const pts = (note01: number, max: number) => clamp(note01 * max, max);
+  const nPrep = prepQuestions(tp).length;
 
   return [
-    { key: 'preparation', label: 'Préparation de l\'opération', points: clamp(prepOk / nPrep * w.preparation, w.preparation), max: w.preparation, detail: prepQuestions(tp).length === 0 ? 'pas de préparation sur ce TP' : `${prepOk} / ${prepQuestions(tp).length} réponses justes` },
-    { key: 'materiel', label: 'Choix du matériel', points: clamp(ok / nPostes * w.materiel, w.materiel), max: w.materiel, detail: `${ok} / ${tp.postes.length} références justes` },
+    { key: 'preparation', label: 'Préparation de l\'opération', points: pts(prepNote(tp, st), w.preparation), max: w.preparation, detail: nPrep === 0 ? 'pas de préparation sur ce TP' : `${goodPrep(tp, st)} / ${nPrep} justes · barème QCM (−1/N par erreur)` },
+    { key: 'materiel', label: 'Choix du matériel', points: pts(materielNote(tp, st), w.materiel), max: w.materiel, detail: `${ok} / ${tp.postes.length} références justes · barème QCM (−1/N par erreur)` },
     { key: 'pose', label: 'Pose sur la platine', points: clamp(w.pose - st.poseErrors * b.coutErreurPose, w.pose), max: w.pose, detail: `${st.poseErrors} erreur${st.poseErrors > 1 ? 's' : ''} de pose` },
     { key: 'cablage', label: 'Câblage', points: clamp(wired / Math.max(1, req) * w.cablage - st.wireErrors * b.coutErreurCablage - correctionPenalty(st, b), w.cablage), max: w.cablage, detail: `${wired} / ${req} liaisons · ${st.wireErrors} refus · ${st.wiresRemoved ?? 0} fil${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} retiré${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} · ${st.resets ?? 0} remise${(st.resets ?? 0) > 1 ? 's' : ''} à zéro` },
     { key: 'tests', label: 'Tests hors tension', points: clamp(Object.keys(st.tests).length / nTests * w.tests, w.tests), max: w.tests, detail: `${Object.keys(st.tests).length} / ${tp.tests.length} tests` },
     { key: 'epi', label: 'EPI et consignation', points: clamp((epiOk(st) ? w.epi * 7 / 15 : epiN * w.epi / 15) + (consignationOk(st) ? w.epi * 8 / 15 : st.cons.lock ? w.epi * 3 / 15 : 0), w.epi), max: w.epi, detail: consignationOk(st) ? 'consignation complète' : 'consignation incomplète' },
-    { key: 'hors', label: 'Mesures hors tension', points: clamp(horsOk / Math.max(1, hors.length) * w.hors, w.hors), max: w.hors, detail: `${horsOk} / ${hors.length} mesures conformes` },
-    { key: 'sous', label: 'Mesures sous tension', points: clamp(sousOk / Math.max(1, sous.length) * w.sous, w.sous), max: w.sous, detail: `${sousOk} / ${sous.length} mesures conformes` },
+    { key: 'hors', label: 'Mesures hors tension', points: pts(mesuresNote(tp, st, 'horsTension', ETAPE.HORS), w.hors), max: w.hors, detail: `${horsOk} / ${hors.length} mesures conformes · ${errReadings(st, ETAPE.HORS)} erreur(s)` },
+    { key: 'sous', label: 'Mesures sous tension', points: pts(mesuresNote(tp, st, 'sousTension', ETAPE.SOUS), w.sous), max: w.sous, detail: `${sousOk} / ${sous.length} mesures conformes · ${errReadings(st, ETAPE.SOUS)} erreur(s)` },
     { key: 'diag', label: 'Maintenance corrective', points: st.fixed ? clamp(w.diag - (Math.max(1, st.diagTries) - 1) * w.diag * 2 / 5, w.diag) : 0, max: w.diag, detail: st.fixed ? `panne réparée en ${Math.max(1, st.diagTries)} essai(s)` : 'panne non traitée' },
-    { key: 'quiz', label: 'Questions de validation', points: clamp((st.quiz ?? 0) / nQuiz * w.quiz, w.quiz), max: w.quiz, detail: st.quiz == null ? 'quiz non fait' : `${st.quiz} / ${tp.quiz.length} bonnes réponses` },
+    { key: 'quiz', label: 'Questions de validation', points: pts(noteQcm(nQuiz, Math.max(0, nQuiz - (st.quiz ?? 0))), w.quiz), max: w.quiz, detail: st.quiz == null ? 'quiz non fait' : `${st.quiz} / ${tp.quiz.length} bonnes réponses` },
   ];
 }
 
@@ -510,24 +561,21 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
     case ETAPE.CHOIX:
     case ETAPE.ENONCE:
       return 1;
-    case ETAPE.PREPARATION: {
-      const n = prepQuestions(tp).length;
-      return n === 0 ? 1 : clamp01(goodPrep(tp, st) / n);
-    }
-    case ETAPE.MATERIEL: {
-      const n = tp.postes.length;
-      return n === 0 ? 1 : clamp01(goodChoices(tp, st) / n);
-    }
+    case ETAPE.PREPARATION:
+      // barème QCM : moyenne des questions, −1/N par réponse fausse
+      return prepNote(tp, st);
+    case ETAPE.MATERIEL:
+      return materielNote(tp, st);
     case ETAPE.POSE: {
+      // barème historique : une erreur de pose retire une fraction fixe
       const n = Math.max(1, tp.slots.length);
       return clamp01(1 - st.poseErrors / n);
     }
     case ETAPE.CABLAGE: {
+      // barème historique : liaisons faites, moins les refus et les gestes de correction
       const req = requiredLiaisons(tp).length;
       if (req === 0) return 1;
       const done = requiredLiaisons(tp).filter(l => isWired(st, l)).length;
-      // même logique que `correctionPenalty` : le retrait d'un fil pèse cinq fois moins
-      // qu'une liaison refusée, et l'ensemble des corrections est plafonné à 0,15.
       const pen = scorePenalties(b);
       const corr = Math.min(pen.correctionMax, (st.wiresRemoved ?? 0) * pen.filRetire + (st.resets ?? 0) * pen.reset);
       return clamp01(done / req - st.wireErrors * pen.erreurCablage - corr);
@@ -546,25 +594,20 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
       const epiPart = epiOk(st) ? 1 : Object.values(st.epi).filter(Boolean).length / 6;
       return clamp01(0.65 * ordered + 0.35 * clamp01(epiPart) - errReadings(st, ETAPE.EPI) * 0.1);
     }
-    case ETAPE.HORS: {
-      const list = mesuresFor(tp, 'horsTension');
-      if (list.length === 0) return 1;
-      const ok = list.filter(m => mesureDone(st, m.id)).length;
-      return clamp01(ok / list.length - errReadings(st, ETAPE.HORS) * 0.15);
-    }
+    case ETAPE.HORS:
+      // barème câblage : chaque mesure conforme est un point, chaque ERR une erreur
+      return mesuresNote(tp, st, 'horsTension', ETAPE.HORS);
     case ETAPE.MISE_EN_SERVICE:
       return st.decons.essai ? 1 : st.decons.close ? 0.5 : 0.2;
-    case ETAPE.SOUS: {
-      const list = mesuresFor(tp, 'sousTension');
-      if (list.length === 0) return 1;
-      const ok = list.filter(m => mesureDone(st, m.id)).length;
-      return clamp01(ok / list.length - errReadings(st, ETAPE.SOUS) * 0.15);
-    }
+    case ETAPE.SOUS:
+      return mesuresNote(tp, st, 'sousTension', ETAPE.SOUS);
     case ETAPE.VALIDATION: {
+      // maintenance : barème historique (1 · 0,7 · 0,4 selon l'essai de diagnostic)
       const tries = Math.max(1, st.diagTries);
       const diag = !st.fixed ? 0 : tries === 1 ? 1 : tries === 2 ? 0.7 : 0.4;
       const nQuiz = tp.quiz.length;
-      const quiz = nQuiz === 0 ? 1 : clamp01((st.quiz ?? 0) / nQuiz);
+      // quiz : barème QCM conservé (une réponse fausse retire 1/N)
+      const quiz = noteQcm(nQuiz, Math.max(0, nQuiz - (st.quiz ?? 0)));
       return clamp01(0.6 * diag + 0.4 * quiz);
     }
     default:

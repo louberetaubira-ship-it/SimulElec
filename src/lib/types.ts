@@ -655,6 +655,14 @@ export interface AttemptState {
   /** Réponses de l'étape de préparation : identifiant de question → index choisi. */
   prep: Record<string, number>;
   choices: Record<string, number>;
+  /**
+   * Tentatives fautives par question à choix (barème QCM du 2026-09-18) :
+   * identifiant de question (question de préparation, poste de matériel) → nombre
+   * de réponses fausses données avant de trouver. Chaque erreur retire 1/N à la
+   * note de la question (N = nombre de choix), plancher à 0. Ajouté après coup :
+   * une tentative enregistrée avant son existence vaut {} (voir `normalizeState`).
+   */
+  qcmErr: Record<string, number>;
   placed: Record<string, boolean>;
   wires: { a: string; b: string; net: NetKind }[];
   wireErrors: number;
