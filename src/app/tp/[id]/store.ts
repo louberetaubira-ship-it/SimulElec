@@ -15,7 +15,7 @@ import { liaisonCoupee, reseauCommande } from '@/lib/sim/commande';
 import {
   conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
 } from '@/lib/sim/diagnostic';
-import { listeMiseSousTension, repereLiaison, repereSlot } from '@/lib/sim/reperes';
+import { listeMiseSousTension, repereLiaison, repereSlot, schemaDeLOrgane } from '@/lib/sim/reperes';
 import { linkKey } from '@/lib/sim/layout';
 import {
   checkExpected, instrumentDef, read, type ClampWire, type ReadOut,
@@ -1012,7 +1012,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
       if (a === 'ident') {
         if (!st.cons.lock) { say(`Condamne d'abord ${repereSlot(tp, 'q1')}.`); return; }
         patch(s => ({ ...s, cons: { ...s.cons, ident: true } }));
-        mlog(`Identification : platine du TP, repère ${repereSlot(tp, 'q1')}, schéma folio 2.`);
+        mlog(`Identification : platine du TP, repère ${repereSlot(tp, 'q1')}, ${schemaDeLOrgane(tp, repereSlot(tp, 'q1'))}.`);
       }
       if (a === 'unlock') {
         patch(s => ({ ...s, cons: { ...s.cons, lock: false }, decons: { ...s.decons, unlock: true } }));

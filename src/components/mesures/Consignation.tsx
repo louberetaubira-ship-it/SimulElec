@@ -7,7 +7,7 @@
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import type { SimState } from '@/lib/sim/engine';
-import { repereSlot, repereBorne } from '@/lib/sim/reperes';
+import { repereSlot, repereBorne, schemaDeLOrgane } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 
 export interface ConsignationProps {
@@ -72,7 +72,7 @@ export default function Consignation({ tp, st, sim, onAct }: ConsignationProps) 
       </Step>
 
       <Step done={c.ident} n="3">
-        <b>Identification</b> — platine du TP, repère {organes}, schéma folio 2.
+        <b>Identification</b> — platine du TP, repère {organes}, {schemaDeLOrgane(tp, q1)}.
         {!c.ident && (
           <Button size="sm" className="mt-1.5" data-act="ident" disabled={!c.lock} onClick={() => onAct('ident')}>
             Confirmer l&apos;identification

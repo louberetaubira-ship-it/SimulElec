@@ -415,27 +415,32 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     L('x1_7.b', 'E2.X1', 'L1'), L('x1_8.b', 'E2.X2', 'N'), L('x1_9.b', 'E2.PE', 'PE'),
   ],
   nets: {
+    // Les NEUTRES EN AVAL suivent leur protection. Q1, Q2 et Q3 sont bipolaires :
+    // ils coupent la phase ET le neutre, le schéma de puissance et le cahier des
+    // charges le disent tous les deux. Déclarer ces neutres `always` reviendrait
+    // à laisser le conducteur de retour raccordé au réseau sur une installation
+    // consignée — l'exact contraire de ce que le TP enseigne.
     // bornier X1 — arrivée toujours vive, départs sous Q3, terre toujours au potentiel de terre
     'x1_1.a': { net: 'L1', live: 'always' }, 'x1_1.b': { net: 'L1', live: 'always' },
     'x1_2.a': { net: 'N', live: 'always' }, 'x1_2.b': { net: 'N', live: 'always' },
     'x1_3.a': { net: 'PE', live: 'always' }, 'x1_3.b': { net: 'PE', live: 'always' },
     'x1_4.a': { net: 'L1', live: 'f3' }, 'x1_4.b': { net: 'L1', live: 'f3' },
-    'x1_5.a': { net: 'N', live: 'always' }, 'x1_5.b': { net: 'N', live: 'always' },
+    'x1_5.a': { net: 'N', live: 'f3' }, 'x1_5.b': { net: 'N', live: 'f3' },
     'x1_6.a': { net: 'PE', live: 'always' }, 'x1_6.b': { net: 'PE', live: 'always' },
     'x1_7.a': { net: 'L1', live: 'f3' }, 'x1_7.b': { net: 'L1', live: 'f3' },
-    'x1_8.a': { net: 'N', live: 'always' }, 'x1_8.b': { net: 'N', live: 'always' },
+    'x1_8.a': { net: 'N', live: 'f3' }, 'x1_8.b': { net: 'N', live: 'f3' },
     'x1_9.a': { net: 'PE', live: 'always' }, 'x1_9.b': { net: 'PE', live: 'always' },
     // Q1 · différentiel de tête (organe de consignation)
     'q1.1': { net: 'L1', live: 'always' }, 'q1.N': { net: 'N', live: 'always' },
-    'q1.2': { net: 'L1', live: 'q1' }, 'q1.N2': { net: 'N', live: 'always' },
+    'q1.2': { net: 'L1', live: 'q1' }, 'q1.N2': { net: 'N', live: 'q1' },
     // Q2 · protection de l'alimentation de bus
     'f2.1': { net: 'L1', live: 'q1' }, 'f2.N': { net: 'N', live: 'always' },
-    'f2.2': { net: 'L1', live: 'f2' }, 'f2.N2': { net: 'N', live: 'always' },
+    'f2.2': { net: 'L1', live: 'f2' }, 'f2.N2': { net: 'N', live: 'f2' },
     // Q3 · protection des départs d'éclairage
     'f3.1': { net: 'L1', live: 'q1' }, 'f3.N': { net: 'N', live: 'always' },
-    'f3.2': { net: 'L1', live: 'f3' }, 'f3.N2': { net: 'N', live: 'always' },
+    'f3.2': { net: 'L1', live: 'f3' }, 'f3.N2': { net: 'N', live: 'f3' },
     // A1 · alimentation de bus : 230 V en entrée, 29 V DC en sortie dès Q1 + Q2
-    'a1.L': { net: 'L1', live: 'f2' }, 'a1.N': { net: 'N', live: 'always' },
+    'a1.L': { net: 'L1', live: 'f2' }, 'a1.N': { net: 'N', live: 'f2' },
     'a1.PE': { net: 'PE', live: 'always' },
     'a1.+': { net: 'DC+', live: 'f2' }, 'a1.−': { net: 'DC-', live: 'f2' },
     // K1 · interface USB, alimentée par le bus
@@ -448,9 +453,9 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     // BP1 · poussoir au mur de la circulation, alimenté par le bus
     'BP1.X1': { net: 'DC+', live: 'f2' }, 'BP1.X2': { net: 'DC-', live: 'f2' },
     // hublots de classe I : phase coupée, neutre, masse
-    'E1.X1': { net: 'L1', live: 'f3' }, 'E1.X2': { net: 'N', live: 'always' },
+    'E1.X1': { net: 'L1', live: 'f3' }, 'E1.X2': { net: 'N', live: 'f3' },
     'E1.PE': { net: 'PE', live: 'always' },
-    'E2.X1': { net: 'L1', live: 'f3' }, 'E2.X2': { net: 'N', live: 'always' },
+    'E2.X1': { net: 'L1', live: 'f3' }, 'E2.X2': { net: 'N', live: 'f3' },
     'E2.PE': { net: 'PE', live: 'always' },
   },
   tests: [

@@ -74,3 +74,25 @@ export function listeMiseSousTension(tp: Pick<TpDefinition, 'slots'>, dernier = 
   const [a, b, c] = reperesMiseSousTension(tp);
   return `${a}, ${b} ${dernier} ${c}`;
 }
+
+/**
+ * Sur quel schéma l'élève doit-il retrouver cet organe ?
+ *
+ * La consigne d'identification renvoyait en dur au « schéma folio 2 ». C'est vrai
+ * d'un TP moteur, dont le folio 2 est le circuit de commande où figure le
+ * sectionneur. Ça ne l'est pas d'un tableau tertiaire sur bus : son unique folio
+ * est celui du BUS, et l'organe de consignation n'y figure pas — on envoyait
+ * l'élève chercher Q1 sur un document où Q1 n'existe pas.
+ */
+export function schemaDeLOrgane(
+  tp: Pick<TpDefinition, 'puissance' | 'folio'>,
+  rep: string,
+): string {
+  if (tp.puissance?.organes.some(o => o.rep === rep || o.paire?.rep === rep)) {
+    return 'schéma de puissance';
+  }
+  if (tp.folio?.colonnes.some(c => c.elements.some(e => e.rep === rep))) {
+    return 'schéma de commande';
+  }
+  return 'schéma du TP';
+}

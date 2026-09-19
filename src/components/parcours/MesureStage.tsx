@@ -7,7 +7,8 @@
  */
 import React from 'react';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
-import { isControlLive, isRunning, startButtons } from '@/lib/sim/engine';
+import { isControlLive, isRunning, startButtons, type SimState } from '@/lib/sim/engine';
+import type { AttemptState, TpDefinition } from '@/lib/types';
 import {
   consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
 } from '@/lib/sim/progress';
@@ -33,6 +34,35 @@ const TITLES: Record<MesureVariant, string> = {
   decons: 'Déconsignation et mise en service',
   sousTension: 'Mesures sous tension',
 };
+
+/**
+ * Conseil de l'étape EPI : il doit suivre l'AVANCEMENT réel de la consignation.
+ *
+ * Il ne regardait que l'état de Q1 : une fois le sectionneur ouvert, il répétait
+ * « condamne, identifie, puis fais ta VAT » même quand les trois premières
+ * étapes étaient cochées — l'application demandait ce qui venait d'être fait.
+ */
+function conseilConsignation(
+  tp: TpDefinition,
+  st: AttemptState,
+  sim: SimState,
+  repQ1: string,
+): string {
+  const c = st.cons;
+  if (sim.q1) return `Ouvre ${repQ1} en le cliquant : c'est la séparation.`;
+  if (!c.lock) return `${repQ1} est ouvert : pose le cadenas et l'étiquette de condamnation.`;
+  if (!c.ident) return 'Condamnation faite : confirme l\u2019identification de la platine.';
+  const cfg = tp.consignationVat;
+  const source = cfg && cfg.sourceConnue !== undefined ? cfg.sourceConnue : ['RES.L1', 'RES.N'];
+  const need = cfg?.avalPairs ? cfg.avalPairs.length : 3;
+  if (source && !c.vatRef) return 'Prends le VAT et vérifie-le d\u2019abord sur la source connue.';
+  if (c.vat.length < need) {
+    return `VAT vérifié : contrôle maintenant l\u2019absence de tension en aval de ${repQ1} `
+      + `(${c.vat.length} paire sur ${need}).`;
+  }
+  if (source && !c.vatRef2) return 'Repose les pointes sur la source connue : le VAT doit fonctionner encore.';
+  return 'Installation consignée : tu peux passer aux mesures hors tension.';
+}
 
 export default function MesureStage({ variant, onNext }: { variant: MesureVariant; onNext: () => void }) {
   const s = useParcours();
@@ -227,7 +257,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         />
         <Hint>
           {variant === 'epi'
-            ? (sim.q1 ? `Ouvre ${repQ1} en le cliquant : c'est la séparation.` : `${repQ1} est ouvert. Condamne, identifie, puis fais ta VAT.`)
+            ? conseilConsignation(tp, st, sim, repQ1)
             : variant === 'horsTension'
               ? 'Installation consignée : choisis ton appareil, pose les deux pointes sur les bornes indiquées.'
               : variant === 'decons'
