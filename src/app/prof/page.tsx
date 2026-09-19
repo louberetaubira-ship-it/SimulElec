@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import VisuTp from '@/components/prof/VisuTp';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
@@ -150,6 +151,8 @@ export default function ProfPage() {
   const [assignChoice, setAssignChoice] = useState('');
   const [assignMode, setAssignMode] = useState<'libre' | 'entrainement' | 'evaluation'>('libre');
   const [openId, setOpenId] = useState<string | null>(null);
+  /** Tentative dont on rejoue le TP en lecture seule (null = aucune). */
+  const [visuId, setVisuId] = useState<string | null>(null);
   const [detail, setDetail] = useState<Awaited<ReturnType<typeof getAttemptDetail>> | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -237,6 +240,8 @@ export default function ProfPage() {
   }, [visibleAttempts]);
 
   const openedAttempt = useMemo(() => attempts.find((a) => a.id === openId) ?? null, [attempts, openId]);
+  /** Tentative rejouée en lecture seule, et la définition de son TP. */
+  const visuAttempt = useMemo(() => attempts.find((a) => a.id === visuId) ?? null, [attempts, visuId]);
 
   useEffect(() => {
     (async () => {
@@ -428,6 +433,7 @@ export default function ProfPage() {
   }
 
   const openedLive = openedAttempt ? liveFor(openedAttempt) : null;
+  const visuTp = visuAttempt ? defs[visuAttempt.tp_id] : null;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
@@ -699,6 +705,11 @@ export default function ProfPage() {
                                 Réinitialiser
                               </button>
                             )}
+                            <button onClick={() => setVisuId(a.id)}
+                              title="Rejouer le TP de l'élève en lecture seule"
+                              className="rounded-lg border border-[#1f6feb] bg-[#1f6feb0f] px-3 py-2 text-[12.5px] font-bold text-[#1f6feb]">
+                              🔧 Visualiser
+                            </button>
                             <button onClick={() => setOpenId(a.id)}
                               className="rounded-lg border border-[#D3D9E1] bg-white px-3 py-2 text-[12.5px] font-bold hover:border-[#E39A00] hover:text-[#B45309]">
                               Détail
@@ -877,7 +888,13 @@ export default function ProfPage() {
               </details>
             </div>
 
-            <div className="flex gap-2.5 border-t border-[#E7EAEF] p-4">
+            <div className="flex flex-wrap gap-2.5 border-t border-[#E7EAEF] p-4">
+              <button
+                onClick={() => setVisuId(openedAttempt.id)}
+                className="w-full rounded-[11px] border border-[#1f6feb] bg-[#1f6feb] py-2.5 text-[13px] font-bold text-white"
+              >
+                🔧 Visualiser la réalisation
+              </button>
               <button
                 onClick={() => openedLive && sendRemediation(openedAttempt, openedLive.bilan)}
                 disabled={!openedLive}
@@ -893,6 +910,10 @@ export default function ProfPage() {
           </>
         )}
       </aside>
+
+      {visuAttempt && visuTp && (
+        <VisuTp attempt={visuAttempt} tp={visuTp} onClose={() => setVisuId(null)} />
+      )}
     </main>
   );
 }
