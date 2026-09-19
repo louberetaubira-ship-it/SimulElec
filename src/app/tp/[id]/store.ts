@@ -695,9 +695,15 @@ export const useParcours = create<ParcoursState>((set, get) => {
     /** Préparation : l'élève répond à une question d'identification ou de fonction. */
     answerPrep(questionId, index) {
       const { tp } = get();
-      patch(s => ({ ...s, prep: { ...s.prep, [questionId]: index } }));
       const q = prepQuestions(tp).find(x => x.id === questionId);
-      if (q && q.answer !== index) {
+      const wrong = !!q && q.answer !== index;
+      // barème QCM : chaque réponse fausse retire 1/N à la note de la question.
+      patch(s => ({
+        ...s,
+        prep: { ...s.prep, [questionId]: index },
+        qcmErr: wrong ? { ...s.qcmErr, [questionId]: (s.qcmErr[questionId] ?? 0) + 1 } : s.qcmErr,
+      }));
+      if (wrong) {
         const n = get().badChoices + 1;
         set({ badChoices: n });
         if (n >= 2) autoAide('preparation');
@@ -706,8 +712,13 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     choose(posteId, index) {
       const { tp } = get();
-      patch(s => ({ ...s, choices: { ...s.choices, [posteId]: index } }));
       const ok = tp.postes.find(p => p.id === posteId)?.options[index]?.ok === true;
+      // barème QCM : chaque référence fausse retire 1/N à la note du poste.
+      patch(s => ({
+        ...s,
+        choices: { ...s.choices, [posteId]: index },
+        qcmErr: ok ? s.qcmErr : { ...s.qcmErr, [posteId]: (s.qcmErr[posteId] ?? 0) + 1 },
+      }));
       if (!ok) {
         const n = get().badChoices + 1;
         set({ badChoices: n });
