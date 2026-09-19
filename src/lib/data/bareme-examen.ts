@@ -5,10 +5,9 @@
  * Modèle (corrigé le 2026-09-19) :
  *  — une épreuve porte un COEFFICIENT d’examen ;
  *  — à l’intérieur d’une épreuve, chaque compétence porte un POURCENTAGE ;
- *  — une même compétence peut appartenir à PLUSIEURS épreuves avec des poids
- *    différents (ex. MELEC C2 : 20 % en E2 et 14 % en E31). La table ci-dessous est
- *    donc la source de vérité : on ne déduit plus l’épreuve du champ `unit` d’une
- *    compétence, qui ne peut en porter qu’une.
+ *  — une même compétence PEUT appartenir à plusieurs épreuves avec des poids
+ *    différents. La table ci-dessous est donc la source de vérité : on ne déduit plus
+ *    l’épreuve du champ `unit` d’une compétence, qui ne peut en porter qu’une.
  *
  * Calcul :
  *    note d’épreuve /20 = Σ(score × %) / Σ(%) × 20   (sur les compétences évaluées)
@@ -42,8 +41,11 @@ export interface EpreuveDef {
  */
 export const EPREUVES: Record<DiplomaId, EpreuveDef[]> = {
   bacpro: [
+    // C2 « Organiser l’opération dans son contexte » relève du bloc 2 (Réalisation et
+    // mise en service) au référentiel rénové 2024 : elle n’est évaluée qu’en E31.
+    // E2 garde donc 4 compétences, à 25 % chacune.
     { code: 'E2', nom: 'Préparation des opérations à réaliser', coef: 3,
-      poids: { C1: 20, C2: 20, C3: 20, C10: 20, C11: 20 } },
+      poids: { C1: 25, C3: 25, C10: 25, C11: 25 } },
     { code: 'E31', nom: 'Réalisation et mise en service d’une installation', coef: 7,
       poids: { C2: 14, C4: 14, C5: 14, C6: 14, C7: 14, C12: 14, C13: 14 } },
     { code: 'E32', nom: 'Maintenance d’une installation', coef: 2,
