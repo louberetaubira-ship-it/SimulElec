@@ -8,6 +8,9 @@
  */
 
 import type { AttemptRow } from '../db/types';
+import type { CompetenceEval, DiplomaId } from '../data/competences';
+import { tpById } from '../data/tps';
+import { buildEvaluation, normalizeState } from '../sim/progress';
 
 export type NoteMode = 'moy' | 'best' | 'last' | 'all';
 
@@ -25,6 +28,28 @@ export function retainedNote(notes: number[], mode: NoteMode): number | null {
   return notes.reduce((a, b) => a + b, 0) / notes.length;
 }
 
+/**
+ * Grille de compétences d'un passage, exprimée dans le référentiel `diploma`.
+ *
+ * La colonne `attempts.evaluation` est écrite à la clôture, avec le diplôme choisi
+ * à ce moment-là : elle peut manquer (passage antérieur à la colonne) ou être écrite
+ * dans un autre référentiel que celui de la classe. On la recalcule alors à partir de
+ * l'état archivé du passage, pour que le bilan d'une classe soit toujours lu dans SON
+ * référentiel. Les TP de dimensionnement gardent leur grille stockée (état différent).
+ */
+export function resolveEvaluation(a: AttemptRow, diploma?: DiplomaId): CompetenceEval[] {
+  const stored = a.evaluation ?? [];
+  if (!diploma) return stored;
+  if (stored.some((c) => c.mastery !== 'nonEvalue') && a.diploma === diploma) return stored;
+  const tp = tpById(a.tp_id);
+  if (!tp || !tp.playable || tp.kind === 'dimensionnement' || !a.state) return stored;
+  try {
+    return buildEvaluation(tp, normalizeState(a.state), diploma) ?? stored;
+  } catch {
+    return stored;
+  }
+}
+
 export interface CompAverage {
   code: string;
   label: string;
@@ -38,11 +63,11 @@ export interface CompAverage {
  * Moyenne par compétence des grilles `attempts.evaluation`, sur tous les passages comptés.
  * Ignore les lignes « non évaluée ». Renvoie une map code → moyenne.
  */
-export function competenceAverages(attempts: AttemptRow[]): Record<string, CompAverage> {
+export function competenceAverages(attempts: AttemptRow[], diploma?: DiplomaId): Record<string, CompAverage> {
   const acc: Record<string, { label: string; sum: number; n: number }> = {};
   for (const a of attempts) {
     if (!counted(a)) continue;
-    for (const c of a.evaluation ?? []) {
+    for (const c of resolveEvaluation(a, diploma)) {
       if (c.mastery === 'nonEvalue') continue;
       const rec = (acc[c.code] ??= { label: c.label, sum: 0, n: 0 });
       rec.sum += c.score;
@@ -55,8 +80,8 @@ export function competenceAverages(attempts: AttemptRow[]): Record<string, CompA
 }
 
 /** Scores moyens seuls (code → 0..1), pour alimenter le calcul des épreuves. */
-export function competenceScoreMap(attempts: AttemptRow[]): Record<string, number> {
-  const avg = competenceAverages(attempts);
+export function competenceScoreMap(attempts: AttemptRow[], diploma?: DiplomaId): Record<string, number> {
+  const avg = competenceAverages(attempts, diploma);
   const out: Record<string, number> = {};
   for (const [code, a] of Object.entries(avg)) out[code] = a.score;
   return out;

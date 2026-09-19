@@ -18,9 +18,9 @@ import { noteSur20 } from '@/lib/eleve-stats';
 import { diplomaShort } from '@/lib/student';
 import { COMPETENCES, niveauOf, NIVEAU_BILAN, NIVEAU_COLOR, NIVEAU_ON, type DiplomaId } from '@/lib/data/competences';
 import {
-  defaultCompCoef, defaultEpreuveCoef, epreuveNote, epreuvesOf, examNote20, hasEpreuves,
+  epreuveNote, epreuvesOf, epreuvesOfCompetence, examNote20, hasEpreuves,
 } from '@/lib/data/bareme-examen';
-import { competenceAverages, competenceScoreMap, counted, retainedNote, type NoteMode } from '@/lib/prof/bilans';
+import { competenceAverages, competenceScoreMap, counted, resolveEvaluation, retainedNote, type NoteMode } from '@/lib/prof/bilans';
 
 const tpOrder = (id: string) => { const i = TPS.findIndex((t) => t.id === id); return i < 0 ? 999 : i; };
 const tpName = (id: string) => tpById(id)?.title ?? id;
@@ -40,27 +40,28 @@ export default function BilansPage() {
   const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
   const diploma: DiplomaId = current?.diploma ?? attempts.find((a) => a.diploma)?.diploma ?? 'bacpro';
 
-  // coefficients éditables (mémorisés par diplôme dans le navigateur)
-  const [compCoef, setCompCoef] = useState<Record<string, number>>({});
-  const [epCoef, setEpCoef] = useState<Record<string, number>>({});
+  // Surcharges éventuelles du barème officiel, mémorisées par diplôme sur l'appareil :
+  // `pct` est indexé « ÉPREUVE.COMPÉTENCE », `coef` par code d'épreuve.
+  const [pct, setPct] = useState<Record<string, number>>({});
+  const [coef, setCoef] = useState<Record<string, number>>({});
   useEffect(() => {
-    const dc = defaultCompCoef(diploma);
-    const de = defaultEpreuveCoef(diploma);
-    try {
-      const sc = JSON.parse(localStorage.getItem(`bilan-coef:${diploma}`) ?? 'null');
-      const se = JSON.parse(localStorage.getItem(`bilan-epcoef:${diploma}`) ?? 'null');
-      setCompCoef(sc && typeof sc === 'object' ? { ...dc, ...sc } : dc);
-      setEpCoef(se && typeof se === 'object' ? { ...de, ...se } : de);
-    } catch { setCompCoef(dc); setEpCoef(de); }
+    const read = (k: string) => {
+      try {
+        const v = JSON.parse(localStorage.getItem(`${k}:${diploma}`) ?? 'null');
+        return v && typeof v === 'object' ? (v as Record<string, number>) : {};
+      } catch { return {}; }
+    };
+    setPct(read('bilan-pct'));
+    setCoef(read('bilan-coef'));
   }, [diploma]);
-  const saveCompCoef = (code: string, v: number) => setCompCoef((p) => {
-    const next = { ...p, [code]: v };
-    try { localStorage.setItem(`bilan-coef:${diploma}`, JSON.stringify(next)); } catch { /* ignore */ }
+  const savePct = (key: string, v: number) => setPct((p) => {
+    const next = { ...p, [key]: v };
+    try { localStorage.setItem(`bilan-pct:${diploma}`, JSON.stringify(next)); } catch { /* ignore */ }
     return next;
   });
-  const saveEpCoef = (unit: string, v: number) => setEpCoef((p) => {
-    const next = { ...p, [unit]: v };
-    try { localStorage.setItem(`bilan-epcoef:${diploma}`, JSON.stringify(next)); } catch { /* ignore */ }
+  const saveCoef = (code: string, v: number) => setCoef((p) => {
+    const next = { ...p, [code]: v };
+    try { localStorage.setItem(`bilan-coef:${diploma}`, JSON.stringify(next)); } catch { /* ignore */ }
     return next;
   });
 
@@ -90,6 +91,15 @@ export default function BilansPage() {
     .filter((a) => a.student_id === sid && a.tp_id === tp)
     .sort((a, b) => (a.finished_at ?? a.updated_at).localeCompare(b.finished_at ?? b.updated_at))
     .map((a) => noteSur20(a.score as number)), [kept]);
+
+  /** Codes des compétences réellement évaluées par ce TP (référentiel de la classe). */
+  const compsOf = useCallback((tp: string) => {
+    const codes = new Set<string>();
+    kept.filter((a) => a.tp_id === tp).forEach((a) => {
+      resolveEvaluation(a, diploma).forEach((c) => { if (c.mastery !== 'nonEvalue') codes.add(c.code); });
+    });
+    return Array.from(codes).sort((x, y) => (parseInt(x.replace(/\D/g, ''), 10) || 0) - (parseInt(y.replace(/\D/g, ''), 10) || 0));
+  }, [kept, diploma]);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-5">
@@ -125,12 +135,12 @@ export default function BilansPage() {
         <p className="text-[13px] text-muted">Aucune note clôturée dans cette classe pour l’instant.</p>
       ) : tab === 'notes' ? (
         <NotesTab
-          students={students} tps={tps} notesOf={notesOf} noteMode={noteMode} setNoteMode={setNoteMode}
+          students={students} tps={tps} notesOf={notesOf} compsOf={compsOf} noteMode={noteMode} setNoteMode={setNoteMode}
         />
       ) : (
         <CompTab
           diploma={diploma} students={students} kept={kept} studentId={studentId} setStudentId={setStudentId}
-          compCoef={compCoef} epCoef={epCoef} saveCompCoef={saveCompCoef} saveEpCoef={saveEpCoef}
+          pct={pct} coef={coef} savePct={savePct} saveCoef={saveCoef}
         />
       )}
     </main>
@@ -139,10 +149,11 @@ export default function BilansPage() {
 
 /* ------------------------------------------------------------------ Notes */
 
-function NotesTab({ students, tps, notesOf, noteMode, setNoteMode }: {
+function NotesTab({ students, tps, notesOf, compsOf, noteMode, setNoteMode }: {
   students: StudentBrief[];
   tps: string[];
   notesOf: (sid: string, tp: string) => number[];
+  compsOf: (tp: string) => string[];
   noteMode: NoteMode;
   setNoteMode: (m: NoteMode) => void;
 }) {
@@ -189,9 +200,15 @@ function NotesTab({ students, tps, notesOf, noteMode, setNoteMode }: {
           <thead>
             <tr>
               <th className="sticky left-0 z-10 border-b border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-left text-[11px] uppercase tracking-wide text-muted">Élève</th>
-              {tps.map((tp) => (
-                <th key={tp} title={tp} className="border-b border-[var(--line)] px-2.5 py-2 text-center text-[11px] font-semibold text-muted">{tpName(tp)}</th>
-              ))}
+              {tps.map((tp) => {
+                const cs = compsOf(tp);
+                return (
+                  <th key={tp} title={tp} className="border-b border-[var(--line)] px-2.5 py-2 text-center text-[11px] font-semibold text-muted">
+                    {tpName(tp)}
+                    {cs.length > 0 && <span className="mt-0.5 block font-normal normal-case tracking-normal text-[10px] text-muted">{cs.join(' ')}</span>}
+                  </th>
+                );
+              })}
               <th className="border-b border-[var(--line)] px-2.5 py-2 text-center text-[11px] uppercase tracking-wide text-muted">Moy.</th>
             </tr>
           </thead>
@@ -216,6 +233,13 @@ function NotesTab({ students, tps, notesOf, noteMode, setNoteMode }: {
           </tbody>
         </table>
       </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] text-muted">
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[11px] w-[11px] rounded-[3px]" style={{ background: 'var(--good)' }} />≥ 14</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[11px] w-[11px] rounded-[3px]" style={{ background: 'var(--warn)' }} />10 – 14</span>
+        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[11px] w-[11px] rounded-[3px]" style={{ background: 'var(--crit)' }} />&lt; 10</span>
+        <span className="inline-flex items-center gap-1.5"><b className="rounded-full bg-accent px-1.5 text-[9.5px] text-[var(--accent-ink)]">×N</b>plusieurs passages (TP refait après clôture)</span>
+        <span>Sous chaque TP : les compétences qu’il évalue.</span>
+      </div>
       <p className="mt-2 text-[12px] text-muted">Chaque passage clôturé reste une note : un TP refait porte le badge <b>×N</b>. La cellule montre la note retenue selon le réglage ci-dessus.</p>
     </>
   );
@@ -223,24 +247,28 @@ function NotesTab({ students, tps, notesOf, noteMode, setNoteMode }: {
 
 /* ------------------------------------------------------------ Compétences */
 
-function CompTab({ diploma, students, kept, studentId, setStudentId, compCoef, epCoef, saveCompCoef, saveEpCoef }: {
+function CompTab({ diploma, students, kept, studentId, setStudentId, pct, coef, savePct, saveCoef }: {
   diploma: DiplomaId;
   students: StudentBrief[];
   kept: AttemptWithStudent[];
   studentId: string | null;
   setStudentId: (id: string) => void;
-  compCoef: Record<string, number>;
-  epCoef: Record<string, number>;
-  saveCompCoef: (code: string, v: number) => void;
-  saveEpCoef: (unit: string, v: number) => void;
+  pct: Record<string, number>;
+  coef: Record<string, number>;
+  savePct: (key: string, v: number) => void;
+  saveCoef: (code: string, v: number) => void;
 }) {
   const mine = useMemo(() => kept.filter((a) => a.student_id === studentId), [kept, studentId]);
-  const avgs = useMemo(() => competenceAverages(mine), [mine]);
-  const scores = useMemo(() => competenceScoreMap(mine), [mine]);
+  const avgs = useMemo(() => competenceAverages(mine, diploma), [mine, diploma]);
+  const scores = useMemo(() => competenceScoreMap(mine, diploma), [mine, diploma]);
   const epreuves = useMemo(() => epreuvesOf(diploma), [diploma]);
 
-  const epNotes = epreuves.map((ep) => ({ ep, ...epreuveNote(scores, ep, compCoef) }));
-  const exam = examNote20(epNotes.map((e) => ({ unit: e.ep.unit, note20: e.note20 })), epCoef);
+  const notes = epreuves.map((ep) => ({
+    ep,
+    coefEff: coef[ep.code] ?? ep.coef,
+    ...epreuveNote(scores, ep, pct),
+  }));
+  const exam = examNote20(notes.map((n) => ({ code: n.ep.code, note20: n.note20, coef: n.coefEff })));
 
   return (
     <>
@@ -253,7 +281,6 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, compCoef, e
         <span className="text-[12px] text-muted">Compétence vue sur plusieurs TP = moyenne des scores.</span>
       </div>
 
-      {/* Grille de compétences */}
       <section className="mb-4 rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-3.5">
         <h2 className="m-0 mb-2 text-[14px] font-bold">Bilan par compétence — référentiel {diplomaShort(diploma)}</h2>
         <div className="flex flex-wrap gap-1.5">
@@ -261,13 +288,17 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, compCoef, e
             const a = avgs[c.code];
             const evaluated = a != null;
             const niv = niveauOf(a?.score ?? 0, evaluated);
+            const eps = epreuvesOfCompetence(diploma, c.code);
             return (
               <div key={c.code} className="min-w-[130px] flex-1 basis-[150px] rounded-[9px] border border-[var(--line)] p-2" style={evaluated ? {} : { opacity: 0.5 }}>
                 <div className="flex items-center gap-1.5">
                   <b className="text-[12px]">{c.code}</b>
                   <span className="rounded-full px-1.5 text-[10px] font-bold" style={{ background: NIVEAU_COLOR[niv], color: NIVEAU_ON[niv] }}>{NIVEAU_BILAN[niv]}</span>
                 </div>
-                <div className="mt-0.5 text-[10.5px] leading-tight text-muted">{c.label}{c.unit ? ` · ${c.unit}` : ''}</div>
+                <div className="mt-0.5 text-[10.5px] leading-tight text-muted">{c.label}</div>
+                <div className="mt-0.5 text-[10px] font-semibold text-accent">
+                  {eps.length ? eps.map((e) => `${e.code} ${e.pct}%`).join(' · ') : 'hors épreuve'}
+                </div>
                 {evaluated && (
                   <div className="mt-1 h-[7px] overflow-hidden rounded bg-[var(--line)]">
                     <i className="block h-full" style={{ width: `${Math.round(a.score * 100)}%`, background: NIVEAU_COLOR[niv] }} />
@@ -279,15 +310,15 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, compCoef, e
         </div>
       </section>
 
-      {/* Projection épreuves */}
       <section className="rounded-[14px] border border-[var(--line)] bg-[var(--surface)] p-3.5">
-        <h2 className="m-0 mb-1 text-[14px] font-bold">Projection sur les épreuves de l’examen</h2>
+        <h2 className="m-0 mb-1 text-[14px] font-bold">Épreuves professionnelles — note pondérée</h2>
         {!hasEpreuves(diploma) ? (
-          <p className="text-[12.5px] text-muted">Le référentiel {diplomaShort(diploma)} ne définit pas d’unités certificatives dans l’application : bilan de compétences seul, sans projection d’épreuves.</p>
+          <p className="text-[12.5px] text-muted">Aucune épreuve définie pour ce diplôme.</p>
         ) : (
           <>
             <p className="mb-2.5 rounded-[10px] border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-[12px] text-muted">
-              Note d’épreuve = Σ(score × coef) / Σcoef × 20. Les coefficients sont éditables et mémorisés sur cet appareil.
+              Note d’épreuve = Σ(score × %) / Σ(%) × 20, avec les <b>pourcentages du référentiel métier</b>.
+              Les compétences non encore évaluées sont exclues et la pondération renormalisée.
             </p>
 
             {exam != null && (
@@ -297,11 +328,11 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, compCoef, e
                   <div className="font-mono-num text-[28px] font-extrabold text-accent">{fmt1(exam)}<span className="text-[14px] text-muted"> /20</span></div>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-muted">
-                  {epNotes.filter((e) => e.note20 != null).map((e) => (
-                    <span key={e.ep.unit} className="inline-flex items-center gap-1">
-                      {e.ep.code} <b style={{ color: noteColor(e.note20 as number) }}>{fmt1(e.note20 as number)}</b> × coef
-                      <input type="number" min={0} step={1} value={epCoef[e.ep.unit] ?? 1}
-                        onChange={(ev) => saveEpCoef(e.ep.unit, Math.max(0, Number(ev.target.value) || 0))}
+                  {notes.filter((n) => n.note20 != null).map((n) => (
+                    <span key={n.ep.code} className="inline-flex items-center gap-1">
+                      {n.ep.code} <b style={{ color: noteColor(n.note20 as number) }}>{fmt1(n.note20 as number)}</b> × coef
+                      <input type="number" min={0} step={1} value={n.coefEff}
+                        onChange={(ev) => saveCoef(n.ep.code, Math.max(0, Number(ev.target.value) || 0))}
                         className="w-11 rounded-md border border-[var(--line)] bg-[var(--surface)] px-1.5 py-0.5 text-center" />
                     </span>
                   ))}
@@ -310,36 +341,42 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, compCoef, e
             )}
 
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {epNotes.map(({ ep, note20, used, total }) => {
+              {notes.map(({ ep, note20, used, total, couverture, coefEff }) => {
                 const niv = niveauOf((note20 ?? 0) / 20, note20 != null);
                 return (
-                  <div key={ep.unit} className="rounded-[12px] border border-[var(--line)] bg-[var(--surface-2)] p-2.5">
-                    <div className="text-[11px] font-bold text-accent">{ep.code} · {ep.unit} · coef {epCoef[ep.unit] ?? 1}</div>
+                  <div key={ep.code} className="rounded-[12px] border border-[var(--line)] bg-[var(--surface-2)] p-2.5">
+                    <div className="text-[11px] font-bold text-accent">{ep.code} · coef {coefEff}</div>
                     <h3 className="m-0 text-[13px]">{ep.nom}</h3>
                     {note20 == null ? (
                       <div className="my-1 font-mono-num text-[22px] font-extrabold text-[var(--line)]">—</div>
                     ) : (
                       <>
                         <div className="my-1 font-mono-num text-[24px] font-extrabold" style={{ color: noteColor(note20) }}>{fmt1(note20)}<span className="text-[12px] text-muted"> /20</span></div>
-                        <div className="text-[11px] font-bold" style={{ color: NIVEAU_COLOR[niv] }}>{NIVEAU_BILAN[niv]} · {used.length}/{total} comp.</div>
-                        <table className="mt-2 w-full text-[11.5px]">
-                          <thead><tr className="text-muted"><th className="py-0.5 text-left font-semibold">Comp.</th><th className="py-0.5 text-right font-semibold">/20</th><th className="py-0.5 text-right font-semibold">Coef</th></tr></thead>
-                          <tbody>
-                            {used.map((u) => (
-                              <tr key={u.code} className="border-t border-[var(--line)]">
-                                <td className="py-0.5 text-left">{u.code}</td>
-                                <td className="py-0.5 text-right font-mono-num font-bold" style={{ color: noteColor(u.score * 20) }}>{fmt1(u.score * 20)}</td>
-                                <td className="py-0.5 text-right">
-                                  <input type="number" min={0} step={1} value={compCoef[u.code] ?? 1}
-                                    onChange={(ev) => saveCompCoef(u.code, Math.max(0, Number(ev.target.value) || 0))}
-                                    className="w-10 rounded-md border border-[var(--line)] bg-[var(--surface)] px-1 py-0.5 text-center" />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <div className="text-[11px] font-bold" style={{ color: NIVEAU_COLOR[niv] }}>{NIVEAU_BILAN[niv]} · {used.length}/{total} comp. ({couverture} %)</div>
                       </>
                     )}
+                    <table className="mt-2 w-full text-[11.5px]">
+                      <thead><tr className="text-muted"><th className="py-0.5 text-left font-semibold">Comp.</th><th className="py-0.5 text-right font-semibold">/20</th><th className="py-0.5 text-right font-semibold">%</th></tr></thead>
+                      <tbody>
+                        {Object.keys(ep.poids).map((code) => {
+                          const sc = scores[code];
+                          const p = pct[`${ep.code}.${code}`] ?? ep.poids[code];
+                          return (
+                            <tr key={code} className="border-t border-[var(--line)]" style={sc == null ? { opacity: 0.45 } : {}}>
+                              <td className="py-0.5 text-left">{code}</td>
+                              <td className="py-0.5 text-right font-mono-num font-bold" style={sc == null ? {} : { color: noteColor(sc * 20) }}>
+                                {sc == null ? '—' : fmt1(sc * 20)}
+                              </td>
+                              <td className="py-0.5 text-right">
+                                <input type="number" min={0} step={1} value={p}
+                                  onChange={(ev) => savePct(`${ep.code}.${code}`, Math.max(0, Number(ev.target.value) || 0))}
+                                  className="w-11 rounded-md border border-[var(--line)] bg-[var(--surface)] px-1 py-0.5 text-center" />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 );
               })}
