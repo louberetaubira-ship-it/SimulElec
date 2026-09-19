@@ -133,8 +133,15 @@ export const DOMAIN_TO_COMPETENCES: Record<DiplomaId, Partial<Record<Domain, str
     reglage: ['C15'], miseEnService: ['C16'], diagnostic: ['C17', 'C18'], remplacement: ['C18'], securite: ['C3'], numerique: ['C7'],
     documents: ['C11'], communication: ['C4'], dimensionnement: ['C8'], architecture: ['C10'], normes: ['C1'], programmation: ['C15'],
   },
+  // Réalisation regroupée (validé le 2026-09-19) : sur un parcours de montage, la grille
+  // CS TER était trop fine — chaque étape alimentait une compétence à elle seule, si bien
+  // qu'une bonne pose devenait un « acquis » isolé à côté d'un câblage raté (bilan gonflé
+  // vs Bac Pro/BTS). On aligne la réalisation sur le découpage Bac Pro : pose ET câblage
+  // nourrissent ensemble les deux compétences de mise en œuvre (C3-3, C3-5), et le choix
+  // n'est plus dédoublé. Sans effet sur le dimensionnement PV, où la granularité CS TER
+  // reste pertinente (`dimensionnement` alimente toujours C1-3/C2-1).
   cster: {
-    analyse: ['C1-1'], organisation: ['C2-3'], choix: ['C1-3', 'C2-1'], pose: ['C3-3'], cablage: ['C3-5'], controle: ['C4-1'], mesure: ['C4-1'],
+    analyse: ['C1-1'], organisation: ['C2-3'], choix: ['C2-1'], pose: ['C3-3', 'C3-5'], cablage: ['C3-3', 'C3-5'], controle: ['C4-1'], mesure: ['C4-1'],
     reglage: ['C3-6'], miseEnService: ['C3-6'], diagnostic: ['C3-7'], remplacement: ['C3-7'], securite: ['C3-2'], numerique: ['C1-2'],
     documents: ['C5-2'], communication: ['C5-1'], dimensionnement: ['C1-3', 'C2-1'], architecture: ['C1-3'], normes: ['C1-2'], programmation: ['C3-6'],
   },
