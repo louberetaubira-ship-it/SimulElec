@@ -199,6 +199,25 @@ export const TP_AUTOMATE_M221: TpDefinition = {
   // Quatre rails : l'automate fait 200 px de large, il occupe son rail à lui.
   rails: [150, 350, 550, 750],
   armoire: 920,
+  /**
+   * Gaines en sous-face du coffret. Un conducteur qui sort de l'enveloppe entre
+   * dans une gaine, et il y entre par un presse-étoupe : c'est le presse-étoupe
+   * qui tient le câble et qui fait l'indice de protection. `dessert` range
+   * automatiquement chaque liaison dans la sienne, d'après la borne qu'elle
+   * touche à l'extérieur.
+   *
+   * Les diamètres suivent le taux de remplissage usuel — la somme des sections
+   * extérieures des conducteurs ne dépasse pas le tiers de la section du conduit.
+   */
+  gaines: [
+    { id: 'g1', rep: 'G1', x: 84, diam: 25, nature: 'force',
+      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'tableau général, par le bas', dessert: ['RES.'] },
+    { id: 'g2', rep: 'G2', x: 170, diam: 20, nature: 'force',
+      contenu: '4 conducteurs 2,5 mm² · U1 V1 W1 et PE', vers: 'moteur M1 du convoyeur', dessert: ['M.'] },
+  ],
+  // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
+  // un seul conducteur à desservir.
+  goulotteDePied: false,
   slots: [
     { id: 'q1', label: 'Q1 · Disjoncteur moteur', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'km1', label: 'KM1 · Contacteur', key: 'kontakt', rail: 0, x: 114, rep: 'KM1' },

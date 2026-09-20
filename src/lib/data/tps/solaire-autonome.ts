@@ -461,6 +461,23 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   rails: [352, 548, 744],
   armoire: 884,
   arriveeReseau: false,
+  /**
+   * Gaines en sous-face du coffret. Un conducteur qui sort de l'enveloppe entre
+   * dans une gaine, et il y entre par un presse-étoupe : c'est le presse-étoupe
+   * qui tient le câble et qui fait l'indice de protection. `dessert` range
+   * automatiquement chaque liaison dans la sienne, d'après la borne qu'elle
+   * touche à l'extérieur.
+   *
+   * Les diamètres suivent le taux de remplissage usuel — la somme des sections
+   * extérieures des conducteurs ne dépasse pas le tiers de la section du conduit.
+   */
+  gaines: [
+    { id: 'g1', rep: 'G1', x: 150, diam: 32, nature: 'force',
+      contenu: '2 conducteurs 25 mm² · B+ et B−', vers: 'parc batteries 24 V, sous le coffret', dessert: ['BT1.', 'BT2.', 'BT3.', 'BT4.'] },
+  ],
+  // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
+  // un seul conducteur à desservir.
+  goulotteDePied: false,
   slots: [
     // ② Coffret DC (rail 0) : champ PV → protections → MPPT → sectionneur parc → MEGA
     { id: 'f2', label: 'Q2 · Sectionneur DC champ PV', key: 'dcswitch', rail: 0, x: 40, rep: 'Q2' },

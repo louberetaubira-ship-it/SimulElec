@@ -9,7 +9,7 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  PANEL_W, TOIT_TOP, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
+  GAINE_LEN, GAINE_TETE, PANEL_W, TOIT_TOP, gaineW, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
   pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
@@ -143,9 +143,15 @@ export default function Panel(props: PanelProps) {
     wires.forEach((w, i) => {
       const pts = route(ctx, plan, w.a, w.b, i);
       if (!pts) return;
+      // Liaison qui emprunte une gaine : sa partie extérieure commence au
+      // presse-étoupe. Elle se dessine au-dessus du tube, sinon on ne verrait pas
+      // ce que la gaine transporte — c'est tout l'intérêt de l'avoir déclarée.
+      const r = ctx.rangs[`${w.a}>${w.b}`];
+      const g = r ? ctx.gaines[r.rep] : undefined;
       out.push({
         index: i, pts, net: w.net,
-        external: Boolean(w.door || w.prewired), dead: w.dead, locked: w.prewired,
+        external: Boolean(w.door || w.prewired || g), dead: w.dead, locked: w.prewired,
+        ...(g ? { pied: g.yIn - 1 } : {}),
       });
     });
     return out;
@@ -452,21 +458,34 @@ export default function Panel(props: PanelProps) {
         </div>
       ) : null}
 
-      {/* gaines déclarées : presse-étoupe en sous-face, tube annelé et repère */}
-      {(tp.gaines ?? []).map((g) => (
-        <React.Fragment key={g.id}>
-          <div className="se-gland" style={{ left: g.x, top: glandOf(geo).y }} />
-          <div
-            className={`se-gaine ${g.nature}`}
-            style={{ left: g.x, top: glandOf(geo).y + 9 }}
-            title={`${g.rep} · ${g.diam} · ${g.contenu} → ${g.vers}`}
-          />
-          {/* Le repère se pose À CÔTÉ du tube, pas dessous : sous le coffret passent
-              déjà les bornes des récepteurs, et deux étiquettes au même endroit ne
-              se lisent ni l'une ni l'autre. */}
-          <div className="se-gaine-rep" style={{ left: g.x + 9, top: glandOf(geo).y + 12 }}>{g.rep}</div>
-        </React.Fragment>
-      ))}
+      {/* gaines déclarées : presse-étoupe en sous-face, tube annelé et repère.
+          Le tube est dessiné À SON DIAMÈTRE, à la même échelle que les appareils :
+          une ⌀25 se voit plus large qu'une ⌀16, et trois conducteurs y tiennent. */}
+      {(tp.gaines ?? []).map((g) => {
+        const w = gaineW(g.diam);
+        const y = glandOf(geo).y;
+        return (
+          <React.Fragment key={g.id}>
+            <div className="se-gland" style={{ left: g.x, top: y, width: w + 10 }} />
+            {/* La gaine suit le bouton « ouvrir les couvercles », comme les goulottes :
+                fermée elle cache son contenu, ouverte on voit les conducteurs dedans. */}
+            <div
+              className={`se-gaine ${g.nature}${cover ? '' : ' open'}`}
+              style={{ left: g.x, top: y + GAINE_TETE, width: w, height: GAINE_LEN }}
+              title={`${g.rep} · ICTA ⌀${g.diam} · ${g.contenu} → ${g.vers}`}
+            />
+            {/* Le repère se pose À CÔTÉ du tube, pas dessous : sous le coffret passent
+                déjà les bornes des récepteurs, et deux étiquettes au même endroit ne
+                se lisent ni l'une ni l'autre. */}
+            <div className="se-gaine-rep" style={{ left: g.x + w / 2 + 5, top: y + GAINE_TETE + 18 }}>
+              {g.rep}
+            </div>
+            <div className="se-gaine-diam" style={{ left: g.x + w / 2 + 5, top: y + GAINE_TETE + 31 }}>
+              ⌀{g.diam}
+            </div>
+          </React.Fragment>
+        );
+      })}
       {tp.gaines?.length ? (
         <div className="se-res" style={{ left: 500, top: glandOf(geo).y + 12 }}>
           {tp.gaines.length} gaines

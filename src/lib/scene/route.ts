@@ -10,11 +10,13 @@
  *    (fils courts près du bord, fils longs au fond) : aucun croisement dans le groupe ;
  *  - fils extérieurs : porte (trunk `SR+20`), moteur (presse-étoupe), réseau (goulotte 4).
  */
-import type { AnnexKind, AnnexItem, CatalogueItem, Slot, TerminalDef, TpDefinition } from '@/lib/types';
+import type {
+  AnnexKind, AnnexItem, CatalogueItem, GaineDef, Liaison, Slot, TerminalDef, TpDefinition,
+} from '@/lib/types';
 import {
-  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, PX_MM, SR, ST,
-  mt2Of, mtermOf, pupitreOf, pupitreTerminals, recvBoxOf, resOf, sceneOf, slotGeom, tbOf,
-  term, type Box, type Point, type SceneGeom,
+  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, GAINE_LEN, GAINE_TETE, PX_MM, SR, ST,
+  gaineW, glandOf, mt2Of, mtermOf, pupitreOf, pupitreTerminals, recvBoxOf, resOf, sceneOf,
+  slotGeom, tbOf, term, type Box, type Point, type SceneGeom,
 } from './geometry';
 
 /* ------------------------------------------------------------- contexte */
@@ -41,10 +43,30 @@ export interface ExtPoint extends Point {
   roof?: boolean;
 }
 
+/** Une gaine placée : son axe, son diamètre et les trois ordonnées de son tube. */
+export interface GainePose {
+  rep: string;
+  /** Axe du presse-étoupe et du tube. */
+  x: number;
+  /** Diamètre extérieur du conduit (mm). */
+  diam: number;
+  /** y du presse-étoupe, du haut du tube, et de sa sortie. */
+  yIn: number;
+  yTube: number;
+  yOut: number;
+}
+
+/** Rang d'un conducteur DANS sa gaine : il donne son couloir dans le tube. */
+export interface GaineRang { rep: string; i: number; n: number }
+
 export interface SceneCtx {
   slots: ResolvedSlot[];
   annex: AnnexKind;
   extra: Record<string, ExtPoint>;
+  /** Gaines déclarées par le TP, par repère. Vide quand il n'en déclare pas. */
+  gaines: Record<string, GainePose>;
+  /** Rang de chaque liaison à gaine, clé « a>b » (les deux sens sont écrits). */
+  rangs: Record<string, GaineRang>;
   /**
    * Géométrie de CETTE scène : rails, goulottes, hauteur d'armoire. Le cheminement
    * s'y réfère au lieu des constantes — sur une armoire relevée, les goulottes ne
@@ -140,6 +162,8 @@ export const recvGlandX = (x: number): number => Math.max(46, Math.min(536, Math
 export function externalPoints(
   tp: Pick<TpDefinition, 'station' | 'pupitre' | 'hasMotor' | 'annexItems' | 'recvItems'>,
   geo: SceneGeom,
+  gaines: Record<string, GainePose> = {},
+  rangs: Record<string, GaineRang> = {},
 ): Record<string, ExtPoint> {
   const out: Record<string, ExtPoint> = {};
   if (tp.station) {
@@ -152,7 +176,74 @@ export function externalPoints(
   for (const [id, p] of Object.entries(resOf(geo))) out[id] = { ...p, ext: 'res' };
   for (const it of tp.annexItems ?? []) Object.assign(out, annexTerminals(it));
   for (const it of tp.recvItems ?? []) Object.assign(out, recvTerminals(geo, it));
+  // Une borne réseau desservie par une gaine se place SOUS la sortie de son tube :
+  // le conducteur sort du conduit et arrive droit sur elle. La laisser à son
+  // presse-étoupe d'origine obligerait le fil à remonter pour l'atteindre.
+  for (const [cle, r] of Object.entries(rangs)) {
+    const [a, b] = cle.split('>');
+    const g = gaines[r.rep];
+    if (!g) continue;
+    for (const id of [a, b]) {
+      if (!id.startsWith('RES.') || !out[id]) continue;
+      out[id] = { ...out[id], x: laneDe(g, r), y: g.yOut + 24 };
+    }
+  }
   return out;
+}
+
+/**
+ * Gaine empruntée par une liaison : celle qu'elle nomme, sinon celle qui dessert
+ * l'une de ses deux bornes. Le second mécanisme évite d'annoter une à une les
+ * quarante liaisons d'un TP dont toutes les sorties suivent la même logique.
+ */
+export function gaineDeLiaison(
+  gaines: readonly GaineDef[] | undefined,
+  l: Pick<Liaison, 'a' | 'b' | 'gaine'>,
+): string | undefined {
+  if (l.gaine) return l.gaine;
+  for (const g of gaines ?? []) {
+    for (const p of g.dessert ?? []) if (l.a.startsWith(p) || l.b.startsWith(p)) return g.rep;
+  }
+  return undefined;
+}
+
+/** Couloir d'un conducteur dans le tube de sa gaine. */
+export function laneDe(g: GainePose, r: GaineRang): number {
+  const w = gaineW(g.diam);
+  const pas = Math.min(9, (w - 10) / Math.max(1, r.n - 1));
+  return g.x + (r.i - (r.n - 1) / 2) * pas;
+}
+
+/** Place les gaines d'un TP et range chaque liaison dans la sienne. */
+export function poseGaines(
+  tp: Pick<TpDefinition, 'gaines' | 'liaisons'>,
+  geo: SceneGeom,
+): { gaines: Record<string, GainePose>; rangs: Record<string, GaineRang> } {
+  const gaines: Record<string, GainePose> = {};
+  const rangs: Record<string, GaineRang> = {};
+  if (!tp.gaines?.length) return { gaines, rangs };
+  const yIn = glandOf(geo).y;
+  for (const g of tp.gaines) {
+    gaines[g.rep] = {
+      rep: g.rep, x: g.x, diam: g.diam,
+      yIn, yTube: yIn + GAINE_TETE, yOut: yIn + GAINE_TETE + GAINE_LEN,
+    };
+  }
+  const parGaine: Record<string, string[]> = {};
+  for (const l of tp.liaisons) {
+    const rep = gaineDeLiaison(tp.gaines, l);
+    if (!rep || !gaines[rep]) continue;
+    (parGaine[rep] ??= []).push(`${l.a}>${l.b}`);
+  }
+  for (const [rep, cles] of Object.entries(parGaine)) {
+    cles.forEach((cle, i) => {
+      const [a, b] = cle.split('>');
+      const r: GaineRang = { rep, i, n: cles.length };
+      rangs[cle] = r;
+      rangs[`${b}>${a}`] = r;
+    });
+  }
+  return { gaines, rangs };
 }
 
 /** Construit le contexte de scène à partir d'un TP et de son catalogue résolu. */
@@ -165,7 +256,8 @@ export function sceneContext(tp: TpDefinition, items: Record<string, CatalogueIt
     slots.push({ ...g, id: s.id, key: s.key, rail: s.rail, terminals: item.terminals, slot: s, item });
   }
   const geo = sceneOf(tp);
-  return { slots, annex: tp.annex, extra: externalPoints(tp, geo), geo };
+  const { gaines, rangs } = poseGaines(tp, geo);
+  return { slots, annex: tp.annex, extra: externalPoints(tp, geo, gaines, rangs), geo, gaines, rangs };
 }
 
 /* ------------------------------------------------------------- position */
@@ -254,12 +346,45 @@ function roofRoute(A: TPos, B: TPos, aId: string, bId: string): Pt[] {
   return pvA ? full : full.reverse();
 }
 
+/**
+ * Cheminement d'un conducteur qui emprunte une GAINE.
+ *
+ * Il quitte sa borne, rejoint l'axe du presse-étoupe de sa gaine, traverse la
+ * paroi là et seulement là, descend dans le tube à son couloir, et ne repart
+ * vers sa destination qu'à la sortie. Pas de goulotte de pied : elle n'existe
+ * que pour desservir des presse-étoupes, et le conducteur y va tout droit.
+ *
+ * Les niveaux d'entrée et de sortie sont étagés par le rang du conducteur, sans
+ * quoi onze trajets horizontaux se superposeraient de part et d'autre du tube.
+ */
+function gaineRoute(ctx: SceneCtx, a: string, b: string, A: TPos, B: TPos): Pt[] | null {
+  const r = ctx.rangs[`${a}>${b}`];
+  const g = r && ctx.gaines[r.rep];
+  if (!g) return null;
+  const aExt = Boolean(A.ext), bExt = Boolean(B.ext);
+  // Une gaine relie l'intérieur du coffret à l'extérieur. Deux bornes du même
+  // côté ne la traversent pas : on laisse le cheminement ordinaire s'appliquer.
+  if (aExt === bExt) return null;
+  const P = aExt ? B : A, E = aExt ? A : B;
+  const lane = laneDe(g, r);
+  const yEntree = g.yIn - 34 + r.i * 5;
+  const ySortie = g.yOut + 8 + r.i * 5;
+  const pts: Pt[] = [
+    [P.x, P.y], [P.x, yEntree], [lane, yEntree],
+    [lane, ySortie], [E.x, ySortie], [E.x, E.y],
+  ];
+  return aExt ? pts.reverse() : pts;
+}
+
 /** Cheminement brut, orthogonal, avant ordonnancement des nappes. */
 function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
   const A = tpos(ctx, a), B = tpos(ctx, b);
   if (!A || !B) return null;
   // Bandeau toiture : les deux bornes y sont libres → routage dédié (jamais le trunk droit).
   if (A.roof && B.roof) return roofRoute(A, B, a, b);
+  // Liaison qui sort du coffret par une gaine déclarée : elle passe DEDANS.
+  const parGaine = gaineRoute(ctx, a, b, A, B);
+  if (parGaine) return parGaine;
   const pts: Pt[] = [];
   const push = (x: number, y: number) => { pts.push([x, y]); };
   const pickVx = (x: number, ax: number | null, bx: number): number => {

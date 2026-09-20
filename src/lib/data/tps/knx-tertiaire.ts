@@ -104,12 +104,19 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
    * l'erreur que la question de préparation fait écarter.
    */
   gaines: [
-    { id: 'g1', rep: 'G1', x: 84, diam: 'ICTA ⌀20', nature: 'force', contenu: 'L1 et N · 2 × 6 mm²', vers: 'colonne montante de l’immeuble' },
-    { id: 'g2', rep: 'G2', x: 144, diam: 'ICTA ⌀20', nature: 'pe', contenu: 'PE · 1 × 16 mm² vert-jaune', vers: 'barrette de coupure BC1, puis piquet' },
-    { id: 'g3', rep: 'G3', x: 204, diam: 'ICTA ⌀16', nature: 'tbts', contenu: '1 paire torsadée KNX rouge / noir', vers: 'poussoir BP1 · circulation' },
-    { id: 'g4', rep: 'G4', x: 264, diam: 'ICTA ⌀20', nature: 'force', contenu: '3G1,5 · L1 coupée, N, PE', vers: 'hublot E1 · accueil' },
-    { id: 'g5', rep: 'G5', x: 324, diam: 'ICTA ⌀20', nature: 'force', contenu: '3G1,5 · L2 coupée, N, PE', vers: 'hublot E2 · salle de réunion' },
+    { id: 'g1', rep: 'G1', x: 84, diam: 20, nature: 'force', contenu: '2 conducteurs 6 mm² · L1 et N', vers: 'colonne montante de l’immeuble' },
+    // 16 mm² : ⌀ extérieur 8 mm, soit 50 mm². Un ICTA ⌀20 n'admet que 52 mm² au
+    // tiers de sa section — tirable une fois, pas deux. D'où le ⌀25.
+    { id: 'g2', rep: 'G2', x: 150, diam: 25, nature: 'pe', contenu: '1 conducteur 16 mm² vert-jaune', vers: 'barrette de coupure BC1, puis piquet' },
+    // Le câble de bus fait 6,8 mm de ⌀, soit 36 mm² à lui seul : il ne rentre pas
+    // dans le tiers d'un ICTA ⌀16 (30 mm²). Gaine SEULE, et en ⌀20.
+    { id: 'g3', rep: 'G3', x: 216, diam: 20, nature: 'tbts', contenu: '1 câble de bus KNX · paire torsadée rouge / noir', vers: 'poussoir BP1 · circulation' },
+    { id: 'g4', rep: 'G4', x: 278, diam: 20, nature: 'force', contenu: '3 conducteurs 1,5 mm² · L1 coupée, N, PE', vers: 'hublot E1 · accueil' },
+    { id: 'g5', rep: 'G5', x: 340, diam: 20, nature: 'force', contenu: '3 conducteurs 1,5 mm² · L2 coupée, N, PE', vers: 'hublot E2 · salle de réunion' },
   ],
+  // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
+  // un seul conducteur à desservir. La garder, c'est dessiner une goulotte vide.
+  goulotteDePied: false,
   /**
    * Résistance de la PRISE DE TERRE, entre la tête du piquet et le sol : 42 Ω,
    * valeur relevée au banc. Ce n'est pas la continuité d'un fil, et c'est bien
@@ -151,7 +158,7 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     { k: 'Protections', v: 'Q1 différentiel 30 mA en tête (consignation) · Q2 alimentation du bus · Q3 départs éclairage' },
     { k: 'Couleurs', v: 'bus (+) rouge · bus (−) noir · phase rouge · phase coupée noir · neutre bleu · PE vert-jaune' },
     { k: 'Prise de terre', v: 'piquet acier cuivré ⌀ 16 enfoncé sur 1 m, conducteur de terre cuivre nu 25 mm² enterré, barrette de coupure accessible, conducteur principal de protection 16 mm² vert-jaune' },
-    { k: 'Cheminements', v: 'cinq gaines ICTA en sous-face du coffret · G1 arrivée · G2 terre · G3 bus KNX SEUL (TBTS) · G4 et G5 départs d’éclairage' },
+    { k: 'Cheminements', v: 'cinq gaines ICTA en sous-face du coffret · G1 ⌀20 arrivée · G2 ⌀25 terre · G3 ⌀20 bus KNX SEUL (TBTS) · G4 et G5 ⌀20 départs d’éclairage. Aucun conducteur ne traverse la paroi ailleurs qu’à un presse-étoupe' },
     { k: 'Avant mise en service', v: 'consignation sur Q1 · VAT · continuité PE · contrôle de polarité et d’absence de boucle sur le bus' },
   ],
   /**
@@ -449,8 +456,10 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     // L'ENSEMBLE TERRE, hors tableau. La barrette de coupure est la borne
     // principale de terre : c'est là que le conducteur principal de protection
     // rencontre le conducteur de terre, et c'est là qu'on les sépare pour mesurer.
-    { key: 'barrcoupure', rep: 'BC1', name: 'barrette de coupure · borne principale de terre', x: 452, y: 420, w: 84, h: 40 },
-    { key: 'piquet', rep: 'PT1', name: 'piquet de terre acier cuivré ⌀ 16 · 1 m', x: 478, y: 500, w: 26, h: 96 },
+    // En PIED de colonne : la barrette de coupure est accessible au rez, près du
+    // piquet, et le conducteur principal de protection descend du tableau jusqu'à elle.
+    { key: 'barrcoupure', rep: 'BC1', name: 'barrette de coupure · borne principale de terre', x: 452, y: 520, w: 84, h: 40 },
+    { key: 'piquet', rep: 'PT1', name: 'piquet de terre acier cuivré ⌀ 16 · 1 m', x: 478, y: 596, w: 26, h: 96 },
   ],
   // Hublots de CLASSE I : trois bornes chacun — phase coupée, neutre et TERRE.
   // La masse d'un luminaire se raccorde, et l'élève doit tirer le vert-jaune.

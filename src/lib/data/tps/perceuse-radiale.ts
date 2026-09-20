@@ -320,6 +320,27 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
     },
   ],
   rails: [150, 346, 542],
+  /**
+   * Gaines en sous-face du coffret. Un conducteur qui sort de l'enveloppe entre
+   * dans une gaine, et il y entre par un presse-étoupe : c'est le presse-étoupe
+   * qui tient le câble et qui fait l'indice de protection. `dessert` range
+   * automatiquement chaque liaison dans la sienne, d'après la borne qu'elle
+   * touche à l'extérieur.
+   *
+   * Les diamètres suivent le taux de remplissage usuel — la somme des sections
+   * extérieures des conducteurs ne dépasse pas le tiers de la section du conduit.
+   */
+  gaines: [
+    { id: 'g1', rep: 'G1', x: 84, diam: 25, nature: 'force',
+      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'tableau général, par le bas', dessert: ['RES.'] },
+    { id: 'g2', rep: 'G2', x: 170, diam: 20, nature: 'force',
+      contenu: '4 conducteurs 2,5 mm² · U1 V1 W1 et PE', vers: 'moteur M1 de la perceuse', dessert: ['M.'] },
+    { id: 'g3', rep: 'G3', x: 256, diam: 16, nature: 'tbts',
+      contenu: '2 conducteurs 1,5 mm² de commande', vers: 'interrupteur de position du carter S1', dessert: ['S1.'] },
+  ],
+  // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
+  // un seul conducteur à desservir.
+  goulotteDePied: false,
   slots: [
     { id: 'q1', label: 'Q1 · Sectionneur porte-fusibles', key: 'fuseswitch', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },

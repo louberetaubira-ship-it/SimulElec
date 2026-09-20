@@ -253,6 +253,28 @@ export const TP_VARIATEUR: TpDefinition = {
   // de 860 px et l'écart entre les rails 2 et 3.
   rails: [150, 400, 690],
   armoire: 860,
+  /**
+   * Gaines en sous-face du coffret. Un conducteur qui sort de l'enveloppe entre
+   * dans une gaine, et il y entre par un presse-étoupe : c'est le presse-étoupe
+   * qui tient le câble et qui fait l'indice de protection. `dessert` range
+   * automatiquement chaque liaison dans la sienne, d'après la borne qu'elle
+   * touche à l'extérieur.
+   *
+   * Les diamètres suivent le taux de remplissage usuel — la somme des sections
+   * extérieures des conducteurs ne dépasse pas le tiers de la section du conduit.
+   */
+  gaines: [
+    { id: 'g1', rep: 'G1', x: 84, diam: 25, nature: 'force',
+      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'tableau général, par le bas', dessert: ['RES.'] },
+    // La liaison variateur → moteur est un câble BLINDÉ : 11 mm de diamètre
+    // extérieur, 95 mm² à lui seul. Un ICTA ⌀25 n'en admet que 88 au tiers de sa
+    // section — il faut du ⌀32. C'est le prix du blindage, et ça se dimensionne.
+    { id: 'g2', rep: 'G2', x: 190, diam: 32, nature: 'force',
+      contenu: '1 câble blindé 4G1,5 · U/T1 V/T2 W/T3 et PE', vers: 'moteur M1 du convoyeur', dessert: ['M.'] },
+  ],
+  // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
+  // un seul conducteur à desservir.
+  goulotteDePied: false,
   slots: [
     { id: 'q1', label: 'Q1 · Disjoncteur moteur GV2ME08', key: 'motorcb', rail: 0, x: 46, rep: 'Q1' },
     { id: 'f2', label: 'Q2 · Primaire T1', key: 'mcb2ph', rail: 0, x: 140, rep: 'Q2' },

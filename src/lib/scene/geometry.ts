@@ -75,6 +75,14 @@ const DUCT_EP = 28;
 const DUCT_PIED = 92;
 /** Jeu entre le bas de l'armoire et le haut du bloc récepteurs. */
 const JEU_RECV = 14;
+/**
+ * Jeu quand la platine a des GAINES : il faut la place de les voir.
+ *
+ * Presse-étoupe + tube + de quoi lire le repère. Sans cela le conduit tomberait
+ * dans le bloc récepteurs et passerait derrière le moteur — on ne verrait ni la
+ * gaine ni ce qu'elle transporte.
+ */
+const JEU_GAINE = 78;
 
 export interface SceneGeom {
   /** Hauteur de l'armoire (cadre `.se-cab`). */
@@ -90,23 +98,41 @@ export interface SceneGeom {
   ducts: readonly (readonly [number, number])[];
 }
 
-/** Goulottes d'une platine : une par rail, plus celle de pied. */
-export function ductsOf(rails: readonly number[]): [number, number][] {
+/**
+ * Goulottes d'une platine : une par rail, plus celle de pied.
+ *
+ * `pied = false` supprime la dernière : sur une platine dont toutes les sorties
+ * passent par une gaine déclarée, elle ne dessert plus aucun conducteur.
+ */
+export function ductsOf(rails: readonly number[], pied = true): [number, number][] {
   const d: [number, number][] = rails.map((r) => [r - DUCT_AVANT, r - DUCT_AVANT + DUCT_EP]);
+  if (!pied) return d;
   const bas = rails[rails.length - 1] + DUCT_PIED;
   d.push([bas, bas + DUCT_EP]);
   return d;
 }
 
+/** Échelle de la platine : 1 mm d'appareil vaut 1,45 px. */
+export const ECHELLE_PX_PAR_MM = 1.45;
+/** Largeur à l'écran d'un conduit, à l'échelle des appareils. */
+export const gaineW = (diam: number): number => Math.round(diam * ECHELLE_PX_PAR_MM);
+/** Hauteur du presse-étoupe, entre la sous-face du coffret et le haut du tube. */
+export const GAINE_TETE = 10;
+/** Longueur visible du tube sous le presse-étoupe. */
+export const GAINE_LEN = 44;
+
 /**
  * Géométrie de la scène d'un TP. Sans déclaration, c'est la platine d'origine :
  * armoire de 720 px, récepteurs à 734, scène de 920.
  */
-export function sceneOf(tp: Pick<TpDefinition, 'rails' | 'armoire'>): SceneGeom {
+export function sceneOf(
+  tp: Pick<TpDefinition, 'rails' | 'armoire' | 'goulotteDePied' | 'gaines'>,
+): SceneGeom {
   const rails = tp.rails && tp.rails.length ? tp.rails : RAILS;
   const cabH = tp.armoire ?? CAB_H;
-  const recvY = cabH + JEU_RECV;
-  return { cabH, recvY, recvH: RECV_H, panelH: recvY + RECV_H, rails, ducts: ductsOf(rails) };
+  const recvY = cabH + (tp.gaines?.length ? JEU_GAINE : JEU_RECV);
+  const ducts = ductsOf(rails, tp.goulotteDePied !== false);
+  return { cabH, recvY, recvH: RECV_H, panelH: recvY + RECV_H, rails, ducts };
 }
 
 

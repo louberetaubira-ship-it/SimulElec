@@ -177,8 +177,14 @@ export interface GaineDef {
   rep: string;
   /** x du presse-étoupe sur la sous-face du coffret (unités de platine). */
   x: number;
-  /** Diamètre annoncé : « ICTA ⌀20 ». */
-  diam: string;
+  /**
+   * Diamètre extérieur du conduit, en millimètres (16, 20, 25…).
+   *
+   * C'est un NOMBRE et pas un libellé : c'est lui qui donne la largeur du tube à
+   * l'écran (⌀ × ÉCHELLE_PX_PAR_MM, comme pour les appareils) et la section utile
+   * du contrôle de remplissage. « ICTA ⌀20 » se compose à l'affichage.
+   */
+  diam: number;
   /**
    * Nature du circuit véhiculé.
    *
@@ -191,6 +197,15 @@ export interface GaineDef {
   contenu: string;
   /** Destination, en clair : « hublot E1 · accueil ». */
   vers: string;
+  /**
+   * Bornes extérieures desservies, par PRÉFIXE : `['RES.']`, `['M.']`, `['FCO.']`.
+   *
+   * Évite de marquer une à une les dizaines de liaisons d'un TP : toute liaison
+   * qui touche une de ces bornes emprunte cette gaine. Un `Liaison.gaine` écrit
+   * à la main reste prioritaire, pour les cas où deux gaines desservent le même
+   * appareil (le bus et la puissance d'un même actionneur, par exemple).
+   */
+  dessert?: string[];
 }
 
 /**
@@ -675,6 +690,15 @@ export interface TpDefinition {
    * se dessine comme avant — aucun TP existant n'est touché.
    */
   gaines?: GaineDef[];
+  /**
+   * Goulotte de pied (la dernière, sous le rail du bas). `false` la supprime.
+   *
+   * Elle n'existe que pour amener les conducteurs jusqu'aux presse-étoupes. Dès
+   * lors que tout ce qui sort du coffret passe par une gaine déclarée, elle ne
+   * dessert plus rien : le conducteur va de sa borne à son presse-étoupe. La
+   * garder reviendrait à dessiner une goulotte vide sous le bornier.
+   */
+  goulotteDePied?: boolean;
   /**
    * Résistances PARTICULIÈRES, déclarées borne à borne (« a|b », ordre
    * indifférent). L'ohmmètre les consulte avant ses valeurs par défaut.

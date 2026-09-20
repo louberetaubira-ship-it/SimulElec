@@ -50,18 +50,22 @@
    Le gris est le courant fort, le vert le conducteur de protection, le violet la
    TBTS — un bus KNX ne partage pas la gaine d'un circuit 230 V, et ça se voit. */
 .se-gaine {
-  position: absolute; width: 12px; height: 26px; transform: translateX(-50%);
+  position: absolute; transform: translateX(-50%);
   border-radius: 0 0 3px 3px; z-index: 4; pointer-events: none;
   background: repeating-linear-gradient(#CBD1D8 0 3px, #AEB6BF 3px 5px);
   border: 1px solid #8A929B; border-top: 0;
 }
 .se-gaine.pe { background: repeating-linear-gradient(#B4D8B4 0 3px, #8FBF8F 3px 5px); border-color: #4E7F4E; }
 .se-gaine.tbts { background: repeating-linear-gradient(#D8CEF3 0 3px, #B9A9E4 3px 5px); border-color: #5B3BB5; }
-.se-gaine-rep {
+/* couvercles ouverts : la gaine passe derrière les conducteurs, on voit ce qu'elle
+   transporte — c'est tout l'intérêt de la déclarer. */
+.se-gaine.open { z-index: 0; filter: saturate(.7) brightness(1.06); }
+.se-gaine-rep, .se-gaine-diam {
   position: absolute; font-size: 7px; font-weight: 700; color: #20262D; z-index: 6;
   background: #fff; border: 1px solid #C3CAD3; border-radius: 2px; padding: 0 2px;
   line-height: 10px; pointer-events: none; white-space: nowrap;
 }
+.se-gaine-diam { font-weight: 500; color: #66717F; border-color: #E2E6EB; }
 
 /* ---- rails DIN ---- */
 .se-rail {

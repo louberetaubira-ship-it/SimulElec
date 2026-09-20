@@ -28,6 +28,15 @@ export interface RoutedWire {
   dead?: boolean;
   /** Posée par l'installateur : ni sélectionnable pour suppression, ni supprimable. */
   locked?: boolean;
+  /**
+   * Frontière intérieur / extérieur propre à CETTE liaison.
+   *
+   * Un conducteur qui emprunte une gaine sort du coffret à son presse-étoupe, pas
+   * à la goulotte de pied : sans cette ordonnée, sa descente dans le tube serait
+   * rangée avec le cheminement intérieur et passerait sous la gaine et sous le
+   * bloc récepteurs — on ne verrait pas ce que la gaine transporte.
+   */
+  pied?: number;
 }
 
 export interface WiresProps {
@@ -120,7 +129,8 @@ function Layer(
   const segments = (w: RoutedWire): { key: string; d: string }[] => {
     if (!over) return [{ key: 'u', d: pathD(w.pts) }];
     const out = stubs(w.pts).map(([a, b], k) => ({ key: `s${k}`, d: `M${a.x} ${a.y} L${b.x} ${b.y}` }));
-    if (w.external && externalPart(w.pts, pied).length > 1) out.push({ key: 'x', d: pathD(externalPart(w.pts, pied)) });
+    const p = w.pied ?? pied;
+    if (w.external && externalPart(w.pts, p).length > 1) out.push({ key: 'x', d: pathD(externalPart(w.pts, p)) });
     return out;
   };
 
