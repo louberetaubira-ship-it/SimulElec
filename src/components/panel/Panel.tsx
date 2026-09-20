@@ -9,7 +9,7 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  GAINE_LEN, PANEL_W, TOIT_TOP, gaineW, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
+  ALIM_W, GAINE_LEN, PANEL_W, TOIT_TOP, gaineW, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
   pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
@@ -24,7 +24,9 @@ import { WiresOver, WiresUnder, type RoutedWire } from './Wires';
 import Station from './Station';
 import { Motor, TerminalBox } from './Motor';
 import Annex from './Annex';
+import Alim from './Alim';
 import Recv from './Recv';
+import Terre from './Terre';
 import Overlays from './Overlays';
 import './panel.css';
 
@@ -124,7 +126,7 @@ export default function Panel(props: PanelProps) {
     if (!host) return;
     const apply = () => {
       const w = host.clientWidth;
-      if (w > 0) setScale(Math.min(1, w / PANEL_W));
+      if (w > 0) setScale(Math.min(1, w / (PANEL_W + ALIM_W)));
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -262,7 +264,7 @@ export default function Panel(props: PanelProps) {
   const netTerminals: TerminalMark[] = React.useMemo(
     () => (tp.arriveeReseau === false
       ? []
-      : resIds(tp.scene, tp.arriveeMono, tp.sansPeReseau).map((id) => ({ id, pos: resOf(geo)[id] }))),
+      : resIds(tp.scene, tp.arriveeMono, tp.sansPeReseau).map((id) => ({ id, pos: resOf()[id] }))),
     [tp.scene, tp.arriveeReseau, tp.arriveeMono, tp.sansPeReseau, geo],
   );
 
@@ -371,7 +373,9 @@ export default function Panel(props: PanelProps) {
     <div
       ref={panelRef}
       className={`se-panel ${tp.scene}`}
-      style={fixedScale ? { height: geo.panelH } : { height: geo.panelH, transform: `scale(${scale})` }}
+      style={fixedScale
+        ? { height: geo.panelH, transform: geo.alimW ? `translateX(${geo.alimW}px)` : undefined }
+        : { height: geo.panelH, transform: `scale(${scale}) translateX(${geo.alimW}px)` }}
       onPointerDown={picking ? (e) => {
         const id = borneSous(e);
         // On ne neutralise l'événement que si une borne est vraiment visée : ailleurs,
@@ -384,18 +388,31 @@ export default function Panel(props: PanelProps) {
       } : undefined}
       onPointerLeave={picking ? () => setSurvol(null) : undefined}
     >
+      {/* Pupitre d'alimentation : la colonne de gauche, sur toute la hauteur de
+          l'armoire. C'est de ses douilles que part l'énergie de la platine. */}
+      {geo.alimW ? <Alim h={geo.cabH} /> : null}
       {/* cadre de l'armoire (560 × 720) : fond, bordure, grille Lina */}
       {/* Sur la scène PV, le coffret commence SOUS le bloc champ PV (bloc distinct au-dessus). */}
       <div className="se-cab" style={tp.annex === 'roof' ? { top: TOIT_TOP, height: geo.cabH - TOIT_TOP } : { height: geo.cabH }} />
       {tp.scene === 'hab' ? <div className="se-tab" /> : null}
       {/* bloc récepteurs, sous la platine */}
       <Recv annex={tp.annex} items={recvItems} catalogue={items} y={geo.recvY} h={geo.recvH} />
+      {/* l'ensemble terre est DEHORS : son bloc a sa ligne de sol et son piquet enfoui */}
+      {tp.terre && geo.terreY != null ? (
+        <Terre
+          items={tp.terre.items}
+          catalogue={items}
+          y={geo.terreY}
+          h={geo.terreH ?? 0}
+          sol={tp.terre.sol}
+        />
+      ) : null}
       <Ducts scene={tp.scene} cover={cover} ducts={geo.ducts} />
       <Rails rails={geo.rails} />
       <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} />
 
       {/* fils sous les couvercles : masqués par les goulottes quand les couvercles sont fermés */}
-      <WiresUnder panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresUnder alimW={geo.alimW} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       {/* appareils */}
       {ctx.slots.map((s) => (
@@ -537,14 +554,15 @@ export default function Panel(props: PanelProps) {
           {resLabel(t.id, tp.scene)}
         </div>
       ))}
+      {/* Le libellé d'arrivée suit le pupitre : c'est lui la source, désormais. */}
       {mono && tp.arriveeReseau !== false ? (
-        <div className="se-res" style={{ left: 200, top: resOf(geo)['RES.L1'].y + 6 }}>
-          arrivée réseau mono 230 V · AGCP
+        <div className="se-res" style={{ left: -60, top: resOf()['RES.PE'].y + 34 }}>
+          arrivée mono 230 V
         </div>
       ) : null}
 
       {/* fils au-dessus des couvercles (brins + parties extérieures) */}
-      <WiresOver panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresOver alimW={geo.alimW} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       <Overlays probes={probePos} clamp={clampPos} lock={lockBox} />
     </div>
@@ -554,7 +572,7 @@ export default function Panel(props: PanelProps) {
 
   return (
     <div className={`se-panelwrap${className ? ` ${className}` : ''}`} ref={hostRef}>
-      <div style={{ width: PANEL_W * scale, height: geo.panelH * scale }}>{panel}</div>
+      <div style={{ width: (PANEL_W + geo.alimW) * scale, height: geo.panelH * scale }}>{panel}</div>
     </div>
   );
 }

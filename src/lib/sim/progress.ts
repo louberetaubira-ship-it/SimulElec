@@ -1,7 +1,7 @@
 import type {
   AttemptState, Bareme, BaremeOverride, EvaluationMode, Liaison, PrepQuestion, TpDefinition,
 } from '../types';
-import { isRunning, startButtons, type SimState } from './engine';
+import { isRunning, startButtons, type Cablage, type SimState } from './engine';
 import { listeMiseSousTension, repereSlot } from './reperes';
 import { linkKey } from './layout';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
@@ -347,6 +347,32 @@ export const nextLiaison = (tp: TpDefinition, st: AttemptState): Liaison | undef
 
 export const wiringComplete = (tp: TpDefinition, st: AttemptState) =>
   requiredLiaisons(tp).length > 0 && nextLiaison(tp, st) === undefined;
+
+/** Une liaison appartient-elle au circuit de commande (TBT 24 V) ? */
+const estCommande = (l: Liaison): boolean => l.net === 'C' || l.net === 'C0';
+
+/** Liaisons de commande que l'élève doit réaliser. */
+export const commandeLiaisons = (tp: TpDefinition): Liaison[] =>
+  requiredLiaisons(tp).filter(estCommande);
+
+/** Liaisons de puissance que l'élève doit réaliser (tout ce qui n'est pas la commande). */
+export const puissanceLiaisons = (tp: TpDefinition): Liaison[] =>
+  requiredLiaisons(tp).filter(l => !estCommande(l));
+
+/**
+ * Résumé du câblage réalisé, tel que le moteur de simulation le consomme.
+ *
+ * Sans ce résumé, `pressButton()` enclenchait le contacteur sur une platine nue :
+ * l'élève appuyait sur « marche » sans avoir posé un seul fil et le moteur partait.
+ * On sépare commande et puissance parce que les deux pannes ne se voient pas pareil :
+ * commande incomplète → le contacteur ne colle pas ; puissance incomplète → il colle,
+ * mais l'arbre reste immobile.
+ */
+export function cablageEtat(tp: TpDefinition, st: AttemptState): Cablage {
+  const cmd = commandeLiaisons(tp).filter(l => !isWired(st, l)).length;
+  const pwr = puissanceLiaisons(tp).filter(l => !isWired(st, l)).length;
+  return { cmd: cmd === 0, pwr: pwr === 0, cmdReste: cmd, pwrReste: pwr };
+}
 
 /**
  * Barème des gestes de correction du câblage (défaire un fil, tout recâbler).

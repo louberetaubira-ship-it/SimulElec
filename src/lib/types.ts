@@ -703,6 +703,23 @@ export interface TpDefinition {
    */
   gaines?: GaineDef[];
   /**
+   * Ensemble de mise à la terre, DEHORS.
+   *
+   * Une prise de terre n'est pas de l'appareillage : c'est un ouvrage extérieur,
+   * en partie enterré. La dessiner dans la colonne du local revenait à planter un
+   * piquet au premier étage. Le bloc se pose sous la platine, avec sa ligne de
+   * sol : la barrette reste accessible au-dessus, le conducteur nu et le piquet
+   * sont enfouis, et la cote de profondeur se mesure depuis le sol.
+   */
+  terre?: {
+    /** Organes de l'ensemble, en coordonnées relatives au bloc. */
+    items: AnnexItem[];
+    /** y de la ligne de sol dans le bloc : au-dessus c'est l'air, en dessous la terre. */
+    sol: number;
+    /** Hauteur du bloc (210 par défaut). */
+    h?: number;
+  };
+  /**
    * Goulotte de pied (la dernière, sous le rail du bas). `false` la supprime.
    *
    * Elle n'existe que pour amener les conducteurs jusqu'aux presse-étoupes. Dès

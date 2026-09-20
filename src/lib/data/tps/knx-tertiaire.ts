@@ -104,7 +104,7 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
    * l'erreur que la question de préparation fait écarter.
    */
   gaines: [
-    { id: 'g1', rep: 'G1', x: 84, diam: 20, nature: 'force', contenu: '2 conducteurs 6 mm² · L1 et N', vers: 'colonne montante de l’immeuble' },
+    { id: 'g1', rep: 'G1', x: 84, diam: 20, nature: 'force', contenu: '2 conducteurs 6 mm² · L1 et N', vers: 'pupitre d’alimentation de l’atelier' },
     // 16 mm² : ⌀ extérieur 8 mm, soit 50 mm². Un ICTA ⌀20 n'admet que 52 mm² au
     // tiers de sa section — tirable une fois, pas deux. D'où le ⌀25.
     { id: 'g2', rep: 'G2', x: 150, diam: 25, nature: 'pe', contenu: '1 conducteur 16 mm² vert-jaune', vers: 'barrette de coupure BC1, puis piquet' },
@@ -453,14 +453,22 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
   // la même paire torsadée que les modules du tableau.
   annexItems: [
     { key: 'knxbp', rep: 'BP1', name: 'poussoir Unica KNX 4 poussoirs · circulation', x: 468, y: 250, w: 56, h: 56 },
-    // L'ENSEMBLE TERRE, hors tableau. La barrette de coupure est la borne
-    // principale de terre : c'est là que le conducteur principal de protection
-    // rencontre le conducteur de terre, et c'est là qu'on les sépare pour mesurer.
-    // En PIED de colonne : la barrette de coupure est accessible au rez, près du
-    // piquet, et le conducteur principal de protection descend du tableau jusqu'à elle.
-    { key: 'barrcoupure', rep: 'BC1', name: 'barrette de coupure · borne principale de terre', x: 452, y: 520, w: 84, h: 40 },
-    { key: 'piquet', rep: 'PT1', name: 'piquet de terre acier cuivré ⌀ 16 · 1 m', x: 478, y: 596, w: 26, h: 96 },
   ],
+  /**
+   * L'ENSEMBLE TERRE, dehors et au sol.
+   *
+   * La barrette de coupure reste AU-DESSUS de la ligne de sol : on doit pouvoir
+   * l'ouvrir pour mesurer sans creuser. Le piquet, lui, est enfoui — et c'est la
+   * longueur en contact avec la terre qui fait sa résistance, pas sa longueur
+   * totale. Le TP le place donc franchement sous le sol.
+   */
+  terre: {
+    sol: 96,
+    items: [
+      { key: 'barrcoupure', rep: 'BC1', name: 'barrette de coupure · borne principale de terre', x: 150, y: 44, w: 84, h: 40 },
+      { key: 'piquet', rep: 'PT1', name: 'piquet de terre acier cuivré ⌀ 16 · 1 m', x: 300, y: 100, w: 26, h: 96 },
+    ],
+  },
   // Hublots de CLASSE I : trois bornes chacun — phase coupée, neutre et TERRE.
   // La masse d'un luminaire se raccorde, et l'élève doit tirer le vert-jaune.
   recvItems: [
@@ -471,8 +479,8 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     // ---- arrivée réseau : câblage de l'installateur, déjà en place.
     // La phase et le neutre, par la gaine G1. PAS DE PE : en régime TT le
     // distributeur n'en amène pas, la terre vient du piquet de l'usager.
-    g(L('RES.L1', 'x1_1.b', 'L1', 'pre'), 'G1'),
-    g(L('RES.N', 'x1_2.b', 'N', 'pre'), 'G1'),
+    g(L('RES.L1', 'x1_1.b', 'L1'), 'G1'),
+    g(L('RES.N', 'x1_2.b', 'N'), 'G1'),
     // ---- ensemble terre : du bornier PE au piquet, par la barrette de coupure.
     // Le conducteur principal de protection est à l'élève ; le conducteur de terre
     // est enterré, donc déjà posé, et la barrette elle-même n'est qu'un pont

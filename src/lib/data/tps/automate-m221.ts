@@ -211,7 +211,7 @@ export const TP_AUTOMATE_M221: TpDefinition = {
    */
   gaines: [
     { id: 'g1', rep: 'G1', x: 84, diam: 25, nature: 'force',
-      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'tableau général, par le bas', dessert: ['RES.'] },
+      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'pupitre d’alimentation de l’atelier', dessert: ['RES.'] },
     { id: 'g2', rep: 'G2', x: 170, diam: 20, nature: 'force',
       contenu: '4 conducteurs 2,5 mm² · U1 V1 W1 et PE', vers: 'moteur M1 du convoyeur', dessert: ['M.'] },
     // Pupitre déporté : les deux boutons et les deux voyants du coffret.
@@ -259,8 +259,8 @@ export const TP_AUTOMATE_M221: TpDefinition = {
     L('plc.Q0.2', 'x2_5.a', 'C'), L('x2_5.b', 'H2.X1', 'C', 'door'),
     L('x2_6.b', 'H1.X2', 'C0', 'door'), L('H1.X2', 'H2.X2', 'C0', 'door'),
     // ---- câblage installateur ----
-    L('RES.L1', 'x1_1.b', 'L1', 'pre'), L('RES.L2', 'x1_2.b', 'L2', 'pre'), L('RES.L3', 'x1_3.b', 'L3', 'pre'),
-    L('RES.N', 'x1_4.b', 'N', 'pre'), L('RES.PE', 'x1_5.b', 'PE', 'pre'),
+    L('RES.L1', 'x1_1.b', 'L1'), L('RES.L2', 'x1_2.b', 'L2'), L('RES.L3', 'x1_3.b', 'L3'),
+    L('RES.N', 'x1_4.b', 'N'), L('RES.PE', 'x1_5.b', 'PE'),
     L('x1_6.b', 'M.U1', 'L1', 'pre'), L('x1_7.b', 'M.V1', 'L2', 'pre'), L('x1_8.b', 'M.W1', 'L3', 'pre'),
     L('x1_9.b', 'M.PE', 'PE', 'pre'),
   ],

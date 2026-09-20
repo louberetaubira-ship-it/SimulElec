@@ -142,6 +142,31 @@ export const coilVoltageOk = (s: SimState, tp: Pick<TpDefinition, 'trafo'>): boo
 export const coilAlive = (s: SimState): boolean => !s.coilBurnt;
 
 /** Le moteur tourne (KM1 collé, puissance présente, thermique non déclenché). */
+/**
+ * État du câblage réalisé par l'élève, vu par le moteur de simulation.
+ *
+ * Le moteur reste pur : il ne connaît ni `st.wires` ni les étapes du parcours.
+ * C'est l'appelant (le store du parcours) qui lui passe ce résumé, calculé par
+ * `cablageEtat()` dans `progress.ts`. Un contacteur ne colle que si la boucle de
+ * commande existe réellement, et un moteur ne tourne que si sa puissance est
+ * câblée : sans cela, l'élève pouvait démarrer une platine entièrement nue.
+ */
+export interface Cablage {
+  /** Toutes les liaisons de commande (C, C0) attendues sont faites ? */
+  cmd: boolean;
+  /** Toutes les liaisons de puissance attendues sont faites ? */
+  pwr: boolean;
+  /** Nombre de liaisons de commande encore à câbler. */
+  cmdReste: number;
+  /** Nombre de liaisons de puissance encore à câbler. */
+  pwrReste: number;
+}
+
+/** Platine réputée entièrement câblée — valeur par défaut des appelants hors parcours. */
+export const CABLAGE_OK: Cablage = { cmd: true, pwr: true, cmdReste: 0, pwrReste: 0 };
+
+const nLiaisons = (n: number): string => `${n} liaison${n > 1 ? 's' : ''}`;
+
 export const isRunning = (s: SimState): boolean => s.q1 && s.km1 && !s.f1trip;
 
 /** Le contact NC du bouton d'arrêt est-il fermé ? (panne « s1 » = contact resté ouvert) */
@@ -262,7 +287,7 @@ export function setCoupling(s: SimState, coupling: Coupling, tp?: Rep): ActionRe
 }
 
 /** Appui sur un bouton de marche (contact NO) du pupitre. */
-function pressStart(s: SimState, tp: TpDefinition, btn: string): ActionResult {
+function pressStart(s: SimState, tp: TpDefinition, btn: string, cab: Cablage): ActionResult {
   const held = { ...s, s2Held: true };
   const latch = latchedStop(s, tp);
   if (latch) {
@@ -279,6 +304,15 @@ function pressStart(s: SimState, tp: TpDefinition, btn: string): ActionResult {
     };
   }
   if (!isPowered(s)) return { state: held, message: `Rien ne se passe : ${rep(tp, 'q1')} est ouvert.` };
+  // Le contacteur exige le câblage réel : tant que la boucle de commande n'est pas
+  // terminée, la bobine n'est reliée à rien et rien ne peut coller.
+  if (!cab.cmd) {
+    return {
+      state: held,
+      message: `Rien ne se passe : le circuit de commande n'est pas terminé — il reste `
+        + `${nLiaisons(cab.cmdReste)} à câbler pour fermer la boucle de la bobine.`,
+    };
+  }
   if (s.trafoTrip) {
     return { state: held, message: `Rien ne se passe : ${rep(tp, 'f2')} a déclenché — vérifie la prise du primaire.` };
   }
@@ -303,9 +337,15 @@ function pressStart(s: SimState, tp: TpDefinition, btn: string): ActionResult {
     return { state: { ...held, chattering: true }, message: `${rep(tp, 'km1')} vibre mais ne tient pas : la bobine est mal alimentée.` };
   }
   if (s.km1) return { state: held, message: `${rep(tp, 'km1')} est déjà enclenché.` };
+  const enclenche = `${btn} : ${rep(tp, 'km1')} s'enclenche, l'auto-maintien 13-14 prend le relais.`;
   return {
     state: { ...held, km1: true, t: 0, peak: 0, chattering: false },
-    message: `${btn} : ${rep(tp, 'km1')} s'enclenche, l'auto-maintien 13-14 prend le relais.`,
+    // La commande est bonne, mais un moteur dont la puissance n'est pas câblée ne
+    // tournera pas : on le dit au lieu de laisser l'élève devant un arbre immobile.
+    message: cab.pwr
+      ? enclenche
+      : `${enclenche} Mais le moteur ne tourne pas : il reste ${nLiaisons(cab.pwrReste)} `
+        + 'à câbler dans le circuit de puissance.',
   };
 }
 
@@ -330,10 +370,12 @@ function pressStop(s: SimState, item: PupitreItem, tp: Rep): ActionResult {
 }
 
 /** Appui sur un organe du pupitre, désigné par son repère (« S2 », « S4 », « S3 »…). */
-export function pressButton(s: SimState, tp: TpDefinition, rep: string): ActionResult {
+export function pressButton(
+  s: SimState, tp: TpDefinition, rep: string, cab: Cablage = CABLAGE_OK,
+): ActionResult {
   const item = pupitreOf(tp).find(p => p.rep === rep);
   if (!item || item.kind === 'lamp') return { state: s, message: `${rep} n'est pas un bouton.` };
-  return item.kind === 'no' ? pressStart(s, tp, rep) : pressStop(s, item, tp);
+  return item.kind === 'no' ? pressStart(s, tp, rep, cab) : pressStop(s, item, tp);
 }
 
 /** Relâchement d'un bouton du pupitre (seuls les boutons de marche sont maintenus). */
@@ -386,11 +428,14 @@ const lerp = (v: number, target: number, k: number, dt: number) => v + (target -
  * courant ×1,73 en couplage triangle, déclenchement thermique au-delà de 120 %
  * de charge, en triangle, ou en marche sur deux phases.
  */
-export function tick(state: SimState, tp: TpDefinition, dt: number): ActionResult {
+export function tick(
+  state: SimState, tp: TpDefinition, dt: number, cab: Cablage = CABLAGE_OK,
+): ActionResult {
   const s = { ...state };
   let message = '';
   const { In, ns } = motorOf(tp);
-  const on = isRunning(s);
+  // KM1 collé ne suffit pas : sans circuit de puissance câblé, l'arbre ne tourne pas.
+  const on = isRunning(s) && cab.pwr;
   const oneLegLost = s.fault === 'l2';
   const kc = s.coupling === 'D' ? 1.73 : 1;
 

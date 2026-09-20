@@ -68,10 +68,17 @@ for (const tp of TPS) {
     if (tb.y < geo.recvY) { ko++; console.log(`  ✗ la plaque à bornes est DANS l'armoire (y ${tb.y} < ${geo.recvY})`); }
     if (tb.y + tb.h > geo.panelH) { ko++; console.log('  ✗ la plaque à bornes déborde sous le bloc récepteurs'); }
   }
-  // L'arrivée réseau et les presse-étoupes, eux, restent en bas de l'armoire.
-  const res = resOf(geo)['RES.L1']; const gl = glandOf(geo);
-  for (const [nom, y] of [['arrivée réseau', res.y], ['presse-étoupe', gl.y]] as const) {
-    if (y > geo.cabH || y < geo.cabH - 60) { ko++; console.log(`  ✗ ${nom} décrochée du bas de l'armoire (y ${y}, armoire ${geo.cabH})`); }
+  // Les presse-étoupes restent en bas de l'armoire ; l'arrivée, elle, est
+  // désormais sur le PUPITRE, à gauche — donc à x négatif et dans sa hauteur.
+  const gl = glandOf(geo);
+  if (gl.y > geo.cabH || gl.y < geo.cabH - 60) {
+    ko++; console.log(`  ✗ presse-étoupe décroché du bas de l'armoire (y ${gl.y}, armoire ${geo.cabH})`);
+  }
+  if (geo.alimW) {
+    for (const [id, p] of Object.entries(resOf())) {
+      if (p.x >= 0) { ko++; console.log(`  ✗ ${id} n'est pas dans le pupitre (x ${p.x})`); }
+      if (p.y > geo.cabH) { ko++; console.log(`  ✗ ${id} dépasse la hauteur du pupitre (y ${p.y})`); }
+    }
   }
   if (ko === avant) console.log('  ✓ rien ne se chevauche, rien ne déborde, moteur hors armoire');
 }

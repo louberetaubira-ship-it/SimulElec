@@ -13,6 +13,13 @@ export interface Box extends Point { w: number; h: number }
 /* ---------------------------------------------------------------- platine */
 
 export const PANEL_W = 560;
+/**
+ * Largeur de la colonne du PUPITRE D'ALIMENTATION, à gauche de la platine.
+ *
+ * Elle s'ajoute vers la GAUCHE : le repère de la platine ne bouge pas, il
+ * commence simplement à −ALIM_W. Aucune coordonnée de TP n'est touchée.
+ */
+export const ALIM_W = 120;
 /** Hauteur totale de la scène : armoire + bloc récepteurs. */
 export const PANEL_H = 920;
 /** Hauteur de l'armoire (cadre `.se-cab`), en haut de la scène. */
@@ -83,10 +90,20 @@ const JEU_RECV = 14;
  * gaine ni ce qu'elle transporte.
  */
 const JEU_GAINE = 78;
+/** Hauteur par défaut du bloc « ensemble terre », sous le bloc récepteurs. */
+export const TERRE_H = 210;
+/** Jeu entre le bloc récepteurs et le bloc terre. */
+const JEU_TERRE = 16;
 
 export interface SceneGeom {
   /** Hauteur de l'armoire (cadre `.se-cab`). */
   cabH: number;
+  /** Largeur du pupitre d'alimentation à gauche (0 quand le TP n'en a pas). */
+  alimW: number;
+  /** y du haut du bloc « ensemble terre », quand le TP en déclare un. */
+  terreY?: number;
+  /** Hauteur de ce bloc. */
+  terreH?: number;
   /** y du haut du bloc récepteurs, et sa hauteur. */
   recvY: number;
   recvH: number;
@@ -126,14 +143,29 @@ export const GAINE_LEN = 44;
  * armoire de 720 px, récepteurs à 734, scène de 920.
  */
 export function sceneOf(
-  tp: Pick<TpDefinition, 'rails' | 'armoire' | 'goulotteDePied' | 'gaines'>,
+  tp: Pick<TpDefinition, 'rails' | 'armoire' | 'goulotteDePied' | 'gaines' | 'terre' | 'arriveeReseau'>,
 ): SceneGeom {
   const rails = tp.rails && tp.rails.length ? tp.rails : RAILS;
   const cabH = tp.armoire ?? CAB_H;
   const recvY = cabH + (tp.gaines?.length ? JEU_GAINE : JEU_RECV);
   const ducts = ductsOf(rails, tp.goulotteDePied !== false);
-  return { cabH, recvY, recvH: RECV_H, panelH: recvY + RECV_H, rails, ducts };
+  // Pas d'arrivée réseau, pas de pupitre : une installation autonome tire son
+  // énergie de son champ et de ses batteries, pas d'une prise d'atelier.
+  const alimW = tp.arriveeReseau === false ? 0 : ALIM_W;
+  const base = { cabH, alimW, recvY, recvH: RECV_H, panelH: recvY + RECV_H, rails, ducts };
+  if (!tp.terre) return base;
+  // L'ensemble terre s'ajoute SOUS le bloc récepteurs : la scène s'allonge, comme
+  // elle s'est allongée pour les gaines. Il est dehors, il a donc sa place à part.
+  const terreY = recvY + RECV_H + JEU_TERRE;
+  const terreH = tp.terre.h ?? TERRE_H;
+  return { ...base, terreY, terreH, panelH: terreY + terreH };
 }
+
+/** Position absolue d'un organe de l'ensemble terre. */
+export const terreBoxOf = (
+  geo: Pick<SceneGeom, 'terreY'>,
+  it: { x: number; y: number; w: number; h: number },
+): Box => ({ x: it.x, y: (geo.terreY ?? 0) + it.y, w: it.w, h: it.h });
 
 
 
@@ -254,13 +286,20 @@ export const MT2: Record<string, Point> = {
   'M.W2': TT(30, 40), 'M.U2': TT(58, 40), 'M.V2': TT(86, 40),
 };
 
-/** Arrivée réseau, en bas de la platine (presse-étoupes). */
+/**
+ * Arrivée réseau : les DOUILLES DU PUPITRE, dans la colonne de gauche.
+ *
+ * L'énergie d'un banc ne sort pas du sol : elle vient du pupitre d'atelier, une
+ * colonne verticale posée à côté de la platine, dont les cinq douilles portent
+ * leur repère. Les x sont négatifs — la colonne est à gauche du repère de la
+ * platine, qui n'a pas bougé d'un pixel.
+ */
 export const RES: Record<string, Point> = {
-  'RES.L1': { x: 70, y: 704 },
-  'RES.L2': { x: 98, y: 704 },
-  'RES.L3': { x: 126, y: 704 },
-  'RES.N': { x: 154, y: 704 },
-  'RES.PE': { x: 182, y: 704 },
+  'RES.L1': { x: -84, y: 232 },
+  'RES.L2': { x: -84, y: 278 },
+  'RES.L3': { x: -84, y: 324 },
+  'RES.N': { x: -84, y: 370 },
+  'RES.PE': { x: -84, y: 416 },
 };
 /*
  * Tout ce qui est HORS ARMOIRE suit la scène, pas une constante.
@@ -274,7 +313,8 @@ export const RES: Record<string, Point> = {
 const MOTOR_DY = MOTOR.y - RECV_Y;      //  +26 sous le haut du bloc récepteurs
 const TB_DY = TB.y - RECV_Y;            //  +36
 const GLAND_DY = PE_GLAND.y - CAB_H;    //   -8 : le presse-étoupe mord le bas de l'armoire
-const RES_DY = RES['RES.L1'].y - CAB_H; //  -16 : l'arrivée réseau juste au-dessus
+// Les douilles du pupitre ne suivent plus la hauteur d'armoire : elles sont à
+// hauteur d'homme sur une colonne, quelle que soit la platine.
 
 /** Moteur hors armoire, à sa place dans le bloc récepteurs de CETTE scène. */
 export const motorOf = (geo: Pick<SceneGeom, 'recvY'>): Point =>
@@ -285,10 +325,14 @@ export const tbOf = (geo: Pick<SceneGeom, 'recvY'>): Box =>
 /** Presse-étoupe de sortie du câble moteur, en bas de l'armoire de CETTE scène. */
 export const glandOf = (geo: Pick<SceneGeom, 'cabH'>): Point =>
   ({ x: PE_GLAND.x, y: geo.cabH + GLAND_DY });
-/** Arrivée réseau, en bas de l'armoire de CETTE scène. */
-export function resOf(geo: Pick<SceneGeom, 'cabH'>): Record<string, Point> {
-  const y = geo.cabH + RES_DY;
-  return Object.fromEntries(Object.entries(RES).map(([id, p]) => [id, { x: p.x, y }]));
+/**
+ * Douilles du pupitre d'alimentation.
+ *
+ * Elles ne dépendent plus de la hauteur d'armoire : le pupitre est une colonne
+ * à part, et ses douilles sont à hauteur d'homme quelle que soit la platine.
+ */
+export function resOf(): Record<string, Point> {
+  return { ...RES };
 }
 const ttOf = (tb: Box, cx: number, cy: number): Point => ({ x: tb.x + cx, y: tb.y + cy });
 /** Bornes basses de la plaque (U1 V1 W1 + PE) dans CETTE scène. */

@@ -265,7 +265,7 @@ export const TP_VARIATEUR: TpDefinition = {
    */
   gaines: [
     { id: 'g1', rep: 'G1', x: 84, diam: 25, nature: 'force',
-      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'tableau général, par le bas', dessert: ['RES.'] },
+      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'pupitre d’alimentation de l’atelier', dessert: ['RES.'] },
     // La liaison variateur → moteur est un câble BLINDÉ : 11 mm de diamètre
     // extérieur, 95 mm² à lui seul. Un ICTA ⌀25 n'en admet que 88 au tiers de sa
     // section — il faut du ⌀32. C'est le prix du blindage, et ça se dimensionne.

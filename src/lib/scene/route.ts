@@ -16,7 +16,7 @@ import type {
 import {
   DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, GAINE_LEN, GAINE_TETE, PX_MM, SR, ST, TOIT_TOP,
   gaineW, glandOf, mt2Of, mtermOf, pupitreOf, pupitreTerminals, recvBoxOf, resOf, sceneOf,
-  slotGeom, tbOf, term, type Box, type Point, type SceneGeom,
+  slotGeom, tbOf, term, terreBoxOf, type Box, type Point, type SceneGeom,
 } from './geometry';
 
 /* ------------------------------------------------------------- contexte */
@@ -31,7 +31,7 @@ export interface ResolvedSlot extends Box {
   item: CatalogueItem;
 }
 
-export type ExtKind = 'door' | 'motor' | 'res' | 'recv';
+export type ExtKind = 'door' | 'motor' | 'res' | 'recv' | 'terre';
 
 /** Borne extérieure à la platine (coffret de porte, moteur, réseau, annexe). */
 export interface ExtPoint extends Point {
@@ -131,6 +131,23 @@ export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
   };
 }
 
+/**
+ * Bornes d'un organe de l'ensemble terre.
+ *
+ * X1 en haut (ce qui monte vers le coffret), X2 en bas (ce qui descend vers le
+ * sol) : l'ordre du terrain, de la borne principale de terre jusqu'à l'électrode.
+ */
+export function terreTerminals(
+  geo: Pick<SceneGeom, 'terreY'>,
+  it: AnnexItem,
+): Record<string, ExtPoint> {
+  const b = terreBoxOf(geo, it);
+  return {
+    [`${it.rep}.X1`]: { x: b.x + b.w * 0.5, y: b.y, ext: 'terre' },
+    [`${it.rep}.X2`]: { x: b.x + b.w * 0.5, y: b.y + b.h, ext: 'terre' },
+  };
+}
+
 /** Bornes X1 / X2 d'un récepteur du bloc du bas, sur son bord haut. */
 export function recvTerminals(geo: Pick<SceneGeom, 'recvY'>, it: AnnexItem): Record<string, ExtPoint> {
   const b = recvBoxOf(geo, it);
@@ -162,10 +179,8 @@ export const recvGlandX = (x: number): number => Math.max(46, Math.min(536, Math
 
 /** Bornes extérieures d'un TP : coffret de porte, moteur, réseau, éléments d'annexe. */
 export function externalPoints(
-  tp: Pick<TpDefinition, 'station' | 'pupitre' | 'hasMotor' | 'annexItems' | 'recvItems'>,
+  tp: Pick<TpDefinition, 'station' | 'pupitre' | 'hasMotor' | 'annexItems' | 'recvItems' | 'terre'>,
   geo: SceneGeom,
-  gaines: Record<string, GainePose> = {},
-  rangs: Record<string, GaineRang> = {},
 ): Record<string, ExtPoint> {
   const out: Record<string, ExtPoint> = {};
   if (tp.station) {
@@ -175,21 +190,13 @@ export function externalPoints(
     for (const [id, p] of Object.entries(mtermOf(geo))) out[id] = { ...p, ext: 'motor' };
     for (const [id, p] of Object.entries(mt2Of(geo))) out[id] = { ...p, ext: 'motor' };
   }
-  for (const [id, p] of Object.entries(resOf(geo))) out[id] = { ...p, ext: 'res' };
+  for (const [id, p] of Object.entries(resOf())) out[id] = { ...p, ext: 'res' };
   for (const it of tp.annexItems ?? []) Object.assign(out, annexTerminals(it));
   for (const it of tp.recvItems ?? []) Object.assign(out, recvTerminals(geo, it));
-  // Une borne réseau desservie par une gaine se place SOUS la sortie de son tube :
-  // le conducteur sort du conduit et arrive droit sur elle. La laisser à son
-  // presse-étoupe d'origine obligerait le fil à remonter pour l'atteindre.
-  for (const [cle, r] of Object.entries(rangs)) {
-    const [a, b] = cle.split('>');
-    const g = gaines[r.rep];
-    if (!g) continue;
-    for (const id of [a, b]) {
-      if (!id.startsWith('RES.') || !out[id]) continue;
-      out[id] = { ...out[id], x: laneDe(g, r), y: g.yOut + 24 };
-    }
-  }
+  for (const it of tp.terre?.items ?? []) Object.assign(out, terreTerminals(geo, it));
+  // Les bornes réseau ne bougent plus : ce sont les douilles du PUPITRE, à gauche.
+  // Le conducteur descend du pupitre, entre par la gaine et remonte au bornier —
+  // c'est le chemin réel d'un cordon d'atelier.
   return out;
 }
 
@@ -281,11 +288,9 @@ export function sceneContext(tp: TpDefinition, items: Record<string, CatalogueIt
   }
   const geo = sceneOf(tp);
   const { gaines } = poseGaines(tp, geo);
-  // Deux passes : il faut un contexte pour savoir quelles liaisons traversent
-  // vraiment la paroi, et il faut leurs rangs pour placer les bornes réseau.
+  // Il faut un contexte pour savoir quelles liaisons traversent vraiment la paroi.
   const base: SceneCtx = { slots, annex: tp.annex, extra: externalPoints(tp, geo), geo, gaines, rangs: {} };
-  const rangs = rangerGaines(tp, base);
-  return { ...base, extra: externalPoints(tp, geo, gaines, rangs), rangs };
+  return { ...base, rangs: rangerGaines(tp, base) };
 }
 
 /* ------------------------------------------------------------- position */
@@ -431,6 +436,13 @@ function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
     return pts;
   }
 
+  // Deux bornes de l'ensemble terre : la barrette et le piquet sont voisins, tous
+  // deux hors du coffret. Le conducteur de terre va de l'une à l'autre, en L, sans
+  // repasser par une goulotte — il est enterré.
+  if (A.ext === 'terre' && B.ext === 'terre') {
+    return [[A.x, A.y], [A.x, (A.y + B.y) / 2], [B.x, (A.y + B.y) / 2], [B.x, B.y]];
+  }
+
   // une borne extérieure
   if (A.ext || B.ext) {
     const P = A.ext ? B : A, E = A.ext ? A : B;
@@ -439,6 +451,11 @@ function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
     if (d === null) return null;
     const y = dY(ctx, d);
     if (ext === 'res') {
+      push(P.x, P.y); push(P.x, dPied(ctx)); push(E.x, dPied(ctx)); push(E.x, E.y);
+      return A.ext ? pts.reverse() : pts;
+    }
+    if (ext === 'terre') {
+      // descente franche vers le bloc extérieur : il est sous la platine.
       push(P.x, P.y); push(P.x, dPied(ctx)); push(E.x, dPied(ctx)); push(E.x, E.y);
       return A.ext ? pts.reverse() : pts;
     }

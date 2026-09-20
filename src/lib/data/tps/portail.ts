@@ -296,7 +296,7 @@ export const TP_PORTAIL: TpDefinition = {
    */
   gaines: [
     { id: 'g1', rep: 'G1', x: 84, diam: 25, nature: 'force',
-      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'tableau général, par le bas', dessert: ['RES.'] },
+      contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'pupitre d’alimentation de l’atelier', dessert: ['RES.'] },
     { id: 'g2', rep: 'G2', x: 170, diam: 20, nature: 'force',
       contenu: '4 conducteurs 2,5 mm² · U1 V1 W1 et PE', vers: 'motoréducteur du portail', dessert: ['M.'] },
     { id: 'g3', rep: 'G3', x: 252, diam: 16, nature: 'tbts',

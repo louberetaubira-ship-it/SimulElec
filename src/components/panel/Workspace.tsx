@@ -104,6 +104,8 @@ export interface WorkspaceProps {
   fill?: boolean;
   /** Hauteur logique du contenu (par défaut la platine complète, 920). */
   contentHeight?: number;
+  /** Largeur logique : la platine, plus le pupitre d'alimentation quand il y en a un. */
+  contentWidth?: number;
   className?: string;
   /** Mode atelier — titre affiché dans la barre haute (titre du TP). */
   title?: string;
@@ -135,7 +137,7 @@ export interface WorkspaceProps {
 }
 
 export default function Workspace({
-  children, storageKey = 'panel', contentHeight = PANEL_H, className, fill = false,
+  children, storageKey = 'panel', contentHeight = PANEL_H, contentWidth = PANEL_W, className, fill = false,
   title, subtitle, indicator, actions, drawer, drawerTitle = 'Énoncé',
   dock, dockTitle = 'Tableau', dockDefaultOpen = true,
   tools, activeTool = null, onTool,
@@ -550,9 +552,9 @@ export default function Workspace({
 
         <div className={`se-wswrap${dragging ? ' drag' : ''}`} ref={wrap} data-testid="workspace">
         {/* la boîte porte la taille *affichée* : le contenu reste centré et défilable à tout zoom */}
-        <div className="se-wsbox" style={{ width: PANEL_W * zoom, height: contentHeight * zoom }}>
+        <div className="se-wsbox" style={{ width: contentWidth * zoom, height: contentHeight * zoom }}>
           <div className="se-wszoom" style={{ transform: `scale(${zoom})`, visibility: ready ? 'visible' : 'hidden' }}>
-              <div className="se-wsinner" style={{ width: PANEL_W, height: contentHeight }}>
+              <div className="se-wsinner" style={{ width: contentWidth, height: contentHeight }}>
                 {children}
               </div>
             </div>

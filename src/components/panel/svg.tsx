@@ -660,16 +660,12 @@ export function BarrCoupureSvg() {
 export function PiquetSvg() {
   return (
     <svg viewBox="0 0 26 96" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
-      {/* le sol, hachuré : le piquet est le seul appareil du TP qui est enterré */}
-      <rect x="0" y="14" width="26" height="82" fill="#F0EBE2" />
-      <path d="M0 14H26" stroke="#B9AD98" strokeWidth="1.4" />
-      {[0, 6, 12, 18, 24].map((x) => (
-        <path key={x} d={`M${x} 14l-5 6`} stroke="#CFC4B0" strokeWidth="1" />
-      ))}
-      <rect x="9.5" y="8" width="7" height="76" rx="2" fill="#B87333" stroke="#8A5A26" strokeWidth=".8" />
+      {/* Pas de sol ici : c'est le BLOC « ensemble terre » qui porte la ligne de sol
+          et la hachure. Un appareil ne dessine pas le terrain dans lequel il est posé. */}
+      <rect x="9.5" y="4" width="7" height="80" rx="2" fill="#B87333" stroke="#8A5A26" strokeWidth=".8" />
       <path d="M9.5 84l3.5 8 3.5-8z" fill="#8A5A26" />
       {/* cosse de raccordement du conducteur de terre, en tête */}
-      <rect x="6" y="4" width="14" height="6" rx="2" fill="#DDE1E5" stroke="#7E858C" strokeWidth=".8" />
+      <rect x="6" y="0" width="14" height="6" rx="2" fill="#DDE1E5" stroke="#7E858C" strokeWidth=".8" />
     </svg>
   );
 }

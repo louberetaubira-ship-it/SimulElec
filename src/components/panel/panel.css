@@ -67,6 +67,93 @@
 }
 .se-gaine-diam { font-weight: 500; color: #66717F; border-color: #E2E6EB; }
 
+/* ---- pupitre d'alimentation, colonne de gauche ---- */
+.se-alim {
+  position: absolute; top: 0; z-index: 2;
+  background: #DDE1E5; border: 2px solid #9AA3AD; border-radius: 10px; padding: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .18);
+}
+.se-alim .face {
+  position: relative; width: 100%; height: 100%;
+  background: #EFF1F3; border: 1px solid #C3CAD3; border-radius: 6px;
+}
+.se-alim .t {
+  position: absolute; left: 0; right: 0; top: 8px; text-align: center;
+  font: 700 9px/1 var(--font-sans), sans-serif; letter-spacing: .1em;
+  text-transform: uppercase; color: #66717F;
+}
+.se-alim .lbl {
+  position: absolute; left: 0; right: 0; text-align: center;
+  font: 700 7.5px/1 var(--font-mono), monospace; color: #39424E;
+}
+.se-alim .mod {
+  position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 2px;
+  background: #F7F8F9; border: 1px solid #8A929B; border-radius: 3px; padding: 3px;
+}
+.se-alim .mod i {
+  width: 11px; height: 22px; border-radius: 2px; background: #fff; border: 1px solid #C3CAD3;
+  position: relative;
+}
+.se-alim .mod i::after {
+  content: ''; position: absolute; left: 2px; top: 3px; width: 6px; height: 7px;
+  border-radius: 1px; background: #E9524A;
+}
+.se-alim .serrure {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: 18px; height: 18px; border-radius: 50%; background: #E4E7EA; border: 1px solid #8A929B;
+}
+.se-alim .serrure span { position: absolute; left: 8px; top: 3px; width: 2px; height: 7px; background: #39424E; }
+.se-alim .voyant {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: 16px; height: 16px; border-radius: 50%; background: #3FA65C; border: 1px solid #2E7D4F;
+}
+/* une douille de sécurité et son repère : c'est ce qu'on vient chercher ici */
+.se-alim .douille { position: absolute; left: 10px; right: 8px; height: 22px; }
+.se-alim .douille .d {
+  position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%;
+  border: 1.5px solid #5A6169; box-shadow: inset 0 0 0 5px rgba(0, 0, 0, .35);
+}
+.se-alim .douille .r {
+  position: absolute; left: 28px; top: 3px; min-width: 26px; text-align: center;
+  font: 800 10px/16px var(--font-mono), monospace;
+  background: #fff; border: 1px solid #9AA3AD; border-radius: 3px; padding: 0 3px;
+}
+.se-alim .prise {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  width: 34px; height: 24px; border-radius: 4px; background: #fff; border: 1px solid #9AA3AD;
+}
+.se-alim .prise span {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 16px; height: 16px; border-radius: 50%; background: #EFF1F3; border: 1px solid #C3CAD3;
+}
+
+/* ---- bloc « ensemble terre », hors coffret ---- */
+.se-terre {
+  position: absolute; left: 0; width: 560px; z-index: 0;
+  background: #F4F6F8; border: 2px dashed #9AA3AD; border-radius: 12px; overflow: hidden;
+}
+.se-terre > .t {
+  position: absolute; left: 12px; top: 8px; font-size: 9px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: #66717F;
+}
+/* la terre elle-même : un trait franc, puis la hachure du sol */
+.se-terre .sol {
+  position: absolute; left: 0; width: 100%; border-top: 2.5px solid #B9AD98;
+  background:
+    repeating-linear-gradient(-45deg, #CFC4B0 0 1.5px, transparent 1.5px 14px),
+    #F0EBE2;
+}
+.se-terre .sol .niv {
+  position: absolute; left: 12px; top: -14px; font-size: 8.5px; color: #8A929B;
+}
+.se-terre .item { position: absolute; z-index: 3; }
+.se-terre .item img, .se-terre .item svg { width: 100%; height: 100%; object-fit: contain; }
+.se-terre .item .rep {
+  position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%);
+  font: 700 9px/1.4 var(--font-mono), monospace; background: #fff;
+  border: 1px solid #9AA3AD; border-radius: 3px; padding: 0 4px; white-space: nowrap;
+}
+
 /* ---- rails DIN ---- */
 .se-rail {
   position: absolute; height: 28px; border-radius: 1px; z-index: 1;

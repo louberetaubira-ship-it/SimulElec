@@ -15,6 +15,7 @@ import { planLanes, sceneContext, totalLength, wireLength } from '@/lib/scene/ro
 import Panel, { type PanelWire } from '@/components/panel/Panel';
 import { repereLiaison } from '@/lib/sim/reperes';
 import Workspace from '@/components/panel/Workspace';
+import { PANEL_W, sceneOf } from '@/lib/scene/geometry';
 import type { DeviceState } from '@/components/panel/Device';
 
 /* -------------------------------------------------------------- page */
@@ -158,7 +159,8 @@ function PlatineDemo() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 16 }}>
-        <Workspace storageKey="demo">
+        {/* la scène s'allonge quand le TP déclare des gaines ou un ensemble terre */}
+        <Workspace storageKey="demo" contentHeight={sceneOf(tp).panelH} contentWidth={PANEL_W + sceneOf(tp).alimW}>
           <Panel
             tp={tp}
             items={items}

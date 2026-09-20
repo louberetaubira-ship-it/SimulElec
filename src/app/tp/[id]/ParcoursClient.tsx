@@ -80,9 +80,12 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
     return () => { alive = false; };
   }, [tp.id]);
 
-  // boucle de simulation : à partir de la déconsignation
+  // Boucle de simulation : dès que les appareils deviennent manœuvrables, c'est-à-dire
+  // à partir du câblage. Elle ne démarrait qu'à la déconsignation (ETAPE.HORS) : l'élève
+  // qui fermait tout et appuyait sur « marche » pendant les essais voyait KM1 coller
+  // sans que le moteur ne tourne jamais, puisque `tick()` n'était jamais appelé.
   React.useEffect(() => {
-    if (st.stage < ETAPE.HORS) return;
+    if (st.stage < ETAPE.CABLAGE) return;
     const id = setInterval(() => useParcours.getState().advance(0.1), 100);
     return () => clearInterval(id);
   }, [st.stage]);

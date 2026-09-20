@@ -40,6 +40,12 @@ export interface RoutedWire {
 }
 
 export interface WiresProps {
+  /**
+   * Largeur du pupitre d'alimentation à gauche. Le repère des fils s'étend
+   * d'autant vers la GAUCHE : sans cela les cordons qui partent des douilles
+   * sortiraient du cadre et ne seraient pas tracés.
+   */
+  alimW?: number;
   wires: RoutedWire[];
   highlight?: number | null;
   /** Fil sélectionné par l'élève : trait épaissi + halo. */
@@ -120,7 +126,7 @@ function Hit(props: {
 }
 
 function Layer(
-  { over, wires, highlight, selected, pick, onWire, onWireLongPress, panelH = PANEL_H, pied }:
+  { over, wires, highlight, selected, pick, onWire, onWireLongPress, panelH = PANEL_H, pied, alimW = 0 }:
   WiresProps & { over: boolean },
 ) {
   const { down, click, cancel } = useWireGestures(onWire, onWireLongPress);
@@ -135,7 +141,11 @@ function Layer(
   };
 
   return (
-    <svg className={`se-wires${over ? ' over' : ''}${pick ? ' pick' : ''}`} viewBox={`0 0 ${PANEL_W} ${panelH}`}>
+    <svg
+      className={`se-wires${over ? ' over' : ''}${pick ? ' pick' : ''}`}
+      viewBox={`${-alimW} 0 ${PANEL_W + alimW} ${panelH}`}
+      style={alimW ? { left: -alimW, width: PANEL_W + alimW } : undefined}
+    >
       {wires.map((w) => (
         <React.Fragment key={w.index}>
           {segments(w).map((seg) => (

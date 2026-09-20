@@ -9,7 +9,7 @@ import React from 'react';
 import type { InstrumentKind } from '@/lib/types';
 import { INSTRUMENTS } from '@/lib/sim/mesures';
 import { STAGES } from '@/lib/sim/progress';
-import { sceneOf } from '@/lib/scene/geometry';
+import { PANEL_W, sceneOf } from '@/lib/scene/geometry';
 import Panel, { type PanelProps } from '@/components/panel/Panel';
 import { useTpItems } from '@/components/panel/useTpItems';
 import Workspace from '@/components/panel/Workspace';
@@ -69,7 +69,7 @@ export default function TpPanel({ trayEnabled = false, instruments, indicator, a
       <InstrumentTray value={inst} onSelect={setInstrument} disabled={!trayEnabled} />
       <Workspace
         fill={fill}
-        contentHeight={sceneOf(props.tp).panelH}
+        contentHeight={sceneOf(props.tp).panelH} contentWidth={PANEL_W + sceneOf(props.tp).alimW}
         storageKey="tp"
         title={props.tp.title}
         subtitle={`Étape ${stage + 1} / ${STAGES.length} · ${STAGES[stage]}`}

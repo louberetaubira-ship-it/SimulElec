@@ -21,9 +21,9 @@ import {
   checkExpected, instrumentDef, read, type ClampWire, type ReadOut,
 } from '@/lib/sim/mesures';
 import {
-  aideAllowed, AIDE_MAX_EVALUATION, buildEvaluation, buildReport, computeScore, coursForStage,
-  initialState, modeOf, netOfTerminal, nextLiaison, normalizeState, prepQuestions, requiredLiaisons,
-  ETAPE, MAX_STAGE_PREVIEW, stageSatisfied, STAGE_COUNT, STAGES,
+  aideAllowed, AIDE_MAX_EVALUATION, buildEvaluation, buildReport, cablageEtat, computeScore,
+  coursForStage, initialState, modeOf, netOfTerminal, nextLiaison, normalizeState, prepQuestions,
+  requiredLiaisons, ETAPE, MAX_STAGE_PREVIEW, stageSatisfied, STAGE_COUNT, STAGES,
 } from '@/lib/sim/progress';
 import type { CoursId } from '@/lib/data/cours';
 import { DEFAULT_DIPLOMA, fallbackStudent, type Student } from '@/lib/student';
@@ -1121,8 +1121,10 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     button(rep, down = true) {
       if (!down) { set(s => ({ sim: releaseButton(s.sim) })); return; }
-      const { sim, tp } = get();
-      const r = pressButton(sim, tp, rep);
+      const { sim, tp, st } = get();
+      // Même garde que les appareils de la platine : rien ne se manœuvre avant le câblage.
+      if (st.stage < ETAPE.CABLAGE) return;
+      const r = pressButton(sim, tp, rep, cablageEtat(tp, st));
       set({ sim: r.state });
       say(r.message);
       evaluate();
@@ -1140,7 +1142,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     advance(dt) {
       const { sim, tp, st } = get();
-      const r = tick(sim, tp, dt);
+      const r = tick(sim, tp, dt, cablageEtat(tp, st));
       set({ sim: r.state });
       if (r.message) { say(r.message); mlog(r.message); }
       if (st.stage >= ETAPE.HORS) evaluate();
