@@ -337,6 +337,10 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
       contenu: '4 conducteurs 2,5 mm² · U1 V1 W1 et PE', vers: 'moteur M1 de la perceuse', dessert: ['M.'] },
     { id: 'g3', rep: 'G3', x: 256, diam: 16, nature: 'tbts',
       contenu: '2 conducteurs 1,5 mm² de commande', vers: 'interrupteur de position du carter S1', dessert: ['S1.'] },
+    // Le pupitre est un coffret de commande DÉPORTÉ : ses boutons et son voyant
+    // se raccordent par une gaine, comme n'importe quel organe de terrain.
+    { id: 'g4', rep: 'G4', x: 330, diam: 20, nature: 'tbts',
+      contenu: '5 conducteurs 1,5 mm² de commande', vers: 'pupitre · boutons S2 S3 S4 et voyant H1', dessert: ['H1.', 'S2.', 'S3.', 'S4.'] },
   ],
   // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
   // un seul conducteur à desservir.

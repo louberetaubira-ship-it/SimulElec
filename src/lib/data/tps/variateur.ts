@@ -271,6 +271,9 @@ export const TP_VARIATEUR: TpDefinition = {
     // section — il faut du ⌀32. C'est le prix du blindage, et ça se dimensionne.
     { id: 'g2', rep: 'G2', x: 190, diam: 32, nature: 'force',
       contenu: '1 câble blindé 4G1,5 · U/T1 V/T2 W/T3 et PE', vers: 'moteur M1 du convoyeur', dessert: ['M.'] },
+    // Pupitre déporté : arrêt d'urgence, arrêt, marche et les deux voyants.
+    { id: 'g3', rep: 'G3', x: 290, diam: 25, nature: 'tbts',
+      contenu: '7 conducteurs 1,5 mm² de commande', vers: 'pupitre · S0 S1 S2 et voyants H1 H2', dessert: ['H1.', 'H2.', 'S0.', 'S1.', 'S2.'] },
   ],
   // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
   // un seul conducteur à desservir.

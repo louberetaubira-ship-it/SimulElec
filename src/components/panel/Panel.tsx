@@ -9,7 +9,7 @@
 import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
-  GAINE_LEN, GAINE_TETE, PANEL_W, TOIT_TOP, gaineW, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
+  GAINE_LEN, PANEL_W, TOIT_TOP, gaineW, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
   pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
@@ -462,25 +462,29 @@ export default function Panel(props: PanelProps) {
           Le tube est dessiné À SON DIAMÈTRE, à la même échelle que les appareils :
           une ⌀25 se voit plus large qu'une ⌀16, et trois conducteurs y tiennent. */}
       {(tp.gaines ?? []).map((g) => {
+        const pose = ctx.gaines[g.rep];
+        if (!pose) return null;
         const w = gaineW(g.diam);
-        const y = glandOf(geo).y;
+        // Par le haut, le tube monte : son bord supérieur est la sortie, pas l'entrée.
+        const yTube = Math.min(pose.yTube, pose.yOut);
+        const yRep = pose.sens === 1 ? pose.yTube + 18 : pose.yOut + 6;
         return (
           <React.Fragment key={g.id}>
-            <div className="se-gland" style={{ left: g.x, top: y, width: w + 10 }} />
+            <div className="se-gland" style={{ left: g.x, top: pose.yIn, width: w + 10 }} />
             {/* La gaine suit le bouton « ouvrir les couvercles », comme les goulottes :
                 fermée elle cache son contenu, ouverte on voit les conducteurs dedans. */}
             <div
               className={`se-gaine ${g.nature}${cover ? '' : ' open'}`}
-              style={{ left: g.x, top: y + GAINE_TETE, width: w, height: GAINE_LEN }}
+              style={{ left: g.x, top: yTube, width: w, height: GAINE_LEN }}
               title={`${g.rep} · ICTA ⌀${g.diam} · ${g.contenu} → ${g.vers}`}
             />
             {/* Le repère se pose À CÔTÉ du tube, pas dessous : sous le coffret passent
                 déjà les bornes des récepteurs, et deux étiquettes au même endroit ne
                 se lisent ni l'une ni l'autre. */}
-            <div className="se-gaine-rep" style={{ left: g.x + w / 2 + 5, top: y + GAINE_TETE + 18 }}>
+            <div className="se-gaine-rep" style={{ left: g.x + w / 2 + 5, top: yRep }}>
               {g.rep}
             </div>
-            <div className="se-gaine-diam" style={{ left: g.x + w / 2 + 5, top: y + GAINE_TETE + 31 }}>
+            <div className="se-gaine-diam" style={{ left: g.x + w / 2 + 5, top: yRep + 13 }}>
               ⌀{g.diam}
             </div>
           </React.Fragment>

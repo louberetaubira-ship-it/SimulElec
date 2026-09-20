@@ -214,6 +214,9 @@ export const TP_AUTOMATE_M221: TpDefinition = {
       contenu: '5 conducteurs 2,5 mm² · L1 L2 L3 N PE', vers: 'tableau général, par le bas', dessert: ['RES.'] },
     { id: 'g2', rep: 'G2', x: 170, diam: 20, nature: 'force',
       contenu: '4 conducteurs 2,5 mm² · U1 V1 W1 et PE', vers: 'moteur M1 du convoyeur', dessert: ['M.'] },
+    // Pupitre déporté : les deux boutons et les deux voyants du coffret.
+    { id: 'g3', rep: 'G3', x: 256, diam: 20, nature: 'tbts',
+      contenu: '6 conducteurs 1,5 mm² de commande', vers: 'pupitre · boutons S1 S2 et voyants H1 H2', dessert: ['H1.', 'H2.', 'S1.', 'S2.'] },
   ],
   // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
   // un seul conducteur à desservir.

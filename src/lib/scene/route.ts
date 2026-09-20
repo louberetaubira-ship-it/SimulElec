@@ -14,7 +14,7 @@ import type {
   AnnexKind, AnnexItem, CatalogueItem, GaineDef, Liaison, Slot, TerminalDef, TpDefinition,
 } from '@/lib/types';
 import {
-  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, GAINE_LEN, GAINE_TETE, PX_MM, SR, ST,
+  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, GAINE_LEN, GAINE_TETE, PX_MM, SR, ST, TOIT_TOP,
   gaineW, glandOf, mt2Of, mtermOf, pupitreOf, pupitreTerminals, recvBoxOf, resOf, sceneOf,
   slotGeom, tbOf, term, type Box, type Point, type SceneGeom,
 } from './geometry';
@@ -50,10 +50,12 @@ export interface GainePose {
   x: number;
   /** Diamètre extérieur du conduit (mm). */
   diam: number;
-  /** y du presse-étoupe, du haut du tube, et de sa sortie. */
+  /** y du presse-étoupe (la paroi percée), du haut du tube, et de sa sortie. */
   yIn: number;
   yTube: number;
   yOut: number;
+  /** +1 quand la gaine sort par le bas, −1 quand elle sort par le haut. */
+  sens: 1 | -1;
 }
 
 /** Rang d'un conducteur DANS sa gaine : il donne son couloir dans le tube. */
@@ -216,23 +218,45 @@ export function laneDe(g: GainePose, r: GaineRang): number {
 
 /** Place les gaines d'un TP et range chaque liaison dans la sienne. */
 export function poseGaines(
-  tp: Pick<TpDefinition, 'gaines' | 'liaisons'>,
+  tp: Pick<TpDefinition, 'gaines' | 'liaisons' | 'annex'>,
   geo: SceneGeom,
 ): { gaines: Record<string, GainePose>; rangs: Record<string, GaineRang> } {
   const gaines: Record<string, GainePose> = {};
   const rangs: Record<string, GaineRang> = {};
   if (!tp.gaines?.length) return { gaines, rangs };
-  const yIn = glandOf(geo).y;
+  const bas = glandOf(geo).y;
   for (const g of tp.gaines) {
+    const sens: 1 | -1 = g.cote === 'haut' ? -1 : 1;
+    // Par le haut, la paroi percée est le dessus de l'armoire : sur la scène PV
+    // le coffret commence sous le bloc champ (`TOIT_TOP`), pas à zéro.
+    const yIn = sens === 1 ? bas : (tp.annex === 'roof' ? TOIT_TOP : 0) + 2;
     gaines[g.rep] = {
-      rep: g.rep, x: g.x, diam: g.diam,
-      yIn, yTube: yIn + GAINE_TETE, yOut: yIn + GAINE_TETE + GAINE_LEN,
+      rep: g.rep, x: g.x, diam: g.diam, sens,
+      yIn, yTube: yIn + sens * GAINE_TETE, yOut: yIn + sens * (GAINE_TETE + GAINE_LEN),
     };
   }
+  return { gaines, rangs };
+}
+
+/**
+ * Range dans chaque gaine les conducteurs qui la traversent RÉELLEMENT.
+ *
+ * Il faut le contexte pour cela : une liaison entre deux bornes extérieures — deux
+ * modules d'une chaîne photovoltaïque, par exemple — touche la même borne que
+ * celle qui entre dans le coffret, mais elle ne franchit aucune paroi. Lui donner
+ * un couloir décalerait tous les autres.
+ */
+export function rangerGaines(
+  tp: Pick<TpDefinition, 'gaines' | 'liaisons'>,
+  ctx: SceneCtx,
+): Record<string, GaineRang> {
+  const rangs: Record<string, GaineRang> = {};
   const parGaine: Record<string, string[]> = {};
   for (const l of tp.liaisons) {
     const rep = gaineDeLiaison(tp.gaines, l);
-    if (!rep || !gaines[rep]) continue;
+    if (!rep || !ctx.gaines[rep]) continue;
+    const A = tpos(ctx, l.a), B = tpos(ctx, l.b);
+    if (!A || !B || Boolean(A.ext) === Boolean(B.ext)) continue;
     (parGaine[rep] ??= []).push(`${l.a}>${l.b}`);
   }
   for (const [rep, cles] of Object.entries(parGaine)) {
@@ -243,7 +267,7 @@ export function poseGaines(
       rangs[`${b}>${a}`] = r;
     });
   }
-  return { gaines, rangs };
+  return rangs;
 }
 
 /** Construit le contexte de scène à partir d'un TP et de son catalogue résolu. */
@@ -256,8 +280,12 @@ export function sceneContext(tp: TpDefinition, items: Record<string, CatalogueIt
     slots.push({ ...g, id: s.id, key: s.key, rail: s.rail, terminals: item.terminals, slot: s, item });
   }
   const geo = sceneOf(tp);
-  const { gaines, rangs } = poseGaines(tp, geo);
-  return { slots, annex: tp.annex, extra: externalPoints(tp, geo, gaines, rangs), geo, gaines, rangs };
+  const { gaines } = poseGaines(tp, geo);
+  // Deux passes : il faut un contexte pour savoir quelles liaisons traversent
+  // vraiment la paroi, et il faut leurs rangs pour placer les bornes réseau.
+  const base: SceneCtx = { slots, annex: tp.annex, extra: externalPoints(tp, geo), geo, gaines, rangs: {} };
+  const rangs = rangerGaines(tp, base);
+  return { ...base, extra: externalPoints(tp, geo, gaines, rangs), rangs };
 }
 
 /* ------------------------------------------------------------- position */
@@ -367,8 +395,11 @@ function gaineRoute(ctx: SceneCtx, a: string, b: string, A: TPos, B: TPos): Pt[]
   if (aExt === bExt) return null;
   const P = aExt ? B : A, E = aExt ? A : B;
   const lane = laneDe(g, r);
-  const yEntree = g.yIn - 34 + r.i * 5;
-  const ySortie = g.yOut + 8 + r.i * 5;
+  // Le coude d'entrée s'éloigne de la paroi quand le rang monte : s'il s'en
+  // approchait, le dernier conducteur franchirait la paroi à l'aplomb de SA borne
+  // au lieu de l'axe de la gaine — exactement ce qu'on cherche à supprimer.
+  const yEntree = g.yIn - g.sens * (24 + r.i * 5);
+  const ySortie = g.yOut + g.sens * (8 + r.i * 5);
   const pts: Pt[] = [
     [P.x, P.y], [P.x, yEntree], [lane, yEntree],
     [lane, ySortie], [E.x, ySortie], [E.x, E.y],
@@ -539,6 +570,7 @@ export function route(ctx: SceneCtx, plan: LanePlan, a: string, b: string, idx =
   if (!r) return null;
   if (r.length < 3) return r.map(([x, y]) => ({ x, y }));
   const dy = ctx.geo.ducts.map((d) => (d[0] + d[1]) / 2), vx = DUCT_XS;
+  const enGaine = Boolean(ctx.rangs[`${a}>${b}`]);
   const out: Pt[] = r.map((p) => [p[0], p[1]]);
   for (let k = 0; k < r.length - 1; k++) {
     const p = r[k], q = r[k + 1];
@@ -547,7 +579,9 @@ export function route(ctx: SceneCtx, plan: LanePlan, a: string, b: string, idx =
     if (Math.abs(p[1] - q[1]) < 0.01 && L.y != null && dy.some((y) => Math.abs(y - p[1]) < 0.5)) {
       out[k][1] = L.y; out[k + 1][1] = L.y;
     }
-    if (Math.abs(p[0] - q[0]) < 0.01 && L.x != null && vx.some((x) => Math.abs(x - p[0]) < 0.5)) {
+    // Un conducteur en gaine a déjà son couloir dans le tube : le ranger en nappe
+    // le sortirait du conduit dès que l'axe tombe sur une goulotte verticale.
+    if (!enGaine && Math.abs(p[0] - q[0]) < 0.01 && L.x != null && vx.some((x) => Math.abs(x - p[0]) < 0.5)) {
       out[k][0] = L.x; out[k + 1][0] = L.x;
     }
   }

@@ -303,6 +303,9 @@ export const TP_PORTAIL: TpDefinition = {
       contenu: '2 conducteurs 1,5 mm² de commande', vers: 'fin de course d’ouverture FCO', dessert: ['FCO.'] },
     { id: 'g4', rep: 'G4', x: 312, diam: 16, nature: 'tbts',
       contenu: '2 conducteurs 1,5 mm² de commande', vers: 'fin de course de fermeture FCF', dessert: ['FCF.'] },
+    // Pupitre déporté : arrêt, les deux boutons de sens et le voyant.
+    { id: 'g5', rep: 'G5', x: 356, diam: 25, nature: 'tbts',
+      contenu: '8 conducteurs 1,5 mm² de commande', vers: 'pupitre · S1 S2 S3 et voyant H1', dessert: ['H1.', 'S1.', 'S2.', 'S3.'] },
   ],
   // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
   // un seul conducteur à desservir.

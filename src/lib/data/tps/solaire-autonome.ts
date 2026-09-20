@@ -474,6 +474,14 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   gaines: [
     { id: 'g1', rep: 'G1', x: 150, diam: 32, nature: 'force',
       contenu: '2 conducteurs 25 mm² · B+ et B−', vers: 'parc batteries 24 V, sous le coffret', dessert: ['BT1.', 'BT2.', 'BT3.', 'BT4.'] },
+    // Le champ descend de la toiture par un fourreau de façade et entre par la
+    // sous-face, comme tout le reste : un conducteur n'entre pas dans un coffret
+    // autrement que par un presse-étoupe, fût-il du continu.
+    { id: 'g2', rep: 'G2', x: 392, diam: 25, nature: 'force', cote: 'haut',
+      contenu: '2 conducteurs 6 mm² · DC+ et DC− du champ', vers: 'boîte de jonction JB · 12 modules', dessert: ['JB.P', 'JB.M'] },
+    // `dessert` ne vise que les DEUX bornes qui franchissent la paroi : les
+    // liaisons des chaînes vers les fusibles F1..F4 restent en toiture, elles
+    // n'entrent pas dans le coffret et n'ont donc pas de place dans la gaine.
   ],
   // Tout ce qui sort du coffret passe par une gaine : la goulotte de pied n'a plus
   // un seul conducteur à desservir.

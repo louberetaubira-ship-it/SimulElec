@@ -200,12 +200,24 @@ export interface GaineDef {
   /**
    * Bornes extérieures desservies, par PRÉFIXE : `['RES.']`, `['M.']`, `['FCO.']`.
    *
+   * Ne viser que les bornes qui FRANCHISSENT la paroi : une borne citée ici prend
+   * un couloir dans le tube, même si sa liaison reste dehors — le champ PV en
+   * donne l'exemple, où seules `JB.P` et `JB.M` entrent dans le coffret.
+   *
    * Évite de marquer une à une les dizaines de liaisons d'un TP : toute liaison
    * qui touche une de ces bornes emprunte cette gaine. Un `Liaison.gaine` écrit
    * à la main reste prioritaire, pour les cas où deux gaines desservent le même
    * appareil (le bus et la puissance d'un même actionneur, par exemple).
    */
   dessert?: string[];
+  /**
+   * Face du coffret percée : sous-face (défaut) ou dessus.
+   *
+   * Presque tout entre par le bas. Le champ photovoltaïque, lui, descend de la
+   * toiture : sa gaine entre par le HAUT. Le faire passer par la sous-face
+   * obligerait le conducteur à descendre sous le coffret pour remonter au toit.
+   */
+  cote?: 'bas' | 'haut';
 }
 
 /**
