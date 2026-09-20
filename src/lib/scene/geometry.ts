@@ -281,11 +281,15 @@ export function mt2Of(geo: Pick<SceneGeom, 'recvY'>): Record<string, Point> {
  *
  * `mono` force l'arrivée monophasée sur une scène qui ne l'est pas d'office —
  * un tableau d'étage tertiaire, par exemple (voir `TpDefinition.arriveeMono`).
+ * `sansPe` retire le presse-étoupe PE : en régime TT la terre vient du piquet de
+ * l'usager, pas du réseau (voir `TpDefinition.sansPeReseau`).
  */
-export function resIds(scene: SceneKind, mono = false): string[] {
-  return mono || scene === 'pv' || scene === 'hab'
+export function resIds(scene: SceneKind, mono = false, sansPe = false): string[] {
+  const ids = mono || scene === 'pv' || scene === 'hab'
     ? ['RES.L1', 'RES.N', 'RES.PE']
     : Object.keys(RES);
+  // Régime TT : le distributeur n'amène pas de PE (voir `TpDefinition.sansPeReseau`).
+  return sansPe ? ids.filter((id) => id !== 'RES.PE') : ids;
 }
 /** Étiquette d'une borne réseau (L au lieu de L1 en monophasé). */
 export function resLabel(id: string, scene: SceneKind): string {

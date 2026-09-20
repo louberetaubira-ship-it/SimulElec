@@ -53,7 +53,7 @@ export interface InstrumentDef {
 export const INSTRUMENTS: InstrumentDef[] = [
   { id: 'mm', name: 'Multimètre TRMS', libKey: 'l_appareil_multimetre_rms', dials: ['OFF', 'V~', 'V⎓', 'Ω', '•))', 'mV', 'A~'] },
   { id: 'clamp', name: 'Pince ampèremétrique', libKey: 'l_appareil_pince_ac', dials: ['OFF', 'A~', 'V~', 'Ω', 'Hz'] },
-  { id: 'ctrl', name: 'Contrôleur d\'installation', libKey: 'l_appareil_controleur_d_installation_1', dials: ['OFF', 'RISO 500 V', 'RPE 200 mA', 'ZS boucle', 'DDR ΔT', 'V~'] },
+  { id: 'ctrl', name: 'Contrôleur d\'installation', libKey: 'l_appareil_controleur_d_installation_1', dials: ['OFF', 'RISO 500 V', 'RPE 200 mA', 'RT 3 points', 'ZS boucle', 'DDR ΔT', 'V~'] },
   { id: 'vat', name: 'VAT · vérificateur d\'absence de tension', libKey: null, dials: ['test'] },
   { id: 'tach', name: 'Tachymètre optique', libKey: null, dials: ['tr/min'] },
 ];
@@ -269,9 +269,24 @@ export function ohms(
   // (MEGA fondu, alimentation B+ de l'onduleur coupée) diagnosticables à la mesure.
   if (a && b && liaisonCoupee(tp, sim.fault, a, b)) return 'OL';
 
+  // Résistance PARTICULIÈRE déclarée par le TP : une prise de terre ne vaut pas
+  // 0,2 Ω comme un fil, elle vaut ce que vaut le sol. Déclarée borne à borne, elle
+  // passe avant les valeurs par défaut (voir `TpDefinition.resistances`).
+  const rDecl = resistanceDeclaree(tp, a, b);
+  if (rDecl != null) return rDecl;
+
   if (A.net === B.net && A.net === 'PE') return 0.3;
   if (A.net === B.net) return 0.2;
   return 'OL';
+}
+
+/** Résistance déclarée par le TP entre deux bornes, dans un sens ou dans l'autre. */
+function resistanceDeclaree(
+  tp: Pick<TpDefinition, 'resistances'>, a: string | null, b: string | null,
+): number | null {
+  const table = tp.resistances;
+  if (!table || !a || !b) return null;
+  return table[`${a}|${b}`] ?? table[`${b}|${a}`] ?? null;
 }
 
 /* ------------------------------------------------------------- lecture */
@@ -384,6 +399,17 @@ export function read(
       // Continuité sonore : l'appareil bipe tant qu'il « voit » une liaison (faible résistance).
       beep: dial === '•))',
     };
+  }
+
+  // Résistance de la PRISE DE TERRE, méthode des trois points. Ce n'est pas la
+  // continuité d'un conducteur : c'est ce que vaut le sol, et le TP la déclare
+  // (`resistances`). La barrette de coupure doit être ouverte — si elle ne l'est
+  // pas, l'électrode est en parallèle avec toutes les masses et la lecture ment.
+  if (dial === 'RT 3 points') {
+    const o = ohms(tp, sim, r, k, poses, reseau);
+    if (o === 'ERR') return { value: null, display: 'ERR ⚡', unit: 'tension présente !', bad: true };
+    if (o === 'OL' || o == null) return { value: null, display: 'OL', unit: 'Ω · pointes hors prise de terre' };
+    return { value: o, display: fr(o, 1), unit: 'Ω · prise de terre' };
   }
 
   if (dial === 'RISO 500 V') {

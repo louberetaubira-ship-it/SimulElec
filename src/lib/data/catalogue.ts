@@ -399,14 +399,17 @@ export const CATALOGUE: CatalogueItem[] = [
     dims: { largeur: 72, hauteur: 85, profondeur: 78.5, source: 'norme' },
     terminals: [
       { id: 'L', fx: 0.22, fy: 0.07 }, { id: 'N', fx: 0.5, fy: 0.07 }, { id: 'PE', fx: 0.78, fy: 0.07 },
-      { id: '+', fx: 0.35, fy: 0.93 }, { id: '−', fx: 0.65, fy: 0.93 },
+      // + et − tombent sur les deux moitiés du connecteur de bus dessiné en bas
+      // de l'appareil (rouge à gauche, noir à droite) : le fil arrive sur le trou.
+      { id: '+', fx: 0.392, fy: 0.91 }, { id: '−', fx: 0.608, fy: 0.91 },
     ],
   }),
   vector({
     key: 'knxusb', name: 'Interface USB KNX REG-K', ref: 'MTN681829', brand: 'Schneider',
     kind: 'dc', family: 'KNX', poles: 2, w: 52, h: 123,
     dims: { largeur: 36, hauteur: 85, profondeur: 78.5, source: 'norme' },
-    terminals: [{ id: '+', fx: 0.3, fy: 0.07 }, { id: '−', fx: 0.7, fy: 0.07 }],
+    // Connecteur de bus en haut : + sur la moitié rouge, − sur la moitié noire.
+    terminals: [{ id: '+', fx: 0.313, fy: 0.069 }, { id: '−', fx: 0.688, fy: 0.069 }],
   }),
   vector({
     key: 'knxact', name: 'Actionneur de commutation KNX REG-K 2 × 230 V / 10 A', ref: 'MTN649202', brand: 'Schneider',
@@ -414,7 +417,7 @@ export const CATALOGUE: CatalogueItem[] = [
     dims: { largeur: 72, hauteur: 85, profondeur: 78.5, source: 'norme' },
     terminals: [
       { id: 'L', fx: 0.2, fy: 0.07 }, { id: '1', fx: 0.5, fy: 0.07 }, { id: '2', fx: 0.8, fy: 0.07 },
-      { id: '+', fx: 0.35, fy: 0.93 }, { id: '−', fx: 0.65, fy: 0.93 },
+      { id: '+', fx: 0.392, fy: 0.91 }, { id: '−', fx: 0.608, fy: 0.91 },
     ],
   }),
   // Posé en ANNEXE (mur du local) : ses deux bornes de bus sont X1 (+) et X2 (−),
@@ -423,6 +426,26 @@ export const CATALOGUE: CatalogueItem[] = [
     key: 'knxbp', name: 'Bouton-poussoir Unica KNX 2 touches · 4 poussoirs', ref: 'MGU3.531.18', brand: 'Schneider',
     kind: 'button', family: 'KNX', poles: 2, w: 60, h: 60,
     dims: { largeur: 86, hauteur: 86, profondeur: 32, source: 'norme' },
+    terminals: [{ id: 'X1', fx: 1, fy: 0.35 }, { id: 'X2', fx: 1, fy: 0.7 }],
+    door: true,
+  }),
+  // ---- Ensemble terre (hors tableau) ----
+  //
+  // Ni l'un ni l'autre ne se pose sur un rail : ce sont des éléments d'annexe,
+  // dans le local. Leurs bornes suivent la convention des annexes — X1 puis X2 sur
+  // le bord droit (voir `annexTerminals`). Le piquet n'en utilise qu'une : rien ne
+  // repart d'une prise de terre.
+  vector({
+    key: 'barrcoupure', name: 'Barrette de coupure · borne principale de terre', ref: 'BPT-16',
+    kind: 'terminal', family: 'Terre', poles: 1, w: 84, h: 40,
+    dims: { largeur: 58, hauteur: 28, profondeur: 22, source: 'norme' },
+    terminals: [{ id: 'X1', fx: 1, fy: 0.35 }, { id: 'X2', fx: 1, fy: 0.7 }],
+    door: true,
+  }),
+  vector({
+    key: 'piquet', name: 'Piquet de terre acier cuivré ⌀ 16 · 1 m', ref: 'PIQ-16-1000',
+    kind: 'terminal', family: 'Terre', poles: 1, w: 26, h: 96,
+    dims: { largeur: 16, hauteur: 1000, profondeur: 16, source: 'norme' },
     terminals: [{ id: 'X1', fx: 1, fy: 0.35 }, { id: 'X2', fx: 1, fy: 0.7 }],
     door: true,
   }),

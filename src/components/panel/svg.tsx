@@ -473,6 +473,36 @@ export function CombinerSvg() {
  */
 
 /** Alimentation de bus KNX REG-K 320 mA (MTN684032) : 230 V AC en haut, bus 29 V DC en bas. */
+/**
+ * Connecteur de bus KNX : le bloc enfichable ROUGE (+) et NOIR (−) à quatre trous.
+ *
+ * C'est l'objet que l'élève a dans la main au banc. Le dessiner comme deux
+ * rectangles gris anonymes, identiques aux bornes 230 V, obligeait à traduire
+ * l'écran vers l'appareil ; avec le connecteur réel, il n'y a plus rien à
+ * traduire — on cherche le rouge, on trouve le (+).
+ */
+function BusConn({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  const hw = w / 2 - 0.5;
+  const r = Math.min(h * 0.155, 1.9);
+  const trous = (x0: number, fill: string) => (
+    <g fill={fill}>
+      {[0, 1, 2].map((i) => (
+        <circle key={i} cx={x0 + hw * (0.22 + i * 0.28)} cy={y + h * 0.33} r={r} />
+      ))}
+      <circle cx={x0 + hw * 0.5} cy={y + h * 0.74} r={r} />
+    </g>
+  );
+  return (
+    <g>
+      <rect x={x - 1.5} y={y - 1.5} width={w + 3} height={h + 3} rx="2" fill="#E7EAEE" stroke="#9AA3AC" strokeWidth=".7" />
+      <rect x={x} y={y} width={hw} height={h} rx="1.5" fill="#C62828" stroke="#8E1B16" strokeWidth=".7" />
+      <rect x={x + hw + 1} y={y} width={hw} height={h} rx="1.5" fill="#26292E" stroke="#111" strokeWidth=".7" />
+      {trous(x, '#4A100E')}
+      {trous(x + hw + 1, '#000')}
+    </g>
+  );
+}
+
 export function KnxAlimSvg() {
   const gid = React.useId();
   return (
@@ -496,9 +526,8 @@ export function KnxAlimSvg() {
       {/* bornes : 230 V en haut, bus en bas (rouge / noir comme sur la platine) */}
       <g fill="#3A4047"><rect x="17" y="5" width="12" height="8" rx="1.5" /><rect x="46" y="5" width="12" height="8" rx="1.5" /></g>
       <rect x="75" y="5" width="12" height="8" rx="1.5" fill="#2E7D32" />
-      <rect x="30" y="110" width="12" height="8" rx="1.5" fill="#C62828" />
-      <rect x="62" y="110" width="12" height="8" rx="1.5" fill="#20262D" />
-      <text x="52" y="103" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#66717F">BUS 29 V DC</text>
+      <BusConn x={30} y={104} w={44} h={16} />
+      <text x="52" y="100" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#66717F">BUS 29 V DC</text>
     </svg>
   );
 }
@@ -517,9 +546,8 @@ export function KnxUsbSvg() {
       <rect x="18" y="59" width="16" height="12" rx="1" fill="#4A5058" />
       <circle cx="26" cy="86" r="3" fill="#3DFF7A" />
       <text x="26" y="101" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#66717F">MTN681829</text>
-      {/* bornes de bus en haut */}
-      <rect x="10" y="5" width="11" height="8" rx="1.5" fill="#C62828" />
-      <rect x="31" y="5" width="11" height="8" rx="1.5" fill="#20262D" />
+      {/* connecteur de bus en haut */}
+      <BusConn x={7} y={2} w={38} h={13} />
     </svg>
   );
 }
@@ -556,8 +584,7 @@ export function KnxActSvg() {
       ))}
       {/* bornes : L commun et deux sorties en haut, bus en bas */}
       <g fill="#3A4047"><rect x="15" y="5" width="12" height="8" rx="1.5" /><rect x="46" y="5" width="12" height="8" rx="1.5" /><rect x="77" y="5" width="12" height="8" rx="1.5" /></g>
-      <rect x="30" y="110" width="12" height="8" rx="1.5" fill="#C62828" />
-      <rect x="62" y="110" width="12" height="8" rx="1.5" fill="#20262D" />
+      <BusConn x={30} y={104} w={44} h={16} />
     </svg>
   );
 }
@@ -582,6 +609,67 @@ export function KnxBpSvg() {
           <circle cx={19.5 + c * 23} cy="30" r="1.6" fill="#3FA65C" />
         </g>
       ))}
+      {/* Connecteur de bus AU DOS du mécanisme : il affleure le bord droit, aux
+          hauteurs exactes des bornes X1 (+) et X2 (−) que déclare `annexTerminals`.
+          Sans lui, l'élève raccordait deux fils sur un appareil sans bornes visibles. */}
+      <g>
+        <rect x="51" y="16" width="9" height="11" rx="1.5" fill="#C62828" stroke="#8E1B16" strokeWidth=".7" />
+        <circle cx="55.5" cy="19.5" r="1.3" fill="#4A100E" /><circle cx="55.5" cy="23.5" r="1.3" fill="#4A100E" />
+        <rect x="51" y="37" width="9" height="11" rx="1.5" fill="#26292E" stroke="#111" strokeWidth=".7" />
+        <circle cx="55.5" cy="40.5" r="1.3" fill="#000" /><circle cx="55.5" cy="44.5" r="1.3" fill="#000" />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Barrette de coupure (borne principale de terre).
+ *
+ * Deux bornes reliées par une barrette DÉMONTABLE. Fermée, c'est un simple
+ * conducteur ; ouverte, elle isole la prise de terre du reste de l'installation
+ * — la seule façon de mesurer sa résistance sans la fausser par les masses. Le
+ * dessin la montre fermée, position d'exploitation ; c'est l'oublier ouverte
+ * après un contrôle qui laisse une installation sans terre, et c'est la panne
+ * que ce TP fait chercher.
+ */
+export function BarrCoupureSvg() {
+  return (
+    <svg viewBox="0 0 84 40" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="82" height="38" rx="4" fill="#F4F5F7" stroke="#8A929B" />
+      <rect x="6" y="6" width="72" height="28" rx="3" fill="#FFFFFF" stroke="#C3CAD3" />
+      {/* les deux bornes et la barrette qui les ponte */}
+      <rect x="18" y="16" width="48" height="7" rx="2" fill="#B9BEC4" stroke="#7E858C" strokeWidth=".8" />
+      {[20, 64].map((cx) => (
+        <g key={cx}>
+          <circle cx={cx} cy="19.5" r="6" fill="#DDE1E5" stroke="#7E858C" strokeWidth="1" />
+          <path d={`M${cx - 3.4} 19.5h6.8`} stroke="#5A6169" strokeWidth="1.4" />
+        </g>
+      ))}
+      <text x="42" y="12" textAnchor="middle" fontFamily={SANS} fontSize="4.6" fontWeight="700" fill="#3A4047">BARRETTE DE COUPURE</text>
+      <text x="42" y="32" textAnchor="middle" fontFamily={MONO} fontSize="4.2" fill="#66717F">borne principale de terre</text>
+    </svg>
+  );
+}
+
+/**
+ * Piquet de terre — acier cuivré ⌀ 16, enfoncé sur 1 m au minimum.
+ *
+ * C'est la prise de terre elle-même. Sa résistance ne se décrète pas : elle
+ * dépend du sol, et c'est pour cela qu'on la mesure.
+ */
+export function PiquetSvg() {
+  return (
+    <svg viewBox="0 0 26 96" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      {/* le sol, hachuré : le piquet est le seul appareil du TP qui est enterré */}
+      <rect x="0" y="14" width="26" height="82" fill="#F0EBE2" />
+      <path d="M0 14H26" stroke="#B9AD98" strokeWidth="1.4" />
+      {[0, 6, 12, 18, 24].map((x) => (
+        <path key={x} d={`M${x} 14l-5 6`} stroke="#CFC4B0" strokeWidth="1" />
+      ))}
+      <rect x="9.5" y="8" width="7" height="76" rx="2" fill="#B87333" stroke="#8A5A26" strokeWidth=".8" />
+      <path d="M9.5 84l3.5 8 3.5-8z" fill="#8A5A26" />
+      {/* cosse de raccordement du conducteur de terre, en tête */}
+      <rect x="6" y="4" width="14" height="6" rx="2" fill="#DDE1E5" stroke="#7E858C" strokeWidth=".8" />
     </svg>
   );
 }
@@ -604,6 +692,8 @@ export function svgForKey(key: string, running = false): React.ReactNode | null 
     case 'knxusb': return <KnxUsbSvg />;
     case 'knxact': return <KnxActSvg />;
     case 'knxbp': return <KnxBpSvg />;
+    case 'barrcoupure': return <BarrCoupureSvg />;
+    case 'piquet': return <PiquetSvg />;
     case 'gk1es': return <Gk1Svg />;
     case 'lc1d50': return <Lc1D50Svg />;
     case 'lrd3357': return <Lrd3357Svg />;

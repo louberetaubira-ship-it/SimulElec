@@ -234,21 +234,30 @@ export default function Panel(props: PanelProps) {
     }
     return out;
   }, [recvItems, geo]);
-  /** Presse-étoupes en bas de l'armoire : un par descente vers un récepteur. */
+  /**
+   * Presse-étoupes en bas de l'armoire : un par descente vers un récepteur.
+   *
+   * Un TP qui DÉCLARE ses gaines prend la main : ce ne sont plus des sorties
+   * déduites du dessin mais des gaines repérées, avec leur diamètre et leur
+   * contenu. On ne dessine pas les deux, sous peine de presse-étoupes doublés.
+   */
   const glands: number[] = React.useMemo(() => {
+    if (tp.gaines?.length) return [];
     const xs = new Set<number>(recvItems.length ? recvItems.flatMap((it) => {
       const b = recvBoxOf(geo, it);
       return [recvGlandX(b.x + b.w * 0.34), recvGlandX(b.x + b.w * 0.66)];
     }) : []);
     if (tp.hasMotor) xs.add(glandOf(geo).x);
     return Array.from(xs);
-  }, [recvItems, tp.hasMotor, geo]);
+  }, [recvItems, tp.hasMotor, tp.gaines, geo]);
 
   // Installation autonome (off-grid) : pas d'arrivée réseau. Le TP le déclare via
   // `arriveeReseau: false` ; on n'affiche alors ni presse-étoupes réseau ni libellé.
   const netTerminals: TerminalMark[] = React.useMemo(
-    () => (tp.arriveeReseau === false ? [] : resIds(tp.scene, tp.arriveeMono).map((id) => ({ id, pos: resOf(geo)[id] }))),
-    [tp.scene, tp.arriveeReseau, geo],
+    () => (tp.arriveeReseau === false
+      ? []
+      : resIds(tp.scene, tp.arriveeMono, tp.sansPeReseau).map((id) => ({ id, pos: resOf(geo)[id] }))),
+    [tp.scene, tp.arriveeReseau, tp.arriveeMono, tp.sansPeReseau, geo],
   );
 
   /* ------------------------------------------------- arbitrage du clic sur les bornes
@@ -440,6 +449,27 @@ export default function Panel(props: PanelProps) {
       {glands.length ? (
         <div className="se-res" style={{ left: 500, top: glandOf(geo).y + 12 }}>
           presse-étoupe{glands.length > 1 ? 's' : ''}
+        </div>
+      ) : null}
+
+      {/* gaines déclarées : presse-étoupe en sous-face, tube annelé et repère */}
+      {(tp.gaines ?? []).map((g) => (
+        <React.Fragment key={g.id}>
+          <div className="se-gland" style={{ left: g.x, top: glandOf(geo).y }} />
+          <div
+            className={`se-gaine ${g.nature}`}
+            style={{ left: g.x, top: glandOf(geo).y + 9 }}
+            title={`${g.rep} · ${g.diam} · ${g.contenu} → ${g.vers}`}
+          />
+          {/* Le repère se pose À CÔTÉ du tube, pas dessous : sous le coffret passent
+              déjà les bornes des récepteurs, et deux étiquettes au même endroit ne
+              se lisent ni l'une ni l'autre. */}
+          <div className="se-gaine-rep" style={{ left: g.x + 9, top: glandOf(geo).y + 12 }}>{g.rep}</div>
+        </React.Fragment>
+      ))}
+      {tp.gaines?.length ? (
+        <div className="se-res" style={{ left: 500, top: glandOf(geo).y + 12 }}>
+          {tp.gaines.length} gaines
         </div>
       ) : null}
 

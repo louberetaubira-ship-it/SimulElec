@@ -36,8 +36,17 @@
  *    simulateur reproduit — l'élève mesure ce qu'il mesurerait au banc en
  *    basculant les deux leviers verts.
  */
-import type { Slot, TpDefinition } from '@/lib/types';
+import type { Liaison, Slot, TpDefinition } from '@/lib/types';
 import { BASE_TESTS, L } from './common';
+
+/**
+ * Marque une liaison comme cheminant dans une gaine déclarée (« G3 »).
+ *
+ * Le tracé du fil ne change pas : c'est le dossier qui gagne un repère. Mais
+ * c'est ce repère qui permet de poser la question qui compte — pourquoi le bus
+ * n'est-il pas dans la même gaine que le départ d'éclairage ?
+ */
+const g = (l: Liaison, gaine: string): Liaison => ({ ...l, gaine });
 
 /**
  * Bornier X1 du tableau tertiaire : arrivée (L · N · PE) puis les deux départs
@@ -84,6 +93,30 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
   // tertiaire sort cinq presse-étoupes L1 · L2 · L3 · N · PE, dont trois ne sont
   // jamais câblés — et l'élève pose ses pointes de VAT sur une borne inutile.
   arriveeMono: true,
+  // Régime TT. Le distributeur amène la phase et le neutre, rien d'autre : la
+  // terre est celle de l'usager — piquet, conducteur de terre, barrette de
+  // coupure. C'est ce qui donne son sens au différentiel 30 mA de tête, et c'est
+  // ce qui rend la résistance de la prise de terre digne d'être mesurée.
+  sansPeReseau: true,
+  /**
+   * Gaines sortant du coffret. Cinq sorties, et une règle : le bus KNX est un
+   * circuit TBTS, il a SA gaine. La faire partager au 3G1,5 d'un hublot est
+   * l'erreur que la question de préparation fait écarter.
+   */
+  gaines: [
+    { id: 'g1', rep: 'G1', x: 84, diam: 'ICTA ⌀20', nature: 'force', contenu: 'L1 et N · 2 × 6 mm²', vers: 'colonne montante de l’immeuble' },
+    { id: 'g2', rep: 'G2', x: 144, diam: 'ICTA ⌀20', nature: 'pe', contenu: 'PE · 1 × 16 mm² vert-jaune', vers: 'barrette de coupure BC1, puis piquet' },
+    { id: 'g3', rep: 'G3', x: 204, diam: 'ICTA ⌀16', nature: 'tbts', contenu: '1 paire torsadée KNX rouge / noir', vers: 'poussoir BP1 · circulation' },
+    { id: 'g4', rep: 'G4', x: 264, diam: 'ICTA ⌀20', nature: 'force', contenu: '3G1,5 · L1 coupée, N, PE', vers: 'hublot E1 · accueil' },
+    { id: 'g5', rep: 'G5', x: 324, diam: 'ICTA ⌀20', nature: 'force', contenu: '3G1,5 · L2 coupée, N, PE', vers: 'hublot E2 · salle de réunion' },
+  ],
+  /**
+   * Résistance de la PRISE DE TERRE, entre la tête du piquet et le sol : 42 Ω,
+   * valeur relevée au banc. Ce n'est pas la continuité d'un fil, et c'est bien
+   * pour cela qu'on la mesure — U(L) ÷ IΔn = 50 ÷ 0,03 = 1667 Ω, on est très en
+   * dessous, mais c'est la mesure qui le dit, pas le hasard.
+   */
+  resistances: { 'PT1.X1|PT1.X2': 42 },
   summary:
     'Plateau de bureaux KNX sur banc DOMO-KNX. Alimentation de bus MTN684032, interface USB MTN681829, '
     + 'actionneur de commutation MTN649202 (2 × 230 V / 10 A) et poussoir Unica KNX MGU3.531.18. '
@@ -117,6 +150,8 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     { k: 'Adresses de groupe', v: '1/1/1 et 1/1/2 accueil (commande + état) · 1/2/1 et 1/2/2 réunion · 0/0/1 extinction générale' },
     { k: 'Protections', v: 'Q1 différentiel 30 mA en tête (consignation) · Q2 alimentation du bus · Q3 départs éclairage' },
     { k: 'Couleurs', v: 'bus (+) rouge · bus (−) noir · phase rouge · phase coupée noir · neutre bleu · PE vert-jaune' },
+    { k: 'Prise de terre', v: 'piquet acier cuivré ⌀ 16 enfoncé sur 1 m, conducteur de terre cuivre nu 25 mm² enterré, barrette de coupure accessible, conducteur principal de protection 16 mm² vert-jaune' },
+    { k: 'Cheminements', v: 'cinq gaines ICTA en sous-face du coffret · G1 arrivée · G2 terre · G3 bus KNX SEUL (TBTS) · G4 et G5 départs d’éclairage' },
     { k: 'Avant mise en service', v: 'consignation sur Q1 · VAT · continuité PE · contrôle de polarité et d’absence de boucle sur le bus' },
   ],
   /**
@@ -244,6 +279,37 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
       },
     ],
     fonctions: [
+      {
+        id: 'fn-terre', rep: 'BC1', focus: 'BC1', schema: 'puissance',
+        invite: 'À quoi sert la barrette de coupure placée entre le tableau et le piquet ?',
+        options: [
+          'À isoler la prise de terre pour la mesurer seule, sans déposer le conducteur principal de protection',
+          'À protéger l’installation contre les surintensités',
+          'À couper l’alimentation du tableau',
+          'À répartir le neutre vers les deux départs',
+        ],
+        answer: 0,
+        why: 'Fermée, ce n’est qu’un conducteur. Ouverte, elle sépare l’électrode du reste de l’installation : sans cela on mesurerait la prise de terre en parallèle avec toutes les masses, et on lirait une valeur flatteuse et fausse. Elle se referme immédiatement après la mesure.',
+      },
+      {
+        id: 'fn-rt', rep: 'PT1', focus: 'PT1', schema: 'puissance',
+        invite: 'Avec un différentiel 30 mA, quelle est la valeur maximale admissible de la résistance de la prise de terre ?',
+        options: ['1667 Ω', '100 Ω', '30 Ω', '0,2 Ω'],
+        answer: 0,
+        why: 'Elle se calcule, elle ne se récite pas : U(L) ÷ IΔn = 50 ÷ 0,03 = 1667 Ω. Les 42 Ω mesurés au banc sont très en dessous — mais c’est la mesure qui le dit.',
+      },
+      {
+        id: 'fn-gaine', rep: 'BP1', focus: 'BP1', schema: 'commande',
+        invite: 'Pourquoi la paire torsadée du bus ne passe-t-elle pas dans la même gaine que le 3G1,5 du hublot ?',
+        options: [
+          'Parce que le bus est un circuit TBTS : il doit être séparé des circuits 230 V',
+          'Parce que la gaine serait trop petite',
+          'Parce que le bus chauffe',
+          'Parce que la paire torsadée est plus courte',
+        ],
+        answer: 0,
+        why: 'Très basse tension de sécurité : la séparation d’avec les circuits de puissance est ce qui garantit qu’un défaut sur le 230 V ne se retrouve pas sur le bus. D’où G3, seule, réservée au bus.',
+      },
       {
         id: 'fn-ug', rep: 'A1', focus: 'A1', schema: 'commande',
         invite: 'Quelle tension mesure-t-on entre les deux conducteurs du bus KNX ?',
@@ -380,6 +446,11 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
   // la même paire torsadée que les modules du tableau.
   annexItems: [
     { key: 'knxbp', rep: 'BP1', name: 'poussoir Unica KNX 4 poussoirs · circulation', x: 468, y: 250, w: 56, h: 56 },
+    // L'ENSEMBLE TERRE, hors tableau. La barrette de coupure est la borne
+    // principale de terre : c'est là que le conducteur principal de protection
+    // rencontre le conducteur de terre, et c'est là qu'on les sépare pour mesurer.
+    { key: 'barrcoupure', rep: 'BC1', name: 'barrette de coupure · borne principale de terre', x: 452, y: 420, w: 84, h: 40 },
+    { key: 'piquet', rep: 'PT1', name: 'piquet de terre acier cuivré ⌀ 16 · 1 m', x: 478, y: 500, w: 26, h: 96 },
   ],
   // Hublots de CLASSE I : trois bornes chacun — phase coupée, neutre et TERRE.
   // La masse d'un luminaire se raccorde, et l'élève doit tirer le vert-jaune.
@@ -388,10 +459,18 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     { key: 'l_ampoule_plexo_hublot', rep: 'E2', name: 'hublot E27 · salle de réunion', x: 300, y: 26, w: 84, h: 74, recv: true, pe: true },
   ],
   liaisons: [
-    // ---- arrivée réseau : câblage de l'installateur, déjà en place ----
-    L('RES.L1', 'x1_1.b', 'L1', 'pre'),
-    L('RES.N', 'x1_2.b', 'N', 'pre'),
-    L('RES.PE', 'x1_3.b', 'PE', 'pre'),
+    // ---- arrivée réseau : câblage de l'installateur, déjà en place.
+    // La phase et le neutre, par la gaine G1. PAS DE PE : en régime TT le
+    // distributeur n'en amène pas, la terre vient du piquet de l'usager.
+    g(L('RES.L1', 'x1_1.b', 'L1', 'pre'), 'G1'),
+    g(L('RES.N', 'x1_2.b', 'N', 'pre'), 'G1'),
+    // ---- ensemble terre : du bornier PE au piquet, par la barrette de coupure.
+    // Le conducteur principal de protection est à l'élève ; le conducteur de terre
+    // est enterré, donc déjà posé, et la barrette elle-même n'est qu'un pont
+    // démontable entre ses deux bornes — c'est ce pont qu'une panne laisse ouvert.
+    g(L('x1_3.b', 'BC1.X1', 'PE'), 'G2'),
+    L('BC1.X1', 'BC1.X2', 'PE', 'pre'),
+    L('BC1.X2', 'PT1.X1', 'PE', 'pre'),
     // ---- tête de tableau : bornier → Q1 ----
     L('x1_1.a', 'q1.1', 'L1'), L('x1_2.a', 'q1.N', 'N'),
     // ---- répartition en aval de Q1 vers les deux divisionnaires ----
@@ -403,7 +482,8 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     // Aucun retour vers l'alimentation : la boucle est précisément ce qui est interdit.
     L('a1.+', 'k1.+', 'DC+'), L('a1.−', 'k1.−', 'DC-'),
     L('k1.+', 'k2.+', 'DC+'), L('k1.−', 'k2.−', 'DC-'),
-    L('k2.+', 'BP1.X1', 'DC+'), L('k2.−', 'BP1.X2', 'DC-'),
+    // le dernier tronçon sort du coffret par G3, la gaine réservée au bus
+    g(L('k2.+', 'BP1.X1', 'DC+'), 'G3'), g(L('k2.−', 'BP1.X2', 'DC-'), 'G3'),
     // ---- puissance de l'actionneur : phase commune en entrée, deux phases coupées en sortie ----
     L('f3.2', 'k2.L', 'L1'),
     L('k2.1', 'x1_4.a', 'L1'), L('k2.2', 'x1_7.a', 'L1'),
@@ -411,8 +491,8 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     // ---- répartition du conducteur de protection vers les deux départs ----
     L('x1_3.a', 'x1_6.a', 'PE'), L('x1_3.a', 'x1_9.a', 'PE'),
     // ---- départs vers les deux hublots : phase coupée, neutre et terre ----
-    L('x1_4.b', 'E1.X1', 'L1'), L('x1_5.b', 'E1.X2', 'N'), L('x1_6.b', 'E1.PE', 'PE'),
-    L('x1_7.b', 'E2.X1', 'L1'), L('x1_8.b', 'E2.X2', 'N'), L('x1_9.b', 'E2.PE', 'PE'),
+    g(L('x1_4.b', 'E1.X1', 'L1'), 'G4'), g(L('x1_5.b', 'E1.X2', 'N'), 'G4'), g(L('x1_6.b', 'E1.PE', 'PE'), 'G4'),
+    g(L('x1_7.b', 'E2.X1', 'L1'), 'G5'), g(L('x1_8.b', 'E2.X2', 'N'), 'G5'), g(L('x1_9.b', 'E2.PE', 'PE'), 'G5'),
   ],
   nets: {
     // Les NEUTRES EN AVAL suivent leur protection. Q1, Q2 et Q3 sont bipolaires :
@@ -457,6 +537,10 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     'E1.PE': { net: 'PE', live: 'always' },
     'E2.X1': { net: 'L1', live: 'f3' }, 'E2.X2': { net: 'N', live: 'f3' },
     'E2.PE': { net: 'PE', live: 'always' },
+    // ensemble terre : barrette de coupure et piquet. `PT1.X2`, c'est le sol —
+    // la borne contre laquelle se mesure la résistance de la prise de terre.
+    'BC1.X1': { net: 'PE', live: 'always' }, 'BC1.X2': { net: 'PE', live: 'always' },
+    'PT1.X1': { net: 'PE', live: 'always' }, 'PT1.X2': { net: 'PE', live: 'always' },
   },
   tests: [
     ...BASE_TESTS,
@@ -480,6 +564,17 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     },
   ],
   mesures: [
+    // La prise de terre se mesure BARRETTE OUVERTE : sinon on mesure la prise de
+    // terre EN PARALLÈLE avec tout ce à quoi les masses sont reliées, et le
+    // résultat est flatteur et faux. C'est la raison d'être de la barrette.
+    {
+      id: 'rt', title: 'Résistance de la prise de terre (barrette ouverte)', stage: 'horsTension',
+      instrument: 'ctrl', dial: 'RT 3 points', a: 'PT1.X1', b: 'PT1.X2', min: 20, max: 80, unit: 'Ω',
+    },
+    {
+      id: 'contbc', title: 'Continuité de la barrette de coupure, refermée', stage: 'horsTension',
+      instrument: 'ctrl', dial: 'RPE 200 mA', a: 'BC1.X1', b: 'BC1.X2', min: 0, max: 2, unit: 'Ω',
+    },
     {
       id: 'rpe', title: 'Continuité du PE jusqu’au hublot de l’accueil', stage: 'horsTension',
       instrument: 'ctrl', dial: 'RPE 200 mA', a: 'x1_3.a', b: 'E1.PE', min: 0, max: 2, unit: 'Ω',
@@ -518,6 +613,14 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
     },
   ],
   faults: [
+    {
+      id: 'barrOuverte',
+      title: 'Barrette de coupure laissée ouverte après le contrôle de terre',
+      symptom: 'Les deux lampes s’allument, le poussoir répond, les LED suivent : tout fonctionne. Mais le contrôleur, entre la borne PE du tableau et la prise de terre, affiche OL — les masses ne sont plus reliées au sol, et un défaut d’isolement ne ferait plus déclencher le différentiel.',
+      fix: 'Refermer la barrette de coupure et vérifier sa continuité : un contrôle de terre ne se termine pas sur la lecture, il se termine quand la barrette est revissée.',
+      coupe: 'BC1.X1>BC1.X2',
+      action: 'Refermer la barrette de coupure et contrôler sa continuité',
+    },
     {
       id: 'bus',
       title: 'Conducteur (+) du bus débranché au poussoir',

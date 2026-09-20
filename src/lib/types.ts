@@ -152,6 +152,45 @@ export interface Liaison {
   net: NetKind;
   prewired?: boolean;      // fait par l'installateur (réseau → X1, câble moteur…)
   door?: boolean;          // liaison en porte
+  /**
+   * Gaine empruntée pour sortir du coffret (`GaineDef.rep` : « G3 »).
+   *
+   * Purement documentaire : le tracé du fil ne change pas, mais le repère
+   * apparaît au survol et dans le dossier. C'est ce qui permet de poser la
+   * question qui compte — pourquoi le bus n'est-il pas dans la même gaine que le
+   * départ d'éclairage ?
+   */
+  gaine?: string;
+}
+
+/**
+ * Gaine sortant du coffret, et son presse-étoupe.
+ *
+ * Sans elles, les fils d'un TP partent vers le néant : l'élève voit un bornier
+ * et des récepteurs, jamais le chemin entre les deux. Une gaine déclarée dessine
+ * son presse-étoupe en sous-face du coffret, son tube annelé dessous, et porte
+ * son repère — exactement ce qu'un dossier technique donne à lire.
+ */
+export interface GaineDef {
+  id: string;
+  /** Repère porté sur la platine et cité par les liaisons : « G1 », « G3 »… */
+  rep: string;
+  /** x du presse-étoupe sur la sous-face du coffret (unités de platine). */
+  x: number;
+  /** Diamètre annoncé : « ICTA ⌀20 ». */
+  diam: string;
+  /**
+   * Nature du circuit véhiculé.
+   *
+   * `tbts` est la seule qui engage quelque chose : un bus KNX est en très basse
+   * tension de sécurité et ne partage pas la gaine d'un circuit 230 V. Le dessin
+   * la distingue, et la question de préparation s'appuie dessus.
+   */
+  nature: 'force' | 'pe' | 'tbts';
+  /** Conducteurs qu'elle contient, en clair : « 3G1,5 · L1 coupée, N, PE ». */
+  contenu: string;
+  /** Destination, en clair : « hublot E1 · accueil ». */
+  vers: string;
 }
 
 /**
@@ -622,6 +661,29 @@ export interface TpDefinition {
    * s'applique — aucun TP existant n'est touché.
    */
   uContinu?: number;
+  /**
+   * L'arrivée réseau n'amène PAS de conducteur de protection.
+   *
+   * En régime TT, le distributeur livre la phase et le neutre ; la terre est
+   * celle de l'usager — piquet, conducteur de terre, barrette de coupure. Laisser
+   * un presse-étoupe PE sous l'arrivée laisserait croire le contraire, et
+   * l'élève n'aurait aucune raison de mesurer la résistance de la prise de terre.
+   */
+  sansPeReseau?: boolean;
+  /**
+   * Gaines sortant du coffret, avec leurs presse-étoupes. Absentes, la platine
+   * se dessine comme avant — aucun TP existant n'est touché.
+   */
+  gaines?: GaineDef[];
+  /**
+   * Résistances PARTICULIÈRES, déclarées borne à borne (« a|b », ordre
+   * indifférent). L'ohmmètre les consulte avant ses valeurs par défaut.
+   *
+   * Une prise de terre ne fait pas 0,2 Ω comme un fil : elle vaut ce que vaut le
+   * sol. C'est justement la grandeur qu'on mesure, et elle doit pouvoir être
+   * déclarée sans toucher au moteur de simulation.
+   */
+  resistances?: Record<string, number>;
   /** Folio du circuit de commande, dessiné à l'étape de dépannage. */
   folio?: FolioDef;
   /**
