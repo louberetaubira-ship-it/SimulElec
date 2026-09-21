@@ -357,7 +357,8 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, pct, coef, 
 
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {notes.map(({ ep, note20, used, total, couverture, coefEff }) => {
-                const niv = niveauOf((note20 ?? 0) / 20, note20 != null);
+                // Les compétences non évaluées comptent 0 : l’épreuve a toujours une note.
+                const niv = niveauOf((note20 ?? 0) / 20, true);
                 return (
                   <div key={ep.code} className="rounded-[12px] border border-[var(--line)] bg-[var(--surface-2)] p-2.5">
                     <div className="text-[11px] font-bold text-accent">{ep.code} · coef {coefEff}</div>
@@ -377,10 +378,16 @@ function CompTab({ diploma, students, kept, studentId, setStudentId, pct, coef, 
                           const sc = scores[code];
                           const p = pct[`${ep.code}.${code}`] ?? ep.poids[code];
                           return (
-                            <tr key={code} className="border-t border-[var(--line)]" style={sc == null ? { opacity: 0.45 } : {}}>
-                              <td className="py-0.5 text-left">{code}</td>
-                              <td className="py-0.5 text-right font-mono-num font-bold" style={sc == null ? {} : { color: noteColor(sc * 20) }}>
-                                {sc == null ? '—' : fmt1(sc * 20)}
+                            <tr key={code} className="border-t border-[var(--line)]">
+                              <td className="py-0.5 text-left" style={sc == null ? { opacity: 0.6 } : {}}>
+                                {code}
+                                {sc == null && (
+                                  <span className="ml-1 rounded-full px-1.5 text-[10px] font-semibold"
+                                    style={{ background: 'rgba(214,69,61,.12)', color: '#d6453d' }}>non évaluée</span>
+                                )}
+                              </td>
+                              <td className="py-0.5 text-right font-mono-num font-bold" style={{ color: sc == null ? '#d6453d' : noteColor(sc * 20) }}>
+                                {fmt1((sc ?? 0) * 20)}
                               </td>
                               <td className="py-0.5 text-right">
                                 <input type="number" min={0} step={1} value={p}

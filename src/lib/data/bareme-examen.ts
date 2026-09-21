@@ -10,11 +10,16 @@
  *    l’épreuve du champ `unit` d’une compétence, qui ne peut en porter qu’une.
  *
  * Calcul :
- *    note d’épreuve /20 = Σ(score × %) / Σ(%) × 20   (sur les compétences évaluées)
- *    note d’examen  /20 = Σ(note d’épreuve × coef) / Σ(coef)
+ *    note d’épreuve /20 = Σ(score × %) / Σ(tous les %) × 20
+ *    note d’examen  /20 = Σ(note d’épreuve × coef) / Σ(tous les coef)
  *
- * La normalisation par Σ(%) gère à la fois les arrondis du référentiel (E31 :
- * 7 × 14 % = 98 %) et les épreuves partiellement couvertes par les TP faits.
+ * Règle du professeur (2026-09-21) : une compétence NON ÉVALUÉE vaut 0 et garde
+ * son poids ; une épreuve sans aucune compétence évaluée vaut 0/20 et garde son
+ * coefficient. Avant, elles étaient exclues et le poids renormalisé sur les seules
+ * compétences évaluées : un élève vu sur 2 compétences sur 5 affichait 19/20.
+ *
+ * La division par Σ(tous les %) absorbe toujours les arrondis du référentiel
+ * (E31 : 7 × 14 % = 98 %).
  */
 
 import type { DiplomaId } from './competences';
@@ -97,7 +102,10 @@ export function epreuvesOfCompetence(diploma: DiplomaId, code: string): { code: 
 }
 
 export interface EpreuveNote {
-  /** Note sur 20, pondérée par les pourcentages du référentiel. `null` si rien d’évalué. */
+  /**
+   * Note sur 20, pondérée par les pourcentages du référentiel. Les compétences non
+   * évaluées y comptent pour 0. `null` seulement si l’épreuve n’a aucun poids.
+   */
   note20: number | null;
   /** Compétences retenues (celles qui ont un score), avec leur poids. */
   used: { code: string; score: number; pct: number }[];
@@ -109,7 +117,7 @@ export interface EpreuveNote {
 
 /**
  * Note d’une épreuve. `scores` : code de compétence → score 0..1.
- * Les compétences non évaluées sont exclues et la pondération est renormalisée.
+ * Une compétence non évaluée compte pour 0 avec son poids : elle n’est plus exclue.
  */
 export function epreuveNote(
   scores: Record<string, number>,
@@ -118,17 +126,19 @@ export function epreuveNote(
 ): EpreuveNote {
   const used: { code: string; score: number; pct: number }[] = [];
   let sw = 0;
-  let sp = 0;
+  let sp = 0;   // % des compétences évaluées (couverture affichée)
+  let st = 0;   // % de TOUTES les compétences de l’épreuve (diviseur)
   const codes = Object.keys(ep.poids);
   for (const code of codes) {
-    const s = scores[code];
-    if (s == null || !Number.isFinite(s)) continue;
     const pct = override?.[`${ep.code}.${code}`] ?? ep.poids[code];
+    st += pct;
+    const s = scores[code];
+    if (s == null || !Number.isFinite(s)) continue;   // non évaluée : 0 × pct
     used.push({ code, score: s, pct });
     sw += s * pct;
     sp += pct;
   }
-  return { note20: sp > 0 ? (sw / sp) * 20 : null, used, total: codes.length, couverture: sp };
+  return { note20: st > 0 ? (sw / st) * 20 : null, used, total: codes.length, couverture: sp };
 }
 
 /** Note d’examen projetée : épreuves pondérées par leur coefficient. */
@@ -138,8 +148,8 @@ export function examNote20(
   let sw = 0;
   let sc = 0;
   for (const e of notes) {
-    if (e.note20 == null) continue;
-    sw += e.note20 * e.coef;
+    // Épreuve sans note : 0/20, coefficient conservé.
+    sw += (e.note20 ?? 0) * e.coef;
     sc += e.coef;
   }
   return sc > 0 ? sw / sc : null;
