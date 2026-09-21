@@ -20,7 +20,7 @@ import { Ducts, Rails } from './Ducts';
 import Device, { type DeviceState } from './Device';
 import Terminals, { type TerminalMark } from './Terminals';
 import { borneVisee, rayonsDeCapture } from '@/lib/scene/pick';
-import { WiresOver, WiresUnder, type RoutedWire } from './Wires';
+import { WiresOver, WiresUnder, type RoutedWire, type WireTag } from './Wires';
 import Station from './Station';
 import { Motor, TerminalBox } from './Motor';
 import Annex from './Annex';
@@ -158,6 +158,23 @@ export default function Panel(props: PanelProps) {
     });
     return out;
   }, [ctx, plan, wires]);
+
+  // Repères posés sur les conducteurs qui empruntent un couloir réservé : sans eux,
+  // cinq cordons parallèles ou dix fils de commande violets restent indiscernables.
+  const tags: WireTag[] = React.useMemo(() => {
+    const out: WireTag[] = [];
+    // Un repère par BORNE, pas par conducteur : deux liaisons qui aboutissent à la
+    // même borne partagent son couloir, et deux étiquettes s'y superposeraient.
+    const vus = new Set<string>();
+    wires.forEach((w, i) => {
+      const id = ctx.couloirs[w.a] ? w.a : ctx.couloirs[w.b] ? w.b : null;
+      if (!id || vus.has(id) || !routed.some((r) => r.index === i)) return;
+      vus.add(id);
+      const c = ctx.couloirs[id];
+      out.push({ index: i, x: c.x, y: c.y, text: c.nom, net: w.net });
+    });
+    return out;
+  }, [ctx, wires, routed]);
 
   const hlTerminals = React.useMemo(() => {
     const s = new Set<string>();
@@ -412,7 +429,7 @@ export default function Panel(props: PanelProps) {
       <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} />
 
       {/* fils sous les couvercles : masqués par les goulottes quand les couvercles sont fermés */}
-      <WiresUnder alimW={geo.alimW} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresUnder alimW={geo.alimW} porteW={geo.porteW} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       {/* appareils */}
       {ctx.slots.map((s) => (
@@ -562,7 +579,7 @@ export default function Panel(props: PanelProps) {
       ) : null}
 
       {/* fils au-dessus des couvercles (brins + parties extérieures) */}
-      <WiresOver alimW={geo.alimW} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
+      <WiresOver alimW={geo.alimW} porteW={geo.porteW} tags={tags} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       <Overlays probes={probePos} clamp={clampPos} lock={lockBox} />
     </div>
@@ -572,7 +589,7 @@ export default function Panel(props: PanelProps) {
 
   return (
     <div className={`se-panelwrap${className ? ` ${className}` : ''}`} ref={hostRef}>
-      <div style={{ width: (PANEL_W + geo.alimW) * scale, height: geo.panelH * scale }}>{panel}</div>
+      <div style={{ width: (PANEL_W + geo.alimW + geo.porteW) * scale, height: geo.panelH * scale }}>{panel}</div>
     </div>
   );
 }

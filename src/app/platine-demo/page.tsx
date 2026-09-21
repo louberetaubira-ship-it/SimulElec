@@ -160,7 +160,7 @@ function PlatineDemo() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr)', gap: 16 }}>
         {/* la scène s'allonge quand le TP déclare des gaines ou un ensemble terre */}
-        <Workspace storageKey="demo" contentHeight={sceneOf(tp).panelH} contentWidth={PANEL_W + sceneOf(tp).alimW}>
+        <Workspace storageKey="demo" contentHeight={sceneOf(tp).panelH} contentWidth={PANEL_W + sceneOf(tp).alimW + sceneOf(tp).porteW}>
           <Panel
             tp={tp}
             items={items}

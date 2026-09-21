@@ -14,9 +14,10 @@ import type {
   AnnexKind, AnnexItem, CatalogueItem, GaineDef, Liaison, Slot, TerminalDef, TpDefinition,
 } from '@/lib/types';
 import {
-  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, GAINE_LEN, GAINE_TETE, PX_MM, SR, ST, TOIT_TOP,
-  gaineW, glandOf, mt2Of, mtermOf, pupitreOf, pupitreTerminals, recvBoxOf, resOf, sceneOf,
-  slotGeom, tbOf, term, terreBoxOf, type Box, type Point, type SceneGeom,
+  DUCTS_H, DUCT_L, DUCT_R, DUCT_XS, GAINE_LEN, GAINE_TETE, PX_MM, REPERE_PAS_Y, RES_RANG, SR, ST,
+  TOIT_TOP, alimLane, gaineW, glandOf, mt2Of, mtermOf, porteLane, pupitreOf, pupitreTerminals,
+  recvBoxOf, resOf, sceneOf, slotGeom, tbOf, term, terreBoxOf, type Box, type Point,
+  type SceneGeom,
 } from './geometry';
 
 /* ------------------------------------------------------------- contexte */
@@ -69,6 +70,8 @@ export interface SceneCtx {
   gaines: Record<string, GainePose>;
   /** Rang de chaque liaison à gaine, clé « a>b » (les deux sens sont écrits). */
   rangs: Record<string, GaineRang>;
+  /** Couloir réservé à chaque borne extérieure alignée (douilles du pupitre, coffret de porte). */
+  couloirs: Record<string, CouloirExt>;
   /**
    * Géométrie de CETTE scène : rails, goulottes, hauteur d'armoire. Le cheminement
    * s'y réfère au lieu des constantes — sur une armoire relevée, les goulottes ne
@@ -178,6 +181,46 @@ export function recvTerminals(geo: Pick<SceneGeom, 'recvY'>, it: AnnexItem): Rec
 export const recvGlandX = (x: number): number => Math.max(46, Math.min(536, Math.round(x)));
 
 /** Bornes extérieures d'un TP : coffret de porte, moteur, réseau, éléments d'annexe. */
+/**
+ * Couloir réservé à une borne extérieure, et position de son repère.
+ *
+ * Les cinq douilles du pupitre sont sur un même axe vertical, et les dix bornes
+ * du coffret de porte aussi : sans couloir dédié, tous les conducteurs qui les
+ * rejoignent se superposent sur des centaines de pixels et deviennent un seul
+ * trait épais. Chacun reçoit donc son axe, dans un canal qui ne sert qu'à ça.
+ *
+ * `y` est décalé en escalier d'une borne à l'autre : les couloirs sont plus
+ * serrés (8 à 12 px) que les étiquettes ne sont larges, et alignées à la même
+ * hauteur elles se recouvriraient.
+ */
+export interface CouloirExt {
+  /** Axe vertical réservé à cette borne. */
+  x: number;
+  /** Ordonnée de l'étiquette de repère posée sur le conducteur. */
+  y: number;
+  /** Texte de l'étiquette (« L1 », « S2.14 »…). */
+  nom: string;
+}
+
+/** Ordonnée du premier repère, par famille de bornes. */
+const REPERE_Y0 = { res: 470, door: 330 } as const;
+
+/** Couloirs et repères des bornes extérieures alignées d'un TP. */
+export function couloirsExt(
+  tp: Pick<TpDefinition, 'station' | 'pupitre'>,
+): Record<string, CouloirExt> {
+  const out: Record<string, CouloirExt> = {};
+  for (const [id, i] of Object.entries(RES_RANG)) {
+    out[id] = { x: alimLane(i), y: REPERE_Y0.res + i * REPERE_PAS_Y, nom: id.slice(4) };
+  }
+  if (tp.station) {
+    Object.keys(pupitreTerminals(pupitreOf(tp))).forEach((id, i) => {
+      out[id] = { x: porteLane(i), y: REPERE_Y0.door + i * REPERE_PAS_Y, nom: id };
+    });
+  }
+  return out;
+}
+
 export function externalPoints(
   tp: Pick<TpDefinition, 'station' | 'pupitre' | 'hasMotor' | 'annexItems' | 'recvItems' | 'terre'>,
   geo: SceneGeom,
@@ -289,7 +332,10 @@ export function sceneContext(tp: TpDefinition, items: Record<string, CatalogueIt
   const geo = sceneOf(tp);
   const { gaines } = poseGaines(tp, geo);
   // Il faut un contexte pour savoir quelles liaisons traversent vraiment la paroi.
-  const base: SceneCtx = { slots, annex: tp.annex, extra: externalPoints(tp, geo), geo, gaines, rangs: {} };
+  const base: SceneCtx = {
+    slots, annex: tp.annex, extra: externalPoints(tp, geo), geo, gaines,
+    rangs: {}, couloirs: couloirsExt(tp),
+  };
   return { ...base, rangs: rangerGaines(tp, base) };
 }
 
@@ -405,10 +451,13 @@ function gaineRoute(ctx: SceneCtx, a: string, b: string, A: TPos, B: TPos): Pt[]
   // au lieu de l'axe de la gaine — exactement ce qu'on cherche à supprimer.
   const yEntree = g.yIn - g.sens * (24 + r.i * 5);
   const ySortie = g.yOut + g.sens * (8 + r.i * 5);
-  const pts: Pt[] = [
-    [P.x, P.y], [P.x, yEntree], [lane, yEntree],
-    [lane, ySortie], [E.x, ySortie], [E.x, E.y],
-  ];
+  // Le conducteur ne remonte pas à l'aplomb de sa borne : il emprunte le couloir
+  // qui lui est réservé dans le canal, puis rejoint la borne par un brin court.
+  const c = ctx.couloirs[aExt ? a : b];
+  const pts: Pt[] = c
+    ? [[P.x, P.y], [P.x, yEntree], [lane, yEntree], [lane, ySortie],
+      [c.x, ySortie], [c.x, E.y], [E.x, E.y]]
+    : [[P.x, P.y], [P.x, yEntree], [lane, yEntree], [lane, ySortie], [E.x, ySortie], [E.x, E.y]];
   return aExt ? pts.reverse() : pts;
 }
 
@@ -431,7 +480,9 @@ function route0raw(ctx: SceneCtx, a: string, b: string): Pt[] | null {
 
   // deux bornes extérieures : liaison directe en fond de porte
   if (A.ext && B.ext) {
-    const tx = (A.free || B.free) ? 546 : A.x + 12;
+    // Liaison interne au coffret de porte : elle aussi avait un axe unique
+    // (A.x + 12) partagé par toutes. Elle prend le couloir de sa première borne.
+    const tx = (A.free || B.free) ? 546 : (ctx.couloirs[a]?.x ?? A.x + 12);
     push(A.x, A.y); push(tx, A.y); push(tx, B.y); push(B.x, B.y);
     return pts;
   }

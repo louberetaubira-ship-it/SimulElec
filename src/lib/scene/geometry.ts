@@ -19,7 +19,44 @@ export const PANEL_W = 560;
  * Elle s'ajoute vers la GAUCHE : le repère de la platine ne bouge pas, il
  * commence simplement à −ALIM_W. Aucune coordonnée de TP n'est touchée.
  */
-export const ALIM_W = 120;
+export const ALIM_FACE_W = 106;
+/**
+ * Canal de cordons, entre le corps du pupitre et la platine.
+ *
+ * Les cinq cordons descendaient tous sur l'axe des douilles : un seul trait
+ * visible sur plus de 500 px, par-dessus la prise 230 V et par-dessus les
+ * étiquettes. Ce canal leur donne un couloir chacun. Il ne contient QUE des
+ * conducteurs : aucun appareillage n'y est dessiné.
+ */
+export const ALIM_CANAL = 62;
+export const ALIM_W = ALIM_FACE_W + ALIM_CANAL + 8;
+
+/** Pas entre deux couloirs de cordons du pupitre. */
+export const ALIM_PAS = 12;
+/** Axe du couloir du i-ème cordon du pupitre (i = 0 pour L1). */
+export const alimLane = (i: number): number => -ALIM_CANAL + 2 + i * ALIM_PAS;
+
+/**
+ * Canal des conducteurs du coffret de PORTE, à droite de la platine.
+ *
+ * Même défaut, même remède : les liaisons de porte empruntaient toutes le trunk
+ * `SR + 20`, et celles internes au coffret l'axe `A.x + 12`. Jusqu'à huit
+ * conducteurs sur un seul axe. Ce canal leur donne un couloir chacun.
+ */
+export const PORTE_CANAL = 80;
+/** Pas entre deux couloirs du canal de porte. */
+export const PORTE_PAS = 8;
+/** Axe du i-ème couloir du canal de porte. */
+export const porteLane = (i: number): number => PANEL_W - 14 + 2 + i * PORTE_PAS;
+
+/**
+ * Décalage vertical entre deux étiquettes de repère posées sur des conducteurs voisins.
+ *
+ * Les couloirs sont plus serrés (8 à 12 px) que les étiquettes ne sont larges :
+ * alignées à la même hauteur, elles se chevauchent. On les décale donc en
+ * escalier — c'est le seul moyen de les lire toutes.
+ */
+export const REPERE_PAS_Y = 22;
 /** Hauteur totale de la scène : armoire + bloc récepteurs. */
 export const PANEL_H = 920;
 /** Hauteur de l'armoire (cadre `.se-cab`), en haut de la scène. */
@@ -100,6 +137,8 @@ export interface SceneGeom {
   cabH: number;
   /** Largeur du pupitre d'alimentation à gauche (0 quand le TP n'en a pas). */
   alimW: number;
+  /** Largeur du canal de conducteurs de porte à droite (0 sans coffret de porte). */
+  porteW: number;
   /** y du haut du bloc « ensemble terre », quand le TP en déclare un. */
   terreY?: number;
   /** Hauteur de ce bloc. */
@@ -143,7 +182,8 @@ export const GAINE_LEN = 44;
  * armoire de 720 px, récepteurs à 734, scène de 920.
  */
 export function sceneOf(
-  tp: Pick<TpDefinition, 'rails' | 'armoire' | 'goulotteDePied' | 'gaines' | 'terre' | 'arriveeReseau'>,
+  tp: Pick<TpDefinition,
+    'rails' | 'armoire' | 'goulotteDePied' | 'gaines' | 'terre' | 'arriveeReseau' | 'station'>,
 ): SceneGeom {
   const rails = tp.rails && tp.rails.length ? tp.rails : RAILS;
   const cabH = tp.armoire ?? CAB_H;
@@ -152,7 +192,11 @@ export function sceneOf(
   // Pas d'arrivée réseau, pas de pupitre : une installation autonome tire son
   // énergie de son champ et de ses batteries, pas d'une prise d'atelier.
   const alimW = tp.arriveeReseau === false ? 0 : ALIM_W;
-  const base = { cabH, alimW, recvY, recvH: RECV_H, panelH: recvY + RECV_H, rails, ducts };
+  // Le canal de porte n'existe que là où il y a un coffret de porte à câbler.
+  // Même critère que `externalPoints` : c'est `station` qui crée ces bornes, et
+  // le pupitre peut venir du défaut sans que le TP ne le déclare.
+  const porteW = tp.station ? PORTE_CANAL : 0;
+  const base = { cabH, alimW, porteW, recvY, recvH: RECV_H, panelH: recvY + RECV_H, rails, ducts };
   if (!tp.terre) return base;
   // L'ensemble terre s'ajoute SOUS le bloc récepteurs : la scène s'allonge, comme
   // elle s'est allongée pour les gaines. Il est dehors, il a donc sa place à part.
@@ -294,12 +338,17 @@ export const MT2: Record<string, Point> = {
  * leur repère. Les x sont négatifs — la colonne est à gauche du repère de la
  * platine, qui n'a pas bougé d'un pixel.
  */
+const RES_X = -ALIM_W + 36;
 export const RES: Record<string, Point> = {
-  'RES.L1': { x: -84, y: 232 },
-  'RES.L2': { x: -84, y: 278 },
-  'RES.L3': { x: -84, y: 324 },
-  'RES.N': { x: -84, y: 370 },
-  'RES.PE': { x: -84, y: 416 },
+  'RES.L1': { x: RES_X, y: 232 },
+  'RES.L2': { x: RES_X, y: 278 },
+  'RES.L3': { x: RES_X, y: 324 },
+  'RES.N': { x: RES_X, y: 370 },
+  'RES.PE': { x: RES_X, y: 416 },
+};
+/** Rang d'une douille dans le pupitre : donne son couloir et son palier. */
+export const RES_RANG: Record<string, number> = {
+  'RES.L1': 0, 'RES.L2': 1, 'RES.L3': 2, 'RES.N': 3, 'RES.PE': 4,
 };
 /*
  * Tout ce qui est HORS ARMOIRE suit la scène, pas une constante.

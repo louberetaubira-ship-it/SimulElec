@@ -69,7 +69,7 @@ export default function TpPanel({ trayEnabled = false, instruments, indicator, a
       <InstrumentTray value={inst} onSelect={setInstrument} disabled={!trayEnabled} />
       <Workspace
         fill={fill}
-        contentHeight={sceneOf(props.tp).panelH} contentWidth={PANEL_W + sceneOf(props.tp).alimW}
+        contentHeight={sceneOf(props.tp).panelH} contentWidth={PANEL_W + sceneOf(props.tp).alimW + sceneOf(props.tp).porteW}
         storageKey="tp"
         title={props.tp.title}
         subtitle={`Étape ${stage + 1} / ${STAGES.length} · ${STAGES[stage]}`}

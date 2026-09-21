@@ -9,7 +9,7 @@
  * verrouillable, cinq douilles repérées, et des cordons à tirer jusqu'au bornier.
  */
 import React from 'react';
-import { ALIM_W } from '@/lib/scene/geometry';
+import { ALIM_FACE_W, ALIM_W } from '@/lib/scene/geometry';
 
 /** Repère, couleur de douille et couleur d'étiquette, dans l'ordre du pupitre. */
 const DOUILLES: [string, string, string][] = [
@@ -29,7 +29,7 @@ export interface AlimProps {
 
 export default function Alim({ h, y0 = 232 }: AlimProps) {
   return (
-    <div className="se-alim" style={{ left: -ALIM_W, width: ALIM_W - 14, height: h }}>
+    <div className="se-alim" style={{ left: -ALIM_W, width: ALIM_FACE_W, height: h }}>
       <div className="face">
         <span className="t">Pupitre</span>
 

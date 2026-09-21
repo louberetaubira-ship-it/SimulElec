@@ -46,6 +46,11 @@ export interface WiresProps {
    * sortiraient du cadre et ne seraient pas tracés.
    */
   alimW?: number;
+  /**
+   * Largeur du canal de conducteurs de porte, à DROITE. Le repère s'étend d'autant :
+   * sans cela les couloirs de porte sortiraient du cadre et ne seraient pas tracés.
+   */
+  porteW?: number;
   wires: RoutedWire[];
   highlight?: number | null;
   /** Fil sélectionné par l'élève : trait épaissi + halo. */
@@ -58,6 +63,22 @@ export interface WiresProps {
   panelH?: number;
   /** Bas de la goulotte de pied : au-delà, le fil est hors armoire (porte, moteur, réseau). */
   pied?: number;
+  /** Repères à poser sur les conducteurs (couche du dessus seulement). */
+  tags?: WireTag[];
+}
+
+/**
+ * Étiquette de repère posée sur un conducteur.
+ *
+ * Les fils de commande sont tous violets, et L2 / L3 sont noir et gris : la couleur
+ * seule ne permet pas de dire quel conducteur on regarde. L'étiquette le dit.
+ */
+export interface WireTag {
+  index: number;
+  x: number;
+  y: number;
+  text: string;
+  net: NetKind;
 }
 
 const cls = (w: RoutedWire, highlight?: number | null, selected?: number | null): string =>
@@ -126,8 +147,10 @@ function Hit(props: {
 }
 
 function Layer(
-  { over, wires, highlight, selected, pick, onWire, onWireLongPress, panelH = PANEL_H, pied, alimW = 0 }:
-  WiresProps & { over: boolean },
+  {
+    over, wires, tags, highlight, selected, pick, onWire, onWireLongPress,
+    panelH = PANEL_H, pied, alimW = 0, porteW = 0,
+  }: WiresProps & { over: boolean },
 ) {
   const { down, click, cancel } = useWireGestures(onWire, onWireLongPress);
   const interactive = Boolean(onWire || onWireLongPress);
@@ -143,8 +166,8 @@ function Layer(
   return (
     <svg
       className={`se-wires${over ? ' over' : ''}${pick ? ' pick' : ''}`}
-      viewBox={`${-alimW} 0 ${PANEL_W + alimW} ${panelH}`}
-      style={alimW ? { left: -alimW, width: PANEL_W + alimW } : undefined}
+      viewBox={`${-alimW} 0 ${PANEL_W + alimW + porteW} ${panelH}`}
+      style={alimW || porteW ? { left: -alimW, width: PANEL_W + alimW + porteW } : undefined}
     >
       {wires.map((w) => (
         <React.Fragment key={w.index}>
@@ -169,6 +192,16 @@ function Layer(
           ))}
         </React.Fragment>
       ))}
+      {over && tags?.map((t) => {
+        const w = Math.max(20, t.text.length * 6.2 + 9);
+        const dim = selected != null && selected !== t.index;
+        return (
+          <g key={`t${t.index}`} className={`se-wtag${dim ? ' dim' : ''}`}>
+            <rect x={t.x - w / 2} y={t.y - 8} width={w} height={16} rx={4} stroke={NET_COLOR[t.net]} />
+            <text x={t.x} y={t.y + 4}>{t.text}</text>
+          </g>
+        );
+      })}
     </svg>
   );
 }

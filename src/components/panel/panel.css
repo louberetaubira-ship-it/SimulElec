@@ -425,3 +425,29 @@
 @media (prefers-reduced-motion: reduce) {
   .se-term.fx { animation: none; }
 }
+
+/* ------------------------------------------------- repères posés sur les fils
+   Les couloirs du canal sont plus serrés (8 à 12 px) que ces étiquettes ne sont
+   larges : leur ordonnée est décalée en escalier (REPERE_PAS_Y) pour qu'aucune
+   n'en recouvre une autre. */
+.se-wtag rect {
+  fill: rgba(255, 255, 255, .94);
+  stroke-width: 1.4;
+  paint-order: stroke;
+}
+.se-wtag text {
+  font: 600 10px/1 ui-sans-serif, system-ui, sans-serif;
+  fill: #1b222c;
+  text-anchor: middle;
+  pointer-events: none;
+  letter-spacing: .01em;
+}
+.se-wtag.dim { opacity: .22; }
+
+/* canal de cordons : un simple liseré, aucun appareillage n'y est dessiné */
+.se-canal {
+  position: absolute;
+  border-left: 1px dashed rgba(120, 140, 165, .28);
+  border-right: 1px dashed rgba(120, 140, 165, .28);
+  pointer-events: none;
+}
