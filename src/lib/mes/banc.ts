@@ -25,15 +25,28 @@ export const CORDONS: Record<CordId, Cordon> = {
   P: { id: 'P', label: 'Fiche 2P+T', couleur: '#1b222c' },
 };
 
-export interface Borne { id: string; label: string; x: number; y: number }
+/**
+ * Borne logique d'un banc. `t` : borne réelle du coffret (identifiant du moteur
+ * de scène, ex. `M.PE`, `q0.2`) ; ou `rel` + `dx`/`dy` : point ajouté par le
+ * banc, placé par rapport à une borne réelle (masse sans borne dessinée,
+ * piquet auxiliaire) — il suit la scène si la géométrie change.
+ */
+export interface Borne {
+  id: string; label: string; t?: string;
+  /** Point ajouté : décalé de (dx, dy) par rapport à la borne réelle `rel`. */
+  rel?: string; dx?: number; dy?: number;
+  dessin?: 'porte' | 'plaque' | 'tuyau' | 'garde' | 'piquet';
+}
 
-/** Préparation à faire sur le dessin (clic sur la zone). */
+/** Préparation à faire sur le matériel (clic sur la zone de l'appareil). */
 export interface ActionBanc {
   id: string;
   label: string;
   /** Libellé une fois faite. */
   fait: string;
-  x: number; y: number; w: number; h: number;
+  /** Bornes réelles qui délimitent la zone (boîte englobante + marge), ou boîte fixe. */
+  autour?: string[];
+  box?: { x: number; y: number; w: number; h: number };
 }
 
 export interface Banc {
@@ -42,81 +55,109 @@ export interface Banc {
   actions: ActionBanc[];
   /** Consigne affichée au-dessus du banc. */
   consigne: string;
+  /** Q0 fermé (mesures sous tension) ou ouvert et consigné. */
+  sousTension: boolean;
 }
 
+/** Bornes en aval de Q0 (départs L1 L2 L3 N). */
 const AVAL_Q0: Borne[] = [
-  { id: 'L1', label: 'L1', x: 220, y: 190 },
-  { id: 'L2', label: 'L2', x: 280, y: 190 },
-  { id: 'L3', label: 'L3', x: 340, y: 190 },
-  { id: 'N', label: 'N', x: 400, y: 190 },
+  { id: 'L1', label: 'Q0 · 2 (L1)', t: 'q0.2' },
+  { id: 'L2', label: 'Q0 · 4 (L2)', t: 'q0.4' },
+  { id: 'L3', label: 'Q0 · 6 (L3)', t: 'q0.6' },
+  { id: 'N', label: 'Q0 · N', t: 'q0.N2' },
 ];
+
+/** Bornes du conducteur de protection au bornier X1 : la barrette de terre de l'armoire. */
+export const BORNES_PE = ['x1_5.a', 'x1_5.b', 'x1_9.a', 'x1_9.b'];
 
 export const BANCS: Partial<Record<number, Banc>> = {
   [MES.CONT]: {
     cordons: ['r', 'v'],
-    consigne: 'Position RLO. Zéro des cordons : pose les deux cordons sur la même borne, puis ZÉRO. Ensuite vert sur la barrette de terre, rouge sur chaque masse.',
+    sousTension: false,
+    consigne: 'Position RLO. Zéro des cordons : pose les deux cordons sur la même borne, puis ZÉRO. Ensuite vert sur la borne PE du bornier X1, rouge sur chaque masse.',
     bornes: [
-      { id: 'bar', label: 'Barrette de terre', x: 80, y: 300 },
-      { id: 'porte', label: 'Porte', x: 205, y: 80 },
-      { id: 'plaque', label: 'Plaque de fond', x: 215, y: 195 },
-      { id: 't1', label: 'T1', x: 330, y: 125 },
-      { id: 'pc1', label: 'PC1', x: 330, y: 250 },
-      { id: 'm1', label: 'M1 carcasse', x: 470, y: 290 },
-      { id: 'canal', label: 'Canalisation', x: 560, y: 175 },
-      { id: 'garde', label: 'Garde-corps', x: 520, y: 80 },
-      { id: 'e1', label: 'E1 luminaire', x: 430, y: 150 },
+      { id: 'bar', label: 'X1 · PE', t: 'x1_5.a' },
+      { id: 'porte', label: 'Porte · tresse', rel: 'S2.14', dx: -18, dy: 70, dessin: 'porte' },
+      { id: 'plaque', label: 'Plaque de fond', rel: 't1.PE', dx: 205, dy: 0, dessin: 'plaque' },
+      { id: 't1', label: 'T1 · masse', t: 't1.PE' },
+      { id: 'pc1', label: 'PC1 · terre', t: 'PC1.PE' },
+      { id: 'm1', label: 'M1 · carcasse', t: 'M.PE' },
+      { id: 'canal', label: 'Canalisation', rel: 'E1.PE', dx: 0, dy: 100, dessin: 'tuyau' },
+      { id: 'garde', label: 'Garde-corps', rel: 'PC1.PE', dx: 30, dy: 100, dessin: 'garde' },
+      { id: 'e1', label: 'E1 · masse', t: 'E1.PE' },
     ],
     actions: [],
   },
   [MES.ISO_I]: {
     cordons: ['r', 'v'],
-    consigne: 'Position RISO, Q0 et KM1 ouverts. Débranche d\'abord le primaire de T1, puis mesure chaque couple de bornes en aval de Q0.',
+    sousTension: false,
+    consigne: 'Position RISO, Q0 et KM1 ouverts. Débranche d\'abord le primaire de T1 (clic sur ses bornes 0 · 400), puis mesure chaque couple de bornes en aval de Q0.',
     bornes: AVAL_Q0,
-    actions: [{ id: 't1', label: 'Débrancher le primaire de T1', fait: 'Primaire de T1 débranché', x: 470, y: 140, w: 140, h: 110 }],
+    actions: [{ id: 't1', label: 'Débrancher le primaire de T1', fait: 'Primaire de T1 débranché', autour: ['t1.0', 't1.400'] }],
   },
   [MES.ISO_M]: {
     cordons: ['r', 'v'],
-    consigne: 'Position RISO. Retire d\'abord les barrettes de couplage, puis mesure chaque enroulement vers la carcasse (PE) et les enroulements entre eux.',
+    sousTension: false,
+    consigne: 'Position RISO. Retire d\'abord les barrettes de couplage sur la plaque à bornes, puis mesure chaque enroulement vers la carcasse (PE) et les enroulements entre eux.',
     bornes: [
-      { id: 'U1', label: 'U1', x: 220, y: 130 }, { id: 'V1', label: 'V1', x: 300, y: 130 }, { id: 'W1', label: 'W1', x: 380, y: 130 },
-      { id: 'W2', label: 'W2', x: 220, y: 240 }, { id: 'U2', label: 'U2', x: 300, y: 240 }, { id: 'V2', label: 'V2', x: 380, y: 240 },
-      { id: 'PE', label: 'PE carcasse', x: 500, y: 185 },
+      { id: 'U1', label: 'U1', t: 'M.U1' }, { id: 'V1', label: 'V1', t: 'M.V1' }, { id: 'W1', label: 'W1', t: 'M.W1' },
+      { id: 'W2', label: 'W2', t: 'M.W2' }, { id: 'U2', label: 'U2', t: 'M.U2' }, { id: 'V2', label: 'V2', t: 'M.V2' },
+      { id: 'PE', label: 'PE carcasse', t: 'M.PE' },
     ],
-    actions: [{ id: 'barrettes', label: 'Retirer les barrettes', fait: 'Barrettes retirées', x: 195, y: 118, w: 210, h: 134 }],
+    actions: [{ id: 'barrettes', label: 'Retirer les barrettes', fait: 'Barrettes retirées', autour: ['M.W2', 'M.V2'] }],
   },
   [MES.TERRE]: {
     cordons: ['E', 'S', 'H'],
-    consigne: 'Position RE. Ouvre la barrette de coupure BC1, puis E sur le piquet de terre PT1, S sur le piquet à 20 m, H sur le piquet à 40 m.',
+    sousTension: false,
+    consigne: 'Position RE. Ouvre la barrette de coupure BC1, puis E sur le piquet de terre PT1, S sur le piquet auxiliaire à 20 m, H sur celui à 40 m.',
     bornes: [
-      { id: 'pt1', label: 'PT1', x: 110, y: 250 },
-      { id: 'bar', label: 'Barrette principale', x: 110, y: 110 },
-      { id: 's20', label: 'Piquet 20 m', x: 350, y: 250 },
-      { id: 'h40', label: 'Piquet 40 m', x: 560, y: 250 },
+      { id: 'pt1', label: 'PT1', t: 'PT1.X1' },
+      { id: 'bar', label: 'BC1', t: 'BC1.X1' },
+      { id: 's20', label: 'Piquet S · 20 m', rel: 'PT1.X1', dx: 95, dy: 20, dessin: 'piquet' },
+      { id: 'h40', label: 'Piquet H · 40 m', rel: 'PT1.X1', dx: 185, dy: 20, dessin: 'piquet' },
     ],
-    actions: [{ id: 'bc1', label: 'Ouvrir BC1', fait: 'BC1 ouverte', x: 80, y: 160, w: 60, h: 44 }],
+    actions: [{ id: 'bc1', label: 'Ouvrir BC1', fait: 'BC1 ouverte', autour: ['BC1.X1', 'BC1.X2'] }],
   },
   [MES.TENS]: {
     cordons: ['r', 'b'],
+    sousTension: true,
     consigne: 'Position V. Rouge et bleu sur les bornes en aval de Q0 : chaque phase avec le neutre, puis les phases entre elles.',
     bornes: AVAL_Q0,
     actions: [],
   },
   [MES.DDR]: {
     cordons: ['P'],
-    consigne: 'Appuie d\'abord sur le bouton TEST de Q2. Branche ensuite le contrôleur sur une prise protégée par Q2 : seuil IΔN, puis temps ΔT à ×1 et à ×5.',
+    sousTension: true,
+    consigne: 'Appuie d\'abord sur le bouton TEST de Q2. Branche ensuite la fiche du contrôleur sur la prise PC1, protégée par Q2 : seuil IΔN, puis temps ΔT à ×1 et à ×5.',
     bornes: [
-      { id: 'pc1', label: 'PC1 (fosse)', x: 420, y: 230 },
-      { id: 'pcx', label: 'Autre prise', x: 530, y: 112 },
+      { id: 'pc1', label: 'PC1', t: 'PC1.X1' },
+      { id: 'pc1', label: 'PC1', t: 'PC1.X2' },
+      { id: 'pc1', label: 'PC1', t: 'PC1.PE' },
     ],
-    actions: [{ id: 'testq2', label: 'Bouton TEST de Q2', fait: 'Q2 a déclenché', x: 168, y: 192, w: 54, h: 46 }],
+    actions: [{ id: 'testq2', label: 'TEST de Q2', fait: 'Q2 a déclenché', autour: ['q2.1', 'q2.2'] }],
   },
   [MES.PHASES]: {
     cordons: ['r', 'v', 'b'],
+    sousTension: true,
     consigne: 'Position ⟳. Rouge sur L1, vert sur L2, bleu sur L3, en aval de Q0.',
     bornes: AVAL_Q0,
     actions: [],
   },
 };
+
+/** Borne logique posée sur une borne réelle du coffret (ou l'identifiant brut, préfixé). */
+export function logique(step: number, termId: string): string {
+  const b = BANCS[step];
+  if (step === MES.CONT && BORNES_PE.includes(termId)) return 'bar';
+  const x = b?.bornes.find((y) => y.t === termId || (!y.t && y.id === termId));
+  return x ? x.id : `T:${termId}`;
+}
+
+/** Libellé lisible d'une borne logique. */
+export function libelle(step: number, id: string): string {
+  const x = BANCS[step]?.bornes.find((y) => y.id === id);
+  return x ? x.label : id.replace(/^T:/, '');
+}
 
 /** Position attendue pour l'étape (la DDR accepte IΔN et ΔT). */
 const posAttendues = (step: number): Position[] =>
@@ -172,6 +213,9 @@ export function mesurer(
       if (r === v) return { lcd: aff(prep.includes('zero') ? 0 : R_CORDONS, 'Ω', 'cordons en court-circuit'), erreur: false, msg: prep.includes('zero') ? 'Cordons en court-circuit : 0,00 Ω, le zéro est bon.' : `Cordons en court-circuit : ${R_CORDONS.toFixed(2).replace('.', ',')} Ω, c'est la résistance des cordons. Fais le ZÉRO.` };
       if (r !== 'bar' && v !== 'bar') return bad('Aucun cordon sur la barrette de terre : cette mesure ne dit rien de la liaison à la terre. Erreur comptée.');
       const m = r === 'bar' ? v : r;
+      if (!MESURES[step]!.points.some((p) => p.id === m)) {
+        return info('Cette borne n\'est pas une masse à contrôler : pose le cordon rouge sur une masse (T1, PC1, M1, E1, porte, plaque, canalisation, garde-corps).');
+      }
       const brut = val(m);
       if (!prep.includes('zero')) {
         const lu = typeof brut === 'number' ? brut + R_CORDONS : brut;
@@ -228,8 +272,7 @@ export function mesurer(
     }
     case MES.DDR: {
       if (!conn.P) return info('Branche la fiche du contrôleur sur une prise avant de lancer l\'essai.');
-      if (conn.P !== 'pcx' && conn.P !== 'pc1') return bad('Branche la fiche sur une prise.');
-      if (conn.P === 'pcx') return bad('Q2 ne déclenche pas : cette prise n\'est pas sur le circuit protégé par Q2. Erreur comptée.', aff('>300', 'ms'));
+      if (conn.P !== 'pc1') return bad('La fiche du contrôleur se branche sur une prise : ici PC1, la prise protégée par Q2. Erreur comptée.');
       if (pos === 'IDN') return { lcd: aff(val('idn'), 'mA', 'rampe · Q2 déclenche'), point: 'idn', valeur: val('idn'), erreur: false, msg: 'Seuil enregistré. Réarme Q2.' };
       const p = mult === 1 ? 'dt1' : 'dt5';
       return { lcd: aff(val(p), 'ms', `${mult === 1 ? '30' : '150'} mA · Q2 déclenche`), point: p, valeur: val(p), erreur: false, msg: `Temps à ${mult === 1 ? 'IΔn' : '5 × IΔn'} enregistré. Réarme Q2.` };

@@ -82,6 +82,12 @@ export interface PanelProps {
   className?: string;
   /** Le composant ne se met pas lui-même à l'échelle (il est dans un `<Workspace>` zoomable). */
   fixedScale?: boolean;
+  /**
+   * Calque libre dessiné au-dessus de la scène, en coordonnées de scène. `at`
+   * donne la position d'une borne. Sert au banc de mesure de la mise en service :
+   * cordons de couleur, points de masse, préparations à faire sur le matériel.
+   */
+  overlay?: (at: (id: string) => Point | null) => React.ReactNode;
 }
 
 /** Décalage du repère d'une borne (95/96 à gauche, 97/98 à droite). */
@@ -111,7 +117,7 @@ export default function Panel(props: PanelProps) {
   const {
     tp, items, wires, cover, marks, deviceState, lamps, latched, motorRpm = 0,
     highlight = null, selectedWire = null, aimed = null, probes, clamp = null, lock = false, pickTerminals, pickWires,
-    onTerminal, onWire, onWireLongPress, onDevice, onButton, className, fixedScale = false,
+    onTerminal, onWire, onWireLongPress, onDevice, onButton, className, fixedScale = false, overlay,
   } = props;
 
   const hostRef = React.useRef<HTMLDivElement>(null);
@@ -615,6 +621,7 @@ export default function Panel(props: PanelProps) {
       <WiresOver alimW={geo.alimW} porteW={geo.porteW} tags={tags} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
 
       <Overlays probes={probePos} clamp={clampPos} lock={lockBox} />
+      {overlay ? overlay((id) => { const p = tpos(ctx, id); return p ? { x: p.x, y: p.y } : null; }) : null}
     </div>
   );
 

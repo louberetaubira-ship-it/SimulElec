@@ -5,13 +5,13 @@
  * mêmes sept étapes, mêmes questions, sur une situation d'étude qui justifie
  * chaque mesure, et avec UN SEUL appareil : le contrôleur d'installation.
  *
- * Ce TP n'est pas un TP de platine : l'installation est livrée posée et câblée
- * par l'installateur, l'élève la MET EN SERVICE. Il a donc son propre parcours
+ * L'installation est livrée posée et câblée par l'installateur (platine
+ * précâblée, dessinée comme les autres TP) : l'élève la MET EN SERVICE. Il a son propre parcours
  * (`kind: 'miseEnService'`, voir `src/lib/mes/miseEnService.ts` et
- * `src/app/tp/[id]/MiseEnServiceClient.tsx`) ; les champs propres à la platine
- * (appareils posés, liaisons, réseaux) restent vides.
+ * `src/app/tp/[id]/MiseEnServiceClient.tsx`).
  */
 import type { TpDefinition } from '@/lib/types';
+import { STATION_GAINES, STATION_LIAISONS, STATION_PUPITRE, STATION_RECV, STATION_SLOTS, STATION_TERRE } from './station-platine';
 
 export const TP_STATION_RELEVAGE: TpDefinition = {
   id: 'mise-en-service-station',
@@ -47,16 +47,22 @@ export const TP_STATION_RELEVAGE: TpDefinition = {
     { k: 'Habilitation', v: 'BR pour les mesurages et la mise en service, BC pour la consignation. Consignation et déconsignation en présence du professeur.' },
   ],
   postes: [],
-  rails: [],
-  slots: [],
+  /** Coffret précâblé : même moteur de dessin que les TP de platine (voir `station-platine.ts`). */
+  rails: [150, 346, 542],
+  slots: STATION_SLOTS,
+  pupitre: STATION_PUPITRE,
+  recvItems: STATION_RECV,
+  terre: STATION_TERRE,
+  gaines: STATION_GAINES,
+  goulotteDePied: false,
   annexItems: [],
-  liaisons: [],
+  liaisons: STATION_LIAISONS,
   nets: {},
   tests: [],
   mesures: [],
   faults: [],
   quiz: [],
-  motor: null,
-  station: false,
-  hasMotor: false,
+  motor: { P: 2200, U: 400, In: 4.9, n: 2860, ns: 3000, cosPhi: 0.84 },
+  station: true,
+  hasMotor: true,
 };

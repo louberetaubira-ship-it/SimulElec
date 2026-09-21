@@ -9,15 +9,13 @@
 import React from 'react';
 import {
   APPAREILS, CONSIGNATION, CONTROLES, DECONSIGNATION, DESIGNATIONS, EQUIPEMENTS, ESSAIS, estConforme,
-  fmt, FONCTIONS, MES_STEPS, HABILITATIONS, lignesPv, MES, MESURES, miseEnServicePrononcee, ORGANES,
+  fmt, FONCTIONS, HABILITATIONS, lignesPv, MES, MESURES, miseEnServicePrononcee, ORGANES,
   POSITIONS, POURQUOI, RESTITUTION, type QcmDef,
 } from '@/lib/mes/miseEnService';
 import { useMesParcours } from '@/app/tp/[id]/mesStore';
 import Schema, { type SchemaTab } from './Schemas';
 import Controleur from './Controleur';
 import Banc from './Banc';
-import GuideControleur from './GuideControleur';
-import ProfBotMes from './ProfBotMes';
 import { BANCS } from '@/lib/mes/banc';
 import Frise7 from './Frise7';
 import Inspection from './Inspection';
@@ -322,38 +320,8 @@ function Consignation() {
 
 /* ------------------------------------------------------------- mesures */
 
-/** Plein écran d'un bloc (API native, repli sur un calque fixe). */
-function usePleinEcran() {
-  const ref = React.useRef<HTMLDivElement>(null);
-  const [fs, setFs] = React.useState(false);
-  React.useEffect(() => {
-    const onChange = () => { if (!document.fullscreenElement) setFs(false); };
-    document.addEventListener('fullscreenchange', onChange);
-    return () => document.removeEventListener('fullscreenchange', onChange);
-  }, []);
-  React.useEffect(() => {
-    if (!fs) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.fullscreenElement) setFs(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [fs]);
-  const entrer = () => {
-    setFs(true);
-    const el = ref.current;
-    try {
-      const r = el?.requestFullscreen?.();
-      if (r && typeof r.catch === 'function') r.catch(() => {});
-    } catch { /* API refusée : le calque fixe prend le relais */ }
-  };
-  const sortir = () => {
-    setFs(false);
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-  };
-  return { ref, fs, entrer, sortir };
-}
-
 function Mesures({ step }: { step: number }) {
-  const { s, tp, juger, leverReserve, answerQcm, essai, benchMsg, setGuideOpen } = useMesParcours();
+  const { s, juger, leverReserve, answerQcm, essai, benchMsg } = useMesParcours();
   const e = MESURES[step]!;
   const b = BANCS[step];
   const m = s.mesures[step];
@@ -362,8 +330,6 @@ function Mesures({ step }: { step: number }) {
   const reserveOuverte = !!(r && lr && !estConforme(e.points.find((p) => p.id === r.point)!, lr.v));
   const rot = step === MES.PHASES ? m.lectures.rot : undefined;
   const phasesOk = !!(rot && estConforme(e.points[0], rot.v));
-  const { ref, fs, entrer, sortir } = usePleinEcran();
-  const [botFs, setBotFs] = React.useState(false);
   const nMes = e.points.filter((p) => m.lectures[p.id]).length;
 
   const tableau = (
@@ -416,31 +382,12 @@ function Mesures({ step }: { step: number }) {
         <Qcm id="limite" def={e.limite} value={m.limite} onAnswer={(i) => answerQcm(step, 'limite', i)} graine={step * 2 + 2} />
       </div>
 
-      <div
-        ref={ref}
-        data-bench
-        data-fs={fs ? '1' : '0'}
-        className={fs ? 'fixed inset-0 z-[60] flex flex-col gap-2.5 overflow-y-auto bg-[var(--app)] p-3' : 'flex flex-col gap-2.5'}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <h3 className="m-0 text-[13px] font-semibold">Banc de mesure{fs && ` · ${MES_STEPS[step].title}`}</h3>
-          <span className="text-[11.5px] text-muted">Clique un cordon sur le contrôleur, puis une borne sur le dessin.</span>
-          <div className="ml-auto flex gap-1.5">
-            {fs && (
-              <>
-                <button type="button" onClick={() => setGuideOpen(true)} className={btn}>📘 Guide</button>
-                <button type="button" onClick={() => setBotFs(!botFs)} className={btn}>👨‍🏫 Professeur</button>
-              </>
-            )}
-            <button type="button" data-fs-toggle onClick={fs ? sortir : entrer} className={`${btn} ${fs ? btnOn : ''}`}>
-              {fs ? '✕ Quitter le plein écran' : '⛶ Plein écran'}
-            </button>
-          </div>
-        </div>
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_330px]">
+      <div data-bench className="flex flex-col gap-2.5">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
           <Banc />
           <div className="mx-auto w-full max-w-[400px] xl:sticky xl:top-2 xl:self-start">
             <Controleur />
+            <p className="m-0 mt-1.5 text-[11.5px] text-muted">Zoom : molette ou boutons de la platine. ⛶ : mode atelier plein écran (contrôleur à gauche, professeur à droite).</p>
           </div>
         </div>
         {benchMsg && (
@@ -449,12 +396,6 @@ function Mesures({ step }: { step: number }) {
           </div>
         )}
         {tableau}
-        {fs && typeof document !== 'undefined' && !!document.fullscreenElement && <GuideControleur />}
-        {fs && botFs && tp && (
-          <div className="fixed bottom-3 right-3 z-[65] flex h-[70vh] w-[360px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-[var(--line)] shadow-xl">
-            <ProfBotMes tp={tp} />
-          </div>
-        )}
       </div>
 
       {r && reserveOuverte && (
