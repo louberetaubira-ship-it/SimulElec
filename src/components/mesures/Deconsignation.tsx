@@ -6,6 +6,8 @@ import type { AttemptState, TpDefinition } from '@/lib/types';
 import { startButtons, type SimState } from '@/lib/sim/engine';
 import { reperesMiseSousTension, repereSlot } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
+import { aParametrage, paramConforme } from '@/lib/sim/parametrage';
+import Parametrage from './Parametrage';
 
 export interface DeconsignationProps {
   /** Le TP fournit les repères : « F2 » ici, « Q2 » là — jamais écrits en dur. */
@@ -13,6 +15,8 @@ export interface DeconsignationProps {
   st: AttemptState;
   sim: SimState;
   onAct: (a: 'unlock') => void;
+  /** Réglage d'un paramètre du variateur (TP à variateur seulement). */
+  onParam?: (code: string, value: number | string) => void;
 }
 
 function Step({ done, n, children }: { done: boolean; n: string; children: React.ReactNode }) {
@@ -26,7 +30,7 @@ function Step({ done, n, children }: { done: boolean; n: string; children: React
   );
 }
 
-export default function Deconsignation({ tp, st, sim, onAct }: DeconsignationProps) {
+export default function Deconsignation({ tp, st, sim, onAct, onParam }: DeconsignationProps) {
   const d = st.decons;
   const [q1, pri, sec] = reperesMiseSousTension(tp);
   const marche = startButtons(tp)[0];
@@ -48,7 +52,14 @@ export default function Deconsignation({ tp, st, sim, onAct }: DeconsignationPro
           {q1} {sim.q1 ? 'fermé' : 'ouvert'} · {pri} {sim.f2 ? 'fermé' : 'ouvert'} · {sec} {sim.f3 ? 'fermé' : 'ouvert'}
         </span>
       </Step>
-      <Step done={d.essai} n="3">
+      {aParametrage(tp) && onParam && (
+        <Step done={d.close && paramConforme(tp, st)} n="3">
+          <b>Paramétrer {repereSlot(tp, tp.variateur!.slot)}</b> au clavier, d&apos;après la plaque du moteur et le
+          cahier des charges, <b>avant</b> tout ordre de marche. Le variateur part de ses réglages usine.
+          <Parametrage tp={tp} st={st} alimente={d.close} onParam={onParam} />
+        </Step>
+      )}
+      <Step done={d.essai} n={aParametrage(tp) ? '4' : '3'}>
         <b>Essai de fonctionnement</b>
         {marche ? (
           <> — appuie sur {marche.rep} ({marche.label}) en porte : {km1} s&apos;enclenche, {voyant} s&apos;allume.</>

@@ -77,7 +77,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
   const ready =
     variant === 'epi' ? epiOk(st) && consignationOk(st)
       : variant === 'horsTension' ? horsTensionComplete(tp, st)
-        : variant === 'decons' ? deconsComplete(st)
+        : variant === 'decons' ? deconsComplete(st, tp)
           : sousTensionComplete(tp, st);
 
   /** Bouton de marche du pupitre, nommé dans les consignes (repère + libellé). */
@@ -132,7 +132,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
 
         {variant === 'decons' && (
           <Card title="Déconsignation">
-            <DeconsignationSteps tp={tp} st={st} sim={sim} onAct={s.consAct} />
+            <DeconsignationSteps tp={tp} st={st} sim={sim} onAct={s.consAct} onParam={s.setParam} />
           </Card>
         )}
 

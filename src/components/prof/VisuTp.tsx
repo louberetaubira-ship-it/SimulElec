@@ -173,6 +173,7 @@ export default function VisuTp({ attempt, tp, onClose }: {
         return <div>
           <Chip ok={st.decons.unlock}>Retrait cadenas et macaron</Chip>
           <Chip ok={st.decons.close}>Refermeture des protections</Chip>
+          {tp.variateur?.parametres?.length ? <Chip ok={Boolean(st.decons.param)}>Paramétrage du variateur</Chip> : null}
           <Chip ok={st.decons.essai}>Essai de fonctionnement</Chip>
         </div>;
 

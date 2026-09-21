@@ -578,7 +578,37 @@ export const TP_VARIATEUR: TpDefinition = {
   // Paramètres de mise en service entrés par l'élève sur l'afficheur du variateur.
   // La consigne de vitesse est donnée par HSP : pas de potentiomètre sur AI1 dans
   // cette première version, l'entrée analogique reste libre.
-  variateur: { slot: 'u1', frs: 50, lsp: 10, hsp: 50, acc: 5, dec: 5 },
+  variateur: {
+    slot: 'u1', frs: 50, lsp: 10, hsp: 50, acc: 5, dec: 5, ith: 1.9, tcc: '2C',
+    // Valeurs attendues = ligne « Paramétrage » du cahier des charges. Le clavier
+    // démarre sur les réglages USINE de l'ATV320 : l'élève doit tout régler lui-même.
+    parametres: [
+      { code: 'bFr', groupe: 'Moteur · plaque signalétique', role: 'Fréquence standard du réseau', attendu: 50, usine: 50, options: [50, 60], unite: 'Hz',
+        why: 'Réseau européen : 50 Hz.' },
+      { code: 'nPr', groupe: 'Moteur · plaque signalétique', role: 'Puissance nominale', attendu: 0.75, usine: 0.75, options: [0.37, 0.55, 0.75, 1.1, 1.5], unite: 'kW',
+        why: 'Plaque : 0,75 kW.' },
+      { code: 'UnS', groupe: 'Moteur · plaque signalétique', role: 'Tension nominale', attendu: 400, usine: 400, options: [230, 380, 400, 415], unite: 'V',
+        why: 'Couplage étoile sur 400 V : la plaque donne 400 V Y.' },
+      { code: 'nCr', groupe: 'Moteur · plaque signalétique', role: 'Courant nominal', attendu: 1.9, usine: 1.5, options: [1.1, 1.5, 1.9, 3.3, 3.6], unite: 'A',
+        why: 'Courant ÉTOILE de la plaque : 1,9 A. 3,3 A serait le triangle, 3,6 A le courant de ligne du variateur.' },
+      { code: 'FrS', groupe: 'Moteur · plaque signalétique', role: 'Fréquence nominale', attendu: 50, usine: 50, options: [50, 60], unite: 'Hz',
+        why: 'Plaque : 50 Hz.' },
+      { code: 'nSP', groupe: 'Moteur · plaque signalétique', role: 'Vitesse nominale', attendu: 1395, usine: 1400, options: [1395, 1400, 1500, 2850], unite: 'tr/min',
+        why: 'Vitesse RÉELLE de la plaque, glissement compris : 1395 tr/min. 1500 est la vitesse de synchronisme.' },
+      { code: 'ItH', groupe: 'Protection du moteur', role: 'Protection thermique I²t', attendu: 1.9, usine: 1.5, options: [0.5, 1.5, 1.9, 2.5, 3.6], unite: 'A',
+        why: 'ItH = In moteur = 1,9 A. Il n\'y a pas de relais thermique : c\'est LA protection du moteur.' },
+      { code: 'ACC', groupe: 'Rampes et vitesses', role: 'Rampe d\'accélération', attendu: 5, usine: 3, options: [0.5, 1, 3, 5, 10], unite: 's',
+        why: 'Cahier des charges : 5 s de 0 à FrS.' },
+      { code: 'dEC', groupe: 'Rampes et vitesses', role: 'Rampe de décélération', attendu: 5, usine: 3, options: [0.5, 1, 3, 5, 10], unite: 's',
+        why: 'Cahier des charges : 5 s.' },
+      { code: 'LSP', groupe: 'Rampes et vitesses', role: 'Petite vitesse', attendu: 10, usine: 0, options: [0, 5, 10, 20], unite: 'Hz',
+        why: 'Cahier des charges : 10 Hz minimum — en dessous, le moteur autoventilé ne se refroidit plus.' },
+      { code: 'HSP', groupe: 'Rampes et vitesses', role: 'Grande vitesse · consigne', attendu: 50, usine: 50, options: [40, 50, 60, 75], unite: 'Hz',
+        why: 'Consigne du convoyeur : 50 Hz. Au-delà de FrS, le moteur dépasse sa vitesse nominale.' },
+      { code: 'tCC', groupe: 'Commande', role: 'Type de commande', attendu: '2C', usine: '2C', options: ['2C', '3C'],
+        why: 'LI1 reçoit un contact MAINTENU (KM1 53-54) : commande 2 fils. En 3 fils, LI1 devient l\'arrêt et il faudrait une impulsion sur LI2.' },
+    ],
+  },
   folio: {
     railHaut: '24 V — secondaire de T1',
     railBas: 'com — retour 0 V, relié à la terre',

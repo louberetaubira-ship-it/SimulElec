@@ -240,6 +240,35 @@ export interface VariateurDef {
   acc: number;
   /** Rampe de décélération, paramètre `dEC` (s). */
   dec: number;
+  /** Protection thermique du moteur, paramètre `ItH` (A). Absent : pas de protection I²t simulée. */
+  ith?: number;
+  /** Type de commande, paramètre `tCC` : 2 fils (contact maintenu) ou 3 fils (impulsions). */
+  tcc?: '2C' | '3C';
+  /**
+   * Paramètres que l'élève entre au clavier pendant la mise en service.
+   * Présents : la mise en service comporte l'étape « Paramétrer U1 » ; les valeurs
+   * saisies remplacent `frs`, `lsp`, `hsp`, `acc`, `dec`, `ith` et `tcc` dans la simulation.
+   */
+  parametres?: ParamVariateur[];
+}
+
+/** Un paramètre du variateur, tel que l'élève le règle au clavier. */
+export interface ParamVariateur {
+  /** Code affiché par le variateur (`nCr`, `ItH`…). */
+  code: string;
+  /** Rôle du paramètre, en clair. */
+  role: string;
+  /** Groupe du menu (« Moteur · plaque », « Rampes et vitesses »…). */
+  groupe: string;
+  /** Valeur attendue d'après la plaque et le cahier des charges. */
+  attendu: number | string;
+  /** Réglage usine : la valeur de départ au clavier. */
+  usine: number | string;
+  /** Valeurs proposées par ▲ ▼, dans l'ordre. */
+  options: (number | string)[];
+  unite?: string;
+  /** Justification de la valeur attendue (affichée à la vérification). */
+  why: string;
 }
 
 /**
@@ -823,7 +852,11 @@ export interface AttemptState {
   epi: Record<string, boolean>;
   /** Consignation : séparation, condamnation, identification, VAT sur source, VAT aval (paires), re-vérification. */
   cons: { sep: boolean; lock: boolean; ident: boolean; vatRef: boolean; vat: [string, string][]; vatRef2: boolean };
-  decons: { unlock: boolean; close: boolean; essai: boolean };
+  decons: { unlock: boolean; close: boolean; essai: boolean; param?: boolean };
+  /** Paramètres du variateur saisis au clavier (code → valeur). Absents : réglages usine. */
+  vsdParams?: Record<string, number | string>;
+  /** Paramètres non conformes au moment des essais (erreurs de l'étape mise en service). */
+  paramErrors?: number;
   /**
    * Sécurité des mesures sous tension (NF C 18-510) : EPI/EIS choisis et
    * contrôles d'état confirmés. Tant que l'équipement n'est pas bon, la mesure

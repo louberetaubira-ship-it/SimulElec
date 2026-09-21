@@ -4,6 +4,7 @@ import type {
 import { isRunning, startButtons, type Cablage, type SimState } from './engine';
 import { listeMiseSousTension, repereSlot } from './reperes';
 import { linkKey } from './layout';
+import { aParametrage, paramConforme, paramNonConformes, parametresOf } from './parametrage';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
 import type { CoursId } from '../data/cours';
 import {
@@ -424,7 +425,13 @@ export const epiConsComplete = (st: AttemptState) => epiOk(st) && consignationOk
 
 export const horsTensionComplete = (tp: TpDefinition, st: AttemptState) => mesuresComplete(tp, st, 'horsTension');
 export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) => mesuresComplete(tp, st, 'sousTension');
-export const deconsComplete = (st: AttemptState) => st.decons.essai;
+/**
+ * Mise en service terminée : essai concluant ET, sur un TP à variateur, paramétrage
+ * conforme. L'essai reste possible avec de mauvais réglages — il en montre les
+ * symptômes — mais l'étape n'est validée qu'avec les réglages du cahier des charges.
+ */
+export const deconsComplete = (st: AttemptState, tp?: Pick<TpDefinition, 'variateur'>) =>
+  st.decons.essai && (!tp || paramConforme(tp, st));
 
 export interface ServiceCheck { id: string; title: string; ok: boolean }
 
@@ -443,6 +450,9 @@ export function serviceChecks(tp: TpDefinition, st: AttemptState, sim: SimState)
   return [
     { id: 'unlock', title: 'Retirer le cadenas et l\'étiquette de consignation', ok: st.decons.unlock },
     { id: 'close', title: `Refermer ${listeMiseSousTension(tp)}`, ok: st.decons.close },
+    ...(aParametrage(tp)
+      ? [{ id: 'param', title: `Paramétrer ${repereSlot(tp, tp.variateur!.slot)} d'après la plaque et le cahier des charges`, ok: st.decons.close && paramConforme(tp, st) }]
+      : []),
     { id: 'essai', title: essaiTitle, ok: st.decons.essai },
     { id: 'run', title: tp.hasMotor ? 'Moteur en marche' : 'Installation en service (230 V présent)', ok: isRunning(sim) || st.decons.essai },
   ];
@@ -488,7 +498,7 @@ export function stageSatisfied(tp: TpDefinition, st: AttemptState, sim: SimState
     case ETAPE.TESTS: return testsComplete(tp, st);
     case ETAPE.EPI: return epiConsComplete(st);
     case ETAPE.HORS: return horsTensionComplete(tp, st);
-    case ETAPE.MISE_EN_SERVICE: return deconsComplete(st);
+    case ETAPE.MISE_EN_SERVICE: return deconsComplete(st, tp);
     case ETAPE.SOUS: return sousTensionComplete(tp, st);
     case ETAPE.VALIDATION: return validationComplete(st);
     default: return false;
@@ -623,8 +633,14 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
     case ETAPE.HORS:
       // barème câblage : chaque mesure conforme est un point, chaque ERR une erreur
       return mesuresNote(tp, st, 'horsTension', ETAPE.HORS);
-    case ETAPE.MISE_EN_SERVICE:
-      return st.decons.essai ? 1 : st.decons.close ? 0.5 : 0.2;
+    case ETAPE.MISE_EN_SERVICE: {
+      const base = st.decons.essai ? 1 : st.decons.close ? 0.5 : 0.2;
+      if (!aParametrage(tp)) return base;
+      // Paramétrage : la moitié de la note, au prorata des réglages conformes.
+      const n = parametresOf(tp).length;
+      const ok = (n - paramNonConformes(tp, st).length) / n;
+      return clamp01(0.5 * base + 0.5 * ok);
+    }
     case ETAPE.SOUS:
       return mesuresNote(tp, st, 'sousTension', ETAPE.SOUS);
     case ETAPE.VALIDATION: {
@@ -651,6 +667,7 @@ export function stageErrors(st: AttemptState, stage: number): number {
     case ETAPE.POSE: return st.poseErrors ?? 0;
     case ETAPE.CABLAGE: return (st.wireErrors ?? 0) + (st.resets ?? 0);
     case ETAPE.HORS: return errReadings(st, ETAPE.HORS);
+    case ETAPE.MISE_EN_SERVICE: return st.paramErrors ?? 0;
     case ETAPE.SOUS: return errReadings(st, ETAPE.SOUS);
     case ETAPE.VALIDATION: return Math.max(0, (st.diagTries ?? 0) - 1);
     default: return 0;

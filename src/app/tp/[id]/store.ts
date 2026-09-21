@@ -12,6 +12,7 @@ import {
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
 import { liaisonCoupee, reseauCommande } from '@/lib/sim/commande';
+import { aParametrage, fmtParam, paramNonConformes, parametresOf, tpParametre } from '@/lib/sim/parametrage';
 import {
   conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
 } from '@/lib/sim/diagnostic';
@@ -217,6 +218,8 @@ interface ParcoursState {
   toggleSecuEquip: (id: string) => void;
   toggleSecuCheck: (id: string) => void;
   consAct: (a: 'lock' | 'ident' | 'unlock') => void;
+  /** Enregistre un paramètre du variateur saisi au clavier (étape mise en service). */
+  setParam: (code: string, value: number | string) => void;
   record: () => void;
   currentRead: () => ReadOut;
 
@@ -286,6 +289,8 @@ export const useParcours = create<ParcoursState>((set, get) => {
     }, 800);
   };
 
+  /** Dernière configuration de réglages non conformes déjà sanctionnée à l'essai. */
+  let lastParamSig = '';
   const patch = (fn: (st: AttemptState) => AttemptState) => {
     set(s => ({ st: fn(s.st) }));
     schedule();
@@ -392,6 +397,12 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const d = st.decons;
       const close = d.unlock && sim.q1 && sim.f2 && sim.f3;
       const essai = (d.close || close) && sim.km1;
+      // Paramétrage : conforme une fois le variateur sous tension et tous les réglages justes.
+      const param = aParametrage(tp) ? (d.close || close) && paramNonConformes(tp, st).length === 0 : undefined;
+      if (param !== undefined && param !== Boolean(d.param)) {
+        if (param) mlog(`Paramétrage de ${repereSlot(tp, tp.variateur!.slot)} conforme au cahier des charges.`);
+        patch(s => ({ ...s, decons: { ...s.decons, param } }));
+      }
       if (close !== d.close || essai !== d.essai) {
         if (close && !d.close) mlog(`${listeMiseSousTension(tp, 'et')} refermés : la platine est remise sous tension.`);
         if (essai && !d.essai) {
@@ -1002,6 +1013,20 @@ export const useParcours = create<ParcoursState>((set, get) => {
       patch(s => ({ ...s, secu: { ...s.secu, checks: { ...s.secu.checks, [id]: !s.secu.checks[id] } } }));
     },
 
+    setParam(code, value) {
+      const { tp, st } = get();
+      if (st.stage !== ETAPE.MISE_EN_SERVICE) return;
+      const p = parametresOf(tp).find(x => x.code === code);
+      if (!p || !p.options.includes(value)) return;
+      if (!st.decons.close) {
+        say(`${repereSlot(tp, tp.variateur!.slot)} est hors tension : referme d'abord ${listeMiseSousTension(tp, 'et')}.`);
+        return;
+      }
+      patch(x => ({ ...x, vsdParams: { ...(x.vsdParams ?? {}), [code]: value } }));
+      mlog(`${repereSlot(tp, tp.variateur!.slot)} · ${code} réglé à ${fmtParam(value)}${p.unite ? ` ${p.unite}` : ''}.`);
+      evaluate();
+    },
+
     consAct(a) {
       const { st, sim, tp } = get();
       if (a === 'lock') {
@@ -1124,7 +1149,19 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { sim, tp, st } = get();
       // Même garde que les appareils de la platine : rien ne se manœuvre avant le câblage.
       if (st.stage < ETAPE.CABLAGE) return;
-      const r = pressButton(sim, tp, rep, cablageEtat(tp, st));
+      // Le variateur tourne avec les réglages de l'ÉLÈVE, pas ceux du cahier des charges.
+      const r = pressButton(sim, tpParametre(tp, st), rep, cablageEtat(tp, st));
+      // Essai lancé avec des réglages non conformes : chacun compte comme une erreur
+      // de l'étape mise en service (une seule fois par configuration essayée).
+      if (st.stage === ETAPE.MISE_EN_SERVICE && aParametrage(tp) && !sim.km1 && r.state.km1) {
+        const faux = paramNonConformes(tp, st);
+        const sig = faux.map(p => `${p.code}=${String(st.vsdParams?.[p.code] ?? p.usine)}`).join('|');
+        if (faux.length && sig !== lastParamSig) {
+          lastParamSig = sig;
+          patch(x => ({ ...x, paramErrors: (x.paramErrors ?? 0) + faux.length }));
+          mlog(`Essai avec ${faux.length} réglage${faux.length > 1 ? 's' : ''} non conforme${faux.length > 1 ? 's' : ''} : ${faux.map(p => p.code).join(', ')}.`);
+        }
+      }
       set({ sim: r.state });
       say(r.message);
       evaluate();
@@ -1142,7 +1179,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     advance(dt) {
       const { sim, tp, st } = get();
-      const r = tick(sim, tp, dt, cablageEtat(tp, st));
+      const r = tick(sim, tpParametre(tp, st), dt, cablageEtat(tp, st));
       set({ sim: r.state });
       if (r.message) { say(r.message); mlog(r.message); }
       if (st.stage >= ETAPE.HORS) evaluate();

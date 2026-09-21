@@ -338,6 +338,13 @@ function pressStart(s: SimState, tp: TpDefinition, btn: string, cab: Cablage): A
   }
   if (s.km1) return { state: held, message: `${rep(tp, 'km1')} est déjà enclenché.` };
   const enclenche = `${btn} : ${rep(tp, 'km1')} s'enclenche, l'auto-maintien 13-14 prend le relais.`;
+  if (tp.variateur?.tcc === '3C') {
+    return {
+      state: { ...held, km1: true, t: 0, peak: 0, chattering: false },
+      message: `${enclenche} ${repereSlot(tp, tp.variateur.slot)} s'allume et affiche rdY, mais le moteur ne part pas : `
+        + 'en commande 3 fils (tCC = 3C), LI1 est l\'entrée d\'arrêt — il faudrait une impulsion sur LI2.',
+    };
+  }
   return {
     state: { ...held, km1: true, t: 0, peak: 0, chattering: false },
     // La commande est bonne, mais un moteur dont la puissance n'est pas câblée ne
@@ -434,8 +441,11 @@ export function tick(
   const s = { ...state };
   let message = '';
   const { In, ns } = motorOf(tp);
+  const vsd = tp.variateur;
   // KM1 collé ne suffit pas : sans circuit de puissance câblé, l'arbre ne tourne pas.
-  const on = isRunning(s) && cab.pwr;
+  // Et en commande 3 fils (tCC = 3C), LI1 est l'entrée d'ARRÊT : le contact maintenu
+  // de KM1 ne donne jamais l'ordre de marche, le variateur reste prêt (rdY).
+  const on = isRunning(s) && cab.pwr && vsd?.tcc !== '3C';
   const oneLegLost = s.fault === 'l2';
   const kc = s.coupling === 'D' ? 1.73 : 1;
 
@@ -444,7 +454,6 @@ export function tick(
   // Un variateur n'appelle PAS de pointe de démarrage : il part à fréquence nulle
   // et monte en rampe, le moteur reste à son courant nominal pendant toute la
   // montée. C'est la différence physique la plus visible avec le démarrage direct.
-  const vsd = tp.variateur;
 
   let target = on ? In * (0.3 + 0.7 * s.load) * kc : 0;
   if (!vsd && on && s.t < 1.4) target = Math.max(target, In * 6 * kc * Math.exp(-s.t * 3.2));
@@ -463,7 +472,26 @@ export function tick(
   if (!on && s.n < 5) s.n = 0;
   if (!on && s.I < 0.02) s.I = 0;
 
-  if (on && (s.load > 1.2 || oneLegLost || s.coupling === 'D')) {
+  // Rampe d'accélération trop courte : le variateur demande un couple que le moteur
+  // ne peut pas fournir, le courant crève la limite et il se met en défaut OCF.
+  if (vsd && on && vsd.acc < 1 && s.t >= 0.25) {
+    s.peak = Math.max(s.peak, In * 2.6);
+    s.f1trip = true;
+    s.km1 = false;
+    s.heat = 0;
+    return {
+      state: s,
+      message: `${repereSlot(tp, vsd.slot)} affiche OCF — surintensité : une rampe ACC de `
+        + `${String(vsd.acc).replace('.', ',')} s est trop courte pour lancer la charge.`,
+    };
+  }
+
+  // Protection I²t du variateur : elle compare le courant moteur au réglage ItH.
+  // Réglé trop bas, elle coupe en service normal ; trop haut, elle laisse passer
+  // une surcharge — il n'y a pas de relais thermique derrière pour rattraper.
+  const ithDepasse = vsd?.ith != null && Number.isFinite(vsd.ith) && s.I > vsd.ith * 1.05;
+  const surcharge = vsd?.ith != null && Number.isFinite(vsd.ith) ? ithDepasse : s.load > 1.2;
+  if (on && (surcharge || oneLegLost || s.coupling === 'D')) {
     s.heat += dt;
     const seuil = s.coupling === 'D' ? SEUIL_TRIP_D : oneLegLost ? SEUIL_TRIP_L2 : SEUIL_TRIP;
     if (s.heat > seuil) {
@@ -476,7 +504,9 @@ export function tick(
       message = vsd
         ? (s.coupling === 'D'
           ? `${prot} affiche OLF : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
-          : `${prot} affiche OLF — surcharge moteur détectée par la protection I²t.`)
+          : ithDepasse && s.load <= 1.2
+            ? `${prot} affiche OLF : le moteur absorbe ${s.I.toFixed(2).replace('.', ',')} A, au-dessus du réglage ItH = ${String(vsd.ith).replace('.', ',')} A.`
+            : `${prot} affiche OLF — surcharge moteur détectée par la protection I²t.`)
         : (s.coupling === 'D'
           ? `${repereSlot(tp, 'f1')} déclenche : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
           : `${repereSlot(tp, 'f1')} déclenche : surcharge du moteur.`);
