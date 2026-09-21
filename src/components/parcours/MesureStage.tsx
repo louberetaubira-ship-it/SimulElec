@@ -10,7 +10,7 @@ import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { isControlLive, isRunning, startButtons, type SimState } from '@/lib/sim/engine';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import {
-  consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
+  ESSAIS_PORTAIL, consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
 } from '@/lib/sim/progress';
 import EpiChecklist from '@/components/mesures/EpiChecklist';
 import ConsignationSteps from '@/components/mesures/Consignation';
@@ -18,6 +18,7 @@ import DeconsignationSteps from '@/components/mesures/Deconsignation';
 import Instrument from '@/components/mesures/Instrument';
 import MesuresPanel from '@/components/mesures/MesuresPanel';
 import SecuriteGate from '@/components/mesures/SecuriteGate';
+import EssaisPortail from '@/components/mesures/EssaisPortail';
 import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
 import { secuComplete } from '@/lib/sim/securite';
 import { listeMiseSousTension, repereSlot, repereBorne } from '@/lib/sim/reperes';
@@ -99,6 +100,8 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
    * sont pas concernées.
    */
   const secuOk = variant !== 'sousTension' || secuComplete(st.secu);
+  const [essaisOuverts, setEssaisOuverts] = React.useState(false);
+  const nEssais = ESSAIS_PORTAIL.filter(e => st.essais?.[e.id]).length;
   const mesureVerrouillee = variant === 'sousTension' && !secuOk;
 
   const expected = variant === 'horsTension' || variant === 'sousTension'
@@ -206,6 +209,27 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           </Card>
         )}
 
+        {variant === 'sousTension' && tp.essaisPortail && (
+          <Card title="Essais fonctionnels du portail">
+            <Note>
+              Place-toi devant le portail et fais chaque essai de la fiche : badge, feu, fermeture
+              automatique, cellule, barre palpeuse, arrêt d&apos;urgence.
+            </Note>
+            <div className="my-1.5 font-mono-num text-[13px]">{nEssais} / {ESSAIS_PORTAIL.length} essais réussis</div>
+            <Button
+              size="sm"
+              data-open-essais
+              disabled={!secuOk || !isControlLive(sim)}
+              onClick={() => setEssaisOuverts(true)}
+            >
+              Aller devant le portail
+            </Button>
+            {(!secuOk || !isControlLive(sim)) && (
+              <Note className="mt-1">Installation sous tension et équipement de sécurité validé exigés.</Note>
+            )}
+          </Card>
+        )}
+
         {variant === 'sousTension' && (
           <Card title="Charge mécanique">
             <label className="flex items-center gap-2.5 text-[12px]">
@@ -255,6 +279,9 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           onDevice={s.deviceClick}
           onButton={(b, down) => s.button(b, down)}
         />
+        {essaisOuverts && (
+          <EssaisPortail faits={st.essais} onReussi={s.essaiReussi} onClose={() => setEssaisOuverts(false)} />
+        )}
         <Hint>
           {variant === 'epi'
             ? conseilConsignation(tp, st, sim, repQ1)

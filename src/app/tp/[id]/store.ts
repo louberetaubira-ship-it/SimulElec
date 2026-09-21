@@ -217,6 +217,8 @@ interface ParcoursState {
   /** Sécurité mesures sous tension : (dé)sélection d'un EPI/EIS, d'un contrôle d'état. */
   toggleSecuEquip: (id: string) => void;
   toggleSecuCheck: (id: string) => void;
+  /** Essai fonctionnel du portail réussi (banc d'essai animé). */
+  essaiReussi: (id: string) => void;
   consAct: (a: 'lock' | 'ident' | 'unlock') => void;
   /** Enregistre un paramètre du variateur saisi au clavier (étape mise en service). */
   setParam: (code: string, value: number | string) => void;
@@ -1011,6 +1013,12 @@ export const useParcours = create<ParcoursState>((set, get) => {
 
     toggleSecuCheck(id) {
       patch(s => ({ ...s, secu: { ...s.secu, checks: { ...s.secu.checks, [id]: !s.secu.checks[id] } } }));
+    },
+
+    essaiReussi(id) {
+      const { st } = get();
+      if (st.essais?.[id]) return;
+      patch(s => ({ ...s, essais: { ...(s.essais ?? {}), [id]: true } }));
     },
 
     setParam(code, value) {

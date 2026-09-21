@@ -670,6 +670,58 @@ export function PiquetSvg() {
   );
 }
 
+
+/** Feu orange clignotant de portail sur sa base (vue de face). */
+export function FeuOrangeSvg() {
+  return (
+    <svg viewBox="0 0 36 84" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="10" y="40" width="16" height="42" rx="2" fill="#8C96A3" stroke="#5B6573" strokeWidth=".8" />
+      <rect x="6" y="30" width="24" height="12" rx="3" fill="#2B2F36" />
+      <path d="M8 30 Q8 6 18 6 Q28 6 28 30 Z" fill="#FF9D00" stroke="#B36B00" strokeWidth="1" />
+      <path d="M12 26 Q12 12 18 11" fill="none" stroke="#FFE0A3" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Lecteur de badge RFID sur son poteau. */
+export function LecteurRfidSvg() {
+  return (
+    <svg viewBox="0 0 36 64" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="15" y="34" width="6" height="30" fill="#8C96A3" />
+      <rect x="5" y="4" width="26" height="34" rx="4" fill="#1B222C" stroke="#0B0F14" />
+      <circle cx="18" cy="18" r="7" fill="none" stroke="#6FD3FF" strokeWidth="1.6" />
+      <circle cx="18" cy="18" r="3.5" fill="none" stroke="#6FD3FF" strokeWidth="1.2" />
+      <circle cx="18" cy="31" r="1.8" fill="#35E36A" />
+    </svg>
+  );
+}
+
+/** Cellule photoélectrique reflex et son câble 3 fils. */
+export function CelluleSvg() {
+  return (
+    <svg viewBox="0 0 40 56" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <path d="M8 2 V14 M20 2 V14 M32 2 V14" stroke="#8B4A2B" strokeWidth="0" />
+      <path d="M8 0 V12" stroke="#8B4A2B" strokeWidth="2" /><path d="M20 0 V12" stroke="#2C7BE5" strokeWidth="2" /><path d="M32 0 V12" stroke="#20262D" strokeWidth="2" />
+      <rect x="4" y="12" width="32" height="10" rx="3" fill="#5B6573" />
+      <rect x="6" y="22" width="28" height="30" rx="3" fill="#DDE3EA" stroke="#7E858C" />
+      <circle cx="20" cy="37" r="8" fill="#2F6FD1" stroke="#1B3F7A" />
+      <circle cx="20" cy="37" r="3" fill="#BFD9FF" />
+      <circle cx="30" cy="27" r="1.6" fill="#FF9D00" />
+    </svg>
+  );
+}
+
+/** Barre palpeuse (profil caoutchouc jaune et noir) en bout de portail. */
+export function BarrePalpeuseSvg() {
+  return (
+    <svg viewBox="0 0 30 92" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="8" y="6" width="14" height="84" rx="6" fill="#20262D" />
+      {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} x="8" y={10 + i * 14} width="14" height="7" fill="#F2C94C" />)}
+      <rect x="11" y="0" width="8" height="8" rx="1" fill="#5B6573" />
+    </svg>
+  );
+}
+
 export function svgForKey(key: string, running = false): React.ReactNode | null {
   switch (key) {
     case 'pvpanel': return <PvPanelSvg />;
@@ -690,6 +742,10 @@ export function svgForKey(key: string, running = false): React.ReactNode | null 
     case 'knxbp': return <KnxBpSvg />;
     case 'barrcoupure': return <BarrCoupureSvg />;
     case 'piquet': return <PiquetSvg />;
+    case 'feuorange': return <FeuOrangeSvg />;
+    case 'lecteurrfid': return <LecteurRfidSvg />;
+    case 'cellule': return <CelluleSvg />;
+    case 'barrepalpeuse': return <BarrePalpeuseSvg />;
     case 'gk1es': return <Gk1Svg />;
     case 'lc1d50': return <Lc1D50Svg />;
     case 'lrd3357': return <Lrd3357Svg />;

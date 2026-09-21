@@ -335,7 +335,8 @@ export function reseauCommande(
           // Q0.0 pilote la bobine, Q0.1 le voyant de marche : tous deux suivent
           // l'état du départ. Q0.2 est le voyant de défaut : il est actionné
           // quand le thermique est déclenché, donc l'inverse du repos.
-          const ferme = t.id === 'Q0.2' ? sim.f1trip : sim.km1;
+          const suit = tp.plcSorties ? (tp.plcSorties[t.id] ?? 'off') : (t.id === 'Q0.2' ? 'trip' : 'km1');
+          const ferme = suit === 'km1' ? sim.km1 : suit === 'trip' ? sim.f1trip : false;
           contact(`${id}.${com}`, `${id}.${t.id}`, ferme, `${id}-${t.id}`);
         }
       }

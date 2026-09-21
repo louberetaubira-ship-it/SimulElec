@@ -337,7 +337,9 @@ function pressStart(s: SimState, tp: TpDefinition, btn: string, cab: Cablage): A
     return { state: { ...held, chattering: true }, message: `${rep(tp, 'km1')} vibre mais ne tient pas : la bobine est mal alimentée.` };
   }
   if (s.km1) return { state: held, message: `${rep(tp, 'km1')} est déjà enclenché.` };
-  const enclenche = `${btn} : ${rep(tp, 'km1')} s'enclenche, l'auto-maintien 13-14 prend le relais.`;
+  const enclenche = tp.plcSorties
+    ? `${btn} : l'automate exécute son programme, la sortie Q0.0 commande ${rep(tp, 'km1')}, qui s'enclenche.`
+    : `${btn} : ${rep(tp, 'km1')} s'enclenche, l'auto-maintien 13-14 prend le relais.`;
   if (tp.variateur?.tcc === '3C') {
     return {
       state: { ...held, km1: true, t: 0, peak: 0, chattering: false },

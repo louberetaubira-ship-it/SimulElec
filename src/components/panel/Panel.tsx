@@ -210,7 +210,7 @@ export default function Panel(props: PanelProps) {
   const motorLabel = React.useMemo(() => {
     const m = tp.motor;
     if (!m) return undefined;
-    const kw = (m.P / 1000).toFixed(1).replace('.', ',').replace(',0', '');
+    const kw = (m.P / 1000).toFixed(m.P % 100 ? 2 : 1).replace('.', ',').replace(/,0+$/, '');
     return `M1 · ${kw} kW · ${m.U} V Y`;
   }, [tp.motor]);
 

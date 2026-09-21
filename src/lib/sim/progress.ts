@@ -424,7 +424,21 @@ export const consignationOk = (st: AttemptState) => st.cons.vatRef2;
 export const epiConsComplete = (st: AttemptState) => epiOk(st) && consignationOk(st);
 
 export const horsTensionComplete = (tp: TpDefinition, st: AttemptState) => mesuresComplete(tp, st, 'horsTension');
-export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) => mesuresComplete(tp, st, 'sousTension');
+/** Essais fonctionnels du portail, dans l'ordre de la fiche d'essais. */
+export const ESSAIS_PORTAIL = [
+  { id: 'badge', label: 'Ouverture par badge' },
+  { id: 'feu', label: 'Feu orange 3 s avant chaque mouvement' },
+  { id: 'auto', label: 'Fermeture automatique après 20 s' },
+  { id: 'cell', label: 'Réouverture par la cellule S5' },
+  { id: 'barre', label: 'Réouverture par la barre palpeuse S6' },
+  { id: 'au', label: 'Arrêt d\'urgence : la fermeture ne démarre pas' },
+] as const;
+
+export const essaisPortailComplete = (tp: TpDefinition, st: AttemptState): boolean =>
+  !tp.essaisPortail || ESSAIS_PORTAIL.every(e => st.essais?.[e.id]);
+
+export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) =>
+  mesuresComplete(tp, st, 'sousTension') && essaisPortailComplete(tp, st);
 /**
  * Mise en service terminée : essai concluant ET, sur un TP à variateur, paramétrage
  * conforme. L'essai reste possible avec de mauvais réglages — il en montre les
@@ -475,7 +489,12 @@ export const validationComplete = (st: AttemptState) => st.fixed && st.diagnosis
  */
 export function prepQuestions(tp: TpDefinition): PrepQuestion[] {
   const p = tp.preparation;
-  return p ? [...p.identification, ...p.fonctions] : [];
+  return p
+    ? [
+      ...p.identification, ...p.fonctions, ...(p.calculs ?? []), ...(p.adressage ?? []),
+      ...(p.grafcetQuiz ?? []), ...(p.grafcet?.cases ?? []),
+    ]
+    : [];
 }
 
 /** Réponses justes à la préparation. */

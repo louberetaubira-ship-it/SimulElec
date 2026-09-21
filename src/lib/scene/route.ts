@@ -162,6 +162,14 @@ export function recvTerminals(geo: Pick<SceneGeom, 'recvY'>, it: AnnexItem): Rec
       [`${it.rep}.X2`]: { x: b.x + b.w * 0.84, y: b.y, ext: 'recv' },
     };
   }
+  // Détecteur 3 fils (cellule photoélectrique) : + 24 V (marron), 0 V (bleu), sortie (noir).
+  if (it.key === 'cellule') {
+    return {
+      [`${it.rep}.X1`]: { x: b.x + b.w * 0.2, y: b.y, ext: 'recv' },
+      [`${it.rep}.X2`]: { x: b.x + b.w * 0.5, y: b.y, ext: 'recv' },
+      [`${it.rep}.X3`]: { x: b.x + b.w * 0.8, y: b.y, ext: 'recv' },
+    };
+  }
   // Récepteur de classe I : la masse se raccorde. Trois bornes réparties sur le
   // bord haut — phase coupée, neutre, terre — au lieu des deux habituelles.
   if (it.pe) {

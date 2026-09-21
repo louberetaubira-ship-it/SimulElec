@@ -449,6 +449,27 @@ export const CATALOGUE: CatalogueItem[] = [
     terminals: [{ id: 'X1', fx: 1, fy: 0.35 }, { id: 'X2', fx: 1, fy: 0.7 }],
     door: true,
   }),
+  // ---- Terrain d'un portail automatique (bloc récepteurs du TP Écobike) ----
+  vector({
+    key: 'feuorange', name: 'Feu orange clignotant 24 V · grand modèle 7 cd', ref: 'Legrand 0 413 81 + base 0 413 92',
+    brand: 'Legrand', kind: 'lamp', family: 'Portail', poles: 2, w: 36, h: 84,
+    terminals: [{ id: 'X1', fx: 0.34, fy: 0 }, { id: 'X2', fx: 0.66, fy: 0 }],
+  }),
+  vector({
+    key: 'lecteurrfid', name: 'Lecteur de badge RFID 125 kHz · contact sec', ref: 'LP ROX',
+    kind: 'button', family: 'Portail', poles: 2, w: 36, h: 64,
+    terminals: [{ id: 'X1', fx: 0.34, fy: 0 }, { id: 'X2', fx: 0.66, fy: 0 }],
+  }),
+  vector({
+    key: 'cellule', name: 'Détecteur photoélectrique reflex 3 fils PNP NO · 4 m', ref: 'XUB1BPANL2 + réflecteur XUZC50',
+    brand: 'Schneider', kind: 'button', family: 'Portail', poles: 3, w: 40, h: 56,
+    terminals: [{ id: 'X1', fx: 0.2, fy: 0 }, { id: 'X2', fx: 0.5, fy: 0 }, { id: 'X3', fx: 0.8, fy: 0 }],
+  }),
+  vector({
+    key: 'barrepalpeuse', name: 'Barre palpeuse de sécurité · 2 contacts', ref: 'CMM200/J',
+    kind: 'button', family: 'Portail', poles: 2, w: 30, h: 92,
+    terminals: [{ id: 'X1', fx: 0.34, fy: 0 }, { id: 'X2', fx: 0.66, fy: 0 }],
+  }),
   vector({
     key: 'iddr', name: 'Interrupteur différentiel 30 mA · type A · 2P', ref: 'IDDR-30A-2P', kind: 'mcb',
     family: 'Différentiels', poles: 2, w: 72, h: 120,

@@ -469,6 +469,20 @@ export interface PreparationDef {
   identification: PrepQuestion[];
   /** Donner la fonction de chaque équipement. */
   fonctions: PrepQuestion[];
+  /** Calculs de dimensionnement (courant moteur, couplage, réglage de la protection). */
+  calculs?: PrepQuestion[];
+  /** Table d'adressage des entrées / sorties de l'automate. */
+  adressage?: PrepQuestion[];
+  /**
+   * Préliminaire Grafcet : questions de vérification posées après la découverte
+   * des notions (étape, transition, réceptivité…) et la barrière interactive.
+   */
+  grafcetQuiz?: PrepQuestion[];
+  /**
+   * Grafcet du TP à compléter, point de vue partie commande. Chaque case vide est
+   * une question à choix : `id` = identifiant de la case dans le dessin.
+   */
+  grafcet?: { cases: PrepQuestion[] };
 }
 
 export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string; /** Photo propre à cette référence (sinon : sprite/dessin de `key`). */ img?: string }
@@ -675,6 +689,14 @@ export interface TpDefinition {
   motor: { P: number; U: number; In: number; n: number; ns: number; cosPhi: number } | null;
   /** Automate : affectation des E/S (TP M221). */
   plcIo?: { io: string; label: string; device: string }[];
+  /**
+   * État des sorties relais de l'automate dans le simulateur, par borne : elles
+   * suivent un organe de la simulation (`km1` = sens animé), le défaut thermique
+   * (`trip`) ou restent ouvertes (`off`). Absent : comportement du TP M221 d'origine.
+   */
+  plcSorties?: Record<string, 'km1' | 'trip' | 'off'>;
+  /** Essais fonctionnels animés du portail (étape mesures sous tension). */
+  essaisPortail?: boolean;
   station: boolean;
   /**
    * Composition du coffret de porte, de haut en bas. Absent = pupitre historique
@@ -843,6 +865,8 @@ export interface AttemptState {
    * une tentative enregistrée avant son existence vaut {} (voir `normalizeState`).
    */
   qcmErr: Record<string, number>;
+  /** Essais fonctionnels réussis (portail animé) : identifiant d'essai → vrai. */
+  essais?: Record<string, boolean>;
   placed: Record<string, boolean>;
   wires: { a: string; b: string; net: NetKind }[];
   wireErrors: number;

@@ -27,6 +27,8 @@ import SchemaPuissance from '@/components/schema/SchemaPuissance';
 import SchemaCommande from '@/components/schema/SchemaCommande';
 import SchemaPv from '@/components/schema/SchemaPv';
 import PreparationEtudePv from './PreparationEtudePv';
+import SchemaAutomate from '@/components/schema/SchemaAutomate';
+import { GrafcetIntro, GrafcetPortail } from './Grafcet';
 import { Center, Side } from './StageLayout';
 
 interface Props {
@@ -285,7 +287,9 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
                         ? <SchemaPv tp={tp} focus={focus} />
                         : surCommande && tp.folio
                           ? <SchemaCommande tp={tp} reseau={reseau} zone={zone} focusRep={focus} />
-                          : <SchemaPuissance tp={tp} focus={focus} />}
+                          : surCommande && tp.plcIo
+                            ? <SchemaAutomate tp={tp} focus={focus} />
+                            : <SchemaPuissance tp={tp} focus={focus} />}
                     </div>
                   </div>
                   {courante?.focus && (
@@ -320,6 +324,39 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
                     questions={p.fonctions} st={st} actif={actif}
                     onAnswer={onAnswer} onActive={setActif}
                   />
+                  {p.calculs && (
+                    <Bloc
+                      titre="3 · Calculer et dimensionner"
+                      consigne="Données de la plaque du motoréducteur : Pu = 0,37 kW, η = 83,6 %, cos φ = 0,78, 230 / 400 V. Réseau 3 × 400 V."
+                      questions={p.calculs} st={st} actif={actif}
+                      onAnswer={onAnswer} onActive={setActif}
+                    />
+                  )}
+                  {p.adressage && (
+                    <Bloc
+                      titre="4 · Adresser les entrées et sorties"
+                      consigne="Dans le programme, on n'écrit pas « S3 » mais l'adresse de la borne où il est câblé. Complète la table d'adressage."
+                      questions={p.adressage} st={st} actif={actif}
+                      onAnswer={onAnswer} onActive={setActif}
+                    />
+                  )}
+                  {p.grafcetQuiz && (
+                    <>
+                      <GrafcetIntro />
+                      <Bloc
+                        titre="Vérifie tes acquis sur le Grafcet"
+                        consigne="Quatre questions : elles débloquent le Grafcet du portail."
+                        questions={p.grafcetQuiz} st={st} actif={actif}
+                        onAnswer={onAnswer} onActive={setActif}
+                      />
+                    </>
+                  )}
+                  {p.grafcet && (
+                    <GrafcetPortail
+                      cases={p.grafcet.cases} st={st} onAnswer={onAnswer}
+                      verrou={(p.grafcetQuiz ?? []).some(q => st.prep?.[q.id] == null)}
+                    />
+                  )}
                 </>
               )}
             </div>
