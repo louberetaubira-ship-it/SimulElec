@@ -28,6 +28,21 @@ function body(slot: ResolvedSlot, state?: DeviceState): React.ReactNode {
   return <img src={`/sprites/${slot.key}${suffix}.png`} alt={slot.slot.rep || slot.id} />;
 }
 
+/**
+ * Hauteur de la pastille d'état (I / O / !), posée sur le bord droit de l'appareil.
+ *
+ * Par défaut à 36 % de la hauteur. Mais un contacteur à bloc additif porte ses
+ * bornes 53-54 sur ce même bord (LC1D + LADN11 : 53 à 30 %, 54 à 70 %) : la
+ * pastille tombait sur la borne 53 et la masquait. On prend la première hauteur
+ * libre, à distance de toute borne du bord droit.
+ */
+function hauteurPastille(slot: ResolvedSlot): string {
+  const bord = slot.terminals.filter(t => t.fx > 0.8).map(t => t.fy);
+  const marge = Math.max(0.18, 20 / Math.max(1, slot.h));
+  const libre = [0.36, 0.43, 0.2, 0.6].find(y => bord.every(fy => Math.abs(fy - y - 0.07) > marge));
+  return `${Math.round((libre ?? 0.36) * 100)}%`;
+}
+
 export default function Device({ slot, state, onClick }: DeviceProps) {
   const rep = slot.slot.group
     ? <div className="rep"><b>{slot.slot.mark}</b>{slot.slot.sub || ''}</div>
@@ -36,7 +51,11 @@ export default function Device({ slot, state, onClick }: DeviceProps) {
   const inner = (
     <>
       {body(slot, state)}
-      {state ? <span className={`st ${state}`}>{state === 'trip' ? '!' : state === 'on' ? 'I' : 'O'}</span> : null}
+      {state ? (
+        <span className={`st ${state}`} style={{ top: hauteurPastille(slot) }}>
+          {state === 'trip' ? '!' : state === 'on' ? 'I' : 'O'}
+        </span>
+      ) : null}
       {rep}
     </>
   );
