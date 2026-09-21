@@ -14,8 +14,8 @@ import type { TpDefinition } from '@/lib/types';
 import {
   buildMesEvaluation, blocages, CONSIGNATION, DECONSIGNATION, estConforme, INSPECTION, initialMesState,
   MES, MES_STEP_COUNT, MES_STEP_LABELS, MESURES, mesScore, mesStageScores, normalizeMesState, ORGANES,
-  posRequise, rapportPv, RESTITUTION, stepOk, valeurLue,
-  type Jugement, type MesState, type Position,
+  posRequise, POURQUOI, rapportPv, RESTITUTION, stepOk, valeurLue,
+  type Condition, type Jugement, type MesState, type Position,
 } from '@/lib/mes/miseEnService';
 import { fallbackStudent, type Student } from '@/lib/student';
 import { finishAttempt, getOrCreateAttempt, saveAttemptState } from '@/lib/db/attempts';
@@ -33,6 +33,10 @@ interface MesStore {
   pos: Position;
   /** Point de mesure sélectionné, par étape. */
   point: Record<number, string>;
+  /** Échanges avec le professeur virtuel (session). */
+  turns: { role: 'user' | 'assistant'; content: string }[];
+  guideOpen: boolean;
+  botOpen: boolean;
 
   init: (tp: TpDefinition, attemptKey?: string) => Promise<void>;
   setStudent: (s: Student) => void;
@@ -41,7 +45,13 @@ interface MesStore {
   say: (m: string) => void;
 
   answerIdent: (rep: string, d: string, f: string) => boolean;
-  setControle: (id: string, etape: number | null) => void;
+  setCondition: (id: string, c: Condition | null) => void;
+  answerPourquoi: (i: number) => void;
+  setGuideOpen: (v: boolean) => void;
+  setBotOpen: (v: boolean) => void;
+  pushTurn: (t: { role: 'user' | 'assistant'; content: string }) => void;
+  /** Question posée au professeur : comptée comme une aide de l'étape. */
+  countHelp: () => void;
   setPosition: (k: string, f: string | null) => void;
   setAppareil: (i: number) => void;
   toggleHabil: (h: string) => void;
@@ -110,9 +120,12 @@ export const useMesParcours = create<MesStore>((set, get) => {
     toast: null,
     pos: 'V',
     point: {},
+    turns: [],
+    guideOpen: false,
+    botOpen: false,
 
     async init(tp, attemptKey) {
-      set({ tp, s: initialMesState(), offline: false, attemptId: null, sent: false, pos: 'V', point: {} });
+      set({ tp, s: initialMesState(), offline: false, attemptId: null, sent: false, pos: 'V', point: {}, turns: [] });
       try {
         const row = await getOrCreateAttempt(attemptKey ?? tp.id);
         set({ attemptId: row.id, s: normalizeMesState(row.state as unknown as Partial<MesState> | null) });
@@ -167,7 +180,15 @@ export const useMesParcours = create<MesStore>((set, get) => {
 
     /* ---------------------------------------------------- préparation */
 
-    setControle(id, etape) { patch((x) => ({ ...x, prep: { ...x.prep, controles: { ...x.prep.controles, [id]: etape } } })); },
+    setCondition(id, c) { patch((x) => ({ ...x, prep: { ...x.prep, conditions: { ...x.prep.conditions, [id]: c } } })); },
+    answerPourquoi(i) {
+      const faux = i !== POURQUOI.answer;
+      patch((x) => ({ ...x, prep: { ...x.prep, pourquoi: i, err: x.prep.err + (faux ? 1 : 0) } }));
+    },
+    setGuideOpen(v) { set({ guideOpen: v }); },
+    setBotOpen(v) { set({ botOpen: v }); },
+    pushTurn(tu) { set((st) => ({ turns: [...st.turns, tu].slice(-16) })); },
+    countHelp() { patch((x) => ({ ...x, helpUsed: { ...x.helpUsed, [x.step]: (x.helpUsed[x.step] ?? 0) + 1 } })); },
     setPosition(k, f) { patch((x) => ({ ...x, prep: { ...x.prep, positions: { ...x.prep.positions, [k]: f } } })); },
     setAppareil(i) { patch((x) => ({ ...x, prep: { ...x.prep, appareil: i } })); },
     toggleHabil(h) {
@@ -343,6 +364,7 @@ export const useMesParcours = create<MesStore>((set, get) => {
             stageScores: mesStageScores(done),
             stageLabels: MES_STEP_LABELS,
             refus: done.refus,
+            helpUsed: done.helpUsed,
             at: new Date().toISOString(),
           },
           mesScore(done),

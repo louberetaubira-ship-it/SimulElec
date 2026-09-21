@@ -10,11 +10,12 @@ import React from 'react';
 import {
   APPAREILS, CONSIGNATION, CONTROLES, DECONSIGNATION, DESIGNATIONS, EQUIPEMENTS, ESSAIS, estConforme,
   fmt, FONCTIONS, HABILITATIONS, INSPECTION, lignesPv, MES, MESURES, miseEnServicePrononcee, ORGANES,
-  POSITIONS, RESTITUTION, type QcmDef,
+  POSITIONS, POURQUOI, RESTITUTION, type QcmDef,
 } from '@/lib/mes/miseEnService';
 import { useMesParcours } from '@/app/tp/[id]/mesStore';
 import Schema, { type SchemaTab } from './Schemas';
 import Controleur from './Controleur';
+import Frise7 from './Frise7';
 
 /* ------------------------------------------------------------- utilitaires */
 
@@ -177,28 +178,43 @@ function Identification() {
 /* ------------------------------------------------------------- 1 · préparation */
 
 function Preparation() {
-  const { s, setControle, setPosition, setAppareil, toggleHabil } = useMesParcours();
+  const { s, setCondition, answerPourquoi, setPosition, setAppareil, toggleHabil, setGuideOpen } = useMesParcours();
   const fonctions = React.useMemo(() => melange(POSITIONS.map((p) => p.fonction), 7), []);
+  const controles = React.useMemo(() => melange(CONTROLES, 5), []);
   const sel = 'min-h-touch rounded-[10px] border border-[var(--line)] bg-[var(--surface)] px-2 text-[12.5px]';
   return (
     <div className="flex flex-col gap-2.5">
-      <section data-prep="controles" className={card}>
-        <h3 className={h3}>1. Associe chaque contrôle à son numéro d&apos;étape (1 à 7)</h3>
+      <section data-prep="frise" className={card}>
+        <h3 className={h3}>Les 7 étapes de la mise en service</h3>
+        <Frise7 />
+      </section>
+
+      <section data-prep="conditions" className={card}>
+        <h3 className={h3}>1. Chaque contrôle se fait-il installation consignée ou sous tension ?</h3>
         <div className="grid gap-1.5 md:grid-cols-2">
-          {CONTROLES.map((c) => {
-            const v = s.prep.controles[c.id];
+          {controles.map((c) => {
+            const v = s.prep.conditions[c.id];
             return (
               <label key={c.id} className="flex items-center justify-between gap-2 text-[12.5px]">
                 <span>{c.label}</span>
-                <select data-ctl={c.id} value={v ?? ''} onChange={(e) => setControle(c.id, e.target.value ? Number(e.target.value) : null)} className={sel}>
+                <select data-cond={c.id} value={v ?? ''} onChange={(e) => setCondition(c.id, (e.target.value || null) as 'hs' | 'st' | null)} className={sel}>
                   <option value="">—</option>
-                  {[1, 2, 3, 4, 5, 6, 7].map((k) => <option key={k} value={k}>Étape {k}</option>)}
+                  <option value="hs">Hors tension</option>
+                  <option value="st">Sous tension</option>
                 </select>
               </label>
             );
           })}
         </div>
+        <div className="mt-2.5">
+          <Qcm id="pourquoi" def={POURQUOI} value={s.prep.pourquoi} onAnswer={answerPourquoi} graine={41} />
+        </div>
       </section>
+
+      <p className="m-0 text-[12.5px] text-muted">
+        Pour la question 2, lis la documentation de l&apos;appareil :{' '}
+        <button type="button" data-open-guide onClick={() => setGuideOpen(true)} className="font-semibold text-accent underline">📘 Guide du contrôleur</button>
+      </p>
 
       <section data-prep="positions" className={card}>
         <h3 className={h3}>2. Fonction de chaque position du commutateur</h3>
@@ -364,7 +380,7 @@ function Mesures({ step }: { step: number }) {
   const phasesOk = !!(rot && estConforme(e.points[0], rot.v));
 
   return (
-    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_330px]">
+    <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_330px]">
       <div className="flex min-w-0 flex-col gap-2.5">
         <div className={`${card} text-[12.5px]`}>
           <div><b>Branchement :</b> {e.cordons}</div>
@@ -471,7 +487,7 @@ function Mesures({ step }: { step: number }) {
           </div>
         )}
       </div>
-      <div className="xl:sticky xl:top-2 xl:self-start">
+      <div className="order-first mx-auto w-full max-w-[400px] 2xl:order-none 2xl:sticky 2xl:top-2 2xl:self-start">
         <Controleur />
       </div>
     </div>

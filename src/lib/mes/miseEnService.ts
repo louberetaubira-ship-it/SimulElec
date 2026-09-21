@@ -56,15 +56,44 @@ export const MES = {
 /** Positions du commutateur rotatif du contrôleur (DTR1 du TP11). */
 export type Position = 'V' | 'RISO' | 'RLO' | 'ZI' | 'DT' | 'IDN' | 'RE' | 'ROT';
 
-export const POSITIONS: { k: Position; symbole: string; fonction: string; angle: number }[] = [
-  { k: 'V', symbole: 'V', fonction: 'Tension et fréquence', angle: -120 },
-  { k: 'RISO', symbole: 'RISO', fonction: 'Résistance d\'isolement', angle: -80 },
-  { k: 'RLO', symbole: 'RLO', fonction: 'Continuité', angle: -40 },
-  { k: 'ZI', symbole: 'ZI', fonction: 'Impédance de boucle', angle: 0 },
-  { k: 'DT', symbole: 'ΔT', fonction: 'Temps de déclenchement du DDR', angle: 40 },
-  { k: 'IDN', symbole: 'IΔN', fonction: 'Seuil de déclenchement du DDR', angle: 80 },
-  { k: 'RE', symbole: 'RE', fonction: 'Résistance de terre', angle: 120 },
-  { k: 'ROT', symbole: '⟳', fonction: 'Ordre des phases', angle: 160 },
+export interface PositionDef {
+  k: Position;
+  /** Numéro sur le commutateur (guide de l'appareil). */
+  n: number;
+  symbole: string;
+  fonction: string;
+  angle: number;
+  /** Étape de la mise en service (1 à 7) où la position sert, sinon null. */
+  etape: number | null;
+  cordons: string;
+  precaution: string;
+}
+
+export const POSITIONS: PositionDef[] = [
+  { k: 'V', n: 1, symbole: 'V', fonction: 'Tension et fréquence', angle: -120, etape: 5,
+    cordons: 'Rouge sur la phase, bleu sur le neutre ou sur l\'autre phase.',
+    precaution: 'Sous tension. Vérifie l\'appareil sur une source connue avant et après la mesure.' },
+  { k: 'RISO', n: 2, symbole: 'RISO', fonction: 'Résistance d\'isolement', angle: -80, etape: 3,
+    cordons: 'Rouge et vert entre les deux conducteurs mesurés.',
+    precaution: 'Installation CONSIGNÉE uniquement : l\'appareil injecte 500 V DC. Débrancher ce qui ne supporte pas l\'essai.' },
+  { k: 'RLO', n: 3, symbole: 'RLO', fonction: 'Continuité', angle: -40, etape: 2,
+    cordons: 'Vert sur la barrette de terre, rouge sur la masse contrôlée.',
+    precaution: 'Faire le zéro des cordons avant la première mesure. Courant d\'essai 200 mA.' },
+  { k: 'ZI', n: 4, symbole: 'ZI', fonction: 'Impédance de boucle', angle: 0, etape: null,
+    cordons: 'L, N et PE sur une prise.',
+    precaution: 'Sous tension. Contre-vérification possible de la terre, non demandée dans ce TP.' },
+  { k: 'DT', n: 5, symbole: 'ΔT', fonction: 'Temps de déclenchement du DDR', angle: 40, etape: 6,
+    cordons: 'L, N et PE sur la prise PC1, en aval de Q2.',
+    precaution: 'Sous tension. Le différentiel va déclencher : prévenir, puis réarmer.' },
+  { k: 'IDN', n: 6, symbole: 'IΔN', fonction: 'Seuil de déclenchement du DDR', angle: 80, etape: 6,
+    cordons: 'L, N et PE sur la prise PC1.',
+    precaution: 'Courant en rampe : lire la valeur au moment du déclenchement.' },
+  { k: 'RE', n: 7, symbole: 'RE', fonction: 'Résistance de terre', angle: 120, etape: 4,
+    cordons: 'Bornes E, S et H : piquets auxiliaires à 20 m et 40 m.',
+    precaution: 'Barrette de coupure BC1 ouverte : on mesure la prise de terre seule.' },
+  { k: 'ROT', n: 8, symbole: '⟳', fonction: 'Ordre des phases', angle: 160, etape: 7,
+    cordons: 'Rouge L1, vert L2, bleu L3.',
+    precaution: 'Sous tension. Lire 1-2-3 (sens direct) ou 1-3-2 (inverse).' },
 ];
 
 export const positionOf = (k: Position) => POSITIONS.find((p) => p.k === k)!;
@@ -116,6 +145,43 @@ export const CONTROLES: { id: string; label: string; etape: number }[] = [
   { id: 'continuite', label: 'Contrôle de la continuité', etape: 2 },
   { id: 'isolement', label: 'Contrôle de l\'isolement', etape: 3 },
 ];
+
+/** Condition d'un contrôle : installation consignée ou sous tension. */
+export type Condition = 'hs' | 'st';
+
+/** Les 7 étapes de la mise en service : ordre, condition, position, critère, raison. */
+export const SEPT_ETAPES: { n: number; titre: string; zone: Condition; pos: string; critere: string; pourquoi: string }[] = [
+  { n: 1, titre: 'Contrôle visuel', zone: 'hs', pos: '— (à l\'œil)', critere: 'Aucun écart : plastron, schémas, organes de sécurité, masses, étanchéité, marquage.',
+    pourquoi: 'Un défaut vu avant de mesurer ne coûte rien. On commence donc par regarder.' },
+  { n: 2, titre: 'Continuité', zone: 'hs', pos: 'RLO', critere: 'R ≤ 2 Ω entre chaque masse et la barrette de terre.',
+    pourquoi: 'Sans conducteur de protection continu, aucune protection contre les contacts indirects ne fonctionne : c\'est la base de tout le reste.' },
+  { n: 3, titre: 'Isolement', zone: 'hs', pos: 'RISO', critere: 'R ≥ 0,5 MΩ sous 500 V DC.',
+    pourquoi: 'Un défaut d\'isolement à la mise sous tension provoque un court-circuit ou un déclenchement. Et la mesure injecte 500 V : impossible sous tension.' },
+  { n: 4, titre: 'Prise de terre', zone: 'hs', pos: 'RE', critere: 'RA ≤ 50 V ÷ IΔn = 100 Ω (DDR de tête 500 mA).',
+    pourquoi: 'Barrette BC1 ouverte, on mesure la prise de terre seule. Elle conditionne l\'efficacité des différentiels.' },
+  { n: 5, titre: 'Tensions et fréquence', zone: 'st', pos: 'V', critere: '230 V ± 10 % · 400 V ± 10 % · 50 Hz.',
+    pourquoi: 'Premier contrôle sous tension : on vérifie ce qui arrive avant de mettre les récepteurs en service.' },
+  { n: 6, titre: 'Différentiels', zone: 'st', pos: 'IΔN puis ΔT', critere: '15 mA < IΔN ≤ 30 mA · ΔT ≤ 300 ms à IΔn · ΔT ≤ 40 ms à 5 IΔn.',
+    pourquoi: 'Il faut de la tension pour faire circuler le courant de défaut simulé. On commence par le bouton TEST.' },
+  { n: 7, titre: 'Ordre des phases', zone: 'st', pos: '⟳', critere: 'Sens direct 1-2-3, puis essais fonctionnels.',
+    pourquoi: 'Dernier contrôle avant de démarrer la pompe : un ordre inverse la ferait tourner à l\'envers.' },
+];
+
+/** Condition attendue d'un contrôle, déduite de son étape. */
+export const conditionOf = (etape: number): Condition => (etape <= 4 ? 'hs' : 'st');
+
+/** Question de justification de l'ordre (option A validée). */
+export const POURQUOI: QcmDef = {
+  q: 'Pourquoi mesure-t-on l\'isolement AVANT de mettre l\'installation sous tension ?',
+  options: [
+    'Parce qu\'un défaut d\'isolement provoquerait un court-circuit à la mise sous tension, et que la mesure injecte 500 V DC',
+    'Parce que le contrôleur ne mesure pas l\'isolement sous tension par manque de pile',
+    'Parce que la norme impose de commencer par la mesure la plus longue',
+    'Pour gagner du temps : on n\'a pas besoin d\'attendre la déconsignation',
+  ],
+  answer: 0,
+  why: 'On ne met sous tension qu\'une installation dont le conducteur de protection, l\'isolement et la terre sont sûrs.',
+};
 
 export const APPAREILS = [
   'Contrôleur d\'installation multifonction',
@@ -488,7 +554,10 @@ export interface MesState {
   done: Record<number, boolean>;
   ident: Record<string, { d?: string; f?: string; ok?: boolean; err: number }>;
   prep: {
-    controles: Record<string, number | null>;
+    /** Condition choisie pour chaque contrôle (hors tension / sous tension). */
+    conditions: Record<string, Condition | null>;
+    /** Réponse à la question « pourquoi cet ordre ». */
+    pourquoi: number | null;
     positions: Record<string, string | null>;
     appareil: number | null;
     habil: string[];
@@ -502,6 +571,8 @@ export interface MesState {
   pv: { restitution: number | null; err: number };
   /** Tentatives de validation refusées, par étape. */
   refus: Record<number, number>;
+  /** Questions posées au professeur virtuel, par étape (aides). */
+  helpUsed: Record<number, number>;
 }
 
 const emptyMesure = (): EtatMesure => ({
@@ -515,7 +586,7 @@ export function initialMesState(): MesState {
     step: 0,
     done: {},
     ident: {},
-    prep: { controles: {}, positions: {}, appareil: null, habil: [], err: 0 },
+    prep: { conditions: {}, pourquoi: null, positions: {}, appareil: null, habil: [], err: 0 },
     visu: { marks: {}, corrige: false, err: 0 },
     cons: { seq: [], equip: [], err: 0 },
     mesures,
@@ -523,6 +594,7 @@ export function initialMesState(): MesState {
     essais: {},
     pv: { restitution: null, err: 0 },
     refus: {},
+    helpUsed: {},
   };
 }
 
@@ -545,6 +617,7 @@ export function normalizeMesState(raw: Partial<MesState> | null | undefined): Me
     essais: raw.essais ?? {},
     pv: { ...base.pv, ...(raw.pv ?? {}) },
     refus: raw.refus ?? {},
+    helpUsed: raw.helpUsed ?? {},
   };
 }
 
@@ -600,8 +673,9 @@ export function blocages(s: MesState, step: number): Blocage[] {
       break;
     }
     case MES.PREP: {
-      const nc = CONTROLES.filter((c) => s.prep.controles[c.id] !== c.etape).length;
-      if (nc) bad(`${nc} contrôle(s) mal associé(s) à leur étape.`);
+      const nc = CONTROLES.filter((c) => s.prep.conditions[c.id] !== conditionOf(c.etape)).length;
+      if (nc) bad(`${nc} contrôle(s) mal classé(s) (hors tension ou sous tension).`);
+      if (s.prep.pourquoi !== POURQUOI.answer) bad('La question « pourquoi cet ordre » est à revoir.');
       const np = POSITIONS.filter((p) => s.prep.positions[p.k] !== p.fonction).length;
       if (np) bad(`${np} position(s) du commutateur mal identifiée(s).`);
       if (s.prep.appareil !== APPAREIL_OK) bad('Le nom de l\'appareil est à revoir.');
@@ -686,7 +760,7 @@ export function erreurs(s: MesState, step: number): number {
 function actions(step: number): number {
   switch (step) {
     case MES.IDENT: return ORGANES.length * 2;
-    case MES.PREP: return CONTROLES.length + POSITIONS.length + 2;
+    case MES.PREP: return CONTROLES.length + 1 + POSITIONS.length + 2;
     case MES.VISU: return INSPECTION.length;
     case MES.CONS: return CONSIGNATION.length + EQUIPEMENTS.length;
     case MES.DECONS: return DECONSIGNATION.length;

@@ -19,7 +19,7 @@ const JACKS: Record<Position, ('N' | 'PE' | 'L')[]> = {
 };
 
 export default function Controleur() {
-  const { s, pos, point, setPos, test } = useMesParcours();
+  const { s, pos, point, setPos, test, setGuideOpen } = useMesParcours();
   const e = MESURES[s.step];
   const p = positionOf(pos);
   const ptId = point[s.step] ?? e?.points[0]?.id;
@@ -31,7 +31,11 @@ export default function Controleur() {
   return (
     <div data-controleur className="mes-ctrl">
       <div className="top">
-        <span>CONTRÔLEUR D&apos;INSTALLATION</span>
+        <span className="flex items-center gap-1.5">
+          CONTRÔLEUR D&apos;INSTALLATION
+          <button type="button" data-ctrl-guide onClick={() => setGuideOpen(true)} title="Guide du contrôleur"
+            className="grid h-6 w-6 place-items-center rounded-full bg-[#1b1b1b] text-[12px] font-extrabold text-[#f2b705]">?</button>
+        </span>
         <div className="mes-jacks" aria-label="Douilles">
           {(['N', 'PE', 'L'] as const).map((j) => (
             <span key={j} className={jacks.includes(j) ? j.toLowerCase() : ''}>{j}</span>
