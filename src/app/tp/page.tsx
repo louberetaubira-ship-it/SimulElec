@@ -102,6 +102,11 @@ export default async function CataloguePage() {
                           dimensionnement
                         </span>
                       )}
+                      {tp.kind === 'miseEnService' && (
+                        <span data-kind="miseEnService" className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
+                          mise en service
+                        </span>
+                      )}
                     </div>
                   </div>
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { TPS, tpById } from '@/lib/data/tps';
 import ParcoursClient from './ParcoursClient';
 import DimensionnementClient from './DimensionnementClient';
+import MiseEnServiceClient from './MiseEnServiceClient';
 import TpDbClient from '@/components/studio/TpDbClient';
 
 /** Les TP fournis restent pré-rendus ; ceux du professeur sont rendus à la demande. */
@@ -25,5 +26,7 @@ export default function TpPage({ params }: { params: { id: string } }) {
   if (!tp) return <TpDbClient id={params.id} />;
   // TP d'étude : parcours de dimensionnement (aucune platine, aucun câblage)
   if (tp.kind === 'dimensionnement') return <DimensionnementClient tp={tp} />;
+  // TP de mise en service : installation livrée câblée, contrôleur d'installation
+  if (tp.kind === 'miseEnService') return <MiseEnServiceClient tp={tp} />;
   return <ParcoursClient tp={tp} />;
 }

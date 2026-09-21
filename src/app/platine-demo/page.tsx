@@ -32,7 +32,8 @@ function PlatineDemo() {
   const params = useSearchParams();
   const router = useRouter();
   const id = params.get('tp') || 'perceuse-radiale';
-  const tp = TP_BY_ID[id] ?? TPS[0];
+  // le TP de mise en service n'a pas de platine : on retombe sur le premier TP
+  const tp = TP_BY_ID[id]?.kind === 'miseEnService' ? TPS[0] : (TP_BY_ID[id] ?? TPS[0]);
 
   const [cover, setCover] = React.useState(true);
   const [marks, setMarks] = React.useState(true);
@@ -133,7 +134,7 @@ function PlatineDemo() {
           onChange={(e) => router.replace(`/platine-demo?tp=${e.target.value}`)}
           style={{ minHeight: 40, padding: '8px 10px', borderRadius: 10, border: '1px solid #D3D9E1', background: '#fff', color: '#141A21', maxWidth: '100%' }}
         >
-          {TPS.map((t) => (
+          {TPS.filter((t) => t.kind !== 'miseEnService').map((t) => (
             <option key={t.id} value={t.id}>
               {t.title}{t.playable ? '' : ' · prévu'}
             </option>

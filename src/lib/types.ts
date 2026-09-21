@@ -636,7 +636,7 @@ export interface InterPosition {
  * - `platine` (défaut) : les 11 étapes de câblage / mesures sur la platine ;
  * - `dimensionnement` : étude et dimensionnement (aucune platine, aucun câblage).
  */
-export type TpKind = 'platine' | 'dimensionnement';
+export type TpKind = 'platine' | 'dimensionnement' | 'miseEnService';
 
 export interface TpDefinition {
   id: string;

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import VisuTp from '@/components/prof/VisuTp';
+import VisuMes from '@/components/prof/VisuMes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
@@ -911,7 +912,10 @@ export default function ProfPage() {
         )}
       </aside>
 
-      {visuAttempt && visuTp && (
+      {visuAttempt && visuTp && visuTp.kind === 'miseEnService' && (
+        <VisuMes attempt={visuAttempt} tp={visuTp} onClose={() => setVisuId(null)} />
+      )}
+      {visuAttempt && visuTp && visuTp.kind !== 'miseEnService' && (
         <VisuTp attempt={visuAttempt} tp={visuTp} onClose={() => setVisuId(null)} />
       )}
     </main>

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client';
 import type { AttemptState, ReadingRecord } from '@/lib/types';
 import type { PvState } from '@/lib/pv/dimensionnement';
+import type { MesState } from '@/lib/mes/miseEnService';
 import type { CompetenceEval, DiplomaId } from '@/lib/data/competences';
 import { initialState } from '@/lib/sim/progress';
 import type { AttemptRow, AttemptsApi, MeasurementInput } from './types';
@@ -84,8 +85,8 @@ export async function getOrCreateAttempt(tpId: string, fresh = false): Promise<A
   return created as AttemptRow;
 }
 
-/** Progression persistée : parcours platine (`AttemptState`) ou dimensionnement (`PvState`). */
-export type PersistedState = AttemptState | PvState;
+/** Progression persistée : parcours platine (`AttemptState`) ou dimensionnement (`PvState`) ou mise en service (`MesState`). */
+export type PersistedState = AttemptState | PvState | MesState;
 
 export async function saveAttemptState(
   id: string,

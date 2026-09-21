@@ -1,0 +1,39 @@
+/* Parcours « mise en service » : contrôleur d'installation et schémas cliquables. */
+
+.mes-ctrl{background:linear-gradient(#f2b705,#e0a100);border-radius:22px;padding:14px;color:#1b1b1b;box-shadow:inset 0 0 0 3px #b98300}
+.mes-ctrl .top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:800;font-size:10.5px;letter-spacing:.08em}
+.mes-jacks{display:flex;gap:8px}
+.mes-jacks span{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#222;color:#fff;font-size:9px;font-weight:700;box-shadow:inset 0 0 0 3px #555}
+.mes-jacks span.n{box-shadow:inset 0 0 0 3px #2c6fd6,0 0 0 2px #fff}
+.mes-jacks span.pe{box-shadow:inset 0 0 0 3px #1e9e5a,0 0 0 2px #fff}
+.mes-jacks span.l{box-shadow:inset 0 0 0 3px #d6453d,0 0 0 2px #fff}
+.mes-lcd{background:#c9d4b2;border-radius:10px;margin:10px 0;padding:10px 12px;font-family:"Courier New",monospace;color:#1d2414;min-height:92px;box-shadow:inset 0 2px 6px rgba(0,0,0,.25)}
+.mes-lcd .m{font-size:11px;display:flex;justify-content:space-between;gap:6px}
+.mes-lcd .v{font-size:38px;font-weight:700;text-align:right;line-height:1.05}
+.mes-lcd .v.off{opacity:.35}
+.mes-lcd .u{font-size:14px}
+.mes-lcd .s{font-size:12px;text-align:right}
+.mes-dialwrap{display:flex;gap:12px;align-items:center}
+.mes-dial{position:relative;width:150px;height:150px;flex:none}
+.mes-dial .kn{position:absolute;inset:34px;border-radius:50%;background:#2b2f35;box-shadow:0 3px 8px rgba(0,0,0,.4)}
+.mes-dial .kn i{position:absolute;left:50%;top:6px;width:6px;height:36px;margin-left:-3px;background:#f2b705;border-radius:3px;transform-origin:3px 35px;transition:transform .25s}
+.mes-dial button{position:absolute;width:40px;height:22px;margin:-11px 0 0 -20px;border:0;border-radius:6px;background:rgba(0,0,0,.12);font:700 10.5px system-ui,sans-serif;cursor:pointer;color:#1b1b1b}
+.mes-dial button.sel{background:#1b1b1b;color:#f2b705}
+.mes-testb{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mes-testb button{border:0;border-radius:12px;padding:12px;font:800 13px system-ui,sans-serif;background:#1b1b1b;color:#f2b705;cursor:pointer}
+.mes-testb button:disabled{opacity:.45;cursor:default}
+.mes-testb .hint{font-size:11.5px;line-height:1.35}
+
+.mes-sch{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:auto}
+.mes-sch svg{display:block;width:100%;height:auto;min-width:520px}
+.mes-sch .w{stroke:#1b222c;stroke-width:1.6;fill:none}
+.mes-sch .pe{stroke:#1e9e5a;stroke-width:1.6;fill:none;stroke-dasharray:6 3}
+.mes-sch .lk{stroke:#1b222c;stroke-width:1;stroke-dasharray:3 3;fill:none}
+.mes-sch text{font:11px ui-monospace,Menlo,monospace;fill:#1b222c}
+.mes-sch text.rep{font-weight:700;font-size:12px}
+.mes-sch text.lg{fill:#667384;font-size:10px;font-family:system-ui,sans-serif}
+.mes-sch g.org{cursor:pointer}
+.mes-sch g.org rect.hit{fill:transparent;stroke:transparent;rx:6}
+.mes-sch g.org:hover rect.hit{fill:rgba(44,111,214,.08);stroke:rgba(44,111,214,.4)}
+.mes-sch g.org.okd rect.hit{fill:rgba(30,158,90,.10);stroke:#1e9e5a}
+.mes-sch g.org.sel rect.hit{fill:rgba(227,154,0,.18);stroke:#e39a00;stroke-width:2}

@@ -10,7 +10,7 @@
 
 import React from 'react';
 import {
-  activiteOfStage, competencesForStage, DOMAIN_LABEL, domainsOfStage, type DiplomaId,
+  activiteOfStage, competencesForStage, type ParcoursKind, DOMAIN_LABEL, domainsOfStage, type DiplomaId,
 } from '@/lib/data/competences';
 import { diplomaShort } from '@/lib/student';
 
@@ -38,7 +38,7 @@ function writeOpen(v: boolean): void {
 interface Props {
   diploma: DiplomaId;
   /** Nature du parcours : platine (11 étapes) ou dimensionnement (11 étapes PV). */
-  kind?: 'platine' | 'dimensionnement';
+  kind?: ParcoursKind;
   stage: number;
   /** Libellé de l'étape, affiché en tête du bandeau. */
   stageLabel?: string;

@@ -180,6 +180,9 @@ export const ACTIVITES: Activite[] = [
 export const ACTIVITE_BY_ID: Record<ActiviteId, Activite> =
   Object.fromEntries(ACTIVITES.map((a) => [a.code, a])) as Record<ActiviteId, Activite>;
 
+/** Nature d'un parcours : platine câblée, étude de dimensionnement, mise en service au contrôleur. */
+export type ParcoursKind = 'platine' | 'dimensionnement' | 'miseEnService';
+
 /** Activité dominante de chaque étape du parcours « platine » (12 étapes). */
 export const PLATINE_STAGE_ACTIVITE: ActiviteId[] = [
   'A1', // 0  choix du TP
@@ -201,8 +204,20 @@ export const PV_STAGE_ACTIVITE: ActiviteId[] = [
   'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A1', 'A5',
 ];
 
-export function activiteOfStage(kind: 'platine' | 'dimensionnement', stage: number): Activite | null {
-  const table = kind === 'dimensionnement' ? PV_STAGE_ACTIVITE : PLATINE_STAGE_ACTIVITE;
+/**
+ * Activité dominante de chaque étape du parcours « mise en service » (13 étapes).
+ * Préparation (A1), puis toute la mise en service (A3), puis le PV et la
+ * restitution au client (A5).
+ */
+export const MES_STAGE_ACTIVITE: ActiviteId[] = [
+  'A1', 'A1', 'A3', 'A3', 'A3', 'A3', 'A3', 'A3', 'A3', 'A3', 'A3', 'A3', 'A5',
+];
+
+const activiteTable = (kind: ParcoursKind): ActiviteId[] =>
+  kind === 'dimensionnement' ? PV_STAGE_ACTIVITE : kind === 'miseEnService' ? MES_STAGE_ACTIVITE : PLATINE_STAGE_ACTIVITE;
+
+export function activiteOfStage(kind: ParcoursKind, stage: number): Activite | null {
+  const table = activiteTable(kind);
   const code = table[stage];
   return code ? ACTIVITE_BY_ID[code] : null;
 }
@@ -221,6 +236,28 @@ export const PLATINE_STAGE_DOMAINS: Domain[][] = [
   ['miseEnService', 'reglage'],      // 9  déconsignation & mise en service
   ['mesure'],                        // 10 mesures sous tension
   ['diagnostic', 'remplacement', 'documents', 'communication'], // 11 validation / maintenance
+];
+
+/**
+ * Domaines mobilisés par chaque étape du parcours « mise en service » (13 étapes),
+ * dans l'ordre du TP : identification, contrôles et appareil, inspection visuelle,
+ * consignation, continuité, isolement installation, isolement moteur, terre,
+ * déconsignation, tensions, différentiels, ordre des phases et essais, PV.
+ */
+export const MES_STAGE_DOMAINS: Domain[][] = [
+  ['analyse', 'documents'],          // 0  identification des équipements (schémas)
+  ['analyse', 'normes', 'securite'], // 1  contrôles, appareil, habilitation
+  ['controle'],                      // 2  inspection visuelle
+  ['securite', 'organisation'],      // 3  consignation
+  ['mesure', 'controle'],            // 4  continuité
+  ['mesure', 'controle'],            // 5  isolement installation
+  ['mesure', 'controle'],            // 6  isolement moteur
+  ['mesure', 'controle'],            // 7  résistance de terre
+  ['securite', 'miseEnService'],     // 8  déconsignation, remise sous tension
+  ['mesure', 'miseEnService'],       // 9  tensions et fréquence
+  ['mesure', 'reglage'],             // 10 dispositifs différentiels
+  ['miseEnService', 'controle'],     // 11 ordre des phases, essais fonctionnels
+  ['documents', 'communication'],    // 12 procès-verbal, restitution au client
 ];
 
 /** Domaines mobilisés par chaque étape du parcours « dimensionnement PV » (11 étapes). */
@@ -359,9 +396,11 @@ export function evaluate(
 // ------------------------------------------------- compétences mobilisées par une étape
 
 /** Domaines d'une étape, selon la nature du parcours. */
-export function domainsOfStage(kind: 'platine' | 'dimensionnement', stage: number): Domain[] {
-  const table = kind === 'dimensionnement' ? PV_STAGE_DOMAINS : PLATINE_STAGE_DOMAINS;
-  return table[stage] ?? [];
+const domainTable = (kind: ParcoursKind): Domain[][] =>
+  kind === 'dimensionnement' ? PV_STAGE_DOMAINS : kind === 'miseEnService' ? MES_STAGE_DOMAINS : PLATINE_STAGE_DOMAINS;
+
+export function domainsOfStage(kind: ParcoursKind, stage: number): Domain[] {
+  return domainTable(kind)[stage] ?? [];
 }
 
 /**
@@ -378,16 +417,15 @@ export function competencesForDomains(diploma: DiplomaId, domains: Domain[]): Co
 /** Compétences mobilisées par l'étape `stage` du parcours `kind`. */
 export function competencesForStage(
   diploma: DiplomaId,
-  kind: 'platine' | 'dimensionnement',
+  kind: ParcoursKind,
   stage: number,
 ): Competence[] {
   return competencesForDomains(diploma, domainsOfStage(kind, stage));
 }
 
 /** Nombre de compétences mobilisées par chaque étape (pastille du stepper). */
-export function competenceCounts(diploma: DiplomaId, kind: 'platine' | 'dimensionnement'): number[] {
-  const table = kind === 'dimensionnement' ? PV_STAGE_DOMAINS : PLATINE_STAGE_DOMAINS;
-  return table.map((_, i) => competencesForStage(diploma, kind, i).length);
+export function competenceCounts(diploma: DiplomaId, kind: ParcoursKind): number[] {
+  return domainTable(kind).map((_, i) => competencesForStage(diploma, kind, i).length);
 }
 
 /** Libellé court d'un niveau de maîtrise (auto-évaluation et bilan). */

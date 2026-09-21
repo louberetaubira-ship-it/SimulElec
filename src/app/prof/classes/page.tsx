@@ -42,6 +42,8 @@ import {
 
 /** Nombre d'étapes d'un parcours (platine ou dimensionnement). */
 const ETAPES = 11;
+/** Étapes du parcours d'un TP : la mise en service en compte 13. */
+const etapesDe = (tpId: string) => (tpById(tpId)?.kind === 'miseEnService' ? 13 : ETAPES);
 
 interface Identifiants {
   login: string;
@@ -978,9 +980,9 @@ export default function ClassesPage() {
                         <td className="px-3 py-2.5">
                           {encours ? (
                             <Barre
-                              value={Math.min(1, encours.stage / ETAPES)}
+                              value={Math.min(1, encours.stage / etapesDe(encours.tp_id))}
                               tone={encours.status === 'termine' ? 'good' : 'accent'}
-                              label={`${encours.stage}/${ETAPES}`}
+                              label={`${encours.stage}/${etapesDe(encours.tp_id)}`}
                               className="min-w-[120px]"
                             />
                           ) : (

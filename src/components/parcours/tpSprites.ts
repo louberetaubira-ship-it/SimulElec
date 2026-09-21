@@ -12,6 +12,8 @@ export function tpSprites(tpId: string): string[] {
     // TP photovoltaïque : pas de sprite PV (appareils dessinés en SVG sur la platine).
     // On évoque le coffret par des vignettes existantes — sectionnement, mesure, terre.
     case 'solaire-autonome': return ['fuseswitch', 'meter', 'earth'];
+    // Mise en service : sectionnement, contrôleur d'installation, terre.
+    case 'mise-en-service-station': return ['fuseswitch', 'meter', 'earth'];
     default: return ['mcb1p', 'kontakt', 'earth'];
   }
 }

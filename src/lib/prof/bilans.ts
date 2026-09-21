@@ -11,6 +11,7 @@ import type { AttemptRow } from '../db/types';
 import type { CompetenceEval, DiplomaId } from '../data/competences';
 import { tpById } from '../data/tps';
 import { buildEvaluation, normalizeState } from '../sim/progress';
+import { buildMesEvaluation, normalizeMesState, type MesState } from '../mes/miseEnService';
 
 export type NoteMode = 'moy' | 'best' | 'last' | 'all';
 
@@ -43,6 +44,14 @@ export function resolveEvaluation(a: AttemptRow, diploma?: DiplomaId): Competenc
   if (stored.some((c) => c.mastery !== 'nonEvalue') && a.diploma === diploma) return stored;
   const tp = tpById(a.tp_id);
   if (!tp || !tp.playable || tp.kind === 'dimensionnement' || !a.state) return stored;
+  // mise en service : état propre au parcours, grille recalculée dans le référentiel demandé
+  if (tp.kind === 'miseEnService') {
+    try {
+      return buildMesEvaluation(normalizeMesState(a.state as unknown as Partial<MesState>), diploma);
+    } catch {
+      return stored;
+    }
+  }
   try {
     return buildEvaluation(tp, normalizeState(a.state), diploma) ?? stored;
   } catch {
