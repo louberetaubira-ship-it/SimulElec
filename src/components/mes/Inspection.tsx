@@ -78,7 +78,7 @@ function Scene({ sel, onOpen }: { sel: string | null; onOpen: (id: string) => vo
         const z = ZONES[it.id];
         const m = s.visu.marks[it.id];
         const vu = s.visu.vus.includes(it.id);
-        const ring = m === 'C' ? '#1e9e5a' : m === 'NC' ? '#d6453d' : vu ? '#5d6878' : '#e39a00';
+        const ring = (!it.conforme && s.visu.corrige) || m === 'C' ? '#1e9e5a' : m === 'NC' ? '#d6453d' : vu ? '#5d6878' : '#e39a00';
         return (
           <g key={it.id} data-zone={it.id} onClick={() => onOpen(it.id)} style={{ cursor: 'pointer' }}>
             <circle cx={z.x} cy={z.y} r="24" fill={`${ring}22`} stroke={ring} strokeWidth={sel === it.id ? 3.5 : 2} strokeDasharray={m ? undefined : '5 4'} />
@@ -122,6 +122,11 @@ export default function Inspection() {
                 </div>
                 <div className="p-3 text-[12.5px]">
                   <p data-constat className="m-0">{corrige ? it.fix : it.obs}</p>
+                  {corrige ? (
+                    <p data-ecart-corrige className="m-0 mt-2 rounded-lg bg-good/10 px-2.5 py-1.5 font-semibold text-good">
+                      Relevé non conforme, puis corrigé ✓ — point acquis.
+                    </p>
+                  ) : (
                   <div className="mt-2 flex gap-1.5">
                     {(['C', 'NC'] as const).map((j) => {
                       const on = s.visu.marks[it.id] === j;
@@ -133,7 +138,8 @@ export default function Inspection() {
                       );
                     })}
                   </div>
-                  {!it.conforme && s.visu.marks[it.id] === 'NC' && (
+                  )}
+                  {!it.conforme && s.visu.marks[it.id] === 'NC' && !s.visu.corrige && (
                     <div className="mt-2 rounded-r-xl border-l-4 border-l-warn bg-warn/10 px-2.5 py-2">
                       {s.visu.corrige ? (
                         <span className="font-semibold text-good">Écart corrigé : l&apos;indice IP65 est rétabli.</span>

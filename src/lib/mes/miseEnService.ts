@@ -723,8 +723,10 @@ export function blocages(s: MesState, step: number): Blocage[] {
       if (nv) bad(`${nv} zone(s) à regarder sur l'armoire.`);
       const nm = INSPECTION.filter((i) => s.visu.marks[i.id] == null).length;
       if (nm) bad(`${nm} point(s) d'inspection non renseigné(s).`);
-      const faux = INSPECTION.filter((i) => s.visu.marks[i.id] != null && (s.visu.marks[i.id] === 'C') !== i.conforme).length;
-      if (faux) bad(`${faux} point(s) d'inspection mal jugé(s).`);
+      // l'écart corrigé reste acquis : son jugement n'est plus remis en cause
+      const mauvais = INSPECTION.filter((i) => s.visu.marks[i.id] != null && (s.visu.marks[i.id] === 'C') !== i.conforme && !(!i.conforme && s.visu.corrige));
+      const faux = mauvais.length;
+      if (faux) bad(`Point(s) mal jugé(s) : ${mauvais.map((i) => i.label).join(' · ')}.`);
       if (!faux && !nm && s.visu.cause !== ECART_CAUSE_OK) bad('Identifie la cause de l\'écart relevé.');
       else if (!faux && !nm && !s.visu.corrige) bad('Un écart a été relevé : corrige-le avant de poursuivre.');
       break;

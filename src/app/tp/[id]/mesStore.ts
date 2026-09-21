@@ -215,6 +215,8 @@ export const useMesParcours = create<MesStore>((set, get) => {
       const it = INSPECTION.find((i) => i.id === id);
       if (!it) return;
       if (!get().s.visu.vus.includes(id)) { say('Regarde d\'abord la zone sur l\'armoire.'); return; }
+      // écart relevé et corrigé : le jugement est acquis, on ne le rejoue pas
+      if (!it.conforme && get().s.visu.corrige) return;
       const faux = (j === 'C') !== it.conforme;
       patch((x) => ({ ...x, visu: { ...x.visu, marks: { ...x.visu.marks, [id]: j }, err: x.visu.err + (faux ? 1 : 0) } }));
       if (faux) say(j === 'C' ? 'Regarde mieux : ce point présente un écart.' : 'Ce point est conforme.');
