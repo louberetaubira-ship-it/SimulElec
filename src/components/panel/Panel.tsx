@@ -13,7 +13,7 @@ import {
   pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
-  annexTerminals, planLanes, recvGlandX, recvTerminals, route, sceneContext, tpos,
+  annexTerminals, planLanes, recvGlandX, recvTerminals, route, sceneContext, terreTerminals, tpos,
   type LanePlan, type SceneCtx,
 } from '@/lib/scene/route';
 import { Ducts, Rails } from './Ducts';
@@ -244,6 +244,26 @@ export default function Panel(props: PanelProps) {
     }
     return out;
   }, [tp.annexItems]);
+  /**
+   * Bornes de l'ensemble terre (barrette de coupure, piquet), hors coffret.
+   *
+   * Elles existaient pour le routage mais n'étaient pas dessinées : l'élève ne
+   * pouvait pas cliquer BC1.X1 et ne pouvait donc pas raccorder la borne PE du
+   * bornier à la barrette de coupure. X1 en haut, X2 en bas — sur le piquet, X2
+   * est la pointe enfouie (le sol), qui sert à la mesure de la résistance de terre.
+   */
+  const terreTerms: TerminalMark[] = React.useMemo(() => {
+    const out: TerminalMark[] = [];
+    if (geo.terreY == null) return out;
+    for (const it of tp.terre?.items ?? []) {
+      for (const [id, p] of Object.entries(terreTerminals(geo, it))) {
+        const t = id.split('.')[1];
+        // X2 à droite de la pastille, à sa hauteur : dessous, il couvrirait le repère BC1 / PT1.
+        out.push({ id, pos: { x: p.x, y: p.y }, label: t, dx: t === 'X1' ? 10 : 16, dy: t === 'X1' ? -8 : 0 });
+      }
+    }
+    return out;
+  }, [tp.terre, geo]);
   const recvItems = React.useMemo(() => tp.recvItems ?? [], [tp.recvItems]);
   const recvTerms: TerminalMark[] = React.useMemo(() => {
     const out: TerminalMark[] = [];
@@ -299,11 +319,11 @@ export default function Panel(props: PanelProps) {
 
   /** Toutes les bornes réellement affichées, dans le repère logique de la platine. */
   const bornes: TerminalMark[] = React.useMemo(() => {
-    const out: TerminalMark[] = [...slotTerminals, ...netTerminals, ...recvTerms, ...annexTerms];
+    const out: TerminalMark[] = [...slotTerminals, ...netTerminals, ...recvTerms, ...annexTerms, ...terreTerms];
     if (tp.station) out.push(...stationTerminals);
     if (tp.hasMotor) out.push(...motorTerminals);
     return out;
-  }, [slotTerminals, netTerminals, recvTerms, annexTerms, stationTerminals, motorTerminals, tp.station, tp.hasMotor]);
+  }, [slotTerminals, netTerminals, recvTerms, annexTerms, terreTerms, stationTerminals, motorTerminals, tp.station, tp.hasMotor]);
 
   /** Rayons de capture, calculés sur la densité locale (voir `src/lib/scene/pick.ts`). */
   const rayons = React.useMemo(() => rayonsDeCapture(bornes.map((t) => t.pos)), [bornes]);
@@ -539,6 +559,19 @@ export default function Panel(props: PanelProps) {
             aimed={aimTerminals}
           pick={pickTerminals}
             survol={survol}
+          onTerminal={pickTerminals ? onTerminal : undefined}
+        />
+      ) : null}
+
+      {/* ensemble terre : barrette de coupure et piquet */}
+      {terreTerms.length ? (
+        <Terminals
+          terminals={terreTerms}
+          marks={marks}
+          highlighted={hlTerminals}
+          aimed={aimTerminals}
+          pick={pickTerminals}
+          survol={survol}
           onTerminal={pickTerminals ? onTerminal : undefined}
         />
       ) : null}
