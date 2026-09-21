@@ -12,7 +12,7 @@
 import { create } from 'zustand';
 import type { TpDefinition } from '@/lib/types';
 import {
-  buildMesEvaluation, blocages, CONSIGNATION, DECONSIGNATION, estConforme, INSPECTION, initialMesState,
+  buildMesEvaluation, blocages, ECART_CAUSE_OK, CONSIGNATION, DECONSIGNATION, estConforme, INSPECTION, initialMesState,
   MES, MES_STEP_COUNT, MES_STEP_LABELS, MESURES, mesScore, mesStageScores, normalizeMesState, ORGANES,
   posRequise, POURQUOI, rapportPv, RESTITUTION, stepOk, valeurLue,
   type Condition, type Jugement, type MesState, type Position,
@@ -56,6 +56,8 @@ interface MesStore {
   setAppareil: (i: number) => void;
   toggleHabil: (h: string) => void;
 
+  voirVisu: (id: string) => void;
+  answerCause: (i: number) => void;
   markVisu: (id: string, j: Jugement) => void;
   corrigerVisu: () => void;
 
@@ -200,14 +202,25 @@ export const useMesParcours = create<MesStore>((set, get) => {
 
     /* ---------------------------------------------------- inspection */
 
+    voirVisu(id) {
+      if (get().s.visu.vus.includes(id)) return;
+      patch((x) => ({ ...x, visu: { ...x.visu, vus: [...x.visu.vus, id] } }));
+    },
+    answerCause(i) {
+      const faux = i !== ECART_CAUSE_OK;
+      patch((x) => ({ ...x, visu: { ...x.visu, cause: i, err: x.visu.err + (faux ? 1 : 0) } }));
+      if (faux) say('Regarde où se trouve le jour dans la vue rapprochée.');
+    },
     markVisu(id, j) {
       const it = INSPECTION.find((i) => i.id === id);
       if (!it) return;
+      if (!get().s.visu.vus.includes(id)) { say('Regarde d\'abord la zone sur l\'armoire.'); return; }
       const faux = (j === 'C') !== it.conforme;
       patch((x) => ({ ...x, visu: { ...x.visu, marks: { ...x.visu.marks, [id]: j }, err: x.visu.err + (faux ? 1 : 0) } }));
       if (faux) say(j === 'C' ? 'Regarde mieux : ce point présente un écart.' : 'Ce point est conforme.');
     },
     corrigerVisu() {
+      if (get().s.visu.cause !== ECART_CAUSE_OK) { say('Identifie d\'abord la cause de l\'écart.'); return; }
       patch((x) => ({ ...x, visu: { ...x.visu, corrige: true } }));
       say('Presse-étoupe serré : l\'étanchéité IP65 est rétablie.');
     },

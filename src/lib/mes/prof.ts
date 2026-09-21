@@ -15,7 +15,7 @@ import {
 export const MES_HELLO: Record<number, string> = {
   [MES.IDENT]: 'Bonjour ! Commence par le schéma de puissance : chaque organe a un repère. Clique-le, puis choisis sa désignation et sa fonction.',
   [MES.PREP]: 'Les 7 contrôles suivent une logique : d\'abord ce qui se fait installation consignée, ensuite ce qui a besoin de tension. Le guide du contrôleur 📘 t\'aidera pour les positions.',
-  [MES.VISU]: 'Avant de sortir le contrôleur, on regarde. Passe chaque point en revue : un seul écart suffit à arrêter la mise en service.',
+  [MES.VISU]: 'Avant de sortir le contrôleur, on regarde. Ouvre chaque zone de l\'armoire en vue rapprochée : un seul écart suffit à arrêter la mise en service.',
   [MES.CONS]: 'Consignation : réunis d\'abord le bon matériel, puis enchaîne les 5 étapes dans l\'ordre. Qui fait quoi, BC ou BR ?',
   [MES.CONT]: 'Continuité du conducteur de protection : pense au zéro des cordons avant la première mesure, puis contrôle chaque masse.',
   [MES.ISO_I]: 'Isolement de l\'installation : Q0 ouvert, KM1 ouvert, primaire de T1 débranché. Mesure entre chaque couple de conducteurs.',
@@ -32,7 +32,7 @@ export const MES_HELLO: Record<number, string> = {
 export const MES_QUICK: Record<number, string[]> = {
   [MES.IDENT]: ['Comment reconnaître un disjoncteur ?', 'À quoi sert T1 ?', 'Où trouver la fonction d\'un organe ?'],
   [MES.PREP]: ['Pourquoi cet ordre ?', 'Quelle habilitation ?', 'Où trouver les positions du commutateur ?'],
-  [MES.VISU]: ['Que veut dire IP65 ?', 'Qu\'est-ce qu\'un plastron ?', 'Que faire d\'un écart ?'],
+  [MES.VISU]: ['Que regarder sur un presse-étoupe ?', 'Qu\'est-ce qu\'une tresse de masse ?', 'Qu\'est-ce qu\'un plastron ?'],
   [MES.CONS]: ['Quel est l\'ordre de la consignation ?', 'Pourquoi une VAT ?', 'Quels EPI ?'],
   [MES.CONT]: ['Quelle position choisir ?', 'Le contrôleur affiche OL', 'Quelle valeur maximale ?'],
   [MES.ISO_I]: ['Quelle tension d\'essai ?', 'Pourquoi débrancher T1 ?', 'Quelle valeur minimale ?'],
@@ -54,6 +54,8 @@ const SECOURS: Record<string, string> = {
   'Quelle habilitation ?': 'Tu fais des mesures et une mise en service : quel indice correspond aux opérations spécifiques ? Et qui a le droit de consigner ?',
   'Où trouver les positions du commutateur ?': 'Ouvre le guide du contrôleur 📘 : le tableau donne le numéro, le symbole et la fonction de chaque position.',
   'Que veut dire IP65 ?': 'Le premier chiffre concerne les poussières, le second l\'eau. En fosse humide, que se passe-t-il si un presse-étoupe est desserré ?',
+  'Que regarder sur un presse-étoupe ?': 'L\'écrou doit être serré et le câble ne doit pas bouger. S\'il reste un jour autour du câble, l\'eau et la poussière entrent : que devient l\'indice IP ?',
+  'Qu\'est-ce qu\'une tresse de masse ?': 'Un conducteur souple vert-jaune qui relie une partie mobile (la porte) au châssis. Sans elle, la porte ne serait pas reliée à la terre.',
   'Qu\'est-ce qu\'un plastron ?': 'C\'est l\'écran qui empêche de toucher les pièces nues sous tension quand la porte est ouverte.',
   'Que faire d\'un écart ?': 'On le corrige avant de continuer, ou on le note en réserve. Une mise en service ne se prononce pas avec un écart connu.',
   'Quel est l\'ordre de la consignation ?': 'Sépare, condamne, identifie, vérifie, puis mets à la terre si besoin. Relis chaque mot : lequel doit forcément venir avant la VAT ?',

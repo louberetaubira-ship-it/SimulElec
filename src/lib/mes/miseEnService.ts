@@ -197,15 +197,42 @@ export const HABILITATIONS_OK = ['BR', 'BC'];
 
 /* ------------------------------------------------------------- inspection */
 
-export const INSPECTION: { id: string; label: string; conforme: boolean; ecart?: string }[] = [
-  { id: 'schemas', label: 'Présence des schémas', conforme: true },
-  { id: 'plastron', label: 'Protection des pièces nues sous tension (plastron)', conforme: true },
-  { id: 'organes', label: 'Accessibilité des organes de sécurité (sectionneur, AU)', conforme: true },
-  { id: 'masses', label: 'Mise à la terre des masses métalliques', conforme: true },
+/** Un point d'inspection : ce qu'on voit en vue rapprochée, et s'il est conforme. */
+export interface PointInspection {
+  id: string;
+  label: string;
+  conforme: boolean;
+  /** Constat visible dans la vue rapprochée. */
+  obs: string;
+  /** Constat après correction (point non conforme). */
+  fix?: string;
+  ecart?: string;
+}
+
+export const INSPECTION: PointInspection[] = [
+  { id: 'schemas', label: 'Présence des schémas', conforme: true,
+    obs: 'Pochette porte-documents sur la face intérieure de la porte : folios puissance et commande présents, à jour (indice B), repères identiques à ceux de l\'armoire.' },
+  { id: 'plastron', label: 'Protection des pièces nues sous tension (plastron)', conforme: true,
+    obs: 'Plastron en place devant les borniers et les jeux de barres, vissé aux 4 coins. Seules les manettes des appareils dépassent : aucune pièce nue accessible au doigt.' },
+  { id: 'organes', label: 'Accessibilité des organes de sécurité (sectionneur, AU)', conforme: true,
+    obs: 'Poignée de Q0 accessible porte fermée, cadenassable. Arrêt d\'urgence S0 coup de poing rouge sur fond jaune, à 1,20 m du sol, rien devant.' },
+  { id: 'masses', label: 'Mise à la terre des masses métalliques', conforme: true,
+    obs: 'Tresse de masse vert-jaune entre la porte et le châssis, vissée des deux côtés. Plaque de fond et borne de masse de T1 reliées à la barrette de terre.' },
   { id: 'etancheite', label: 'Étanchéité des coffrets (presse-étoupes, joints)', conforme: false,
+    obs: 'Presse-étoupe du câble de la pompe : l\'écrou n\'est pas serré, on voit un jour autour du câble et le câble bouge à la main. Le joint de porte, lui, est en bon état.',
+    fix: 'Écrou serré : plus de jour autour du câble, le câble ne bouge plus. L\'armoire retrouve son indice IP65.',
     ecart: 'Le presse-étoupe du câble de la pompe n\'est pas serré : l\'indice IP65 de l\'armoire n\'est plus garanti, en pleine fosse humide. On le serre avant de poursuivre.' },
-  { id: 'marquage', label: 'Marquage des composants', conforme: true },
+  { id: 'marquage', label: 'Marquage des composants', conforme: true,
+    obs: 'Chaque appareil porte son repère (Q0, Q1, KM1, T1…) identique au schéma. Les fils sont repérés aux deux extrémités.' },
 ];
+
+/** Cause de l'écart à identifier avant de corriger. */
+export const ECART_CAUSES = [
+  'Presse-étoupe du câble de la pompe desserré',
+  'Joint de porte déchiré',
+  'Câble de la pompe de mauvaise section',
+];
+export const ECART_CAUSE_OK = 0;
 
 /* ------------------------------------------------------------- consignation */
 
@@ -563,7 +590,15 @@ export interface MesState {
     habil: string[];
     err: number;
   };
-  visu: { marks: Record<string, Jugement | null>; corrige: boolean; err: number };
+  visu: {
+    marks: Record<string, Jugement | null>;
+    /** Zones ouvertes en vue rapprochée (le jugement exige d'avoir regardé). */
+    vus: string[];
+    /** Cause de l'écart choisie. */
+    cause: number | null;
+    corrige: boolean;
+    err: number;
+  };
   cons: { seq: string[]; equip: string[]; err: number };
   mesures: Record<number, EtatMesure>;
   decons: { seq: string[]; err: number };
@@ -587,7 +622,7 @@ export function initialMesState(): MesState {
     done: {},
     ident: {},
     prep: { conditions: {}, pourquoi: null, positions: {}, appareil: null, habil: [], err: 0 },
-    visu: { marks: {}, corrige: false, err: 0 },
+    visu: { marks: {}, vus: [], cause: null, corrige: false, err: 0 },
     cons: { seq: [], equip: [], err: 0 },
     mesures,
     decons: { seq: [], err: 0 },
@@ -684,11 +719,14 @@ export function blocages(s: MesState, step: number): Blocage[] {
       break;
     }
     case MES.VISU: {
+      const nv = INSPECTION.filter((i) => !s.visu.vus.includes(i.id)).length;
+      if (nv) bad(`${nv} zone(s) à regarder sur l'armoire.`);
       const nm = INSPECTION.filter((i) => s.visu.marks[i.id] == null).length;
       if (nm) bad(`${nm} point(s) d'inspection non renseigné(s).`);
       const faux = INSPECTION.filter((i) => s.visu.marks[i.id] != null && (s.visu.marks[i.id] === 'C') !== i.conforme).length;
       if (faux) bad(`${faux} point(s) d'inspection mal jugé(s).`);
-      if (!faux && !nm && !s.visu.corrige) bad('Un écart a été relevé : corrige-le avant de poursuivre.');
+      if (!faux && !nm && s.visu.cause !== ECART_CAUSE_OK) bad('Identifie la cause de l\'écart relevé.');
+      else if (!faux && !nm && !s.visu.corrige) bad('Un écart a été relevé : corrige-le avant de poursuivre.');
       break;
     }
     case MES.CONS: {

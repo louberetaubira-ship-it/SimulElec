@@ -9,13 +9,14 @@
 import React from 'react';
 import {
   APPAREILS, CONSIGNATION, CONTROLES, DECONSIGNATION, DESIGNATIONS, EQUIPEMENTS, ESSAIS, estConforme,
-  fmt, FONCTIONS, HABILITATIONS, INSPECTION, lignesPv, MES, MESURES, miseEnServicePrononcee, ORGANES,
+  fmt, FONCTIONS, HABILITATIONS, lignesPv, MES, MESURES, miseEnServicePrononcee, ORGANES,
   POSITIONS, POURQUOI, RESTITUTION, type QcmDef,
 } from '@/lib/mes/miseEnService';
 import { useMesParcours } from '@/app/tp/[id]/mesStore';
 import Schema, { type SchemaTab } from './Schemas';
 import Controleur from './Controleur';
 import Frise7 from './Frise7';
+import Inspection from './Inspection';
 
 /* ------------------------------------------------------------- utilitaires */
 
@@ -260,57 +261,6 @@ function Preparation() {
 }
 
 /* ------------------------------------------------------------- 2 · inspection */
-
-function Inspection() {
-  const { s, markVisu, corrigerVisu } = useMesParcours();
-  const ecart = INSPECTION.find((i) => !i.conforme)!;
-  const vu = s.visu.marks[ecart.id] === 'NC';
-  return (
-    <div className="flex flex-col gap-2.5">
-      <div className={card}>
-        <h3 className={h3}>Inspecte l&apos;armoire et la fosse, installation hors tension</h3>
-        <table className="w-full border-collapse text-[12.5px]">
-          <tbody>
-            {INSPECTION.map((it) => {
-              const m = s.visu.marks[it.id];
-              return (
-                <tr key={it.id} data-visu={it.id} className="border-t border-[var(--line)]">
-                  <td className="py-1.5 pr-2">{it.label}</td>
-                  <td className="w-[150px] py-1.5 text-right">
-                    <div className="inline-flex gap-1">
-                      {(['C', 'NC'] as const).map((j) => (
-                        <button
-                          key={j}
-                          type="button"
-                          data-j={j}
-                          onClick={() => markVisu(it.id, j)}
-                          className={`min-h-touch rounded-[8px] border px-2.5 text-[12px] font-semibold ${m === j ? (j === 'C' ? 'border-good bg-good/15 text-good' : 'border-crit bg-crit/15 text-crit') : 'border-[var(--line)]'}`}
-                        >
-                          {j === 'C' ? 'Conforme' : 'Non conf.'}
-                        </button>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      {vu && (
-        <div className="rounded-r-xl border-l-4 border-l-warn bg-warn/10 px-2.5 py-2 text-[12.5px]">
-          <b className="block">Écart relevé</b>
-          {ecart.ecart}
-          <div className="mt-2">
-            {s.visu.corrige
-              ? <Ok ok>✓ Presse-étoupe serré.</Ok>
-              : <button type="button" data-corriger onClick={corrigerVisu} className={`${btn} ${btnOn}`}>Serrer le presse-étoupe</button>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------- 3 · consignation */
 
