@@ -2,31 +2,22 @@
 
 /**
  * Contrôleur d'installation multifonction : commutateur rotatif (8 positions),
- * afficheur, bouton TEST et douilles N · PE · L.
- *
- * La position du commutateur est un état de l'appareil (store) ; la position
- * attendue n'est PAS affichée : l'élève l'a identifiée à l'étape « Contrôles ».
+ * afficheur, cordons à poser sur le banc, ZÉRO (continuité), multiple de IΔn
+ * (ΔT) et bouton TEST. La position attendue n'est PAS affichée : l'élève l'a
+ * identifiée à l'étape « Contrôles » (guide du contrôleur).
  */
 
 import React from 'react';
-import { fmt, MESURES, positionOf, POSITIONS, type Position } from '@/lib/mes/miseEnService';
+import { positionOf, POSITIONS, MES } from '@/lib/mes/miseEnService';
+import { BANCS, CORDONS } from '@/lib/mes/banc';
 import { useMesParcours } from '@/app/tp/[id]/mesStore';
 
-/** Douilles utilisées selon la fonction. */
-const JACKS: Record<Position, ('N' | 'PE' | 'L')[]> = {
-  V: ['N', 'L'], RISO: ['PE', 'L'], RLO: ['PE', 'L'], ZI: ['N', 'PE', 'L'],
-  DT: ['N', 'PE', 'L'], IDN: ['N', 'PE', 'L'], RE: ['N', 'PE', 'L'], ROT: ['N', 'PE', 'L'],
-};
-
 export default function Controleur() {
-  const { s, pos, point, setPos, test, setGuideOpen } = useMesParcours();
-  const e = MESURES[s.step];
+  const { s, pos, setPos, test, setGuideOpen, cord, selectCord, conn, lcd, zero, mult, setMult } = useMesParcours();
+  const b = BANCS[s.step];
   const p = positionOf(pos);
-  const ptId = point[s.step] ?? e?.points[0]?.id;
-  const pt = e?.points.find((x) => x.id === ptId);
-  const lec = ptId ? s.mesures[s.step]?.lectures[ptId] : undefined;
-  const affiche = lec && lec.pos === pos && !pt?.action;
-  const jacks = e ? JACKS[pos] : [];
+  const c = conn[s.step] ?? {};
+  const zeroFait = !!s.mesures[s.step]?.prep.includes('zero');
 
   return (
     <div data-controleur className="mes-ctrl">
@@ -36,23 +27,18 @@ export default function Controleur() {
           <button type="button" data-ctrl-guide onClick={() => setGuideOpen(true)} title="Guide du contrôleur"
             className="grid h-6 w-6 place-items-center rounded-full bg-[#1b1b1b] text-[12px] font-extrabold text-[#f2b705]">?</button>
         </span>
-        <div className="mes-jacks" aria-label="Douilles">
-          {(['N', 'PE', 'L'] as const).map((j) => (
-            <span key={j} className={jacks.includes(j) ? j.toLowerCase() : ''}>{j}</span>
-          ))}
-        </div>
       </div>
       <div className="mes-lcd" data-lcd>
-        <div className="m"><span>{p.fonction}</span><span>U<sub>L</sub>=50 V</span></div>
-        {affiche ? (
+        <div className="m"><span>{p.fonction}</span><span>{s.step === MES.CONT ? (zeroFait ? 'ZÉRO ✓' : 'zéro à faire') : <>U<sub>L</sub>=50 V</>}</span></div>
+        {lcd ? (
           <>
-            <div className="v">{fmt(lec!.v)}<span className="u"> {pt?.unite}</span></div>
-            <div className="s">{pt?.label}</div>
+            <div className="v">{lcd.v}<span className="u"> {lcd.unite}</span></div>
+            <div className="s">{lcd.sub}</div>
           </>
         ) : (
           <>
             <div className="v off">- - -</div>
-            <div className="s">{e ? (pt?.action ? 'point sans contrôleur' : 'appuie sur TEST') : 'pas de mesure à cette étape'}</div>
+            <div className="s">{b ? 'branche les cordons, puis TEST' : 'pas de mesure à cette étape'}</div>
           </>
         )}
       </div>
@@ -62,28 +48,39 @@ export default function Controleur() {
           {POSITIONS.map((q) => {
             const a = ((q.angle - 90) * Math.PI) / 180;
             return (
-              <button
-                key={q.k}
-                type="button"
-                role="radio"
-                aria-checked={pos === q.k}
-                data-pos={q.k}
-                className={pos === q.k ? 'sel' : ''}
-                style={{ left: 75 + 62 * Math.cos(a), top: 75 + 62 * Math.sin(a) }}
-                onClick={() => setPos(q.k)}
-              >
+              <button key={q.k} type="button" role="radio" aria-checked={pos === q.k} data-pos={q.k}
+                className={pos === q.k ? 'sel' : ''} style={{ left: 75 + 62 * Math.cos(a), top: 75 + 62 * Math.sin(a) }}
+                onClick={() => setPos(q.k)}>
                 {q.symbole}
               </button>
             );
           })}
         </div>
         <div className="mes-testb">
-          <button type="button" data-test onClick={test} disabled={!e || !!pt?.action}>TEST</button>
-          <div className="hint">
-            {e ? (
-              <>Point : <b>{pt?.label ?? '—'}</b><br />Choisis la position, branche les cordons, puis TEST.</>
-            ) : 'Étape sans mesure.'}
-          </div>
+          {b && (
+            <div className="flex flex-wrap gap-1" aria-label="Cordons">
+              {b.cordons.map((k) => (
+                <button key={k} type="button" data-cord={k} onClick={() => selectCord(k)}
+                  style={{ background: CORDONS[k].couleur, padding: '6px 4px', fontSize: 11, color: '#fff', flex: 1, borderRadius: 10, outline: cord === k ? '3px solid #1b1b1b' : 'none', outlineOffset: 1 }}>
+                  {CORDONS[k].label}{c[k] ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
+          )}
+          {s.step === MES.CONT && (
+            <button type="button" data-zero onClick={zero} style={{ background: '#5d4a00', color: '#fff', padding: 8 }}>ZÉRO</button>
+          )}
+          {s.step === MES.DDR && pos === 'DT' && (
+            <div className="flex gap-1">
+              {([1, 5] as const).map((k) => (
+                <button key={k} type="button" data-mult={k} onClick={() => setMult(k)}
+                  style={{ flex: 1, padding: 6, fontSize: 11, background: mult === k ? '#1b1b1b' : 'rgba(0,0,0,.15)', color: mult === k ? '#f2b705' : '#1b1b1b' }}>
+                  ×{k} · {k === 1 ? '30' : '150'} mA
+                </button>
+              ))}
+            </div>
+          )}
+          <button type="button" data-test onClick={test} disabled={!b}>TEST</button>
         </div>
       </div>
     </div>

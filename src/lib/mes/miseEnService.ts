@@ -568,6 +568,8 @@ export interface EtatMesure {
   jugements: Record<string, Jugement>;
   /** Tentatives avec une mauvaise position du commutateur. */
   errPos: number;
+  /** Préparations faites sur le banc (zéro des cordons, barrettes retirées, BC1 ouverte…). */
+  prep: string[];
   /** Conformités mal jugées (au moment où l'élève les déclare). */
   errJuge: number;
   levee: boolean;
@@ -611,7 +613,7 @@ export interface MesState {
 }
 
 const emptyMesure = (): EtatMesure => ({
-  lectures: {}, jugements: {}, errPos: 0, errJuge: 0, levee: false, role: null, limite: null, errQcm: 0,
+  lectures: {}, jugements: {}, prep: [], errPos: 0, errJuge: 0, levee: false, role: null, limite: null, errQcm: 0,
 });
 
 export function initialMesState(): MesState {

@@ -26,6 +26,7 @@ import { diplomaShort } from '@/lib/student';
 import MesStep from '@/components/mes/steps';
 import GuideControleur from '@/components/mes/GuideControleur';
 import ProfBotMes from '@/components/mes/ProfBotMes';
+import ProfAvatar from '@/components/parcours/ProfAvatar';
 import '@/components/mes/mes.css';
 import { useMesParcours } from './mesStore';
 
@@ -104,7 +105,7 @@ export default function MiseEnServiceClient({ tp }: { tp: TpDefinition }) {
       />
       <CompetencesStage diploma={dip.diploma} kind="miseEnService" stage={s.step} stageLabel={MES_STEP_LABELS[s.step]} />
 
-      <div data-parcours="mes" className="grid flex-1 lg:grid-cols-[250px_minmax(0,1fr)_320px]">
+      <div data-parcours="mes" className={`grid flex-1 ${store.botOpen ? 'lg:grid-cols-[250px_minmax(0,1fr)_340px]' : 'lg:grid-cols-[250px_minmax(0,1fr)]'}`}>
         <aside className="hidden flex-col gap-1.5 overflow-y-auto border-r border-[var(--line)] bg-[var(--surface)] p-3 lg:flex">
           {MES_STEPS.map((st, i) => {
             const isDone = !!s.done[i];
@@ -224,25 +225,28 @@ export default function MiseEnServiceClient({ tp }: { tp: TpDefinition }) {
           </div>
         </main>
 
-        <aside className="no-print hidden border-l border-[var(--line)] bg-[var(--surface)] lg:block">
-          <div className="sticky top-14 flex h-[calc(100vh-3.5rem)] min-h-0 flex-col">
-          <div className="border-b border-[var(--line)] p-3">
-            <button type="button" onClick={() => store.setGuideOpen(true)}
-              className="min-h-touch w-full rounded-[10px] border border-[var(--line)] bg-[var(--surface-2)] px-3 text-left text-[12.5px] font-semibold">
-              📘 Guide du contrôleur <small className="font-normal text-muted">· positions, cordons, 7 étapes</small>
-            </button>
-          </div>
-            <ProfBotMes tp={tp} />
-          </div>
-        </aside>
+        {store.botOpen && (
+          <aside className="no-print hidden border-l border-[var(--line)] bg-[var(--surface)] lg:block">
+            <div className="sticky top-14 flex h-[calc(100vh-7rem)] min-h-0 flex-col">
+              <ProfBotMes tp={tp} />
+            </div>
+          </aside>
+        )}
       </div>
 
-      <div className="no-print sticky bottom-0 z-30 border-t border-[var(--line)] bg-[var(--surface)] lg:hidden">
-        <button type="button" onClick={() => store.setBotOpen(!store.botOpen)} aria-expanded={store.botOpen}
-          className="min-h-touch w-full px-4 py-2.5 text-left text-[13px] font-semibold">
-          {store.botOpen ? '▾' : '▴'} Professeur virtuel — {step.title}
+      {/* professeur virtuel : barre du bas, comme dans les autres TP */}
+      <div className="no-print sticky bottom-0 z-30 border-t border-[var(--line)] bg-[var(--surface)]">
+        <button type="button" data-bot-toggle onClick={() => store.setBotOpen(!store.botOpen)} aria-expanded={store.botOpen}
+          className="flex min-h-touch w-full items-center gap-2.5 px-4 py-2 text-left text-[12.5px] font-semibold">
+          <ProfAvatar state={store.botOpen ? 'idle' : 'guide'} size={30} />
+          <span>Professeur virtuel — {step.title}</span>
+          <span className="ml-auto text-[var(--muted)]">{store.botOpen ? '▾' : '▴'}</span>
         </button>
-        {store.botOpen && <ProfBotMes tp={tp} />}
+        {store.botOpen && (
+          <div className="lg:hidden">
+            <ProfBotMes tp={tp} />
+          </div>
+        )}
       </div>
 
       <GuideControleur />

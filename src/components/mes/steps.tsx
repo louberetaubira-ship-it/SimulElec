@@ -9,12 +9,16 @@
 import React from 'react';
 import {
   APPAREILS, CONSIGNATION, CONTROLES, DECONSIGNATION, DESIGNATIONS, EQUIPEMENTS, ESSAIS, estConforme,
-  fmt, FONCTIONS, HABILITATIONS, lignesPv, MES, MESURES, miseEnServicePrononcee, ORGANES,
+  fmt, FONCTIONS, MES_STEPS, HABILITATIONS, lignesPv, MES, MESURES, miseEnServicePrononcee, ORGANES,
   POSITIONS, POURQUOI, RESTITUTION, type QcmDef,
 } from '@/lib/mes/miseEnService';
 import { useMesParcours } from '@/app/tp/[id]/mesStore';
 import Schema, { type SchemaTab } from './Schemas';
 import Controleur from './Controleur';
+import Banc from './Banc';
+import GuideControleur from './GuideControleur';
+import ProfBotMes from './ProfBotMes';
+import { BANCS } from '@/lib/mes/banc';
 import Frise7 from './Frise7';
 import Inspection from './Inspection';
 
@@ -318,128 +322,173 @@ function Consignation() {
 
 /* ------------------------------------------------------------- mesures */
 
+/** Plein écran d'un bloc (API native, repli sur un calque fixe). */
+function usePleinEcran() {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [fs, setFs] = React.useState(false);
+  React.useEffect(() => {
+    const onChange = () => { if (!document.fullscreenElement) setFs(false); };
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+  React.useEffect(() => {
+    if (!fs) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !document.fullscreenElement) setFs(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fs]);
+  const entrer = () => {
+    setFs(true);
+    const el = ref.current;
+    try {
+      const r = el?.requestFullscreen?.();
+      if (r && typeof r.catch === 'function') r.catch(() => {});
+    } catch { /* API refusée : le calque fixe prend le relais */ }
+  };
+  const sortir = () => {
+    setFs(false);
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+  };
+  return { ref, fs, entrer, sortir };
+}
+
 function Mesures({ step }: { step: number }) {
-  const { s, point, selectPoint, juger, leverReserve, answerQcm, action, essai } = useMesParcours();
+  const { s, tp, juger, leverReserve, answerQcm, essai, benchMsg, setGuideOpen } = useMesParcours();
   const e = MESURES[step]!;
+  const b = BANCS[step];
   const m = s.mesures[step];
-  const cur = point[step] ?? e.points[0].id;
   const r = e.reserve;
   const lr = r ? m.lectures[r.point] : undefined;
   const reserveOuverte = !!(r && lr && !estConforme(e.points.find((p) => p.id === r.point)!, lr.v));
   const rot = step === MES.PHASES ? m.lectures.rot : undefined;
   const phasesOk = !!(rot && estConforme(e.points[0], rot.v));
+  const { ref, fs, entrer, sortir } = usePleinEcran();
+  const [botFs, setBotFs] = React.useState(false);
+  const nMes = e.points.filter((p) => m.lectures[p.id]).length;
+
+  const tableau = (
+    <div className={`${card} overflow-x-auto`}>
+      <h3 className={h3}>Points de mesure <span className="font-normal text-muted">· {nMes} / {e.points.length} mesurés</span></h3>
+      <table className="w-full border-collapse text-[12.5px]">
+        <thead>
+          <tr className="text-left text-[11px] uppercase tracking-[.04em] text-muted">
+            <th className="py-1 pr-2 font-semibold">Point</th>
+            <th className="py-1 pr-2 text-right font-semibold">Lecture</th>
+            <th className="py-1 text-right font-semibold">Conformité</th>
+          </tr>
+        </thead>
+        <tbody>
+          {e.points.map((p) => {
+            const l = m.lectures[p.id];
+            const j = m.jugements[p.id];
+            return (
+              <tr key={p.id} data-point={p.id} className="border-t border-[var(--line)]">
+                <td className="py-1.5 pr-2">{p.label}</td>
+                <td data-lecture className="whitespace-nowrap py-1.5 pr-2 text-right font-mono-num font-bold">{l ? fmt(l.v, p.unite) : '—'}</td>
+                <td className="w-[110px] py-1.5 text-right">
+                  <div className="inline-flex gap-1">
+                    {(['C', 'NC'] as const).map((k) => (
+                      <button key={k} type="button" data-j={k} disabled={!l} onClick={() => juger(step, p.id, k)}
+                        className={`min-h-[32px] rounded-[8px] border px-2 text-[11.5px] font-semibold disabled:opacity-35 ${j === k ? (k === 'C' ? 'border-good bg-good/15 text-good' : 'border-crit bg-crit/15 text-crit') : 'border-[var(--line)]'}`}>
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
-    <div className="grid gap-3 2xl:grid-cols-[minmax(0,1fr)_330px]">
-      <div className="flex min-w-0 flex-col gap-2.5">
-        <div className={`${card} text-[12.5px]`}>
-          <div><b>Branchement :</b> {e.cordons}</div>
-          <div className="mt-1"><b>Critère :</b> {e.critere}</div>
-          {e.note && <p className="m-0 mt-1.5 text-[12px] text-muted">{e.note}</p>}
-        </div>
+    <div className="flex min-w-0 flex-col gap-2.5">
+      <div className={`${card} text-[12.5px]`}>
+        <div><b>Consigne :</b> {b?.consigne ?? e.cordons}</div>
+        <div className="mt-1"><b>Critère :</b> {e.critere}</div>
+        {e.note && <p className="m-0 mt-1.5 text-[12px] text-muted">{e.note}</p>}
+      </div>
 
-        <div className="grid gap-2.5 md:grid-cols-2">
-          <Qcm id="role" def={e.role} value={m.role} onAnswer={(i) => answerQcm(step, 'role', i)} graine={step * 2 + 1} />
-          <Qcm id="limite" def={e.limite} value={m.limite} onAnswer={(i) => answerQcm(step, 'limite', i)} graine={step * 2 + 2} />
-        </div>
+      <div className="grid gap-2.5 md:grid-cols-2">
+        <Qcm id="role" def={e.role} value={m.role} onAnswer={(i) => answerQcm(step, 'role', i)} graine={step * 2 + 1} />
+        <Qcm id="limite" def={e.limite} value={m.limite} onAnswer={(i) => answerQcm(step, 'limite', i)} graine={step * 2 + 2} />
+      </div>
 
-        <div className={`${card} overflow-x-auto`}>
-          <h3 className={h3}>Points de mesure</h3>
-          <table className="w-full border-collapse text-[12.5px]">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-[.04em] text-muted">
-                <th className="py-1 pr-2 font-semibold">Point</th>
-                <th className="py-1 pr-2 text-right font-semibold">Lecture</th>
-                <th className="py-1 text-right font-semibold">Conformité</th>
-              </tr>
-            </thead>
-            <tbody>
-              {e.points.map((p) => {
-                const l = m.lectures[p.id];
-                const j = m.jugements[p.id];
-                const active = cur === p.id;
-                return (
-                  <tr
-                    key={p.id}
-                    data-point={p.id}
-                    onClick={() => selectPoint(step, p.id)}
-                    className={`cursor-pointer border-t border-[var(--line)] ${active ? 'bg-accent/10' : ''}`}
-                  >
-                    <td className="py-1.5 pr-2">
-                      <span className={active ? 'font-semibold' : ''}>{active ? '▸ ' : ''}{p.label}</span>
-                      {p.action && (
-                        <button
-                          type="button"
-                          data-action={p.id}
-                          onClick={(ev) => { ev.stopPropagation(); action(step, p.id); }}
-                          className="ml-2 rounded-[8px] border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-[11.5px] font-semibold"
-                        >
-                          {p.action}
-                        </button>
-                      )}
-                    </td>
-                    <td data-lecture className="whitespace-nowrap py-1.5 pr-2 text-right font-mono-num font-bold">
-                      {l ? fmt(l.v, p.unite) : '—'}
-                    </td>
-                    <td className="w-[150px] py-1.5 text-right">
-                      <div className="inline-flex gap-1">
-                        {(['C', 'NC'] as const).map((k) => (
-                          <button
-                            key={k}
-                            type="button"
-                            data-j={k}
-                            disabled={!l}
-                            onClick={(ev) => { ev.stopPropagation(); juger(step, p.id, k); }}
-                            className={`min-h-[32px] rounded-[8px] border px-2 text-[11.5px] font-semibold disabled:opacity-35 ${j === k ? (k === 'C' ? 'border-good bg-good/15 text-good' : 'border-crit bg-crit/15 text-crit') : 'border-[var(--line)]'}`}
-                          >
-                            {k}
-                          </button>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {r && reserveOuverte && (
-          <div data-reserve className="rounded-r-xl border-l-4 border-l-crit bg-crit/10 px-2.5 py-2 text-[12.5px]">
-            <b className="block">Réserve</b>
-            {r.constat}
-            <p className="m-0 mt-1"><b>Levée :</b> {r.levee}</p>
-            <button type="button" data-lever onClick={() => leverReserve(step)} className={`${btn} ${btnOn} mt-2`}>
-              Lever la réserve
+      <div
+        ref={ref}
+        data-bench
+        data-fs={fs ? '1' : '0'}
+        className={fs ? 'fixed inset-0 z-[60] flex flex-col gap-2.5 overflow-y-auto bg-[var(--app)] p-3' : 'flex flex-col gap-2.5'}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="m-0 text-[13px] font-semibold">Banc de mesure{fs && ` · ${MES_STEPS[step].title}`}</h3>
+          <span className="text-[11.5px] text-muted">Clique un cordon sur le contrôleur, puis une borne sur le dessin.</span>
+          <div className="ml-auto flex gap-1.5">
+            {fs && (
+              <>
+                <button type="button" onClick={() => setGuideOpen(true)} className={btn}>📘 Guide</button>
+                <button type="button" onClick={() => setBotFs(!botFs)} className={btn}>👨‍🏫 Professeur</button>
+              </>
+            )}
+            <button type="button" data-fs-toggle onClick={fs ? sortir : entrer} className={`${btn} ${fs ? btnOn : ''}`}>
+              {fs ? '✕ Quitter le plein écran' : '⛶ Plein écran'}
             </button>
           </div>
+        </div>
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_330px]">
+          <Banc />
+          <div className="mx-auto w-full max-w-[400px] xl:sticky xl:top-2 xl:self-start">
+            <Controleur />
+          </div>
+        </div>
+        {benchMsg && (
+          <div data-bench-msg className={`rounded-r-xl border-l-4 px-2.5 py-1.5 text-[12.5px] ${benchMsg.kind === 'bad' ? 'border-l-crit bg-crit/10' : benchMsg.kind === 'ok' ? 'border-l-good bg-good/10' : 'border-l-warn bg-warn/10'}`}>
+            {benchMsg.text}
+          </div>
         )}
-        {r && m.levee && !reserveOuverte && (
-          <p className="m-0 rounded-lg bg-good/10 px-2.5 py-1.5 text-[12.5px]">
-            <b>Réserve levée.</b> {m.lectures[r.point] ? 'Nouvelle mesure conforme.' : 'Refais la mesure sur le point corrigé.'}
-          </p>
-        )}
-
-        {step === MES.PHASES && (
-          <div data-essais className={card}>
-            <h3 className={h3}>Essais fonctionnels</h3>
-            {!phasesOk && <p className="m-0 mb-2 text-[12px] text-muted">Possibles une fois l&apos;ordre des phases direct (1-2-3).</p>}
-            <div className="flex flex-col gap-1.5">
-              {ESSAIS.map((x) => (
-                <div key={x.id} data-essai={x.id} className="flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-1.5 text-[12.5px]">
-                  <button type="button" disabled={!!s.essais[x.id]} onClick={() => essai(x.id)} className={btn}>
-                    {s.essais[x.id] ? '✓' : 'Faire'}
-                  </button>
-                  <span className="min-w-0 flex-1"><b>{x.action}</b>{s.essais[x.id] && <> → {x.constat}</>}</span>
-                </div>
-              ))}
-            </div>
+        {tableau}
+        {fs && typeof document !== 'undefined' && !!document.fullscreenElement && <GuideControleur />}
+        {fs && botFs && tp && (
+          <div className="fixed bottom-3 right-3 z-[65] flex h-[70vh] w-[360px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-[var(--line)] shadow-xl">
+            <ProfBotMes tp={tp} />
           </div>
         )}
       </div>
-      <div className="order-first mx-auto w-full max-w-[400px] 2xl:order-none 2xl:sticky 2xl:top-2 2xl:self-start">
-        <Controleur />
-      </div>
+
+      {r && reserveOuverte && (
+        <div data-reserve className="rounded-r-xl border-l-4 border-l-crit bg-crit/10 px-2.5 py-2 text-[12.5px]">
+          <b className="block">Réserve</b>
+          {r.constat}
+          <p className="m-0 mt-1"><b>Levée :</b> {r.levee}</p>
+          <button type="button" data-lever onClick={() => leverReserve(step)} className={`${btn} ${btnOn} mt-2`}>
+            Lever la réserve
+          </button>
+        </div>
+      )}
+      {r && m.levee && !reserveOuverte && (
+        <p className="m-0 rounded-lg bg-good/10 px-2.5 py-1.5 text-[12.5px]">
+          <b>Réserve levée.</b> {m.lectures[r.point] ? 'Nouvelle mesure conforme.' : 'Refais la mesure sur le point corrigé.'}
+        </p>
+      )}
+
+      {step === MES.PHASES && (
+        <div data-essais className={card}>
+          <h3 className={h3}>Essais fonctionnels</h3>
+          {!phasesOk && <p className="m-0 mb-2 text-[12px] text-muted">Possibles une fois l&apos;ordre des phases direct (1-2-3).</p>}
+          <div className="flex flex-col gap-1.5">
+            {ESSAIS.map((x) => (
+              <div key={x.id} data-essai={x.id} className="flex flex-wrap items-center gap-2 border-t border-[var(--line)] pt-1.5 text-[12.5px]">
+                <button type="button" disabled={!!s.essais[x.id]} onClick={() => essai(x.id)} className={btn}>
+                  {s.essais[x.id] ? '✓' : 'Faire'}
+                </button>
+                <span className="min-w-0 flex-1"><b>{x.action}</b>{s.essais[x.id] && <> → {x.constat}</>}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

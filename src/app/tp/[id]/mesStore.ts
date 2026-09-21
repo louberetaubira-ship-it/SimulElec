@@ -14,9 +14,10 @@ import type { TpDefinition } from '@/lib/types';
 import {
   buildMesEvaluation, blocages, ECART_CAUSE_OK, CONSIGNATION, DECONSIGNATION, estConforme, INSPECTION, initialMesState,
   MES, MES_STEP_COUNT, MES_STEP_LABELS, MESURES, mesScore, mesStageScores, normalizeMesState, ORGANES,
-  posRequise, POURQUOI, rapportPv, RESTITUTION, stepOk, valeurLue,
+  POURQUOI, rapportPv, RESTITUTION, stepOk, valeurLue,
   type Condition, type Jugement, type MesState, type Position,
 } from '@/lib/mes/miseEnService';
+import { BANCS, mesurer, type CordId, type Lcd } from '@/lib/mes/banc';
 import { fallbackStudent, type Student } from '@/lib/student';
 import { finishAttempt, getOrCreateAttempt, saveAttemptState } from '@/lib/db/attempts';
 
@@ -69,6 +70,19 @@ interface MesStore {
   test: () => void;
   /** Point sans contrôleur (bouton TEST du DDR) : l'élève agit et constate. */
   action: (step: number, id: string) => void;
+
+  /* banc de mesure */
+  cord: CordId;
+  /** Borne sous chaque cordon, par étape. */
+  conn: Record<number, Partial<Record<CordId, string>>>;
+  lcd: Lcd | null;
+  mult: 1 | 5;
+  benchMsg: { text: string; kind: 'ok' | 'bad' | 'info' } | null;
+  selectCord: (c: CordId) => void;
+  placeCord: (borne: string) => void;
+  prepBanc: (id: string) => void;
+  zero: () => void;
+  setMult: (m: 1 | 5) => void;
   juger: (step: number, id: string, j: Jugement) => void;
   leverReserve: (step: number) => void;
   answerQcm: (step: number, which: 'role' | 'limite', i: number) => void;
@@ -108,8 +122,6 @@ export const useMesParcours = create<MesStore>((set, get) => {
     toastTimer = setTimeout(() => set({ toast: null }), 3200);
   };
 
-  /** Premier point de l'étape, sélectionné par défaut. */
-  const firstPoint = (step: number) => MESURES[step]?.points[0]?.id;
 
   return {
     tp: null,
@@ -123,6 +135,11 @@ export const useMesParcours = create<MesStore>((set, get) => {
     pos: 'V',
     point: {},
     turns: [],
+    cord: 'r',
+    conn: {},
+    lcd: null,
+    mult: 1,
+    benchMsg: null,
     guideOpen: false,
     botOpen: false,
 
@@ -147,6 +164,7 @@ export const useMesParcours = create<MesStore>((set, get) => {
         return;
       }
       patch((x) => ({ ...x, step }));
+      set({ lcd: null, benchMsg: null, cord: BANCS[step]?.cordons[0] ?? 'r' });
     },
 
     validate() {
@@ -253,30 +271,58 @@ export const useMesParcours = create<MesStore>((set, get) => {
     selectPoint(step, id) { set((st) => ({ point: { ...st.point, [step]: id } })); },
 
     test() {
-      const { s, pos, point } = get();
+      const { s, pos, conn, mult } = get();
       const step = s.step;
-      const e = MESURES[step];
-      if (!e) return;
-      const id = point[step] ?? firstPoint(step);
-      const p = e.points.find((x) => x.id === id);
-      if (!id || !p) return;
-      if (p.action) { say('Ce point ne se mesure pas au contrôleur : utilise le bouton d\'action.'); return; }
-      const req = posRequise(step, id);
-      if (pos !== req) {
+      if (!MESURES[step] || !BANCS[step]) return;
+      const m = s.mesures[step];
+      const r = mesurer(step, conn[step] ?? {}, m.prep, pos, mult, m.levee);
+      set({ lcd: r.lcd, benchMsg: { text: r.msg, kind: r.erreur ? 'bad' : r.point ? 'ok' : 'info' } });
+      if (r.erreur) {
         patch((x) => ({ ...x, mesures: { ...x.mesures, [step]: { ...x.mesures[step], errPos: x.mesures[step].errPos + 1 } } }));
-        say('Mauvaise position du commutateur pour cette mesure.');
         return;
       }
-      const m = s.mesures[step];
-      const v = valeurLue(step, id, m.levee);
-      if (v == null) return;
+      if (!r.point || r.valeur == null) return;
+      const id = r.point, v = r.valeur;
       patch((x) => {
         const mm = x.mesures[step];
         const jugements = { ...mm.jugements };
         delete jugements[id];
-        return { ...x, mesures: { ...x.mesures, [step]: { ...mm, lectures: { ...mm.lectures, [id]: { v, pos } }, jugements } } };
+        const lectures = { ...mm.lectures, [id]: { v, pos } };
+        // la tension s'accompagne de la fréquence
+        if (step === MES.TENS && !lectures.f) lectures.f = { v: valeurLue(step, 'f', false)!, pos };
+        return { ...x, mesures: { ...x.mesures, [step]: { ...mm, lectures, jugements } } };
       });
+      set((st) => ({ point: { ...st.point, [step]: id } }));
     },
+
+    selectCord(c) { set({ cord: c }); },
+    placeCord(borne) {
+      const { s, cord, conn } = get();
+      const cur = { ...(conn[s.step] ?? {}) };
+      if (cur[cord] === borne) delete cur[cord]; else cur[cord] = borne;
+      set({ conn: { ...conn, [s.step]: cur }, lcd: null });
+    },
+    prepBanc(id) {
+      const { s } = get();
+      const step = s.step;
+      if (id === 'testq2') { get().action(step, 'test'); set({ benchMsg: { text: 'Q2 a déclenché au bouton TEST. Réarme-le.', kind: 'ok' } }); return; }
+      if (s.mesures[step]?.prep.includes(id)) return;
+      patch((x) => ({ ...x, mesures: { ...x.mesures, [step]: { ...x.mesures[step], prep: [...x.mesures[step].prep, id] } } }));
+      const a = BANCS[step]?.actions.find((y) => y.id === id);
+      set({ benchMsg: { text: a ? `${a.fait}.` : 'Fait.', kind: 'ok' } });
+    },
+    zero() {
+      const { s, pos, conn } = get();
+      const step = s.step;
+      const c = conn[step] ?? {};
+      if (pos !== 'RLO') { set({ benchMsg: { text: 'Le zéro des cordons se fait en position RLO.', kind: 'bad' } }); return; }
+      if (!c.r || c.r !== c.v) { set({ benchMsg: { text: 'Pour faire le zéro, pose les deux cordons sur la même borne (cordons en court-circuit).', kind: 'bad' } }); return; }
+      if (!s.mesures[step].prep.includes('zero')) {
+        patch((x) => ({ ...x, mesures: { ...x.mesures, [step]: { ...x.mesures[step], prep: [...x.mesures[step].prep, 'zero'] } } }));
+      }
+      set({ lcd: { v: '0,00', unite: 'Ω', sub: 'zéro fait' }, benchMsg: { text: 'Zéro des cordons fait : leur résistance ne sera plus comptée.', kind: 'ok' } });
+    },
+    setMult(m) { set({ mult: m }); },
 
     action(step, id) {
       const e = MESURES[step];
