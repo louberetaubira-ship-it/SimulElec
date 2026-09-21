@@ -150,7 +150,8 @@ export default function Banc() {
           tp={tp}
           items={items}
           wires={wires}
-          cover
+          // goulottes sans couvercle : tout le tracé des conducteurs reste visible
+          cover={false}
           marks
           deviceState={deviceState}
           pickTerminals
