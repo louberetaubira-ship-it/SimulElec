@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './env';
 
 /** Routes exigeant un utilisateur connecté. */
-const PROTECTED = ['/tp', '/ressources', '/cours', '/td', '/fiche', '/eval', '/atelier', '/prof', '/admin', '/moi', '/compte', '/bienvenue'];
+const PROTECTED = ['/tp', '/sujet', '/ressources', '/cours', '/td', '/fiche', '/eval', '/atelier', '/prof', '/admin', '/moi', '/compte', '/bienvenue'];
 
 /** Routes réservées aux professeurs et à l'administrateur. */
 const TEACHER_ONLY = ['/prof', '/admin'];

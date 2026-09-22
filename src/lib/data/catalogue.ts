@@ -620,6 +620,57 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: 'L2', fx: 0.3, fy: 0.93 }, { id: 'N2', fx: 0.7, fy: 0.93 },
     ],
   }),
+  // ---- CGM 2021 · EIP du lycée Mireille Grenet (TP platine des questions Q13, Q58, Q67) ----
+  //
+  // Sprites dessinés d'après les documents du sujet (DTR 5, DTR 6, DTR 20, schémas corrigés) :
+  // la face et le repérage des bornes sont ceux du dossier, la photo constructeur n'étant pas
+  // dans le pack. Les appareils modulaires suivent le pas normalisé (18 mm, 85 mm).
+  //
+  // Disjoncteur Legrand DX3 phase + neutre, 1 module (4 067 71 en 2 A, 4 067 74 en 16 A) :
+  // mêmes bornes que l'iC60N 1P+N — N et 1 en haut, N et 2 en bas.
+  item({ key: 'dx3pn', dims: dimsModulaire(1), name: 'Disjoncteur Legrand DX3 phase + neutre · 1 module', ref: 'Legrand DX3 1P+N · 4 067 71 (2 A) / 4 067 74 (16 A)', brand: 'Legrand', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 2, In: 16,
+    terminals: [{ id: 'N', fx: 0.28, fy: 0.06 }, { id: '1', fx: 0.72, fy: 0.06 }, { id: 'N2', fx: 0.28, fy: 0.94 }, { id: '2', fx: 0.72, fy: 0.94 }] }),
+  // Disjoncteur différentiel de tête du tableau MyHOME (Q56 : 40 A, 30 mA).
+  item({ key: 'dx3diff', dims: dimsModulaire(2), name: 'Disjoncteur différentiel Legrand DX3 40 A 30 mA · phase + neutre', ref: 'Legrand DX3 ID 1P+N 40 A 30 mA', brand: 'Legrand', kind: 'rcd', family: 'Différentiels', modules: 2, poles: 2, In: 40,
+    terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
+  // Contacteur « heures creuses » 25 A avec manette I / AUTO / 0 (DTR 5, Legrand 4 125 01) :
+  // puissance 1-2 et 3-4, bobine 230 V~ A1-A2 sous les bornes 2 et 4, comme sur la face avant.
+  item({ key: 'contacthc', dims: dimsModulaire(1), name: 'Contacteur « heures creuses » 25 A avec manette I / AUTO / 0', ref: 'Legrand 4 125 01 · 25 A · Ue 250 V~', brand: 'Legrand', kind: 'contactor', family: 'Domestique', modules: 1, poles: 2, In: 25, coil: 230,
+    terminals: [{ id: '1', fx: 0.28, fy: 0.06 }, { id: '3', fx: 0.72, fy: 0.06 }, { id: '2', fx: 0.28, fy: 0.8 }, { id: '4', fx: 0.72, fy: 0.8 },
+      { id: 'A1', fx: 0.28, fy: 0.94 }, { id: 'A2', fx: 0.72, fy: 0.94 }] }),
+  // Interrupteur horaire Legrand MicroRex (DTR 6) : moteur U1-U2, contact inverseur 1 (commun),
+  // 4 (fermeture) et 2 (ouverture), toutes les bornes en bas comme sur le schéma constructeur.
+  item({ key: 'horlogelg', dims: dimsModulaire(3), name: 'Interrupteur horaire (horloge programmable) · contact inverseur 16 A', ref: 'Legrand MicroRex · 4128 11', brand: 'Legrand', kind: 'misc', family: 'Domestique', modules: 3, poles: 2,
+    terminals: [{ id: 'U1', fx: 0.12, fy: 0.94 }, { id: 'U2', fx: 0.31, fy: 0.94 }, { id: '1', fx: 0.5, fy: 0.94 }, { id: '4', fx: 0.69, fy: 0.94 }, { id: '2', fx: 0.88, fy: 0.94 }] }),
+  // Alimentation du bus MyHOME / SCS : primaire 230 V~ (L N), bus 27 V⎓ 1,2 A (DTR 20).
+  item({ key: 'scsalim', dims: dimsModulaire(8), name: 'Alimentation bus MyHOME / SCS · 27 V⎓ 1,2 A', ref: 'BTicino E46ADCN', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 8, poles: 2,
+    terminals: [{ id: 'L', fx: 0.07, fy: 0.94 }, { id: 'N', fx: 0.15, fy: 0.94 }, { id: '+', fx: 0.62, fy: 0.94 }, { id: '−', fx: 0.72, fy: 0.94 }] }),
+  // Actionneurs MyHOME (DTR 21) : les bornes de puissance en haut, le bus (2 fils) en bas.
+  item({ key: 'f411n', dims: dimsModulaire(2), name: 'Actionneur MyHOME 1 relais', ref: 'BTicino F411/1N', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 2, poles: 2,
+    terminals: [{ id: '1', fx: 0.22, fy: 0.06 }, { id: '2', fx: 0.5, fy: 0.06 }, { id: '3', fx: 0.78, fy: 0.06 }, { id: '+', fx: 0.18, fy: 0.94 }, { id: '−', fx: 0.38, fy: 0.94 }] }),
+  item({ key: 'f411x4', dims: dimsModulaire(2), name: 'Actionneur MyHOME 4 relais · commun 1', ref: 'BTicino F411/4', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 2, poles: 2,
+    terminals: [1, 2, 3, 4, 5].map((n, i) => ({ id: String(n), fx: 0.12 + i * 0.19, fy: 0.06 })).concat([{ id: '+', fx: 0.18, fy: 0.94 }, { id: '−', fx: 0.38, fy: 0.94 }]) }),
+  item({ key: 'f411v', dims: dimsModulaire(2), name: 'Actionneur MyHOME volet roulant (CAD) · L 1 N 2 3', ref: 'BTicino F411U2', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 2, poles: 2,
+    terminals: ['L', '1', 'N', '2', '3'].map((id, i) => ({ id, fx: 0.12 + i * 0.19, fy: 0.06 })).concat([{ id: '+', fx: 0.18, fy: 0.94 }, { id: '−', fx: 0.38, fy: 0.94 }]) }),
+  // Contrôle d'accès VIGIK (partie 4 du sujet) : alimentation 12 V⎓ de la centrale (AL2),
+  // transformateur 230 V~ / 12 V~ de la gâche (AL3), centrale et appareils de la porte.
+  item({ key: 'al12dc', dims: dimsModulaire(2), name: 'Alimentation modulaire 230 V~ → 12 V⎓', ref: 'Legrand 1 467 11', brand: 'Legrand', kind: 'dc', family: 'Alimentation', modules: 2, poles: 2,
+    terminals: [{ id: '+V', fx: 0.3, fy: 0.06 }, { id: '−V', fx: 0.7, fy: 0.06 }, { id: 'L', fx: 0.3, fy: 0.94 }, { id: 'N', fx: 0.7, fy: 0.94 }] }),
+  item({ key: 'trsonn', dims: dimsModulaire(4), name: 'Transformateur modulaire 230 V~ / 12 V~ 1,5 A', ref: 'Legrand 336842', brand: 'Legrand', kind: 'trafo', family: 'Alimentation', modules: 4, poles: 2,
+    terminals: [{ id: 'S1', fx: 0.15, fy: 0.06 }, { id: 'S2', fx: 0.85, fy: 0.06 }, { id: 'P1', fx: 0.15, fy: 0.94 }, { id: 'P2', fx: 0.85, fy: 0.94 }] }),
+  // Centrale VIGIK autonome : AC AC (alimentation), BP (−), L+ L− (tête de lecture),
+  // relais C (commun), R (repos), T (travail). Placée dans le coffret (cahier des charges).
+  item({ key: 'cenvigik', name: 'Centrale de contrôle d\'accès VIGIK · 1 porte', ref: 'BTicino BT348043', brand: 'Legrand / BTicino', kind: 'misc', family: 'VIGIK', modules: 0, poles: 2,
+    terminals: ['AC1', 'AC2', 'BP', '−', 'L+', 'L−', 'C', 'R', 'T'].map((id, i) => ({ id, fx: 0.08 + i * 0.105, fy: 0.84 })) }),
+  // Appareils de terrain, posés dans la colonne annexe : bornes sur le bord droit.
+  item({ key: 'lectvigik', name: 'Tête de lecture VIGIK encastrée', ref: 'BTicino BT348704', brand: 'Legrand / BTicino', kind: 'button', family: 'VIGIK', modules: 0, poles: 2, door: true,
+    terminals: [{ id: 'L+', fx: 1, fy: 0.35 }, { id: 'L−', fx: 1, fy: 0.7 }] }),
+  item({ key: 'bpsortie', name: 'Bouton poussoir anti-vandale · ouverture sortie', ref: 'Legrand 005522', brand: 'Legrand', kind: 'button', family: 'VIGIK', modules: 0, poles: 2, door: true,
+    terminals: [{ id: '13', fx: 1, fy: 0.35 }, { id: '14', fx: 1, fy: 0.7 }] }),
+  item({ key: 'gache12', name: 'Gâche électrique à émission de courant 12 V', ref: 'Legrand 003033', brand: 'Legrand', kind: 'misc', family: 'VIGIK', modules: 0, poles: 2, door: true,
+    terminals: [{ id: '1', fx: 1, fy: 0.35 }, { id: '2', fx: 1, fy: 0.7 }] }),
+  item({ key: 'motvolet', name: 'Moteur tubulaire de volet roulant 230 V~ · montée L1, descente L2, neutre N', ref: 'moteur de volet', kind: 'misc', family: 'MyHOME', modules: 0, poles: 3, door: true,
+    terminals: [{ id: 'L1', fx: 1, fy: 0.25 }, { id: 'L2', fx: 1, fy: 0.5 }, { id: 'N', fx: 1, fy: 0.75 }] }),
 ];
 
 export const CATALOGUE_BY_KEY: Record<string, CatalogueItem> = Object.fromEntries(CATALOGUE.map(c => [c.key, c]));

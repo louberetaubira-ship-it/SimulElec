@@ -203,5 +203,80 @@
     "w": 65,
     "h": 112,
     "states": false
+  },
+  "dx3pn": {
+    "w": 26,
+    "h": 123,
+    "states": false
+  },
+  "dx3diff": {
+    "w": 52,
+    "h": 123,
+    "states": false
+  },
+  "contacthc": {
+    "w": 26,
+    "h": 123,
+    "states": false
+  },
+  "horlogelg": {
+    "w": 78,
+    "h": 123,
+    "states": false
+  },
+  "scsalim": {
+    "w": 209,
+    "h": 123,
+    "states": false
+  },
+  "f411n": {
+    "w": 52,
+    "h": 123,
+    "states": false
+  },
+  "f411x4": {
+    "w": 52,
+    "h": 123,
+    "states": false
+  },
+  "f411v": {
+    "w": 52,
+    "h": 123,
+    "states": false
+  },
+  "al12dc": {
+    "w": 52,
+    "h": 123,
+    "states": false
+  },
+  "trsonn": {
+    "w": 104,
+    "h": 123,
+    "states": false
+  },
+  "cenvigik": {
+    "w": 150,
+    "h": 104,
+    "states": false
+  },
+  "motvolet": {
+    "w": 60,
+    "h": 50,
+    "states": false
+  },
+  "lectvigik": {
+    "w": 58,
+    "h": 56,
+    "states": false
+  },
+  "bpsortie": {
+    "w": 58,
+    "h": 44,
+    "states": false
+  },
+  "gache12": {
+    "w": 58,
+    "h": 50,
+    "states": false
   }
 }

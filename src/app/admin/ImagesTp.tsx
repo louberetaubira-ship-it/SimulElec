@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { TPS } from '@/lib/data/tps';
+import { TPS_CATALOGUE } from '@/lib/data/tps';
 import { clearTpImage, getTpImages, setTpImage } from '@/lib/db/tpImages';
 import { Panneau } from '@/components/gestion/ui';
 
@@ -79,7 +79,7 @@ export default function ImagesTp({ admin }: { admin: boolean }) {
       </p>
       {err && <p className="mb-3 text-[12.5px] font-semibold text-crit">{err}</p>}
       <ul className="m-0 grid list-none gap-2 p-0">
-        {TPS.map(tp => (
+        {TPS_CATALOGUE.map(tp => (
           <li
             key={tp.id}
             className="flex flex-wrap items-center gap-3 rounded-[12px] border border-[var(--line)] p-2.5"

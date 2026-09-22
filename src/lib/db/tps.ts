@@ -9,7 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { TPS } from '@/lib/data/tps';
+import { TPS, TPS_CATALOGUE, estTpCache } from '@/lib/data/tps';
 import type {
   AnnexItem, AnnexKind, ExpectedMeasure, Fault, Liaison, NetKind, Poste, PosteOption,
   SceneKind, Slot, TerminalNet, TestHorsTension, TpDefinition,
@@ -45,8 +45,10 @@ export async function listTps(): Promise<TpSummary[]> {
     .select('id, title, level, competences, summary, published')
     .eq('published', true)
     .order('title');
-  if (error || !data || data.length === 0) return TPS.map(fromCode);
-  return data as TpSummary[];
+  if (error || !data || data.length === 0) return TPS_CATALOGUE.map(fromCode);
+  // Un TP de service (`hidden`, joué depuis un sujet numérique) n'est jamais listé, même
+  // s'il a été publié par erreur dans la table.
+  return (data as TpSummary[]).filter((t) => !estTpCache(t.id));
 }
 
 /** Full definition: always the bundled one (the simulator needs the typed object). */

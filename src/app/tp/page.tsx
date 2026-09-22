@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { TPS } from '@/lib/data/tps';
+import { TPS_CATALOGUE } from '@/lib/data/tps';
 import { spriteUrl } from '@/lib/data/catalogue';
 import { FAMILY_LABEL, tpSprites } from '@/components/parcours/tpSprites';
 import TpsProfesseur from './TpsProfesseur';
 import { createClient } from '@/lib/supabase/server';
 import { getTpImages } from '@/lib/db/tpImages';
+import { SUJETS } from '@/lib/data/sujets';
 
 export const metadata: Metadata = {
   title: 'Catalogue des TP · SimulElec',
@@ -63,8 +64,41 @@ export default async function CataloguePage() {
         <span className="ml-auto hidden text-[13px] font-semibold text-accent sm:block">Ouvrir →</span>
       </Link>
 
+      {/* Sujets d'examen numériques : copies conformes jouables (`/sujet/<id>`). */}
+      {SUJETS.length > 0 && (
+        <section className="mb-8" data-sujets>
+          <h2 className="mb-3 font-title text-[13px] font-semibold uppercase tracking-[.1em] text-muted">
+            Sujets d&apos;examen numériques
+          </h2>
+          <div className="flex flex-col gap-3">
+            {SUJETS.map(s => (
+              <div key={s.id} className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center">
+                <div className="grid h-16 w-16 flex-none place-items-center rounded-2xl bg-[#1B222C] text-[30px] text-accent">📝</div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-title text-[11px] font-semibold uppercase tracking-[.12em] text-accent">{s.sousTitre}</div>
+                  <h3 className="text-[18px] font-bold leading-tight">{s.titre}</h3>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-semibold">
+                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">⏱ {Math.floor(s.dureeMin / 60)} h{s.dureeMin % 60 ? ` ${s.dureeMin % 60} min` : ''}</span>
+                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">{s.questions.length} questions</span>
+                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">{s.parties.length} parties</span>
+                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">DTR {s.dtr.length} pages</span>
+                    {Array.from(new Set(s.parties.flatMap(p => p.competences))).map(c => (
+                      <span key={c} className="rounded-full bg-accent/20 px-2 py-0.5 text-accent">{c}</span>
+                    ))}
+                  </div>
+                </div>
+                <Link href={`/sujet/${s.id}`} data-sujet={s.id}
+                  className="grid min-h-touch place-items-center rounded-[10px] bg-[#141A21] px-5 text-[13px] font-bold text-white">
+                  Ouvrir
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {FAMILIES.map(fam => {
-        const list = TPS.filter(t => t.family === fam);
+        const list = TPS_CATALOGUE.filter(t => t.family === fam);
         if (!list.length) return null;
         return (
           <section key={fam} className="mb-8">
