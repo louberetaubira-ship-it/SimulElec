@@ -36,7 +36,9 @@ async function main() {
     competences: tp.competences,
     summary: tp.summary,
     definition: tp as unknown as Record<string, unknown>,
-    published: true,
+    // TP de service (`hidden`, joué depuis un sujet numérique) : la ligne doit exister pour
+    // la clé étrangère `attempts.tp_id`, mais il n'est pas publié au catalogue.
+    published: !tp.hidden,
     updated_at: new Date().toISOString(),
   }));
 
