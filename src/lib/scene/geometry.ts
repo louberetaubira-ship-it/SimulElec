@@ -468,6 +468,8 @@ export const PLC_TERMINALS: TerminalDef[] = [...PLC_IN, ...PLC_OUT].map((id) => 
 export const NET_COLOR: Record<NetKind, string> = {
   L1: '#8B4A2B', L2: '#2B2F36', L3: '#8E979F', N: '#2C7BE5', PE: '#37B34A',
   C: '#E4312B', C0: '#7A3AB8', 'DC+': '#D93A3A', 'DC-': '#20262D', BAR: '#C9A34A',
+  // phase commandée (sortie d'actionneur) : violet, comme au schéma C.3.2
+  LC: '#8E3FC0',
 };
 
 /** Étiquettes des rangées (goulottes) selon la scène. */

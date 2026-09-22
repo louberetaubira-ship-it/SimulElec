@@ -199,6 +199,15 @@ export const isRunning = (s: SimState): boolean => s.q1 && s.km1 && !s.f1trip;
 /** Le contact NC du bouton d'arrêt est-il fermé ? (panne « s1 » = contact resté ouvert) */
 export const s1Closed = (s: SimState): boolean => s.fault !== 's1';
 
+/**
+ * Tableau terminal SANS ordre de marche : ni coffret de porte, ni appareil `km1` à
+ * enclencher (tableau d'éclairage sur bus KNX). L'installation est en service dès sa
+ * remise sous tension — l'essai de la déconsignation ne peut pas attendre un appui sur
+ * un bouton qui n'existe pas sur la platine.
+ */
+export const sansOrdreDeMarche = (tp: Pick<TpDefinition, 'station' | 'slots'>): boolean =>
+  !tp.station && !tp.slots.some(sl => sl.id === 'km1');
+
 /* ------------------------------------------------------------- pupitre */
 
 /** Organes du pupitre par nature (le pupitre historique quand le TP n'en déclare pas). */

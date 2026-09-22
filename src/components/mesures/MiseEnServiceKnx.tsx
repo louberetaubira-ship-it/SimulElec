@@ -4,7 +4,9 @@
  * Wizard ETS de mise en service KNX (5 onglets), pendant la déconsignation.
  *
  * Tout ce que ce composant sait du chantier vient du TP (`tp.knxMiseEnService`,
- * `tp.knxZones`) : les cinq interfaces trouvées sur le réseau, les participants à
+ * `tp.knxZones`) : les interfaces trouvées sur le réseau (adresse individuelle, IP,
+ * MAC, et les entrées non sélectionnables de la vraie fenêtre), les rappels du dossier
+ * affichés aux onglets Adresses et Paramètres, les leurres du canal 8, les participants à
  * adresser et le canal (ou les deux canaux) que chaque détecteur doit publier. Les
  * réponses de l'élève sont commises dans `st.knx` par quatre actions du store
  * (`knxSetIface`, `knxProg`, `knxToggleLink`, `knxSetParam`) — ce composant ne garde
@@ -12,7 +14,7 @@
  * actuellement « en mode programmation », et le dernier message du professeur bot.
  */
 import React from 'react';
-import type { AttemptState, TpDefinition } from '@/lib/types';
+import type { AttemptState, KnxModeCanal, TpDefinition } from '@/lib/types';
 import { knxErreurs, knxState } from '@/lib/sim/knxMiseEnService';
 
 export interface MiseEnServiceKnxProps {
@@ -23,7 +25,7 @@ export interface MiseEnServiceKnxProps {
   onIface: (i: number) => void;
   onProg: (id: string) => void;
   onLink: (det: string, canal: number) => void;
-  onParam: (which: 'chX' | 'ch8', value: 'Commutation' | 'Minuterie') => void;
+  onParam: (which: 'chX' | 'ch8', value: KnxModeCanal) => void;
 }
 
 const TABS = ['Interface', 'Adresses', 'Liaisons', 'Paramètres', 'Télécharger'];
@@ -134,17 +136,29 @@ export default function MiseEnServiceKnx({ tp, st, alimente, onIface, onProg, on
                 name="knx-iface"
                 disabled={!alimente}
                 checked={k.iface === i}
-                onChange={() => { onIface(i); setMsg(i === def.bonneInterface ? `Bonne interface : ${r.individuelle}, adresse IP ${r.ip} — celle de ce chantier.` : `Cette interface n’est pas celle du chantier : regarde son adresse individuelle et son IP.`); }}
+                onChange={() => { onIface(i); setMsg(i === def.bonneInterface ? `Bonne interface : ${r.individuelle}, adresse IP ${r.ip}${r.mac ? `, MAC ${r.mac}` : ''} — celle de ce chantier.` : `Cette interface n’est pas celle du chantier : regarde son adresse individuelle et son IP.`); }}
                 className="h-touch w-touch accent-[var(--accent)]"
+                data-knx-iface={i}
               />
-              <span className="font-mono-num">{r.individuelle}</span> · {r.nom} · <span className="font-mono-num">{r.ip}:3671</span>
+              <span className="font-mono-num">{r.individuelle}</span>
+              {r.nom ? <> · {r.nom}</> : null}
+              {' · '}<span className="font-mono-num">{r.ip}:3671</span>
+              {r.mac && <> · <span className="font-mono-num text-[10.5px] text-muted">{r.mac}</span></>}
             </label>
+          ))}
+          {(def.autres ?? []).map(a => (
+            <div key={a} className="flex items-center gap-1.5 pl-1 text-[11.5px] text-muted" title="non sélectionnable">
+              <span className="inline-block h-3 w-3 rounded-sm border border-[var(--line)]" /> {a}
+            </div>
           ))}
         </div>
       )}
 
       {tab === 1 && (
         <div className="flex flex-col gap-2">
+          {def.rappelAdresses && (
+            <p className="rounded-lg bg-[var(--surface-2)] px-2 py-1 text-[11px]" data-knx-rappel="adresses">{def.rappelAdresses}</p>
+          )}
           <p className="text-[11.5px]">Clique « Programmer », puis appuie sur le <b>bouton de programmation</b> du même participant sur le plan.</p>
           <div className="flex flex-col gap-1">
             {def.participants.map(p => (
@@ -186,12 +200,15 @@ export default function MiseEnServiceKnx({ tp, st, alimente, onIface, onProg, on
           <p>Paramètre des canaux de l&apos;actionneur.</p>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="w-32">Canaux 1 à 7 :</span>
-            {(['Commutation', 'Minuterie'] as const).map(v => btn(k.chX === v, () => { onParam('chX', v); setMsg(v === 'Minuterie' ? 'Oui : les zones et circulations s’éteignent seules, temporisation d’escalier.' : 'Sans minuterie, les luminaires resteraient allumés tant qu’un appui ne les éteint pas : pas ce que demande le cahier des charges pour les zones et circulations.'); }, v))}
+            {(['Commutation', 'Minuterie'] as const).map(v => btn(k.chX === v, () => { onParam('chX', v); setMsg(v === 'Minuterie' ? 'Oui : les zones et circulations s’éteignent seules, temporisation d’escalier.' : 'Sans minuterie, les luminaires resteraient allumés tant qu’un appui ne les éteint pas : pas ce que demande le cahier des charges pour les zones et circulations.'); }, v, v))}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="w-32">Canal 8 (local électrique) :</span>
-            {(['Commutation', 'Minuterie'] as const).map(v => btn(k.ch8 === v, () => { onParam('ch8', v); setMsg(v === 'Commutation' ? 'Oui : le local électrique s’allume et s’éteint au poussoir, sans minuterie.' : 'Le local électrique se commande au poussoir, en ON / OFF : c’est une commutation simple, pas une minuterie.'); }, v))}
+            {(def.modesCanal8 ?? (['Commutation', 'Minuterie'] as KnxModeCanal[])).map(v => btn(k.ch8 === v, () => { onParam('ch8', v); setMsg(v === 'Commutation' ? 'Oui : le local électrique s’allume et s’éteint au poussoir, sans minuterie.' : v === 'Minuterie' ? 'Le local électrique se commande au poussoir, en ON / OFF : c’est une commutation simple, pas une minuterie.' : `« ${v} » ne correspond pas à un éclairage commandé en ON / OFF par deux touches : c’est une commutation simple (C.4.6).`); }, v, v))}
           </div>
+          {def.rappelParametres && (
+            <p className="rounded-lg bg-[var(--surface-2)] px-2 py-1 text-[11px]" data-knx-rappel="parametres">{def.rappelParametres}</p>
+          )}
         </div>
       )}
 

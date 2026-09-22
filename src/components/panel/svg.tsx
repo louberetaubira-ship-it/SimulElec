@@ -749,13 +749,18 @@ export function KnxBpSvg() {
 /**
  * Actionneur de commutation REG-K 8 × 230 V / 16 A (MTN647893, chantier Écobike).
  *
- * Même principe que `KnxActSvg`, élargi à 8 voies : DEUX bornes communes (L1 pour
- * les canaux 1 à 4, L2 pour les canaux 5 à 8, chacune sur SON disjoncteur) et une
- * rangée de 8 LED d'état en façade — la commande manuelle locale de l'appareil,
- * simplifiée en simples LED faute de place pour huit basculeurs lisibles.
+ * Face avant de l'appareil réel (schéma C.3.2, DT 50) : huit basculeurs de commande
+ * manuelle avec leur LED d'état et, en bas, HUIT
+ * PAIRES de bornes — l'entrée de phase « L » de chaque voie et sa sortie « n ». Les
+ * phases se pontent de voie en voie : voies 1 à 4 sur Q13, voies 5 à 8 sur Q14. Le
+ * connecteur de bus est ramené en bas à droite (il est en haut sur l'appareil) : le câble
+ * de bus descend vers sa gaine sans traverser la face avant. Les x des bornes suivent
+ * exactement `catalogue.ts` (pas de 15,4 à partir de 11).
  */
 export function KnxAct8Svg() {
   const gid = React.useId();
+  const PAS = 15.4;
+  const bx = (k: number) => 11 + k * PAS;
   return (
     <svg viewBox="0 0 280 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
       <defs>
@@ -765,30 +770,37 @@ export function KnxAct8Svg() {
       </defs>
       <rect x="1" y="1" width="278" height="121" rx="4" fill={`url(#${gid})`} stroke="#6E7780" />
       <rect x="1" y="1" width="278" height="16" rx="4" fill="#C3C8CE" />
-      <rect x="1" y="106" width="278" height="16" rx="4" fill="#C3C8CE" />
-      <text x="140" y="34" textAnchor="middle" fontFamily={SANS} fontSize="8" fontWeight="700" fill="#3A4047">ACTIONNEUR 8 × 16 A</text>
-      <text x="140" y="45" textAnchor="middle" fontFamily={MONO} fontSize="6.5" fill="#66717F">MTN647893</text>
-      {/* deux bancs de 4 LED d'état, séparés par les deux communs L1 / L2 */}
-      {[0, 1].map((banc) => (
-        <g key={banc}>
-          <rect x={26 + banc * 138} y="54" width="110" height="36" rx="4" fill="#20262D" />
-          {[0, 1, 2, 3].map((i) => (
-            <g key={i}>
-              <circle cx={26 + banc * 138 + 18 + i * 25} cy="66" r="4" fill="#3DFF7A" />
-              <text x={26 + banc * 138 + 18 + i * 25} y="82" textAnchor="middle" fontFamily={MONO} fontSize="7" fill="#DFE5EC">{banc * 4 + i + 1}</text>
-            </g>
-          ))}
+      <rect x="1" y="100" width="278" height="22" rx="4" fill="#C3C8CE" />
+      <text x="12" y="30" fontFamily={SANS} fontSize="7.5" fontWeight="700" fill="#2E7D4F">Schneider</text>
+      <text x="62" y="30" fontFamily={SANS} fontSize="8" fontWeight="700" fill="#3A4047">ACTIONNEUR DE COMMUTATION 8 × 16 A</text>
+      <text x="62" y="40" fontFamily={MONO} fontSize="6.5" fill="#66717F">MTN647893 · REG-K/8x230/16</text>
+      <text x="268" y="30" textAnchor="end" fontFamily={SANS} fontSize="7" fontWeight="800" fill="#3A4047">KNX</text>
+      {/* commande manuelle : un basculeur et une LED d'état par voie */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const cx = (bx(2 * i) + bx(2 * i + 1)) / 2;
+        return (
+          <g key={i}>
+            <rect x={cx - 9} y="52" width="18" height="24" rx="2.5" fill="#20262D" />
+            <rect x={cx - 6.5} y="55" width="13" height="10" rx="1.5" fill="#3FA65C" />
+            <circle cx={cx} cy="71" r="2.3" fill="#3DFF7A" />
+            <text x={cx} y="86" textAnchor="middle" fontFamily={MONO} fontSize="7" fontWeight="700" fill="#3A4047">{i + 1}</text>
+          </g>
+        );
+      })}
+      {/* sérigraphie des bornes : L et n de chaque voie, comme sur l'appareil */}
+      {Array.from({ length: 16 }, (_, k) => (
+        <g key={k}>
+          <rect x={bx(k) - 5.5} y="110" width="11" height="8" rx="1.5" fill="#3A4047" />
+          <text x={bx(k)} y="106.5" textAnchor="middle" fontFamily={MONO} fontSize="5.2" fill="#3A4047">
+            {k % 2 === 0 ? 'L' : String(k / 2 + 0.5)}
+          </text>
         </g>
       ))}
-      <text x="20" y="97" fontFamily={MONO} fontSize="5.5" fill="#66717F">L1 · canaux 1-4</text>
-      <text x="158" y="97" fontFamily={MONO} fontSize="5.5" fill="#66717F">L2 · canaux 5-8</text>
-      {/* bornes : L1, 1-4, L2, 5-8 en haut ; bus en bas */}
-      <g fill="#3A4047">
-        {[0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95].map((fx, i) => (
-          <rect key={i} x={280 * fx - 6} y="5" width="12" height="8" rx="1.5" />
-        ))}
-      </g>
-      <BusConn x={106} y={104} w={44} h={16} />
+      {[4, 8, 12].map((k) => (
+        <line key={k} x1={bx(k) - PAS / 2} y1="101" x2={bx(k) - PAS / 2} y2="121" stroke="#8F979F" strokeWidth=".6" />
+      ))}
+      <text x="263" y="106" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#3A4047">BUS</text>
+      <BusConn x={248} y={108} w={30} h={13} />
     </svg>
   );
 }

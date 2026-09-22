@@ -41,8 +41,11 @@ const HORS_APPAREILS = new Set([
   'X1', 'X2',                                        // bornes de bobine d'un voyant (H1 X1-X2)
 ]);
 
-/** Champs qui portent des références produit ou des codes de référentiel, pas des repères. */
-const HORS_TEXTES = /^(competences|postes\[\d+\]\.options\[\d+\]\.(ref|spec|key)|plaque\.)/;
+/**
+ * Champs qui portent des références produit, des codes de référentiel ou des adresses
+ * réseau (MAC d'une interface KNX : « 00:24:C6:F1:C8:6D » n'est pas le repère F1), pas des repères.
+ */
+const HORS_TEXTES = /^(competences|postes\[\d+\]\.options\[\d+\]\.(ref|spec|key)|plaque\.|knxMiseEnService\.interfaces\[\d+\]\.(mac|ip|individuelle))/;
 
 /** Tous les repères réellement présents sur la platine d'un TP. */
 function reperesDuTp(tp: TpDefinition): Set<string> {

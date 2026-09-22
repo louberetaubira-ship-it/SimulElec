@@ -37,7 +37,12 @@ export type BaremeOverride = Partial<Omit<Bareme, 'poids'>> & { poids?: Partial<
  * moteur : ce n'est pas un fil tiré dans l'armoire, mais un pont que l'élève pose lui-même
  * selon le couplage imposé par la plaque signalétique.
  */
-export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-' | 'BAR';
+/**
+ * Réseau (et couleur) d'un conducteur. `LC` = phase COMMANDÉE, en aval d'un contact de
+ * sortie (actionneur KNX) : électriquement la phase L1 quand le contact est fermé, mais
+ * un conducteur distinct — violet, couleur imposée par le schéma C.3.2 du sujet CGM 2023.
+ */
+export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-' | 'BAR' | 'LC';
 
 export type DeviceKind =
   | 'main' | 'mcb' | 'rcd' | 'motorcb' | 'contactor' | 'thermal'
@@ -285,13 +290,36 @@ export interface ParamVariateur {
  * canal(aux), règle le mode des canaux, puis télécharge. Voir `src/lib/sim/knxMiseEnService.ts`.
  */
 export interface KnxMiseEnServiceDef {
-  /** Interfaces trouvées sur le réseau (adresse individuelle, nom, IP) : une seule est la bonne. */
-  interfaces: { individuelle: string; nom: string; ip: string }[];
+  /**
+   * Interfaces trouvées sur le réseau (adresse individuelle, nom, IP, adresse MAC) : une
+   * seule est la bonne. Le nom peut être vide — c'est le cas de l'interface du chantier
+   * dans la table réelle d'ETS (sujet CGM 2023, C.4.7) : l'élève la reconnaît à son
+   * adresse individuelle et à son réseau, pas à une étiquette qui la trahirait.
+   */
+  interfaces: { individuelle: string; nom?: string; ip: string; mac?: string }[];
   /** Index (dans `interfaces`) de l'interface de ce chantier. */
   bonneInterface: number;
+  /**
+   * Autres entrées de la liste d'ETS, NON sélectionnables (interface USB non raccordée,
+   * carte réseau du PC) : elles figurent dans la vraie fenêtre, on ne les choisit pas.
+   */
+  autres?: string[];
   /** Participants à adresser (bouton de programmation), dans l'ordre du DTR d'adressage. */
   participants: { id: string; rep: string; adresse: string }[];
+  /** Rappel du dossier affiché à l'onglet Adresses (DTR 21 : procédure de programmation). */
+  rappelAdresses?: string;
+  /** Rappel du dossier affiché à l'onglet Paramètres (C.4.3 : touches et DEL d'état du poussoir). */
+  rappelParametres?: string;
+  /**
+   * Modes proposés pour le canal 8 (commande au poussoir). La commutation reste la seule
+   * réponse juste ; les autres sont des leurres tirés du sujet (C.4.6 : scénario, store,
+   * variation). Absent : commutation / minuterie seulement.
+   */
+  modesCanal8?: KnxModeCanal[];
 }
+
+/** Mode d'un canal d'actionneur dans ETS (les leurres compris). */
+export type KnxModeCanal = 'Commutation' | 'Minuterie' | 'Variation' | 'Store' | 'Scénario';
 
 /**
  * Mise en service d'un onduleur HYBRIDE (écran de l'appareil) : priorité des sources,
@@ -691,6 +719,18 @@ export interface HypTest {
   at: string;
 }
 
+/**
+ * Condition élémentaire de présence de tension d'une borne (voir `liveWhen`, mesures.ts).
+ * 'q1f3' = aval d'une protection `f3` branchée DIRECTEMENT sous `q1`, en parallèle de
+ * `f2` et non en série (départ d'éclairage d'un tableau terminal) : q1 fermé ET f3 fermé
+ * et non déclenché. À distinguer de 'f3', qui reste le circuit de commande (q1 + f2 + f3).
+ */
+export type LiveCond = 'always' | 'q1' | 'q2' | 'q3' | 'onduDC' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off'
+  | 'q1f3'
+  // Aval d'un organe de sectionnement SUPPLÉMENTAIRE (`TpDefinition.sectionneurs`) :
+  // vif seulement quand cet organe est fermé (`sim.aux[slot]`).
+  | `aux:${string}`;
+
 /** Réseau électrique d'une borne, pour le calcul des mesures (voir lib/sim/mesures.ts). */
 export interface TerminalNet {
   /**
@@ -713,11 +753,10 @@ export interface TerminalNet {
    * 'q2' = SOURCE INDÉPENDANTE en aval du sectionneur f2 SEUL (champ PV : vif dès que
    * Q2 est fermé, que Q1 le soit ou non). À distinguer de 'f2' (aval de q1 ET f2, modèle
    * moteur où f2 est une protection en aval du sectionneur général).
+   * Deux conditions jointes par « & » doivent être remplies ensemble : « q1&aux:q13 »
+   * = aval d'un disjoncteur supplémentaire Q13 branché sous le différentiel de tête.
    */
-  live: 'always' | 'q1' | 'q2' | 'q3' | 'onduDC' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off'
-    // Aval d'un organe de sectionnement SUPPLÉMENTAIRE (`TpDefinition.sectionneurs`) :
-    // vif seulement quand cet organe est fermé (`sim.aux[slot]`).
-    | `aux:${string}`;
+  live: LiveCond | `${LiveCond}&${LiveCond}`;
   /**
    * Tension CONTINUE de cette borne par rapport à la polarité opposée (V) : un
    * string photovoltaïque à vide (474 V) n'est pas un parc batterie (48 V). Elle
@@ -1066,9 +1105,9 @@ export interface AttemptState {
     /** Canaux liés à chaque détecteur : id du détecteur → liste de canaux. */
     links?: Record<string, number[]>;
     /** Mode des canaux 1 à 7 (temporisation d'escalier). */
-    chX?: 'Commutation' | 'Minuterie';
+    chX?: KnxModeCanal;
     /** Mode du canal 8, local électrique (commutation simple, pas de minuterie). */
-    ch8?: 'Commutation' | 'Minuterie';
+    ch8?: KnxModeCanal;
   };
   /**
    * Mise en service de l'onduleur hybride (écran de réglage), pendant la

@@ -5,7 +5,9 @@
  * modale plein écran où l'élève « se déplace » dans le local, zone par zone, et
  * vérifie que l'éclairage KNX réagit comme le cahier des charges le demande — à la
  * présence ET à la luminosité, avec sa temporisation d'escalier, son canal commun
- * (L6) et le poussoir du local électrique qui n'a ni détecteur ni minuterie.
+ * (L6) et le poussoir du local électrique qui n'a ni détecteur ni minuterie. La DEL
+ * d'état du poussoir suit l'objet d'ACQUITTEMENT (DTR 21, C.4.3) : elle s'allume quand
+ * l'actionneur confirme que le canal 8 est à ON, pas au simple appui sur la touche.
  *
  * La carte zone ↔ détecteur ↔ canal ↔ luminaire vient de `tp.knxZones` (la même
  * table que le wizard de mise en service utilise à l'onglet Liaisons) : rien n'est
@@ -73,12 +75,14 @@ export default function EssaiKnxLocal({ zones, faits, onReussi, onClose }: {
 
   const bp1 = () => {
     setL8(true);
-    setConseil('Touche 1 : télégramme ON vers le canal 8, L8 s’allume — commutation simple, pas de détecteur, pas de minuterie.');
+    setConseil('Touche 1 : télégramme ON (valeur 1) vers le canal 8, L8 s’allume — commutation simple, pas de détecteur, pas de minuterie. L’actionneur acquitte : la DEL d’état du poussoir s’allume.');
   };
   const bp2 = () => {
     if (l8) reussi.current('knx-bp');
     setL8(false);
-    setConseil('Touche 2 : télégramme OFF vers le canal 8, L8 s’éteint.');
+    setConseil(l8
+      ? 'Touche 2 : télégramme OFF (valeur 0) vers le canal 8, L8 s’éteint — et la DEL d’état avec lui : elle suit l’état de la lampe, retourné par l’actionneur.'
+      : 'Touche 2 : L8 était déjà éteint, la DEL d’état aussi. Allume d’abord avec la touche 1.');
   };
 
   return (
@@ -120,6 +124,16 @@ export default function EssaiKnxLocal({ zones, faits, onReussi, onClose }: {
               <text x={28} y={258} fontSize={10} fill={jour ? '#5D6878' : '#CFD6DF'}>Local électrique · BP (canal 8, pas de détecteur)</text>
               <circle cx={70} cy={288} r={12} fill={l8 ? '#FFD54A' : '#6B7684'} style={l8 ? { filter: 'drop-shadow(0 0 8px #FFD54A)' } : undefined} />
               <text x={88} y={292} fontSize={9} fill={jour ? '#141A21' : '#fff'}>L8</text>
+              {/* poussoir BP et sa DEL d'état (retour d'état de l'actionneur, canal 8) */}
+              <rect x={150} y={266} width={28} height={36} rx={3} fill="#FAFAFA" stroke="#8A94A3" />
+              <line x1={164} y1={268} x2={164} y2={300} stroke="#CDD2D8" />
+              <circle
+                cx={164} cy={284} r={3.2} data-essai-del={l8 ? 'on' : 'off'}
+                fill={l8 ? '#35E36A' : '#3A4047'}
+                style={l8 ? { filter: 'drop-shadow(0 0 4px #35E36A)' } : undefined}
+              />
+              <text x={184} y={281} fontSize={8.5} fill={jour ? '#141A21' : '#fff'}>BP</text>
+              <text x={184} y={293} fontSize={8} fill={jour ? '#5D6878' : '#CFD6DF'}>DEL d&apos;état {l8 ? 'allumée' : 'éteinte'}</text>
             </svg>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[12px] text-muted">Luminosité extérieure</span>

@@ -445,7 +445,7 @@ export const ESSAIS_KNX_LOCAL = [
   { id: 'knx-jour', label: 'En plein jour, rien ne s\'allume' },
   { id: 'knx-min', label: 'Extinction automatique après la minuterie' },
   { id: 'knx-l6', label: 'L6 s\'allume depuis les deux circulations' },
-  { id: 'knx-bp', label: 'BP : L8 ON puis OFF' },
+  { id: 'knx-bp', label: 'BP : L8 ON puis OFF, DEL d\'état' },
 ] as const;
 
 export const essaisKnxLocalComplete = (tp: TpDefinition, st: AttemptState): boolean =>

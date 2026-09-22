@@ -497,10 +497,11 @@ export const CATALOGUE: CatalogueItem[] = [
   // ---- KNX · chantier Écobike (TP « Éclairage KNX ») ----
   //
   // Trois appareils de plus, au même gabarit que ceux du plateau tertiaire :
-  //  - l'actionneur passe de 2 à 8 voies (MTN647893), pour piloter L1 à L8. Il porte
-  //    DEUX bornes communes (L1 pour les canaux 1 à 4, L2 pour les canaux 5 à 8) et non
-  //    une seule : sur la platine, chaque banc de 4 sorties est protégé par SON propre
-  //    disjoncteur (Q13 ou Q14), comme sur l'appareil réel ;
+  //  - l'actionneur passe de 2 à 8 voies (MTN647893), pour piloter L1 à L8. Comme sur
+  //    l'appareil réel (schéma C.3.2 du sujet, raccordement constructeur DT 50), CHAQUE
+  //    voie porte sa paire de bornes : une entrée de phase « L » et une sortie « n ». Les
+  //    phases des voies 1 à 4 viennent de Q13, celles des voies 5 à 8 de Q14, pontées de
+  //    voie en voie ; le bus arrive en haut à droite, sur le connecteur rouge / noir ;
   //  - l'interface change de nature (USB → IP/KNX, MTN6502-0105) mais garde le gabarit
   //    et les bornes de bus (+ / −) de la précédente : elle est alimentée PAR LE BUS,
   //    jamais en 230 V, exactement comme l'interface USB qu'elle remplace ici ;
@@ -511,12 +512,16 @@ export const CATALOGUE: CatalogueItem[] = [
     key: 'knxact8', name: 'Actionneur de commutation KNX REG-K 8 × 230 V / 16 A', ref: 'MTN647893', brand: 'Schneider',
     kind: 'dc', family: 'KNX', poles: 2, w: 280, h: 123,
     dims: { largeur: 193, hauteur: 85, profondeur: 78.5, source: 'norme' },
+    // Huit paires L / n en bas (phase de la voie, sortie commandée). Le connecteur de bus
+    // est ramené en bas à droite, du côté des gaines — sur l'appareil réel il est en haut à
+    // droite, mais le câble de bus qui descend vers sa gaine traverserait alors toute la face
+    // avant (voir `KnxAct8Svg`). Même convention que `knxact` et `knxalim`.
     terminals: [
-      { id: 'L1', fx: 0.05, fy: 0.07 }, { id: '1', fx: 0.15, fy: 0.07 }, { id: '2', fx: 0.25, fy: 0.07 },
-      { id: '3', fx: 0.35, fy: 0.07 }, { id: '4', fx: 0.45, fy: 0.07 }, { id: 'L2', fx: 0.55, fy: 0.07 },
-      { id: '5', fx: 0.65, fy: 0.07 }, { id: '6', fx: 0.75, fy: 0.07 }, { id: '7', fx: 0.85, fy: 0.07 },
-      { id: '8', fx: 0.95, fy: 0.07 },
-      { id: '+', fx: 0.392, fy: 0.91 }, { id: '−', fx: 0.608, fy: 0.91 },
+      { id: 'L1', fx: 0.0393, fy: 0.93 }, { id: '1', fx: 0.0943, fy: 0.93 }, { id: 'L2', fx: 0.1493, fy: 0.93 }, { id: '2', fx: 0.2043, fy: 0.93 },
+      { id: 'L3', fx: 0.2593, fy: 0.93 }, { id: '3', fx: 0.3143, fy: 0.93 }, { id: 'L4', fx: 0.3693, fy: 0.93 }, { id: '4', fx: 0.4243, fy: 0.93 },
+      { id: 'L5', fx: 0.4793, fy: 0.93 }, { id: '5', fx: 0.5343, fy: 0.93 }, { id: 'L6', fx: 0.5893, fy: 0.93 }, { id: '6', fx: 0.6443, fy: 0.93 },
+      { id: 'L7', fx: 0.6993, fy: 0.93 }, { id: '7', fx: 0.7543, fy: 0.93 }, { id: 'L8', fx: 0.8093, fy: 0.93 }, { id: '8', fx: 0.8643, fy: 0.93 },
+      { id: '+', fx: 0.9116, fy: 0.93 }, { id: '−', fx: 0.9652, fy: 0.93 },
     ],
   }),
   vector({

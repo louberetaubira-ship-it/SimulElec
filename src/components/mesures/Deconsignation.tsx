@@ -2,8 +2,8 @@
 
 /** Déconsignation et remise sous tension (port de `mesTasks` étape 3). */
 import React from 'react';
-import type { AttemptState, TpDefinition } from '@/lib/types';
-import { auxFerme, startButtons, type SimState } from '@/lib/sim/engine';
+import type { AttemptState, TpDefinition, KnxModeCanal } from '@/lib/types';
+import { auxFerme, sansOrdreDeMarche, startButtons, type SimState } from '@/lib/sim/engine';
 import { reperesMiseSousTension, repereSlot } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 import { aParametrage, paramConforme } from '@/lib/sim/parametrage';
@@ -25,7 +25,7 @@ export interface DeconsignationProps {
   onKnxIface?: (i: number) => void;
   onKnxProg?: (id: string) => void;
   onKnxLink?: (det: string, canal: number) => void;
-  onKnxParam?: (which: 'chX' | 'ch8', value: 'Commutation' | 'Minuterie') => void;
+  onKnxParam?: (which: 'chX' | 'ch8', value: KnxModeCanal) => void;
   /** Écran de l'onduleur hybride (TP photovoltaïque raccordé seulement). */
   onImeonSet?: (reglage: ImeonReglage, value: string | boolean) => void;
   onImeonAppliquer?: () => void;
@@ -97,7 +97,10 @@ export default function Deconsignation({
       )}
       <Step done={d.essai} n={reglage ? '4' : '3'}>
         <b>Essai de fonctionnement</b>
-        {marche ? (
+        {sansOrdreDeMarche(tp) ? (
+          <> — le tableau n&apos;a pas d&apos;ordre de marche : l&apos;installation est en service dès sa remise sous
+            tension{aKnxMiseEnService(tp) ? ', une fois les participants programmés et le téléchargement ETS conforme' : ''}.</>
+        ) : marche ? (
           <> — appuie sur {marche.rep} ({marche.label}) en porte : {km1} s&apos;enclenche, {voyant} s&apos;allume.</>
         ) : (
           <> — mets {km1} en marche en le cliquant sur la platine : l&apos;installation se met en service (le 230 V apparaît au tableau).</>

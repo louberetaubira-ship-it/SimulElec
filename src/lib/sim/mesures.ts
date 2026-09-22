@@ -67,6 +67,9 @@ export interface NetInfo { net: string; live: boolean; src?: boolean; /** Tensio
 
 /** La condition de présence de tension est-elle remplie ? */
 function liveWhen(cond: TerminalNet['live'], sim: SimState): boolean {
+  // Conjonction « a&b » : les deux conditions à la fois (aval d'un organe supplémentaire
+  // placé SOUS le différentiel de tête, par exemple « q1&aux:q13 »).
+  if (cond.includes('&')) return cond.split('&').every(c => liveWhen(c as TerminalNet['live'], sim));
   // Aval d'un organe de sectionnement supplémentaire : vif s'il est fermé.
   if (cond.startsWith('aux:')) return auxFerme(sim, cond.slice(4));
   switch (cond) {
@@ -83,6 +86,9 @@ function liveWhen(cond: TerminalNet['live'], sim: SimState): boolean {
     // fil + du bus est débranché (défaut x2) — alors l'entrée est isolée et lit 0 V.
     case 'onduDC': return sim.q1 && sim.fault !== 'x2';
     case 'f2': return sim.q1 && sim.f2;
+    // Départ protégé par f3, branché directement sous q1 (en parallèle de f2) : il ne
+    // dépend ni de f2 ni du circuit de commande — seulement de q1 et de f3, déclenché ou non.
+    case 'q1f3': return sim.q1 && f3Ok(sim);
     case 'f3':
     case 'ctl': return isControlLive(sim);
     case 'km1': return isControlLive(sim) && sim.km1;
@@ -136,7 +142,8 @@ function netDeclare(tp: TpDefinition, fault: string | null, id: string): Termina
 
 const PHASES = ['L1', 'L2', 'L3'];
 const isPhase = (n: string): boolean => PHASES.includes(n) || ['U', 'V', 'W'].includes(n);
-const asPhase = (n: string): string => (n === 'U' ? 'L1' : n === 'V' ? 'L2' : n === 'W' ? 'L3' : n);
+// `LC` (phase commandée d'une sortie d'actionneur) est, contact fermé, la phase L1.
+const asPhase = (n: string): string => (n === 'U' || n === 'LC' ? 'L1' : n === 'V' ? 'L2' : n === 'W' ? 'L3' : n);
 const isZero = (n: string): boolean => n === 'N' || n === 'PE' || n === '0' || n === 'C0';
 
 /**

@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
-import { isControlLive, isRunning, startButtons, type SimState } from '@/lib/sim/engine';
+import { isControlLive, isRunning, sansOrdreDeMarche, startButtons, type SimState } from '@/lib/sim/engine';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import {
   ESSAIS_KNX_LOCAL, ESSAIS_PORTAIL, ESSAIS_PV, consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
@@ -351,13 +351,23 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
             : variant === 'horsTension'
               ? 'Installation consignée : choisis ton appareil, pose les deux pointes sur les bornes indiquées.'
               : variant === 'decons'
-                ? (!tp.hasMotor && startButtons(tp).length === 0 || tp.essaisPv
+                ? sansOrdreDeMarche(tp)
+                  ? (st.decons.essai
+                    ? 'Installation en service : la mise en service est faite.'
+                    : st.decons.close
+                      ? 'Tableau sous tension : termine la mise en service (programmation, téléchargement).'
+                      : `Referme ${listeMiseSousTension(tp)} en les cliquant.`)
+                  : (!tp.hasMotor && startButtons(tp).length === 0 || tp.essaisPv
                   ? (isRunning(sim) ? 'L\'installation est en service : la mise en service est faite.' : `Referme ${listeMiseSousTension(tp)}, puis mets ${repereSlot(tp, 'km1')} en service en le cliquant.`)
                   : isRunning(sim) ? 'Le moteur tourne : la mise en service est faite.' : isControlLive(sim) ? `Commande sous tension : appuie sur ${marche} en porte.` : `Referme ${listeMiseSousTension(tp)} en les cliquant.`)
                 : tp.essaisPv
                   ? (isRunning(sim)
                     ? 'Installation en service : fais tes relevés (V⎓ côté continu, V~ côté alternatif), puis l\'essai des situations.'
                     : `Remets ${repereSlot(tp, 'km1')} en service en le cliquant pour les mesures qui l'exigent.`)
+                  : sansOrdreDeMarche(tp)
+                    ? (isControlLive(sim)
+                      ? 'Tableau sous tension : relève le bus (V⎓) et le 230 V des voies (V~), puis traverse le local.'
+                      : `Referme ${listeMiseSousTension(tp)} pour les mesures sous tension.`)
                   : isRunning(sim)
                     ? 'Moteur en marche : fais tes relevés (V~, pince, tachymètre).'
                     : `Relance le moteur par ${marcheRep} pour les mesures qui l'exigent.`}

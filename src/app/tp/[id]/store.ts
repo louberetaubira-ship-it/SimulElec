@@ -3,18 +3,18 @@
 import { create } from 'zustand';
 import type {
   AttemptState, EvaluationMode, HypTest, InstrumentKind, Liaison, NetKind, Prevision,
-  ReadingRecord, TpDefinition,
+  ReadingRecord, TpDefinition, KnxModeCanal,
 } from '@/lib/types';
 import {
   auxFerme, estPanneDuTp, initialSim, injectFault, isControlLive, netLive, pickFault, pressButton, releaseButton,
-  repairFault, resetF1, sectionneursFermes, setCoupling, tick, toggleAux, toggleCarter, toggleF2, toggleF3, toggleQ1,
+  repairFault, resetF1, sansOrdreDeMarche, sectionneursFermes, setCoupling, tick, toggleAux, toggleCarter, toggleF2, toggleF3, toggleQ1,
   type SimState,
 } from '@/lib/sim/engine';
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
 import { liaisonCoupee, reseauCommande } from '@/lib/sim/commande';
 import { aParametrage, fmtParam, paramNonConformes, parametresOf, tpParametre } from '@/lib/sim/parametrage';
-import { aKnxMiseEnService } from '@/lib/sim/knxMiseEnService';
+import { aKnxMiseEnService, knxConforme } from '@/lib/sim/knxMiseEnService';
 import {
   aImeonMiseEnService, imeonConforme, imeonReglagesFaux, LIBELLE_REGLAGE, type ImeonReglage,
 } from '@/lib/sim/imeonMiseEnService';
@@ -234,7 +234,7 @@ interface ParcoursState {
   /** Mise en service KNX : bascule un canal dans la liaison d'un détecteur. */
   knxToggleLink: (det: string, canal: number) => void;
   /** Mise en service KNX : mode d'un groupe de canaux (1-7 ou 8). */
-  knxSetParam: (which: 'chX' | 'ch8', value: 'Commutation' | 'Minuterie') => void;
+  knxSetParam: (which: 'chX' | 'ch8', value: KnxModeCanal) => void;
   /** Onduleur hybride : un réglage de l'écran (priorité, injection, type de batterie). */
   imeonSet: (reglage: ImeonReglage, value: string | boolean) => void;
   /** Onduleur hybride : applique les réglages — refusés s'ils ne sont pas conformes. */
@@ -417,7 +417,9 @@ export const useParcours = create<ParcoursState>((set, get) => {
     if (stage === ETAPE.MISE_EN_SERVICE) {
       const d = st.decons;
       const close = d.unlock && sim.q1 && sim.f2 && sim.f3 && sectionneursFermes(tp, sim);
-      const essai = (d.close || close) && sim.km1;
+      // Sans ordre de marche (tableau KNX) : l'installation est en service dès la remise sous
+      // tension ; sur bus, une fois les participants programmés (téléchargement ETS conforme).
+      const essai = (d.close || close) && (sansOrdreDeMarche(tp) ? knxConforme(tp, st) : sim.km1);
       // Paramétrage : conforme une fois le variateur sous tension et tous les réglages justes.
       const param = aParametrage(tp) ? (d.close || close) && paramNonConformes(tp, st).length === 0 : undefined;
       if (param !== undefined && param !== Boolean(d.param)) {
