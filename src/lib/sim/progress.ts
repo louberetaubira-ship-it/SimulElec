@@ -7,6 +7,7 @@ import { linkKey } from './layout';
 import { aParametrage, paramConforme, paramNonConformes, parametresOf } from './parametrage';
 import { aKnxMiseEnService, knxConforme, knxErreurs } from './knxMiseEnService';
 import { aImeonMiseEnService, imeonConforme, imeonErreurs, IMEON_BLOCS } from './imeonMiseEnService';
+import { aAutomateMiseEnService, automateConforme, automateErreurs, AUTOMATE_BLOCS } from './automateMiseEnService';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
 import {
   aReseau, cablageReseauComplet, rackComplet, RESEAU_REGLAGES, reseauErreursMes, reseauMesConforme,
@@ -441,8 +442,8 @@ export const ESSAIS_PORTAIL = [
   { id: 'badge', label: 'Ouverture par badge' },
   { id: 'feu', label: 'Feu orange 3 s avant chaque mouvement' },
   { id: 'auto', label: 'Fermeture automatique après 20 s' },
-  { id: 'cell', label: 'Réouverture par la cellule S5' },
-  { id: 'barre', label: 'Réouverture par la barre palpeuse S6' },
+  { id: 'cell', label: 'Réouverture par la cellule photoélectrique' },
+  { id: 'barre', label: 'Réouverture par la barre palpeuse' },
   { id: 'au', label: 'Arrêt d\'urgence : la fermeture ne démarre pas' },
 ] as const;
 
@@ -500,9 +501,10 @@ export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) =>
  */
 export const deconsComplete = (
   st: AttemptState,
-  tp?: Pick<TpDefinition, 'variateur' | 'knxMiseEnService' | 'knxZones' | 'imeonMiseEnService' | 'kind' | 'reseau'>,
+  tp?: Pick<TpDefinition, 'variateur' | 'knxMiseEnService' | 'knxZones' | 'imeonMiseEnService' | 'automateMiseEnService' | 'kind' | 'reseau'>,
 ) => st.decons.essai
-  && (!tp || (paramConforme(tp, st) && knxConforme(tp, st) && imeonConforme(tp, st) && reseauMesConforme(tp, st)));
+  && (!tp || (paramConforme(tp, st) && knxConforme(tp, st) && imeonConforme(tp, st) && automateConforme(tp, st)
+    && reseauMesConforme(tp, st)));
 
 export interface ServiceCheck { id: string; title: string; ok: boolean }
 
@@ -530,6 +532,9 @@ export function serviceChecks(tp: TpDefinition, st: AttemptState, sim: SimState)
     ...(aImeonMiseEnService(tp)
       ? [{ id: 'imeon', title: `Paramétrer ${repereSlot(tp, 'km1')} (priorité des sources, injection, type de batterie)`, ok: st.decons.close && imeonConforme(tp, st) }]
       : []),
+    ...(aAutomateMiseEnService(tp)
+      ? [{ id: 'automate', title: `Mettre ${repereSlot(tp, 'plc')} en service (adressage, temporisations, transfert)`, ok: st.decons.close && automateConforme(tp, st) }]
+      : []),
     { id: 'essai', title: essaiTitle, ok: st.decons.essai },
     { id: 'run', title: tp.hasMotor ? 'Moteur en marche' : 'Installation en service (230 V présent)', ok: isRunning(sim) || st.decons.essai },
   ];
@@ -552,12 +557,26 @@ export const validationComplete = (st: AttemptState) => st.fixed && st.diagnosis
  */
 export function prepQuestions(tp: TpDefinition): PrepQuestion[] {
   const p = tp.preparation;
-  return p
-    ? [
-      ...p.identification, ...p.fonctions, ...(p.calculs ?? []), ...(p.adressage ?? []),
-      ...(p.grafcetQuiz ?? []), ...(p.grafcet?.cases ?? []), ...(p.blocs ?? []).flatMap(b => b.questions),
-    ]
-    : [];
+  if (!p) return [];
+  const historique: PrepQuestion[] = [
+    ...p.identification, ...p.fonctions, ...(p.calculs ?? []), ...(p.adressage ?? []),
+    ...(p.grafcetQuiz ?? []), ...(p.grafcet?.cases ?? []), ...(p.blocs ?? []).flatMap(b => b.questions),
+  ];
+  if (!p.ordre?.length) return historique;
+  // Ordre déclaré par le TP (`preparation.ordre`) : la question « en cours » de l'écran
+  // suit la page, de haut en bas. Les sections non citées gardent l'ordre historique.
+  const section = (sec: string): PrepQuestion[] => {
+    if (sec === 'identification') return p.identification;
+    if (sec === 'fonctions') return p.fonctions;
+    if (sec === 'calculs') return p.calculs ?? [];
+    if (sec === 'adressage') return p.adressage ?? [];
+    if (sec === 'grafcetQuiz') return p.grafcetQuiz ?? [];
+    if (sec === 'grafcet') return p.grafcet?.cases ?? [];
+    return (p.blocs ?? []).find(b => `bloc:${b.id}` === sec)?.questions ?? [];
+  };
+  const ordonnees = p.ordre.flatMap(section);
+  const vus = new Set(ordonnees.map(q => q.id));
+  return [...ordonnees, ...historique.filter(q => !vus.has(q.id))];
 }
 
 /** Réponses justes à la préparation. */
@@ -728,6 +747,13 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
         // Réseau : la moitié de la note, au prorata des réglages conformes (4 champs IP de
         // l'automate, câble de paramétrage croisé, câble de service droit).
         const ok = (RESEAU_REGLAGES - reseauErreursMes(tp, st)) / RESEAU_REGLAGES;
+        return clamp01(0.5 * base + 0.5 * ok);
+      }
+      if (aAutomateMiseEnService(tp)) {
+        // Automate : la moitié de la note, au prorata des blocs conformes du programme
+        // transféré (adresses des entrées, des sorties, temporisations).
+        const err = automateErreurs(tp, st);
+        const ok = err.includes('transfert') ? 0 : (AUTOMATE_BLOCS - err.length) / AUTOMATE_BLOCS;
         return clamp01(0.5 * base + 0.5 * ok);
       }
       if (aImeonMiseEnService(tp)) {

@@ -132,7 +132,25 @@ for (const tp of TPS) {
   const bornesPlatine = new Set(Object.keys(tp.nets));
   const sain = signature(tp, null);
 
+  const reglages = tp.faults.filter(f => f.reglage);
+  if (reglages.length > 1) {
+    ko++;
+    console.log(`  ✗ ${reglages.map(f => f.id).join(', ')} : deux pannes de réglage sur un même TP sont indiscernables à l'instrument`);
+  }
   for (const f of tp.faults) {
+    // ---- panne de RÉGLAGE (programme, paramètre) : câblage sain, rien à mesurer. Elle se
+    // trouve par élimination — chaque autre panne se distingue de la platine saine, donc
+    // d'elle — et se confirme à l'écran. Elle ne doit rien déclarer au réseau.
+    if (f.reglage) {
+      if (f.coupe || f.ouvre || f.croise) {
+        ko++;
+        console.log(`  ✗ ${f.id} : panne de réglage qui déclare aussi un effet au réseau — choisir l'un ou l'autre`);
+        continue;
+      }
+      if (!f.action) { ko++; console.log(`  ✗ ${f.id} : pas d'action de remise en état déclarée`); continue; }
+      console.log(`  ✓ ${f.id} — panne de réglage (${f.reglage}) : aucune mesure ne la montre, elle se trouve par élimination et se lit à l'écran`);
+      continue;
+    }
     // ---- la panne dit-elle ce qu'elle fait au réseau ?
     if (!f.coupe && !f.ouvre && !f.croise) {
       ko++;

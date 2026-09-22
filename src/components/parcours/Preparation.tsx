@@ -17,7 +17,8 @@
  */
 
 import React from 'react';
-import type { AttemptState, PrepQuestion, TpDefinition } from '@/lib/types';
+import type { AttemptState, PrepQuestion, PrepSection, TpDefinition } from '@/lib/types';
+import PlaqueBornesOutil from './PlaqueBornesOutil';
 import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { goodPrep, preparationComplete, prepQuestions } from '@/lib/sim/progress';
 import { shuffledOrder } from '@/lib/sim/shuffle';
@@ -103,6 +104,11 @@ function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive, outil
                 <small className="font-sans text-[11px] font-normal text-muted">· document affiché à gauche</small>
               )}
             </h4>
+            {q.vue === 'plaque' ? (
+              <div className="mt-2">
+                <PlaqueBornesOutil q={q} choix={ch} onAnswer={(i) => { onActive(q.id); onAnswer(q.id, i); }} />
+              </div>
+            ) : (
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {shuffledOrder(q.id, q.options.length).map((i) => {
                 const o = q.options[i];
@@ -122,7 +128,8 @@ function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive, outil
                 );
               })}
             </div>
-            {repondu && (
+            )}
+            {repondu && q.vue !== 'plaque' && (
               <p className={`mt-1.5 text-[12px] ${juste ? 'text-good' : 'text-crit'}`}>{q.why}</p>
             )}
           </article>
@@ -130,6 +137,19 @@ function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive, outil
       })}
     </section>
   );
+}
+
+/**
+ * Ordre des sections de la préparation : celui que le TP déclare (`preparation.ordre`),
+ * complété par l'ordre historique pour les sections qu'il ne cite pas.
+ */
+function ordreDesSections(p: NonNullable<TpDefinition['preparation']>): PrepSection[] {
+  const historique: PrepSection[] = [
+    'identification', 'fonctions', 'calculs', 'adressage',
+    ...(p.blocs ?? []).map(b => `bloc:${b.id}` as PrepSection), 'grafcetQuiz', 'grafcet',
+  ];
+  const voulu = p.ordre ?? [];
+  return [...voulu, ...historique.filter(x => !voulu.includes(x))];
 }
 
 export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
@@ -277,7 +297,7 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
             <div className="flex min-h-0 flex-col gap-2">
               {docs.length > 0 && (
                 <div className="min-h-0 overflow-auto lg:flex-1">
-                  <DocumentsDossier docs={docs} actif={courante?.doc ?? null} />
+                  <DocumentsDossier docs={docs} actif={courante?.doc ?? null} tp={tp} focus={focus} />
                 </div>
               )}
               {docs.length === 0 && (tp.puissance || tp.folio || pv) && (
@@ -336,65 +356,48 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
                   matériel, en t&apos;appuyant sur le cahier des charges.
                 </Note>
               )}
-              {p && (
-                <>
-                  <Bloc
-                    titre={tIdent.titre}
-                    consigne={tIdent.consigne}
-                    questions={p.identification} st={st} actif={actif}
-                    onAnswer={onAnswer} onActive={setActif}
-                  />
-                  <Bloc
-                    titre={tFonc.titre}
-                    consigne={tFonc.consigne}
-                    questions={p.fonctions} st={st} actif={actif}
-                    onAnswer={onAnswer} onActive={setActif}
-                  />
-                  {p.calculs && (
-                    <Bloc
-                      titre={tCalc.titre}
-                      consigne={tCalc.consigne}
-                      questions={p.calculs} st={st} actif={actif}
-                      onAnswer={onAnswer} onActive={setActif}
-                    />
-                  )}
-                  {p.adressage && (
-                    <Bloc
-                      titre={tAdr.titre}
-                      consigne={tAdr.consigne}
-                      questions={p.adressage} st={st} actif={actif}
-                      onAnswer={onAnswer} onActive={setActif}
-                    />
-                  )}
-                  {(p.blocs ?? []).map(b => (
-                    <Bloc
-                      key={b.id}
-                      titre={b.titre}
-                      consigne={b.consigne}
-                      outil={b.outil}
-                      questions={b.questions} st={st} actif={actif}
-                      onAnswer={onAnswer} onActive={setActif}
-                    />
-                  ))}
-                  {p.grafcetQuiz && (
-                    <>
-                      <GrafcetIntro />
+              {p && ordreDesSections(p).map(sec => {
+                const commun = { st, actif, onAnswer, onActive: setActif };
+                if (sec === 'identification') {
+                  return <Bloc key={sec} titre={tIdent.titre} consigne={tIdent.consigne} questions={p.identification} {...commun} />;
+                }
+                if (sec === 'fonctions') {
+                  return <Bloc key={sec} titre={tFonc.titre} consigne={tFonc.consigne} questions={p.fonctions} {...commun} />;
+                }
+                if (sec === 'calculs') {
+                  return p.calculs ? <Bloc key={sec} titre={tCalc.titre} consigne={tCalc.consigne} questions={p.calculs} {...commun} /> : null;
+                }
+                if (sec === 'adressage') {
+                  return p.adressage ? <Bloc key={sec} titre={tAdr.titre} consigne={tAdr.consigne} questions={p.adressage} {...commun} /> : null;
+                }
+                if (sec === 'grafcetQuiz') {
+                  return p.grafcetQuiz ? (
+                    <React.Fragment key={sec}>
+                      <GrafcetIntro titre={p.intitules?.grafcetQuiz?.titre} />
                       <Bloc
-                        titre="Vérifie tes acquis sur le Grafcet"
-                        consigne="Quatre questions : elles débloquent le Grafcet du portail."
-                        questions={p.grafcetQuiz} st={st} actif={actif}
-                        onAnswer={onAnswer} onActive={setActif}
+                        titre={p.intitules?.grafcetQuiz ? 'Vérifie tes acquis, puis lis le grafcet du dossier' : 'Vérifie tes acquis sur le Grafcet'}
+                        consigne={p.intitules?.grafcetQuiz?.consigne ?? 'Quatre questions : elles débloquent le Grafcet du portail.'}
+                        questions={p.grafcetQuiz} {...commun}
                       />
-                    </>
-                  )}
-                  {p.grafcet && (
+                    </React.Fragment>
+                  ) : null;
+                }
+                if (sec === 'grafcet') {
+                  return p.grafcet ? (
                     <GrafcetPortail
+                      key={sec}
+                      titre={p.intitules?.grafcet?.titre}
+                      consigne={p.intitules?.grafcet?.consigne}
                       cases={p.grafcet.cases} st={st} onAnswer={onAnswer}
                       verrou={(p.grafcetQuiz ?? []).some(q => st.prep?.[q.id] == null)}
                     />
-                  )}
-                </>
-              )}
+                  ) : null;
+                }
+                const b = (p.blocs ?? []).find(x => `bloc:${x.id}` === sec);
+                return b ? (
+                  <Bloc key={sec} titre={b.titre} consigne={b.consigne} outil={b.outil} questions={b.questions} {...commun} />
+                ) : null;
+              })}
             </div>
           </div>
         </div>

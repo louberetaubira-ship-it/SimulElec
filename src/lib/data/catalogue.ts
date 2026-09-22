@@ -207,6 +207,16 @@ export const CATALOGUE: CatalogueItem[] = [
   item({ key: 'kontakt', dims: { largeur: 45, hauteur: 77, profondeur: 95, source: 'fiche' }, name: 'Contacteur LC1D09 bobine 230 V', ref: 'LC1D09P7', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 230,
     terminals: [{ id: 'A1', fx: 0.08, fy: 0.07 }, { id: '1', fx: 0.3, fy: 0.07 }, { id: '3', fx: 0.52, fy: 0.07 }, { id: '5', fx: 0.74, fy: 0.07 }, { id: '13', fx: 0.93, fy: 0.07 },
       { id: 'A2', fx: 0.08, fy: 0.93 }, { id: '2', fx: 0.3, fy: 0.93 }, { id: '4', fx: 0.52, fy: 0.93 }, { id: '6', fx: 0.74, fy: 0.93 }, { id: '14', fx: 0.93, fy: 0.93 }] }),
+  // Un des deux contacteurs de l'inverseur TeSys LC2D09BD (sujet CGM 2023, B.2.6) : même
+  // corps que le LC1D09 — la photo est la sienne — mais bobine 24 V CONTINU (repère BD)
+  // et ses deux contacts auxiliaires intégrés, 13-14 à fermeture ET 21-22 à ouverture.
+  // Le 21-22 sert au verrouillage électrique croisé du folio 02 : KM1.2 NF en série
+  // avec la bobine de KM1.1, et réciproquement. Bornes placées sur celles de la photo.
+  item({ key: 'lc2d09bd', dims: { largeur: 45, hauteur: 77, profondeur: 95, source: 'fiche' }, name: 'Contacteur-inverseur LC2D09BD · un contacteur · bobine 24 V⎓', ref: 'LC2D09BD', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 24,
+    terminals: [{ id: '1', fx: 0.2, fy: 0.07 }, { id: '3', fx: 0.49, fy: 0.07 }, { id: '5', fx: 0.78, fy: 0.07 },
+      { id: '13', fx: 0.36, fy: 0.3 }, { id: '21', fx: 0.62, fy: 0.3 }, { id: 'A1', fx: 0.86, fy: 0.3 },
+      { id: '14', fx: 0.36, fy: 0.76 }, { id: '22', fx: 0.62, fy: 0.76 }, { id: 'A2', fx: 0.86, fy: 0.76 },
+      { id: '2', fx: 0.2, fy: 0.93 }, { id: '4', fx: 0.49, fy: 0.93 }, { id: '6', fx: 0.78, fy: 0.93 }] }),
   // Le bloc LADN11 se monte SUR LA FACE du contacteur : il n'élargit pas
   // l'appareil, il occupe la fenêtre centrale — c'est ce que montre le sprite.
   item({ key: 'kontaktaux', dims: { largeur: 45, hauteur: 77, profondeur: 95, source: 'fiche' }, name: 'Contacteur LC1D09 bobine 24 V + bloc LADN11', ref: 'LC1D09B7 + LADN11', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 24,
@@ -578,6 +588,29 @@ export const CATALOGUE: CatalogueItem[] = [
     key: 'barrepalpeuse', name: 'Barre palpeuse de sécurité · 2 contacts', ref: 'CMM200/J',
     kind: 'button', family: 'Portail', poles: 2, w: 30, h: 92,
     terminals: [{ id: 'X1', fx: 0.34, fy: 0 }, { id: 'X2', fx: 0.66, fy: 0 }],
+  }),
+  // ---- Portail Écobike v2 : commande en 24 V continu (sujet CGM 2023, folios 01 et 02) ----
+  //
+  // Alimentation à découpage WAGO 787-1012 (DTR 40) : 100-240 V~ → 24 V⎓ 2,5 A, 72 × 89 ×
+  // 55 mm. Entrée L / N en haut, sortie + / − en bas, comme sur la face de l'appareil.
+  vector({
+    key: 'alim24dc', name: 'Alimentation à découpage 230 V~ → 24 V⎓ · 2,5 A', ref: 'WAGO 787-1012',
+    brand: 'WAGO', kind: 'dc', family: 'Alimentation', poles: 2, w: 104, h: 129,
+    dims: { largeur: 72, hauteur: 89, profondeur: 55, source: 'fiche' },
+    terminals: [
+      { id: 'L', fx: 0.3, fy: 0.07 }, { id: 'N', fx: 0.5, fy: 0.07 },
+      { id: '+24', fx: 0.3, fy: 0.93 }, { id: '0V', fx: 0.7, fy: 0.93 },
+    ],
+  }),
+  // Contact auxiliaire instantané GV-AE1, à montage FRONTAL sur le disjoncteur moteur GV2ME
+  // (DTR 38, B.2.3). Il suit l'appareil qui le porte (`Slot.auxDe`) : 13-14 fermé quand
+  // le GV2 est enclenché, ouvert s'il est ouvert ou déclenché. Au folio 01, il est en série
+  // sur le + 24 V de commande. Dessiné comme un bloc rapporté de 9 mm, à côté du GV2.
+  vector({
+    key: 'gvae1', name: 'Contact auxiliaire instantané frontal GV-AE1 · NO', ref: 'GVAE1',
+    brand: 'Schneider', kind: 'misc', family: 'Disjoncteurs', poles: 1, w: 22, h: 90,
+    dims: { largeur: 15, hauteur: 62, profondeur: 30, source: 'arelever' },
+    terminals: [{ id: '13', fx: 0.5, fy: 0.08 }, { id: '14', fx: 0.5, fy: 0.92 }],
   }),
   vector({
     key: 'iddr', name: 'Interrupteur différentiel 30 mA · type A · 2P', ref: 'IDDR-30A-2P', kind: 'mcb',

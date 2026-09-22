@@ -240,9 +240,13 @@ export function reseauCommande(
     if (w.net === 'C' || w.net === 'C0') fil(w.a, w.b);
   }
 
-  // ---- fils de puissance : continuité seulement (voir `puissance` ci-dessus)
+  // ---- fils de puissance : continuité seulement (voir `puissance` ci-dessus).
+  // Les barrettes de la plaque à bornes du MOTEUR en font partie : une barrette absente
+  // se cherche à l'ohmmètre entre U2, V2 et W2 comme n'importe quel conducteur. Les
+  // barrettes d'un transformateur à prises, elles, restent l'affaire de `trafo.ts`.
   for (const w of st.wires) {
-    if (w.net === 'C' || w.net === 'C0' || w.net === 'BAR') continue;
+    if (w.net === 'C' || w.net === 'C0') continue;
+    if (w.net === 'BAR' && !(w.a.startsWith('M.') && w.b.startsWith('M.'))) continue;
     const id = cle(w.a, w.b);
     if (!coupee(id)) e.push({ a: w.a, b: w.b, r: R.FIL, id, puissance: true, nature: 'fil' });
   }
@@ -307,6 +311,16 @@ export function reseauCommande(
       const pn = tp.slots.find(x => x.id === id)?.key;
       if (pn === 'fuse1pn' || pn === 'mcb1pn' || pn === 'mcb2p') contact(`${id}.N`, `${id}.N2`, sim.f3, `${id}-n`);
     }
+    // ---- bloc de contacts auxiliaires clipsé sur une protection (GV-AE1 sur le GV2ME) :
+    // son contact NO 13-14 suit l'appareil qui le porte. Il s'ouvre quand la protection
+    // est ouverte OU déclenchée — c'est lui qui coupe le 24 V de commande — et une panne
+    // qui « ouvre » la protection l'ouvre avec elle (même organe).
+    if (slot.key === 'gvae1') {
+      const porteur = slot.auxDe ?? 'f3';
+      const ferme = porteur === 'f3' ? sim.f3 && sim.fault !== 'f3'
+        : porteur === 'f2' ? sim.f2 : porteur === 'q1' ? sim.q1 : true;
+      contact(`${id}.13`, `${id}.14`, ferme, porteur);
+    }
     if (id === 'f1') {
       contact(`${id}.95`, `${id}.96`, !sim.f1trip, 'f1');
       contact(`${id}.97`, `${id}.98`, sim.f1trip, 'f1-no');
@@ -346,12 +360,16 @@ export function reseauCommande(
     // n'est pas exécuté ici — un automate se dépanne à l'instrument, borne par
     // borne, pas en devinant le code.
     if (it?.kind === 'plc') {
+      // L'entrée se referme sur le COMMUN des entrées quand il est câblé (alimentation
+      // de commande extérieure, COM ramené à son 0 V) ; sinon, comme sur la platine
+      // historique, sur le 0 V de l'alimentation capteurs de l'automate.
+      const retour = cablees.has(`${id}.COM`) ? `${id}.COM` : `${id}.0V`;
       for (const t of it.terminals) {
         if (/^I0\.[0-8]$/.test(t.id)) {
           const borne = `${id}.${t.id}`;
           if (!cablees.has(borne)) continue;
           e.push({
-            a: borne, b: `${id}.0V`, id: `${id}-${t.id}`, nature: 'charge',
+            a: borne, b: retour, id: `${id}-${t.id}`, nature: 'charge',
             r: ENTREES_RAPIDES.has(t.id) ? R_ENTREE_API.RAPIDE : R_ENTREE_API.STANDARD,
           });
         }

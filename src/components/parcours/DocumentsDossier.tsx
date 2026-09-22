@@ -9,7 +9,8 @@
  * Un document est une image extraite du sujet, ou un tableau à compléter.
  */
 import React from 'react';
-import type { PrepDocument } from '@/lib/types';
+import type { PrepDocument, TpDefinition } from '@/lib/types';
+import SchemaAutomate from '@/components/schema/SchemaAutomate';
 
 export interface DocumentsDossierProps {
   docs: PrepDocument[];
@@ -17,6 +18,10 @@ export interface DocumentsDossierProps {
   actif?: string | null;
   /** Hauteur maximale de l'image, en CSS (« 60vh »). */
   maxH?: string;
+  /** TP courant : il faut au visualiseur pour DESSINER un schéma (`PrepDocument.schema`). */
+  tp?: TpDefinition;
+  /** Repère à encadrer sur un schéma dessiné. */
+  focus?: string | null;
 }
 
 function Tableau({ t }: { t: NonNullable<PrepDocument['tableau']> }) {
@@ -44,7 +49,7 @@ function Tableau({ t }: { t: NonNullable<PrepDocument['tableau']> }) {
   );
 }
 
-export default function DocumentsDossier({ docs, actif, maxH = '58vh' }: DocumentsDossierProps) {
+export default function DocumentsDossier({ docs, actif, maxH = '58vh', tp, focus }: DocumentsDossierProps) {
   const [choisi, setChoisi] = React.useState<string | null>(null);
   const [agrandi, setAgrandi] = React.useState(false);
   // l'onglet suit la question en cours ; un clic de l'élève reprend la main jusqu'à la suivante
@@ -62,7 +67,8 @@ export default function DocumentsDossier({ docs, actif, maxH = '58vh' }: Documen
         />
       </button>
     )
-    : doc.tableau ? <Tableau t={doc.tableau} /> : null;
+    : doc.tableau ? <Tableau t={doc.tableau} />
+      : doc.schema === 'automate' && tp ? <SchemaAutomate tp={tp} focus={focus} /> : null;
 
   return (
     <div className="flex min-h-0 flex-col gap-2" data-documents>

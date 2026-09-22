@@ -3,7 +3,7 @@
 /** Déconsignation et remise sous tension (port de `mesTasks` étape 3). */
 import React from 'react';
 import type { AttemptState, TpDefinition, KnxModeCanal } from '@/lib/types';
-import { auxFerme, sansOrdreDeMarche, startButtons, type SimState } from '@/lib/sim/engine';
+import { auxFerme, isControlLive, sansOrdreDeMarche, startButtons, type SimState } from '@/lib/sim/engine';
 import { reperesMiseSousTension, repereSlot } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 import { aParametrage, paramConforme } from '@/lib/sim/parametrage';
@@ -12,6 +12,8 @@ import Parametrage from './Parametrage';
 import MiseEnServiceKnx from './MiseEnServiceKnx';
 import MiseEnServiceImeon from './MiseEnServiceImeon';
 import { aImeonMiseEnService, imeonConforme, type ImeonReglage } from '@/lib/sim/imeonMiseEnService';
+import MiseEnServiceM221 from './MiseEnServiceM221';
+import { aAutomateMiseEnService, automateConforme } from '@/lib/sim/automateMiseEnService';
 
 export interface DeconsignationProps {
   /** Le TP fournit les repères : « F2 » ici, « Q2 » là — jamais écrits en dur. */
@@ -29,6 +31,11 @@ export interface DeconsignationProps {
   /** Écran de l'onduleur hybride (TP photovoltaïque raccordé seulement). */
   onImeonSet?: (reglage: ImeonReglage, value: string | boolean) => void;
   onImeonAppliquer?: () => void;
+  /** Écran du logiciel de l'automate (TP à mise en service d'automate seulement). */
+  onAutomateSet?: (kind: 'adresse' | 'tempo', id: string, value: string | number) => void;
+  onAutomateTransferer?: () => void;
+  /** Essai du portail réussi depuis l'écran de mise en service. */
+  onEssai?: (id: string) => void;
 }
 
 function Step({ done, n, children }: { done: boolean; n: string; children: React.ReactNode }) {
@@ -44,6 +51,7 @@ function Step({ done, n, children }: { done: boolean; n: string; children: React
 
 export default function Deconsignation({
   tp, st, sim, onAct, onParam, onKnxIface, onKnxProg, onKnxLink, onKnxParam, onImeonSet, onImeonAppliquer,
+  onAutomateSet, onAutomateTransferer, onEssai,
 }: DeconsignationProps) {
   const d = st.decons;
   const [q1, pri, sec] = reperesMiseSousTension(tp);
@@ -53,7 +61,8 @@ export default function Deconsignation({
   // organes de sectionnement supplémentaires : ils se referment eux aussi
   const aux = (tp.sectionneurs ?? []).map(id => ({ id, rep: repereSlot(tp, id), ferme: auxFerme(sim, id) }));
   const imeon = aImeonMiseEnService(tp) && onImeonSet && onImeonAppliquer;
-  const reglage = Boolean(aParametrage(tp) || aKnxMiseEnService(tp) || imeon);
+  const automate = aAutomateMiseEnService(tp) && onAutomateSet && onAutomateTransferer && onEssai;
+  const reglage = Boolean(aParametrage(tp) || aKnxMiseEnService(tp) || imeon || automate);
   return (
     <div className="flex flex-col gap-1.5">
       <Step done={d.unlock} n="1">
@@ -93,6 +102,17 @@ export default function Deconsignation({
           <b>Paramétrer {km1}</b> à son écran, <b>avant</b> de le mettre en service : priorité des sources,
           injection du surplus, type de batterie. Il reste en veille tant que les réglages ne sont pas appliqués.
           <MiseEnServiceImeon tp={tp} st={st} alimente={d.close} onSet={onImeonSet} onAppliquer={onImeonAppliquer} />
+        </Step>
+      )}
+      {automate && (
+        <Step done={d.close && automateConforme(tp, st)} n="3">
+          <b>Mettre {repereSlot(tp, 'plc')} en service</b> depuis le logiciel : vérifier l&apos;adressage des
+          entrées et des sorties, régler les temporisations d&apos;après le DTR 8, puis transférer. Le programme
+          transféré est celui qui tourne à l&apos;essai.
+          <MiseEnServiceM221
+            tp={tp} st={st} alimente={d.close} commande={isControlLive(sim)}
+            onSet={onAutomateSet} onTransferer={onAutomateTransferer} onEssai={onEssai}
+          />
         </Step>
       )}
       <Step done={d.essai} n={reglage ? '4' : '3'}>

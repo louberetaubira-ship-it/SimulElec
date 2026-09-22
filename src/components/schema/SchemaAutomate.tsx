@@ -21,6 +21,9 @@ export default function SchemaAutomate({ tp, focus }: { tp: TpDefinition; focus?
   const repOf = (label: string) => /^([A-Z]+\d+(?:\.\d+)?)/.exec(label)?.[1] ?? '';
   const fo = focus ?? '';
   const vise = (rep: string) => !!fo && (rep === fo || (fo === 'KM1' && rep === 'KM1.1') || (fo === 'KM2' && rep === 'KM1.2'));
+  // Commande en 24 V⎓ par une alimentation extérieure (AL1, folio 01 du portail v2) ou,
+  // montage historique, capteurs sur le 24 V⎓ du M221 et sorties au 24 V~ de T1.
+  const al1 = tp.slots.some(sl => sl.id === 'al1');
   const H = Math.max(entrees.length * 34, sorties.length * 34 + 120) + 150;
   const plcY = 70, plcH = H - 110;
   const box = (x: number, y: number, w: number, h: number, rep: string, sub: string, on: boolean) => (
@@ -36,18 +39,22 @@ export default function SchemaAutomate({ tp, focus }: { tp: TpDefinition; focus?
         Schéma — câblage de l&apos;automate
       </div>
       <p className="m-0 mb-2 text-[11.5px] text-muted">
-        Capteurs sur les entrées (COM au 0 V, logique positive), charges sur les sorties relais (COM0 au 24 V~).
+        {al1
+          ? 'Transposition du folio 02 (WAGO 750-430 / 750-504) sur le M221 : capteurs sur les entrées (COM au 0 V de AL1, logique positive), charges sur les sorties relais (COM0 au + 24 V⎓ après Q2 13-14).'
+          : 'Capteurs sur les entrées (COM au 0 V, logique positive), charges sur les sorties relais (COM0 au 24 V~).'}
       </p>
       <svg viewBox={`0 0 620 ${H}`} className="block h-auto w-full" role="img" aria-label="Schéma de câblage de l'automate">
         {/* alimentations */}
         <line x1={20} y1={24} x2={250} y2={24} stroke="#D93A3A" strokeWidth={2} />
-        <text x={22} y={18} fontSize={10} fill="#D93A3A">+ 24 V⎓ capteurs du M221</text>
+        <text x={22} y={18} fontSize={10} fill="#D93A3A">{al1 ? '+ 24 V⎓ de AL1, après Q2 13-14 (GV-AE1)' : '+ 24 V⎓ capteurs du M221'}</text>
         <line x1={20} y1={H - 16} x2={600} y2={H - 16} stroke="#2C7BE5" strokeWidth={2} />
-        <text x={22} y={H - 22} fontSize={10} fill="#2C7BE5">0 V⎓ (COM) · 0 V~ (T1)</text>
-        {box(440, 6, 170, 38, 'T1', '400 / 24 V~ · Q4 · Q5', vise('T1'))}
+        <text x={22} y={H - 22} fontSize={10} fill="#2C7BE5">{al1 ? '0 V⎓ de AL1 (COM des entrées, A2 des bobines, X2 de H1)' : '0 V⎓ (COM) · 0 V~ (T1)'}</text>
+        {al1
+          ? box(440, 6, 170, 38, 'AL1', '230 V~ → 24 V⎓ · 2,5 A', vise('AL1'))
+          : box(440, 6, 170, 38, 'T1', '400 / 24 V~ · Q4 · Q5', vise('T1'))}
         <line x1={500} y1={44} x2={500} y2={plcY + 30} stroke="#8A5A00" strokeWidth={2} />
-        <text x={505} y={plcY + 18} fontSize={9} fill="#8A5A00">24 V~ → COM0</text>
-        {box(250, 6, 170, 38, 'Q3', '230 V → L / N automate', vise('Q3'))}
+        <text x={505} y={plcY + 18} fontSize={9} fill="#8A5A00">{al1 ? '+24 V⎓ → COM0' : '24 V~ → COM0'}</text>
+        {box(250, 6, 170, 38, 'Q3', al1 ? '230 V → M221 et AL1' : '230 V → L / N automate', vise('Q3'))}
         <line x1={325} y1={44} x2={325} y2={plcY} stroke="#8B4A2B" strokeWidth={2} />
         {/* automate */}
         <g>

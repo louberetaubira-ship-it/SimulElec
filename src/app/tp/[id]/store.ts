@@ -19,6 +19,9 @@ import {
   aImeonMiseEnService, imeonConforme, imeonReglagesFaux, LIBELLE_REGLAGE, type ImeonReglage,
 } from '@/lib/sim/imeonMiseEnService';
 import {
+  aAutomateMiseEnService, automateBlocsFaux, automateState, LIBELLE_BLOC,
+} from '@/lib/sim/automateMiseEnService';
+import {
   conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
 } from '@/lib/sim/diagnostic';
 import { listeMiseSousTension, repereLiaison, repereSlot, schemaDeLOrgane } from '@/lib/sim/reperes';
@@ -252,6 +255,10 @@ interface ParcoursState {
   imeonSet: (reglage: ImeonReglage, value: string | boolean) => void;
   /** Onduleur hybride : applique les réglages — refusés s'ils ne sont pas conformes. */
   imeonAppliquer: () => void;
+  /** Automate : une adresse de variable ou une temporisation saisie à l'écran du logiciel. */
+  automateSet: (kind: 'adresse' | 'tempo', id: string, value: string | number) => void;
+  /** Automate : transfère le programme (jamais refusé : l'essai montre ce qui ne va pas). */
+  automateTransferer: () => void;
   record: () => void;
   currentRead: () => ReadOut;
 
@@ -1166,6 +1173,51 @@ export const useParcours = create<ParcoursState>((set, get) => {
       patch(x => ({ ...x, imeon: { ...(x.imeon ?? {}), applique: true } }));
       mlog(`${def.appareil} · réglages appliqués : ${def.priorite}, injection ${def.injection ? 'oui' : 'non'}, batterie ${def.batterie}.`);
       say(`Réglages conformes : ${repereSlot(tp, 'km1')} peut être mis en service.`);
+      evaluate();
+    },
+
+    automateSet(kind, id, value) {
+      const { tp, st } = get();
+      const def = tp.automateMiseEnService;
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !def || !aAutomateMiseEnService(tp)) return;
+      if (!st.decons.close) {
+        say(`${repereSlot(tp, 'plc')} est hors tension : referme d'abord ${listeMiseSousTension(tp, 'et')}.`);
+        return;
+      }
+      if (kind === 'adresse') {
+        const v = def.variables.find(x => x.mnemo === id);
+        if (!v || typeof value !== 'string' || ![...def.entrees, ...def.sorties].includes(value)) return;
+        patch(x => ({ ...x, automate: { ...(x.automate ?? {}), adresses: { ...(x.automate?.adresses ?? {}), [id]: value } } }));
+        mlog(`${def.appareil} · ${id} affecté à ${value}.`);
+      } else {
+        const t = def.tempos.find(x => x.id === id);
+        if (!t || typeof value !== 'number' || !def.valeurs.includes(value)) return;
+        patch(x => ({ ...x, automate: { ...(x.automate ?? {}), tempos: { ...(x.automate?.tempos ?? {}), [id]: value } } }));
+        mlog(`${def.appareil} · ${t.label.split(' ')[0]} réglé à ${String(value).replace('.', ',')} s.`);
+      }
+      evaluate();
+    },
+
+    automateTransferer() {
+      const { tp, st } = get();
+      const def = tp.automateMiseEnService;
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !def || !st.decons.close) return;
+      const m = automateState(def, st);
+      const faux = automateBlocsFaux(def, m);
+      // Le transfert passe toujours : un automate exécute ce qu'on lui donne. Un programme
+      // non conforme compte une erreur par bloc faux, et l'essai en montrera les effets.
+      patch(x => ({
+        ...x,
+        paramErrors: (x.paramErrors ?? 0) + faux.length,
+        automate: { ...(x.automate ?? {}), transfere: { adresses: m.adresses, tempos: m.tempos } },
+      }));
+      if (faux.length) {
+        mlog(`${def.appareil} · programme transféré, NON conforme : ${faux.map(f => LIBELLE_BLOC[f]).join(', ')}.`);
+        say(`Programme transféré, mais non conforme (${faux.map(f => LIBELLE_BLOC[f]).join(', ')}) : l'essai va le montrer.`);
+      } else {
+        mlog(`${def.appareil} · programme transféré, conforme au DTR 8 — automate en RUN.`);
+        say(`${repereSlot(tp, 'plc')} en RUN : programme conforme.`);
+      }
       evaluate();
     },
 

@@ -27,7 +27,7 @@ const NOTIONS: [string, string][] = [
   ['Réceptivité', 'Condition écrite à côté de la transition : capteur, bouton, fin de temporisation.'],
 ];
 
-export function GrafcetIntro() {
+export function GrafcetIntro({ titre = '5 · Découvrir le Grafcet' }: { titre?: string } = {}) {
   const [etape, setEtape] = React.useState(0);
   const [pos, setPos] = React.useState(0); // 0 = barrière basse, 100 = haute
   const [t, setT] = React.useState(0);
@@ -87,7 +87,7 @@ export function GrafcetIntro() {
 
   return (
     <section data-grafcet-intro className="flex flex-col gap-2.5">
-      <h3 className="font-title text-[19px] font-semibold uppercase tracking-wide">5 · Découvrir le Grafcet</h3>
+      <h3 className="font-title text-[19px] font-semibold uppercase tracking-wide">{titre}</h3>
       <p className="m-0 text-[12.5px] text-muted">
         Premier contact : le Grafcet décrit, étape par étape, ce que fait un automatisme et ce qui le fait avancer.
       </p>
@@ -144,7 +144,12 @@ const CASES: Record<string, [number, number, number]> = {
   t23: [100, 214, 120], t34: [100, 292, 240], t40: [72, 380, 110], t45: [312, 380, 190],
 };
 
-export function GrafcetPortail({ cases, st, onAnswer, verrou }: {
+export function GrafcetPortail({
+  cases, st, onAnswer, verrou, titre = '6 · Compléter le Grafcet du portail', consigne,
+}: {
+  titre?: string;
+  /** Consigne propre au TP (sinon celle du portail M221 historique). */
+  consigne?: string;
   cases: PrepQuestion[];
   st: AttemptState;
   onAnswer: (id: string, i: number) => void;
@@ -172,10 +177,9 @@ export function GrafcetPortail({ cases, st, onAnswer, verrou }: {
 
   return (
     <section data-grafcet className="flex flex-col gap-2.5">
-      <h3 className="font-title text-[19px] font-semibold uppercase tracking-wide">6 · Compléter le Grafcet du portail</h3>
+      <h3 className="font-title text-[19px] font-semibold uppercase tracking-wide">{titre}</h3>
       <p className="m-0 text-[12.5px] text-muted">
-        Point de vue partie commande, à partir du Grafcet fonctionnel (DTR 8). Clique une case orange, puis choisis
-        l’étiquette. Temporisations : %TM1 = 3 s (étape 1), %TM3 = 20 s (étape 3), %TM5 = 3 s (étape 5).
+        {consigne ?? 'Point de vue partie commande, à partir du Grafcet fonctionnel (DTR 8). Clique une case orange, puis choisis l’étiquette. Temporisations : %TM1 = 3 s (étape 1), %TM3 = 20 s (étape 3), %TM5 = 3 s (étape 5).'}
       </p>
       {verrou ? (
         <div className="rounded-xl border border-crit bg-crit/10 p-2.5 text-[12.5px]">
