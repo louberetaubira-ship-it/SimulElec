@@ -272,6 +272,34 @@ export interface ParamVariateur {
 }
 
 /**
+ * Mise en service KNX simulée, sur le modèle d'ETS : l'élève choisit la bonne
+ * passerelle parmi plusieurs trouvées sur le réseau, adresse chaque participant en
+ * appuyant sur son bouton de programmation, relie chaque détecteur à son (ses)
+ * canal(aux), règle le mode des canaux, puis télécharge. Voir `src/lib/sim/knxMiseEnService.ts`.
+ */
+export interface KnxMiseEnServiceDef {
+  /** Interfaces trouvées sur le réseau (adresse individuelle, nom, IP) : une seule est la bonne. */
+  interfaces: { individuelle: string; nom: string; ip: string }[];
+  /** Index (dans `interfaces`) de l'interface de ce chantier. */
+  bonneInterface: number;
+  /** Participants à adresser (bouton de programmation), dans l'ordre du DTR d'adressage. */
+  participants: { id: string; rep: string; adresse: string }[];
+}
+
+/** Une zone du local desservie par un détecteur, sur un ou deux canaux (canal commun). */
+export interface KnxZone {
+  id: string;
+  /** Libellé affiché (« Z1-2 », « Circulation 2 »…). */
+  label: string;
+  /** Détecteur qui la surveille (repère du `AnnexItem`). */
+  detecteur: string;
+  /** Canal(aux) de l'actionneur que ce détecteur doit publier (ordre indifférent). */
+  canaux: number[];
+  /** Luminaire(s) de la zone (repère du `AnnexItem` récepteur), dans l'ordre des canaux. */
+  luminaires: string[];
+}
+
+/**
  * Transformateur de commande à prises (ABL6TS…). Le rapport de transformation est
  * fixé par les spires : `U2 = Uprise_secondaire × Uréseau / Uprise_primaire`. Se
  * tromper de prise ne bloque rien au câblage — ça se paie à l'essai.
@@ -697,6 +725,20 @@ export interface TpDefinition {
   plcSorties?: Record<string, 'km1' | 'trip' | 'off'>;
   /** Essais fonctionnels animés du portail (étape mesures sous tension). */
   essaisPortail?: boolean;
+  /** Essai de traversée du local (étape mesures sous tension) : zones KNX à parcourir. */
+  essaisKnxLocal?: boolean;
+  /**
+   * Mise en service KNX simulée (étape déconsignation & mise en service) : wizard ETS à
+   * 5 onglets — interface, adresses, liaisons, paramètres, téléchargement.
+   */
+  knxMiseEnService?: KnxMiseEnServiceDef;
+  /**
+   * Zones du local desservies par le bus KNX : quel détecteur déclenche quel(s)
+   * canal(aux)/luminaire(s). Partagée entre le wizard de mise en service (onglet
+   * Liaisons) et l'essai de traversée du local — un seul endroit où corriger la carte
+   * zone ↔ détecteur ↔ canal si elle devait changer.
+   */
+  knxZones?: KnxZone[];
   station: boolean;
   /**
    * Composition du coffret de porte, de haut en bas. Absent = pupitre historique
@@ -865,8 +907,25 @@ export interface AttemptState {
    * une tentative enregistrée avant son existence vaut {} (voir `normalizeState`).
    */
   qcmErr: Record<string, number>;
-  /** Essais fonctionnels réussis (portail animé) : identifiant d'essai → vrai. */
+  /** Essais fonctionnels réussis (portail animé, traversée du local KNX…) : identifiant d'essai → vrai. */
   essais?: Record<string, boolean>;
+  /**
+   * Mise en service KNX simulée (wizard ETS), pendant la déconsignation : interface
+   * choisie, participants adressés, liaisons détecteur → canal(aux), mode des canaux.
+   * Absent tant que l'élève n'a rien saisi.
+   */
+  knx?: {
+    /** Index de l'interface choisie dans `TpDefinition.knxMiseEnService.interfaces`. */
+    iface?: number;
+    /** Participants adressés (bouton de programmation appuyé) : id → vrai. */
+    prog?: Record<string, boolean>;
+    /** Canaux liés à chaque détecteur : id du détecteur → liste de canaux. */
+    links?: Record<string, number[]>;
+    /** Mode des canaux 1 à 7 (temporisation d'escalier). */
+    chX?: 'Commutation' | 'Minuterie';
+    /** Mode du canal 8, local électrique (commutation simple, pas de minuterie). */
+    ch8?: 'Commutation' | 'Minuterie';
+  };
   placed: Record<string, boolean>;
   wires: { a: string; b: string; net: NetKind }[];
   wireErrors: number;

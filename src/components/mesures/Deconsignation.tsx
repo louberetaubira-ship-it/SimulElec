@@ -7,7 +7,9 @@ import { startButtons, type SimState } from '@/lib/sim/engine';
 import { reperesMiseSousTension, repereSlot } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 import { aParametrage, paramConforme } from '@/lib/sim/parametrage';
+import { aKnxMiseEnService, knxConforme } from '@/lib/sim/knxMiseEnService';
 import Parametrage from './Parametrage';
+import MiseEnServiceKnx from './MiseEnServiceKnx';
 
 export interface DeconsignationProps {
   /** Le TP fournit les repères : « F2 » ici, « Q2 » là — jamais écrits en dur. */
@@ -17,6 +19,11 @@ export interface DeconsignationProps {
   onAct: (a: 'unlock') => void;
   /** Réglage d'un paramètre du variateur (TP à variateur seulement). */
   onParam?: (code: string, value: number | string) => void;
+  /** Wizard de mise en service KNX (TP à mise en service KNX seulement). */
+  onKnxIface?: (i: number) => void;
+  onKnxProg?: (id: string) => void;
+  onKnxLink?: (det: string, canal: number) => void;
+  onKnxParam?: (which: 'chX' | 'ch8', value: 'Commutation' | 'Minuterie') => void;
 }
 
 function Step({ done, n, children }: { done: boolean; n: string; children: React.ReactNode }) {
@@ -30,7 +37,9 @@ function Step({ done, n, children }: { done: boolean; n: string; children: React
   );
 }
 
-export default function Deconsignation({ tp, st, sim, onAct, onParam }: DeconsignationProps) {
+export default function Deconsignation({
+  tp, st, sim, onAct, onParam, onKnxIface, onKnxProg, onKnxLink, onKnxParam,
+}: DeconsignationProps) {
   const d = st.decons;
   const [q1, pri, sec] = reperesMiseSousTension(tp);
   const marche = startButtons(tp)[0];
@@ -59,7 +68,17 @@ export default function Deconsignation({ tp, st, sim, onAct, onParam }: Deconsig
           <Parametrage tp={tp} st={st} alimente={d.close} onParam={onParam} />
         </Step>
       )}
-      <Step done={d.essai} n={aParametrage(tp) ? '4' : '3'}>
+      {aKnxMiseEnService(tp) && onKnxIface && onKnxProg && onKnxLink && onKnxParam && (
+        <Step done={d.close && knxConforme(tp, st)} n="3">
+          <b>Mise en service KNX</b> dans ETS : la bonne interface, l&apos;adresse de chaque participant, la liaison
+          de chaque détecteur à son (ses) canal(aux), le mode des canaux, puis le téléchargement.
+          <MiseEnServiceKnx
+            tp={tp} st={st} alimente={d.close}
+            onIface={onKnxIface} onProg={onKnxProg} onLink={onKnxLink} onParam={onKnxParam}
+          />
+        </Step>
+      )}
+      <Step done={d.essai} n={aParametrage(tp) || aKnxMiseEnService(tp) ? '4' : '3'}>
         <b>Essai de fonctionnement</b>
         {marche ? (
           <> — appuie sur {marche.rep} ({marche.label}) en porte : {km1} s&apos;enclenche, {voyant} s&apos;allume.</>

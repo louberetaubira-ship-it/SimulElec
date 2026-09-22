@@ -623,6 +623,103 @@ export function KnxBpSvg() {
 }
 
 /**
+ * Actionneur de commutation REG-K 8 × 230 V / 16 A (MTN647893, chantier Écobike).
+ *
+ * Même principe que `KnxActSvg`, élargi à 8 voies : DEUX bornes communes (L1 pour
+ * les canaux 1 à 4, L2 pour les canaux 5 à 8, chacune sur SON disjoncteur) et une
+ * rangée de 8 LED d'état en façade — la commande manuelle locale de l'appareil,
+ * simplifiée en simples LED faute de place pour huit basculeurs lisibles.
+ */
+export function KnxAct8Svg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 280 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F7F8F9" /><stop offset="1" stopColor="#D7DBE0" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="278" height="121" rx="4" fill={`url(#${gid})`} stroke="#6E7780" />
+      <rect x="1" y="1" width="278" height="16" rx="4" fill="#C3C8CE" />
+      <rect x="1" y="106" width="278" height="16" rx="4" fill="#C3C8CE" />
+      <text x="140" y="34" textAnchor="middle" fontFamily={SANS} fontSize="8" fontWeight="700" fill="#3A4047">ACTIONNEUR 8 × 16 A</text>
+      <text x="140" y="45" textAnchor="middle" fontFamily={MONO} fontSize="6.5" fill="#66717F">MTN647893</text>
+      {/* deux bancs de 4 LED d'état, séparés par les deux communs L1 / L2 */}
+      {[0, 1].map((banc) => (
+        <g key={banc}>
+          <rect x={26 + banc * 138} y="54" width="110" height="36" rx="4" fill="#20262D" />
+          {[0, 1, 2, 3].map((i) => (
+            <g key={i}>
+              <circle cx={26 + banc * 138 + 18 + i * 25} cy="66" r="4" fill="#3DFF7A" />
+              <text x={26 + banc * 138 + 18 + i * 25} y="82" textAnchor="middle" fontFamily={MONO} fontSize="7" fill="#DFE5EC">{banc * 4 + i + 1}</text>
+            </g>
+          ))}
+        </g>
+      ))}
+      <text x="20" y="97" fontFamily={MONO} fontSize="5.5" fill="#66717F">L1 · canaux 1-4</text>
+      <text x="158" y="97" fontFamily={MONO} fontSize="5.5" fill="#66717F">L2 · canaux 5-8</text>
+      {/* bornes : L1, 1-4, L2, 5-8 en haut ; bus en bas */}
+      <g fill="#3A4047">
+        {[0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.95].map((fx, i) => (
+          <rect key={i} x={280 * fx - 6} y="5" width="12" height="8" rx="1.5" />
+        ))}
+      </g>
+      <BusConn x={106} y={104} w={44} h={16} />
+    </svg>
+  );
+}
+
+/** Interface IP/KNX REG-K (MTN6502-0105) : accès au bus depuis le réseau local. */
+export function KnxIpSvg() {
+  return (
+    <svg viewBox="0 0 52 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="50" height="121" rx="4" fill="#F4F5F7" stroke="#6E7780" />
+      <rect x="1" y="1" width="50" height="16" rx="4" fill="#C3C8CE" />
+      <rect x="10" y="110" width="32" height="4" fill="#2E7D4F" />
+      <text x="26" y="34" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">INTERFACE</text>
+      <text x="26" y="43" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">IP</text>
+      {/* prise RJ45, face avant : 8 petits contacts */}
+      <rect x="13" y="54" width="26" height="20" rx="1.5" fill="#20262D" />
+      <rect x="16" y="58" width="20" height="10" fill="#4A5058" />
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <rect key={i} x={17.2 + i * 2.3} y="58" width="1.4" height="4" fill="#C3C8CE" />
+      ))}
+      <circle cx="26" cy="86" r="3" fill="#3DFF7A" />
+      <text x="26" y="101" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#66717F">MTN6502-0105</text>
+      {/* connecteur de bus en haut : c'est lui, et non le 230 V, qui l'alimente */}
+      <BusConn x={7} y={2} w={38} h={13} />
+    </svg>
+  );
+}
+
+/**
+ * Détecteur de présence et de luminosité (MTN630860, boîte saillie MTN550619), posé en
+ * annexe au mur ou au plafond du local. La lentille dôme signale la détection de
+ * mouvement ; le petit disque clair, la cellule de mesure de luminosité — c'est elle qui
+ * distingue ce détecteur d'un simple détecteur de présence, et qui rend l'essai « il fait
+ * jour, rien ne s'allume » possible.
+ */
+export function KnxDetSvg() {
+  return (
+    <svg viewBox="0 0 48 48" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="46" height="46" rx="6" fill="#FAFAFA" stroke="#B9BEC4" />
+      <circle cx="20" cy="20" r="13" fill="#EDEFF2" stroke="#B9BEC4" />
+      <circle cx="20" cy="20" r="8.5" fill="#DDE6EC" stroke="#8FA6B3" strokeWidth="1" />
+      <circle cx="20" cy="20" r="4.5" fill="#B9D6E8" opacity="0.8" />
+      {/* petite cellule de luminosité, en haut à droite du corps */}
+      <circle cx="33" cy="10" r="4.4" fill="#FFF6C9" stroke="#B39500" strokeWidth="1" />
+      {/* connecteur de bus AU DOS, aux hauteurs des bornes X1 (+) et X2 (−) */}
+      <g>
+        <rect x="39" y="12" width="8" height="10" rx="1.3" fill="#C62828" stroke="#8E1B16" strokeWidth=".6" />
+        <circle cx="43" cy="15" r="1.1" fill="#4A100E" /><circle cx="43" cy="19" r="1.1" fill="#4A100E" />
+        <rect x="39" y="30" width="8" height="10" rx="1.3" fill="#26292E" stroke="#111" strokeWidth=".6" />
+        <circle cx="43" cy="33" r="1.1" fill="#000" /><circle cx="43" cy="37" r="1.1" fill="#000" />
+      </g>
+    </svg>
+  );
+}
+
+/**
  * Barrette de coupure (borne principale de terre).
  *
  * Deux bornes reliées par une barrette DÉMONTABLE. Fermée, c'est un simple
@@ -740,6 +837,9 @@ export function svgForKey(key: string, running = false): React.ReactNode | null 
     case 'knxusb': return <KnxUsbSvg />;
     case 'knxact': return <KnxActSvg />;
     case 'knxbp': return <KnxBpSvg />;
+    case 'knxact8': return <KnxAct8Svg />;
+    case 'knxip': return <KnxIpSvg />;
+    case 'knxdet': return <KnxDetSvg />;
     case 'barrcoupure': return <BarrCoupureSvg />;
     case 'piquet': return <PiquetSvg />;
     case 'feuorange': return <FeuOrangeSvg />;

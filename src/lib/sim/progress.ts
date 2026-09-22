@@ -5,6 +5,7 @@ import { isRunning, startButtons, type Cablage, type SimState } from './engine';
 import { listeMiseSousTension, repereSlot } from './reperes';
 import { linkKey } from './layout';
 import { aParametrage, paramConforme, paramNonConformes, parametresOf } from './parametrage';
+import { aKnxMiseEnService, knxConforme, knxErreurs } from './knxMiseEnService';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
 import type { CoursId } from '../data/cours';
 import {
@@ -437,15 +438,29 @@ export const ESSAIS_PORTAIL = [
 export const essaisPortailComplete = (tp: TpDefinition, st: AttemptState): boolean =>
   !tp.essaisPortail || ESSAIS_PORTAIL.every(e => st.essais?.[e.id]);
 
+/** Essais de la traversée du local KNX, dans l'ordre de la fiche d'essais. */
+export const ESSAIS_KNX_LOCAL = [
+  { id: 'knx-nuit', label: 'La nuit, chaque zone s\'allume quand on y entre' },
+  { id: 'knx-jour', label: 'En plein jour, rien ne s\'allume' },
+  { id: 'knx-min', label: 'Extinction automatique après la minuterie' },
+  { id: 'knx-l6', label: 'L6 s\'allume depuis les deux circulations' },
+  { id: 'knx-bp', label: 'BP : L8 ON puis OFF' },
+] as const;
+
+export const essaisKnxLocalComplete = (tp: TpDefinition, st: AttemptState): boolean =>
+  !tp.essaisKnxLocal || ESSAIS_KNX_LOCAL.every(e => st.essais?.[e.id]);
+
 export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) =>
-  mesuresComplete(tp, st, 'sousTension') && essaisPortailComplete(tp, st);
+  mesuresComplete(tp, st, 'sousTension') && essaisPortailComplete(tp, st) && essaisKnxLocalComplete(tp, st);
 /**
- * Mise en service terminée : essai concluant ET, sur un TP à variateur, paramétrage
- * conforme. L'essai reste possible avec de mauvais réglages — il en montre les
- * symptômes — mais l'étape n'est validée qu'avec les réglages du cahier des charges.
+ * Mise en service terminée : essai concluant ET, sur un TP à variateur ou à mise en
+ * service KNX, réglages conformes. L'essai reste possible avec de mauvais réglages —
+ * il en montre les symptômes — mais l'étape n'est validée qu'avec les réglages du
+ * cahier des charges.
  */
-export const deconsComplete = (st: AttemptState, tp?: Pick<TpDefinition, 'variateur'>) =>
-  st.decons.essai && (!tp || paramConforme(tp, st));
+export const deconsComplete = (
+  st: AttemptState, tp?: Pick<TpDefinition, 'variateur' | 'knxMiseEnService' | 'knxZones'>,
+) => st.decons.essai && (!tp || (paramConforme(tp, st) && knxConforme(tp, st)));
 
 export interface ServiceCheck { id: string; title: string; ok: boolean }
 
@@ -466,6 +481,9 @@ export function serviceChecks(tp: TpDefinition, st: AttemptState, sim: SimState)
     { id: 'close', title: `Refermer ${listeMiseSousTension(tp)}`, ok: st.decons.close },
     ...(aParametrage(tp)
       ? [{ id: 'param', title: `Paramétrer ${repereSlot(tp, tp.variateur!.slot)} d'après la plaque et le cahier des charges`, ok: st.decons.close && paramConforme(tp, st) }]
+      : []),
+    ...(aKnxMiseEnService(tp)
+      ? [{ id: 'knx', title: 'Mise en service KNX (interface, adresses, liaisons, paramètres, téléchargement)', ok: st.decons.close && knxConforme(tp, st) }]
       : []),
     { id: 'essai', title: essaiTitle, ok: st.decons.essai },
     { id: 'run', title: tp.hasMotor ? 'Moteur en marche' : 'Installation en service (230 V présent)', ok: isRunning(sim) || st.decons.essai },
@@ -654,6 +672,12 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
       return mesuresNote(tp, st, 'horsTension', ETAPE.HORS);
     case ETAPE.MISE_EN_SERVICE: {
       const base = st.decons.essai ? 1 : st.decons.close ? 0.5 : 0.2;
+      if (aKnxMiseEnService(tp)) {
+        // Mise en service KNX : la moitié de la note, au prorata des blocs conformes
+        // (interface, adresses, liaisons, paramètres — voir `knxErreurs`).
+        const ok = (4 - knxErreurs(tp, st).length) / 4;
+        return clamp01(0.5 * base + 0.5 * ok);
+      }
       if (!aParametrage(tp)) return base;
       // Paramétrage : la moitié de la note, au prorata des réglages conformes.
       const n = parametresOf(tp).length;

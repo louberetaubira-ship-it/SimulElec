@@ -10,7 +10,7 @@ import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { isControlLive, isRunning, startButtons, type SimState } from '@/lib/sim/engine';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import {
-  ESSAIS_PORTAIL, consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
+  ESSAIS_KNX_LOCAL, ESSAIS_PORTAIL, consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
 } from '@/lib/sim/progress';
 import EpiChecklist from '@/components/mesures/EpiChecklist';
 import ConsignationSteps from '@/components/mesures/Consignation';
@@ -19,6 +19,7 @@ import Instrument from '@/components/mesures/Instrument';
 import MesuresPanel from '@/components/mesures/MesuresPanel';
 import SecuriteGate from '@/components/mesures/SecuriteGate';
 import EssaisPortail from '@/components/mesures/EssaisPortail';
+import EssaiKnxLocal from '@/components/mesures/EssaiKnxLocal';
 import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
 import { secuComplete } from '@/lib/sim/securite';
 import { listeMiseSousTension, repereSlot, repereBorne } from '@/lib/sim/reperes';
@@ -101,7 +102,9 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
    */
   const secuOk = variant !== 'sousTension' || secuComplete(st.secu);
   const [essaisOuverts, setEssaisOuverts] = React.useState(false);
+  const [essaiKnxOuvert, setEssaiKnxOuvert] = React.useState(false);
   const nEssais = ESSAIS_PORTAIL.filter(e => st.essais?.[e.id]).length;
+  const nEssaisKnx = ESSAIS_KNX_LOCAL.filter(e => st.essais?.[e.id]).length;
   const mesureVerrouillee = variant === 'sousTension' && !secuOk;
 
   const expected = variant === 'horsTension' || variant === 'sousTension'
@@ -135,7 +138,10 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
 
         {variant === 'decons' && (
           <Card title="Déconsignation">
-            <DeconsignationSteps tp={tp} st={st} sim={sim} onAct={s.consAct} onParam={s.setParam} />
+            <DeconsignationSteps
+              tp={tp} st={st} sim={sim} onAct={s.consAct} onParam={s.setParam}
+              onKnxIface={s.knxSetIface} onKnxProg={s.knxProg} onKnxLink={s.knxToggleLink} onKnxParam={s.knxSetParam}
+            />
           </Card>
         )}
 
@@ -230,6 +236,27 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           </Card>
         )}
 
+        {variant === 'sousTension' && tp.essaisKnxLocal && (
+          <Card title="Essai · traversée du local">
+            <Note>
+              Traverse le local à vélos : chaque zone doit s&apos;éclairer la nuit, rester éteinte le jour, s&apos;éteindre
+              seule après la minuterie, et le poussoir du local électrique doit allumer puis éteindre L8.
+            </Note>
+            <div className="my-1.5 font-mono-num text-[13px]">{nEssaisKnx} / {ESSAIS_KNX_LOCAL.length} essais réussis</div>
+            <Button
+              size="sm"
+              data-open-essai-knx
+              disabled={!secuOk || !isControlLive(sim)}
+              onClick={() => setEssaiKnxOuvert(true)}
+            >
+              Aller dans le local
+            </Button>
+            {(!secuOk || !isControlLive(sim)) && (
+              <Note className="mt-1">Installation sous tension et équipement de sécurité validé exigés.</Note>
+            )}
+          </Card>
+        )}
+
         {variant === 'sousTension' && (
           <Card title="Charge mécanique">
             <label className="flex items-center gap-2.5 text-[12px]">
@@ -281,6 +308,9 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         />
         {essaisOuverts && (
           <EssaisPortail faits={st.essais} onReussi={s.essaiReussi} onClose={() => setEssaisOuverts(false)} />
+        )}
+        {essaiKnxOuvert && (
+          <EssaiKnxLocal zones={tp.knxZones ?? []} faits={st.essais} onReussi={s.essaiReussi} onClose={() => setEssaiKnxOuvert(false)} />
         )}
         <Hint>
           {variant === 'epi'

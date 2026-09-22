@@ -429,6 +429,45 @@ export const CATALOGUE: CatalogueItem[] = [
     terminals: [{ id: 'X1', fx: 1, fy: 0.35 }, { id: 'X2', fx: 1, fy: 0.7 }],
     door: true,
   }),
+  // ---- KNX · chantier Écobike (TP « Éclairage KNX ») ----
+  //
+  // Trois appareils de plus, au même gabarit que ceux du plateau tertiaire :
+  //  - l'actionneur passe de 2 à 8 voies (MTN647893), pour piloter L1 à L8. Il porte
+  //    DEUX bornes communes (L1 pour les canaux 1 à 4, L2 pour les canaux 5 à 8) et non
+  //    une seule : sur la platine, chaque banc de 4 sorties est protégé par SON propre
+  //    disjoncteur (Q13 ou Q14), comme sur l'appareil réel ;
+  //  - l'interface change de nature (USB → IP/KNX, MTN6502-0105) mais garde le gabarit
+  //    et les bornes de bus (+ / −) de la précédente : elle est alimentée PAR LE BUS,
+  //    jamais en 230 V, exactement comme l'interface USB qu'elle remplace ici ;
+  //  - le détecteur de présence + luminosité (MTN630860, boîte saillie MTN550619) est un
+  //    élément d'ANNEXE de plus, au même gabarit compact que le poussoir, avec les mêmes
+  //    bornes X1 (+) / X2 (−) au dos.
+  vector({
+    key: 'knxact8', name: 'Actionneur de commutation KNX REG-K 8 × 230 V / 16 A', ref: 'MTN647893', brand: 'Schneider',
+    kind: 'dc', family: 'KNX', poles: 2, w: 280, h: 123,
+    dims: { largeur: 193, hauteur: 85, profondeur: 78.5, source: 'norme' },
+    terminals: [
+      { id: 'L1', fx: 0.05, fy: 0.07 }, { id: '1', fx: 0.15, fy: 0.07 }, { id: '2', fx: 0.25, fy: 0.07 },
+      { id: '3', fx: 0.35, fy: 0.07 }, { id: '4', fx: 0.45, fy: 0.07 }, { id: 'L2', fx: 0.55, fy: 0.07 },
+      { id: '5', fx: 0.65, fy: 0.07 }, { id: '6', fx: 0.75, fy: 0.07 }, { id: '7', fx: 0.85, fy: 0.07 },
+      { id: '8', fx: 0.95, fy: 0.07 },
+      { id: '+', fx: 0.392, fy: 0.91 }, { id: '−', fx: 0.608, fy: 0.91 },
+    ],
+  }),
+  vector({
+    key: 'knxip', name: 'Interface IP/KNX REG-K', ref: 'MTN6502-0105', brand: 'Schneider',
+    kind: 'dc', family: 'KNX', poles: 2, w: 52, h: 123,
+    dims: { largeur: 36, hauteur: 85, profondeur: 78.5, source: 'norme' },
+    // Connecteur de bus en haut, comme l'interface USB qu'elle remplace ici.
+    terminals: [{ id: '+', fx: 0.313, fy: 0.069 }, { id: '−', fx: 0.688, fy: 0.069 }],
+  }),
+  vector({
+    key: 'knxdet', name: 'Détecteur de présence et de luminosité KNX', ref: 'MTN630860 + boîte saillie MTN550619', brand: 'Schneider',
+    kind: 'button', family: 'KNX', poles: 2, w: 48, h: 48,
+    dims: { largeur: 92, hauteur: 92, profondeur: 52, source: 'norme' },
+    terminals: [{ id: 'X1', fx: 1, fy: 0.35 }, { id: 'X2', fx: 1, fy: 0.7 }],
+    door: true,
+  }),
   // ---- Ensemble terre (hors tableau) ----
   //
   // Ni l'un ni l'autre ne se pose sur un rail : ce sont des éléments d'annexe,

@@ -13,6 +13,7 @@ import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
 import { liaisonCoupee, reseauCommande } from '@/lib/sim/commande';
 import { aParametrage, fmtParam, paramNonConformes, parametresOf, tpParametre } from '@/lib/sim/parametrage';
+import { aKnxMiseEnService } from '@/lib/sim/knxMiseEnService';
 import {
   conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
 } from '@/lib/sim/diagnostic';
@@ -222,6 +223,14 @@ interface ParcoursState {
   consAct: (a: 'lock' | 'ident' | 'unlock') => void;
   /** Enregistre un paramètre du variateur saisi au clavier (étape mise en service). */
   setParam: (code: string, value: number | string) => void;
+  /** Mise en service KNX (wizard ETS) : interface choisie. */
+  knxSetIface: (i: number) => void;
+  /** Mise en service KNX : participant adressé (bouton de programmation). */
+  knxProg: (id: string) => void;
+  /** Mise en service KNX : bascule un canal dans la liaison d'un détecteur. */
+  knxToggleLink: (det: string, canal: number) => void;
+  /** Mise en service KNX : mode d'un groupe de canaux (1-7 ou 8). */
+  knxSetParam: (which: 'chX' | 'ch8', value: 'Commutation' | 'Minuterie') => void;
   record: () => void;
   currentRead: () => ReadOut;
 
@@ -1032,6 +1041,43 @@ export const useParcours = create<ParcoursState>((set, get) => {
       }
       patch(x => ({ ...x, vsdParams: { ...(x.vsdParams ?? {}), [code]: value } }));
       mlog(`${repereSlot(tp, tp.variateur!.slot)} · ${code} réglé à ${fmtParam(value)}${p.unite ? ` ${p.unite}` : ''}.`);
+      evaluate();
+    },
+
+    knxSetIface(i) {
+      const { tp, st } = get();
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !aKnxMiseEnService(tp)) return;
+      patch(x => ({ ...x, knx: { ...(x.knx ?? {}), iface: i } }));
+      mlog(`ETS · interface sélectionnée : ${tp.knxMiseEnService!.interfaces[i]?.individuelle ?? '?'}.`);
+      evaluate();
+    },
+
+    knxProg(id) {
+      const { tp, st } = get();
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !aKnxMiseEnService(tp)) return;
+      const part = tp.knxMiseEnService!.participants.find(p => p.id === id);
+      if (!part) return;
+      patch(x => ({ ...x, knx: { ...(x.knx ?? {}), prog: { ...(x.knx?.prog ?? {}), [id]: true } } }));
+      mlog(`ETS · adresse ${part.adresse} programmée dans ${part.rep}.`);
+      evaluate();
+    },
+
+    knxToggleLink(det, canal) {
+      const { tp, st } = get();
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !aKnxMiseEnService(tp)) return;
+      patch(x => {
+        const cur = x.knx?.links?.[det] ?? [];
+        const next = cur.includes(canal) ? cur.filter(c => c !== canal) : [...cur, canal];
+        return { ...x, knx: { ...(x.knx ?? {}), links: { ...(x.knx?.links ?? {}), [det]: next } } };
+      });
+      evaluate();
+    },
+
+    knxSetParam(which, value) {
+      const { tp, st } = get();
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !aKnxMiseEnService(tp)) return;
+      patch(x => ({ ...x, knx: { ...(x.knx ?? {}), [which]: value } }));
+      mlog(`ETS · ${which === 'ch8' ? 'canal 8' : 'canaux 1 à 7'} réglés en ${value}.`);
       evaluate();
     },
 

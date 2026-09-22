@@ -21,6 +21,7 @@ import { TP_SOLAIRE_AUTONOME } from './solaire-autonome';
 import { TP_KNX_TERTIAIRE } from './knx-tertiaire';
 import { TP_STATION_RELEVAGE } from './station-relevage';
 import { TP_ECOBIKE_PORTAIL } from './ecobike-portail';
+import { TP_ECOBIKE_KNX } from './ecobike-knx';
 
 export const TPS: TpDefinition[] = [
   TP_PERCEUSE_RADIALE,
@@ -31,6 +32,7 @@ export const TPS: TpDefinition[] = [
   TP_KNX_TERTIAIRE,
   TP_STATION_RELEVAGE,
   TP_ECOBIKE_PORTAIL,
+  TP_ECOBIKE_KNX,
 ];
 
 export const TP_BY_ID: Record<string, TpDefinition> = Object.fromEntries(TPS.map((t) => [t.id, t]));
@@ -41,5 +43,5 @@ export function tpById(id: string): TpDefinition | undefined {
 
 export {
   TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_PORTAIL, TP_SOLAIRE_AUTONOME, TP_KNX_TERTIAIRE,
-  TP_STATION_RELEVAGE, TP_ECOBIKE_PORTAIL,
+  TP_STATION_RELEVAGE, TP_ECOBIKE_PORTAIL, TP_ECOBIKE_KNX,
 };
