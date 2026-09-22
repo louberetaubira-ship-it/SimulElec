@@ -27,7 +27,8 @@ export default function ChoixTp({ tpId, onSelect }: Props) {
 
       <Center>
         <div className="grid w-full max-w-[760px] gap-3 sm:grid-cols-2">
-          {TPS.map(tp => (
+          {/* TP de service (`hidden`) : proposé seulement quand c'est lui qu'on ouvre */}
+          {TPS.filter(t => !t.hidden || t.id === tpId).map(tp => (
             <button
               key={tp.id}
               type="button"
