@@ -7,19 +7,23 @@
  */
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getMyProfile } from '@/lib/db/profiles';
 import { listMyClasses, listAssignments } from '@/lib/db/classes';
 import {
-  createTp, deleteTp, freeTpId, isBundledTp, listMyTps, rowToDefinition, setArchived, setPublished,
-  studioMetaOf, type TpFamily, type TpRow, type TpStoredDefinition,
+  classementOfRow, createTp, deleteTp, docDefinitionOf, freeTpId, isBundledTp, listMyTps, rowToDefinition, setArchived,
+  setPublished, studioMetaOf, type TpFamily, type TpRow, type TpStoredDefinition,
 } from '@/lib/db/tps';
 import { listMyGenerations, myQuota, type GenerationRow, type Quota } from '@/lib/db/generations';
-import { TPS_CATALOGUE } from '@/lib/data/tps';
+import { TPS } from '@/lib/data/tps';
 import { DIPLOMAS, type DiplomaId, type Domain } from '@/lib/data/competences';
 import { competencesOf } from '@/components/studio/store';
+import { DOMAINES, labelSousDomaine, normaliserClassement, type Classement, type DomainePro } from '@/lib/taxonomy/domaines';
+import { classementDe } from '@/lib/taxonomy/classement';
 import type { ProfileRow } from '@/lib/db/types';
 import { Message, PageTitle, Panneau, dateCourte } from '@/components/gestion/ui';
+import DomaineChips from '@/components/catalogue/DomaineChips';
+import DomaineBadge from '@/components/catalogue/DomaineBadge';
 
 interface Ligne extends TpRow {
   /** Classes auxquelles le TP est attribué. */
@@ -69,6 +73,34 @@ export default function CatalogueProfPage() {
   const [generations, setGenerations] = useState<GenerationRow[]>([]);
   const [quota, setQuota] = useState<Quota | null>(null);
   const fichier = useRef<HTMLInputElement>(null);
+  /** Filtre du tableau par domaine professionnel (`null` = tous). */
+  const [filtreDomaine, setFiltreDomaine] = useState<DomainePro | null>(null);
+  /** Ordre du tableau : dernières modifications d'abord, ou par domaine. */
+  const [tri, setTri] = useState<'recent' | 'domaine'>('recent');
+
+  // TP de l'établissement (hors TP fournis), chacun avec son classement résolu une fois.
+  const etablissement = useMemo(
+    () => rows.filter((r) => !isBundledTp(r.id)).map((r) => ({ row: r, classement: classementOfRow(r) })),
+    [rows],
+  );
+  const comptesDomaines = useMemo(() => {
+    const c: Partial<Record<DomainePro, number>> = {};
+    for (const { classement } of etablissement) {
+      if (classement.domaine) c[classement.domaine] = (c[classement.domaine] ?? 0) + 1;
+    }
+    return c;
+  }, [etablissement]);
+  const lignesVisibles = useMemo(() => {
+    const rang = (c: Classement) => (c.domaine ? DOMAINES.findIndex((d) => d.code === c.domaine) : DOMAINES.length);
+    const liste = etablissement.filter(({ classement }) => !filtreDomaine || classement.domaine === filtreDomaine);
+    if (tri === 'domaine') {
+      // Tri stable : domaine (ordre de DOMAINES), puis sous-domaine, puis titre.
+      liste.sort((a, b) => rang(a.classement) - rang(b.classement)
+        || labelSousDomaine(a.classement.sousDomaine).localeCompare(labelSousDomaine(b.classement.sousDomaine), 'fr')
+        || a.row.title.localeCompare(b.row.title, 'fr'));
+    }
+    return liste;
+  }, [etablissement, filtreDomaine, tri]);
 
   const charger = useCallback(async () => {
     const tps = await listMyTps();
@@ -144,6 +176,7 @@ export default function CatalogueProfPage() {
       published: false,
       archived: false,
       playable: false,
+      classement: classementOfRow(row),
     });
   }
 
@@ -159,17 +192,25 @@ export default function CatalogueProfPage() {
       competences: [], summary: typeof definitionBrute.summary === 'string' ? definitionBrute.summary : null,
       definition: definitionBrute, published: false, family: null, scene: null, playable: false,
       author: null, archived: false, diplomas: [],
+      domaine: null, domaines_sec: [], sous_domaine: null, activites: [], mots_cles: [],
     };
     const def = rowToDefinition(faux);
     if (!def) throw new Error('Ce fichier ne contient pas de TP exploitable (aucun appareil sur la platine).');
     const domains = (Array.isArray(brut.domains) ? brut.domains : []).filter((d): d is Domain => typeof d === 'string') as Domain[];
     const diplomas = (Array.isArray(brut.diplomas) ? brut.diplomas : [])
       .filter((d): d is DiplomaId => DIPLOMAS.some((x) => x.id === d));
+    // Classement : celui du fichier (racine, sinon définition), complété par la famille
+    // et les activités déduites quand le fichier est antérieur à la taxonomie des domaines.
+    const lu = normaliserClassement(brut.classement ?? definitionBrute.classement);
+    const classement = classementDe({ ...def, classement: lu });
     const id = await freeTpId(titre);
-    const definition: TpStoredDefinition = { ...def, id, playable: false, studio: { version: 1, domains, diplomas } };
+    const definition: TpStoredDefinition = {
+      ...def, id, playable: false, classement, studio: { version: 1, domains, diplomas },
+    };
     await createTp(id, {
       title: def.title, level: def.level, family: def.family as TpFamily, scene: def.scene, summary: def.summary,
       competences: competencesOf(domains), diplomas, definition, published: false, archived: false, playable: false,
+      classement,
     });
   }
 
@@ -225,7 +266,7 @@ export default function CatalogueProfPage() {
           Ces 14 TP ne sont pas modifiables. « Dupliquer » en crée une copie éditable qui t’appartient.
         </p>
         <ul className="space-y-1.5 text-[13px]">
-          {TPS_CATALOGUE.map((t) => (
+          {TPS.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center gap-2 border-b border-line py-1.5 last:border-0">
               <span className="font-semibold">{t.title}</span>
               <span className="rounded-full border border-line bg-[var(--surface-2)] px-2 py-0.5 text-[11px] text-muted">fourni</span>
@@ -244,14 +285,53 @@ export default function CatalogueProfPage() {
       </Panneau>
 
       <Panneau title="TP de l’établissement">
-        {rows.filter((r) => !isBundledTp(r.id)).length === 0 ? (
+        {/* Filtre par domaine : tous les domaines, les vides en pointillé avec un lien de création. */}
+        <div className="mb-3 space-y-2">
+          <DomaineChips
+            counts={comptesDomaines}
+            value={filtreDomaine}
+            onChange={setFiltreDomaine}
+            montrerVides
+            lienVide={(code) => `/prof/tp/nouveau?domaine=${code}`}
+            total={etablissement.length}
+          />
+          <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-muted">
+            <span>Trier par</span>
+            {([['recent', 'dernière modification'], ['domaine', 'domaine']] as const).map(([k, l]) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={tri === k}
+                data-tri={k}
+                onClick={() => setTri(k)}
+                className={`min-h-touch rounded-full border px-3 font-semibold ${tri === k
+                  ? 'border-[var(--text)] text-[var(--text)]' : 'border-line bg-surface hover:bg-[var(--surface-2)]'}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+        {etablissement.length === 0 ? (
           <p className="text-[13px] text-muted">Aucun TP enregistré pour l’instant.</p>
+        ) : lignesVisibles.length === 0 ? (
+          <p className="text-[13px] text-muted">Aucun TP dans ce domaine.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[840px] border-collapse text-[13px]">
+            <table className="w-full min-w-[960px] border-collapse text-[13px]">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-[.06em] text-muted">
                   <th className="py-2">Titre</th>
+                  <th>
+                    <button
+                      type="button"
+                      onClick={() => setTri(tri === 'domaine' ? 'recent' : 'domaine')}
+                      className="uppercase tracking-[.06em] hover:text-[var(--text)]"
+                      title="Trier par domaine"
+                    >
+                      Domaine{tri === 'domaine' ? ' ↓' : ''}
+                    </button>
+                  </th>
                   <th>Origine</th>
                   <th>Diplômes visés</th>
                   <th>État</th>
@@ -261,11 +341,23 @@ export default function CatalogueProfPage() {
                 </tr>
               </thead>
               <tbody data-testid="mes-tps">
-                {rows.filter((r) => !isBundledTp(r.id)).map((t) => (
+                {lignesVisibles.map(({ row: t, classement }) => (
                   <tr key={t.id} className="border-t border-line align-top" data-tp={t.id}>
                     <td className="py-2 pr-2">
                       <div className="font-semibold">{t.title}</div>
                       <div className="font-mono text-[11px] text-muted">{t.id}</div>
+                    </td>
+                    <td className="py-2 pr-2" data-domaine={classement.domaine ?? ''}>
+                      {classement.domaine ? (
+                        <>
+                          <DomaineBadge code={classement.domaine} />
+                          {classement.sousDomaine && (
+                            <div className="mt-1 max-w-[180px] text-[11.5px] leading-snug text-muted">
+                              {labelSousDomaine(classement.sousDomaine)}
+                            </div>
+                          )}
+                        </>
+                      ) : <span className="text-muted">—</span>}
                     </td>
                     <td className="pr-2 text-muted">
                       {t.generated ? (
@@ -311,7 +403,13 @@ export default function CatalogueProfPage() {
                           type="button"
                           className={btn}
                           disabled={busy}
-                          onClick={() => void agir(() => setPublished(t.id, !t.published), t.published ? 'TP dépublié.' : 'TP publié.')}
+                          onClick={() => void agir(async () => {
+                            // Publier exige un domaine professionnel choisi (voir le studio).
+                            if (!t.published && !t.domaine && !docDefinitionOf(t)) {
+                              throw new Error('Choisissez le domaine professionnel du TP (Modifier › Réglages › Classement) avant de le publier.');
+                            }
+                            await setPublished(t.id, !t.published);
+                          }, t.published ? 'TP dépublié.' : 'TP publié.')}
                         >
                           {t.published ? 'Dépublier' : 'Publier'}
                         </button>
@@ -329,6 +427,7 @@ export default function CatalogueProfPage() {
                           onClick={() => telecharger(`${t.id}.json`, {
                             format: 'simulelec-tp', version: 1, id: t.id, definition: t.definition,
                             domains: studioMetaOf(t).domains, diplomas: studioMetaOf(t).diplomas,
+                            classement: classementOfRow(t),
                           })}
                         >
                           Exporter

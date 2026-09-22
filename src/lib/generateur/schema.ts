@@ -10,6 +10,9 @@
  * Module PUR (aucun appel réseau) : les relectures défensives sont testables seules.
  */
 import type { AnnexKind, ExpectedMeasure, Liaison, NetKind, Poste, PosteOption, SceneKind, Slot } from '@/lib/types';
+import {
+  ACTIVITES, CODES_DOMAINES, normaliserClassement, type Classement,
+} from '@/lib/taxonomy/domaines';
 
 /* ------------------------------------------------------------------ types */
 
@@ -40,9 +43,18 @@ export interface QuestionGeneree { q: string; options: string[]; answer: number 
  * Ils portent la pastille « proposé par l'IA » dans le studio : c'est ce qu'il faut
  * relire en priorité.
  */
-export type ChampDeduit = 'competences' | 'activites' | 'materiel' | 'scene' | 'annexe' | 'duree';
+export type ChampDeduit = 'competences' | 'activites' | 'materiel' | 'scene' | 'annexe' | 'duree' | 'classement';
 
-export const CHAMPS_DEDUITS: ChampDeduit[] = ['competences', 'activites', 'materiel', 'scene', 'annexe', 'duree'];
+export const CHAMPS_DEDUITS: ChampDeduit[] = [
+  'competences', 'activites', 'materiel', 'scene', 'annexe', 'duree', 'classement',
+];
+
+/**
+ * Classement proposé par le modèle (domaine professionnel, sous-domaine, secondaires,
+ * activités, mots-clés). Toujours relu par `normaliserClassement` : un code inconnu
+ * devient `null` ou disparaît, jamais d'exception.
+ */
+export type ClassementGenere = Classement;
 
 export const estChampDeduit = (v: unknown): v is ChampDeduit =>
   typeof v === 'string' && (CHAMPS_DEDUITS as string[]).includes(v);
@@ -58,6 +70,8 @@ export interface PedagogieGeneree {
   annex?: AnnexKind;
   /** Durée totale retenue, en minutes. */
   duree?: number;
+  /** Classement du TP dans la taxonomie des domaines professionnels. */
+  classement?: ClassementGenere;
   /** Champs que le modèle a choisis lui-même. */
   deductions?: ChampDeduit[];
 }
@@ -256,9 +270,23 @@ export const OUTIL_PEDAGOGIE = {
         description: 'Colonne annexe qui va avec la scène : porte d’armoire, pièce, local, toiture',
       },
       duree: { type: 'integer', description: 'Durée totale retenue, en minutes' },
+      classement: {
+        type: 'object',
+        description:
+          'Classement du TP dans la taxonomie fournie : CODES uniquement, sous-domaine = identifiant existant ' +
+          'du domaine principal (ex. « IND.demarrage »)',
+        required: ['domaine', 'motsCles'],
+        properties: {
+          domaine: { type: 'string', enum: [...CODES_DOMAINES] },
+          sousDomaine: { type: 'string', description: 'Identifiant d’un sous-domaine du domaine principal' },
+          domainesSecondaires: { type: 'array', items: { type: 'string', enum: [...CODES_DOMAINES] } },
+          activites: { type: 'array', items: { type: 'string', enum: ACTIVITES.map((a) => a.id) } },
+          motsCles: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 6 },
+        },
+      },
       deductions: {
         type: 'array',
-        items: { type: 'string', enum: ['competences', 'activites', 'materiel', 'scene', 'annexe', 'duree'] },
+        items: { type: 'string', enum: [...CHAMPS_DEDUITS] },
         description:
           'Champs que TU as choisis toi-même parce que le professeur les avait laissés libres. ' +
           'Ils seront signalés « proposé par l’IA » pour qu’il les relise en priorité.',
@@ -516,8 +544,22 @@ export function lirePedagogieOutil(input: unknown): PedagogieGeneree | null {
     ...(SCENES.includes(p.scene as SceneKind) ? { scene: p.scene as SceneKind } : {}),
     ...(ANNEXES.includes(p.annex as AnnexKind) ? { annex: p.annex as AnnexKind } : {}),
     ...(typeof p.duree === 'number' && p.duree > 0 ? { duree: Math.round(p.duree) } : {}),
+    ...lireClassementGenere(p.classement),
     ...(deductions.length ? { deductions: Array.from(new Set(deductions)) } : {}),
   };
+}
+
+/**
+ * Relecture défensive du classement proposé par le modèle : `{ classement }` s'il désigne
+ * au moins un domaine connu, `{}` sinon. Ne lève jamais d'exception.
+ */
+export function lireClassementGenere(v: unknown): { classement?: ClassementGenere } {
+  try {
+    const c = normaliserClassement(v);
+    return c.domaine ? { classement: { ...c, motsCles: c.motsCles.slice(0, 6) } } : {};
+  } catch {
+    return {};
+  }
 }
 
 /** Relit la sortie de `choisir_materiel` ; `null` si aucun appareil exploitable. */

@@ -26,11 +26,12 @@ import type {
   QuestionGeneree, ResultatGeneration,
 } from '@/lib/generateur/schema';
 import {
-  appliquerReparation, estChampDeduit, lireChoixMateriel, lireMaquetteOutil as lireMaquette,
-  lireReparation,
+  appliquerReparation, estChampDeduit, lireChoixMateriel, lireClassementGenere,
+  lireMaquetteOutil as lireMaquette, lireReparation,
 } from '@/lib/generateur/schema';
+import { DOMAINE_BY_CODE, type DomainePro } from '@/lib/taxonomy/domaines';
 import { resumePedagogie } from '@/lib/generateur/prompt';
-import { aDesBloquantes, portionsFautives, verifier } from '@/lib/generateur/verifier';
+import { aDesBloquantes, classementAssemble, portionsFautives, verifier } from '@/lib/generateur/verifier';
 import { itemsPourCles } from '@/lib/generateur/bibliotheque-client';
 import { emptyTp } from './model';
 
@@ -77,8 +78,19 @@ export interface BriefSaisie {
   activities: string[];
   /** Vide = toute la bibliothèque est ouverte au modèle. */
   materielDisponible: string[];
-  /** `''` = type d'installation déduit du thème par le modèle. */
+  /** `''` = type d'installation déduit du thème par le modèle (ou du domaine s'il est choisi). */
   scene: SceneKind | '';
+  /** Domaine professionnel ; `''` = classement proposé par le modèle. Facultatif. */
+  domaine?: DomainePro | '';
+}
+
+/**
+ * Scène effective du brief : celle choisie par le professeur, sinon la scène par défaut du
+ * domaine professionnel choisi, sinon `''` (le modèle la déduit du thème).
+ */
+export function sceneDuBrief(brief: BriefSaisie): SceneKind | '' {
+  if (brief.scene) return brief.scene;
+  return brief.domaine ? DOMAINE_BY_CODE[brief.domaine].scene : '';
 }
 
 /** Coût estimé d'une génération. */
@@ -255,6 +267,7 @@ export function lirePedagogie(v: unknown): PedagogieGeneree {
     ...(scenes.includes(o?.scene as SceneKind) ? { scene: o?.scene as SceneKind } : {}),
     ...(annexes.includes(texte(o?.annex)) ? { annex: texte(o?.annex) as PedagogieGeneree['annex'] } : {}),
     ...(nombre(o?.duree) > 0 ? { duree: Math.round(nombre(o?.duree)) } : {}),
+    ...lireClassementGenere(o?.classement),
     ...(deductions.length ? { deductions: Array.from(new Set(deductions)) } : {}),
   };
 }
@@ -404,7 +417,8 @@ function corpsBrief(brief: BriefSaisie): Record<string, unknown> {
     sequenceType: brief.sequenceType,
     activities: brief.activities,
     materielDisponible: brief.materielDisponible,
-    ...(brief.scene ? { scene: brief.scene } : {}),
+    ...(sceneDuBrief(brief) ? { scene: sceneDuBrief(brief) } : {}),
+    ...(brief.domaine ? { domaine: brief.domaine } : {}),
   };
 }
 
@@ -433,8 +447,11 @@ export function deductionsDe(brief: BriefSaisie, pedagogie: PedagogieGeneree): C
   const out = new Set<ChampDeduit>(pedagogie.deductions ?? []);
   if (!brief.activities.length) { out.add('competences'); out.add('activites'); }
   if (!brief.materielDisponible.length) out.add('materiel');
-  if (!brief.scene) { out.add('scene'); out.add('annexe'); }
+  if (!sceneDuBrief(brief)) { out.add('scene'); out.add('annexe'); }
   if (brief.duration === null) out.add('duree');
+  // Classement : proposé par l'IA quand le professeur n'a pas choisi de domaine.
+  if (brief.domaine) out.delete('classement');
+  else if (pedagogie.classement?.domaine) out.add('classement');
   return Array.from(out);
 }
 
@@ -566,7 +583,7 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
           '/api/generateur/maquette',
           {
             ...corpsBrief(brief),
-            scene: brief.scene || choix.scene,
+            scene: sceneDuBrief(brief) || choix.scene,
             resumePedagogie: resumePedagogie(pedagogie),
             materiel: choix.materiel.map((m) => ({ key: m.key, rep: m.rep })),
           },
@@ -593,7 +610,7 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
       onEtape({ etape: 'verif', etat: 'encours', message: 'Chargement des appareils retenus…' });
       const cat = await itemsPourCles(clesUtiles(choix, resultat.maquette));
       onEtape({ etape: 'verif', etat: 'encours', message: 'Confrontation de la maquette au moteur de simulation…' });
-      return { items: cat, premiere: verifier(resultat, cat, { diploma: brief.diplomaId }) };
+      return { items: cat, premiere: verifier(resultat, cat, { diploma: brief.diplomaId, domaine: brief.domaine || null }) };
     },
     ({ premiere: v }) => (v.anomalies.length
       ? `${v.anomalies.length} anomalie(s) relevée(s).`
@@ -622,7 +639,7 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
             '/api/generateur/reparer',
             {
               ...corpsBrief(brief),
-              scene: brief.scene || choix.scene,
+              scene: sceneDuBrief(brief) || choix.scene,
               materiel: choix.materiel.map((m) => ({ key: m.key, rep: m.rep })),
               maquette: resultat.maquette,
               anomalies: verification.anomalies,
@@ -639,7 +656,7 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
           resultat = appliquerReparation(resultat, rep);
           acquis.maquette = resultat.maquette;
           corrections.push(...rep.corrections);
-          verification = verifier(resultat, items, { diploma: brief.diplomaId });
+          verification = verifier(resultat, items, { diploma: brief.diplomaId, domaine: brief.domaine || null });
         }
         return passe;
       },
@@ -650,7 +667,7 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
   /* ------------------------------------------- 6. recalcul local des mesures attendues */
   const finale = await lancer(
     'mesures',
-    async () => verifier(resultat, items, { diploma: brief.diplomaId }),
+    async () => verifier(resultat, items, { diploma: brief.diplomaId, domaine: brief.domaine || null }),
     (v) => `${v.def.mesures.length} mesure(s) calculée(s) par le simulateur.`,
   );
 
@@ -671,13 +688,14 @@ export async function orchestrerGeneration(o: OptionsOrchestration): Promise<Rep
  * Le professeur complétera la platine à la main dans le studio.
  */
 export function dossierSeul(pedagogie: PedagogieGeneree, brief: BriefSaisie, acquis: AcquisGeneration): ReponseGeneration {
-  const scene: SceneKind = brief.scene || pedagogie.scene || 'ind';
+  const scene: SceneKind = sceneDuBrief(brief) || pedagogie.scene || 'ind';
   const def = emptyTp('', scene);
   def.title = pedagogie.activites[0]?.titre ?? brief.theme;
   def.summary = pedagogie.objectifs.join(' ');
   def.situation = pedagogie.activites[0]?.contexte ?? '';
   def.quiz = pedagogie.quiz;
   def.diplomas = [brief.diplomaId];
+  def.classement = classementAssemble(pedagogie.classement, brief.domaine || null, def);
   return {
     pedagogie,
     maquette: def,

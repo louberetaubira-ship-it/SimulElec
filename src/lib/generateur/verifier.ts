@@ -26,6 +26,9 @@ import { initialSim, motorOf, type SimState } from '@/lib/sim/engine';
 import { read, type ClampWire } from '@/lib/sim/mesures';
 import { PANNES, panneConnue, panneParId } from './contexte';
 import type { MesureGeneree, ResultatGeneration } from './schema';
+import {
+  activitesDeduites, domaineParFamily, normaliserClassement, type Classement, type DomainePro,
+} from '@/lib/taxonomy/domaines';
 
 /* ------------------------------------------------------------- anomalies */
 
@@ -48,6 +51,32 @@ export interface ResultatVerification {
 export interface OptionsVerification {
   /** Diplôme visé : contrôle des codes de compétences. */
   diploma?: DiplomaId;
+  /** Domaine professionnel imposé par le brief : il prime sur celui proposé par le modèle. */
+  domaine?: DomainePro | null;
+}
+
+/**
+ * Classement du TP assemblé : brief > IA > famille. Toujours relu par
+ * `normaliserClassement` (code inconnu → `null`, sous-domaine étranger écarté) ; les
+ * activités vides sont déduites de la nature du TP. Ne lève jamais d'exception.
+ */
+export function classementAssemble(
+  ia: unknown,
+  domaineBrief: DomainePro | null | undefined,
+  def: Pick<TpDefinition, 'family' | 'kind' | 'playable' | 'faults' | 'mesures'>,
+): Classement {
+  let c: Classement;
+  try {
+    c = normaliserClassement(ia);
+  } catch {
+    c = normaliserClassement(null);
+  }
+  const domaine = domaineBrief ?? c.domaine ?? domaineParFamily(def.family);
+  if (domaine !== c.domaine) {
+    // Le sous-domaine proposé ne vaut que pour le domaine proposé : on le revalide.
+    c = normaliserClassement({ ...c, domaine, sousDomaine: c.domaine === domaine ? c.sousDomaine : null });
+  }
+  return { ...c, activites: c.activites.length ? c.activites : activitesDeduites(def) };
 }
 
 /* ------------------------------------------------------------ utilitaires */
@@ -348,6 +377,9 @@ export function verifier(
   if (!def.playable) {
     signale('maquette', 'Le TP n’est pas jouable en l’état : corrige les anomalies bloquantes avant de le proposer aux élèves.', 'avertissement');
   }
+
+  /* ------------------------------------------------ classement (brief > IA > famille) */
+  def.classement = classementAssemble(pedagogie.classement, options.domaine, def);
 
   return { def, anomalies, corrections };
 }

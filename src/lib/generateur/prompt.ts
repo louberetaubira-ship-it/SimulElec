@@ -12,6 +12,7 @@
 import type { SceneKind } from '@/lib/types';
 import type { DiplomaId } from '@/lib/data/competences';
 import { DIPLOMAS } from '@/lib/data/competences';
+import { DOMAINE_BY_CODE, labelSousDomaine, taxonomiePourPrompt, type DomainePro } from '@/lib/taxonomy/domaines';
 import type { PedagogieGeneree } from './schema';
 import type { Anomalie } from './verifier';
 
@@ -77,6 +78,8 @@ export interface Brief {
   materielDisponible: string[];
   /** Type d'installation imposé ; `null` = à déduire du thème. */
   scene: SceneKind | null;
+  /** Domaine professionnel imposé ; `null` ou absent = à classer par le modèle. */
+  domaine?: DomainePro | null;
   /** Noms des documents joints (le contenu part en pièce jointe). */
   documents?: string[];
 }
@@ -104,6 +107,7 @@ export function champsLibres(brief: Brief): string[] {
   if (!brief.materielDisponible.length) out.push('le matériel nécessaire');
   if (!brief.scene) out.push('le type d’installation (scène) et la colonne annexe qui va avec');
   if (brief.duration === null) out.push('la durée totale de la séance');
+  if (!brief.domaine) out.push('le domaine professionnel du TP (classement)');
   if (!brief.resume.trim()) out.push('la situation professionnelle (contexte de l’intervention)');
   if (!brief.documents?.length) out.push('les caractéristiques techniques plausibles de l’équipement');
   return out;
@@ -139,6 +143,9 @@ export function rappelBrief(brief: Brief): string {
     brief.scene
       ? `  Type d’installation : ${SCENE_LABEL[brief.scene]}`
       : `  Type d’installation : ${ACOMPLETER} (industriel, habitat, tertiaire ou photovoltaïque)`,
+    brief.domaine
+      ? `  Domaine professionnel : ${brief.domaine} — ${DOMAINE_BY_CODE[brief.domaine].label}`
+      : `  Domaine professionnel : ${ACOMPLETER}`,
     `  ${liste('Compétences et activités du référentiel demandées', brief.activities)}`,
     `  ${liste('Matériel disponible à l’atelier', brief.materielDisponible)}`,
     brief.documents?.length
@@ -172,7 +179,29 @@ export function construirePromptPedagogie(brief: Brief, referentiel: string): st
     '4 à 8 consignes par activité, 6 à 10 critères d’évaluation et 4 à 6 questions de quiz.',
     'Renseigne « scene », « annex » et « duree », et liste dans « deductions » tout ce que tu as choisi toi-même.',
     '',
+    consigneClassement(brief),
+    '',
     'Rends maintenant le dossier pédagogique en appelant l’outil « rediger_pedagogie ».',
+  ].join('\n');
+}
+
+/**
+ * Consigne de classement du TP (appel « pédagogie ») : la taxonomie complète, puis ce qu'il
+ * faut rendre dans « classement ». Codes uniquement, sous-domaine = identifiant existant.
+ */
+export function consigneClassement(brief: Brief): string {
+  return [
+    'CLASSEMENT DU TP — taxonomie des domaines professionnels :',
+    taxonomiePourPrompt(),
+    '',
+    brief.domaine
+      ? `Le professeur a imposé le domaine principal ${brief.domaine} : reprends-le tel quel dans « classement.domaine ».`
+      : 'Choisis le domaine principal le plus juste pour ce thème, et ajoute « classement » à « deductions ».',
+    'Renseigne « classement » : « domaine » = un CODE de la liste (HAB, TER, IND…), jamais un libellé ; ' +
+    '« sousDomaine » = un identifiant EXISTANT du domaine principal (par exemple ' +
+    `« IND.demarrage » pour ${labelSousDomaine('IND.demarrage') || 'le démarrage des moteurs'}), ou rien si aucun ne convient ; ` +
+    '« domainesSecondaires » = 0 à 2 codes, sans le principal ; « activites » = les identifiants d’activités ' +
+    'réellement travaillées ; « motsCles » = 2 à 6 mots-clés courts (appareils, gestes, notions).',
   ].join('\n');
 }
 

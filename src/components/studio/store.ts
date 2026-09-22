@@ -18,6 +18,10 @@ import {
   type CritereGenere, type PedagogieGeneree, type ReponseGeneration,
 } from './generation';
 import { tpById } from '@/lib/data/tps';
+import { classementDe } from '@/lib/taxonomy/classement';
+import {
+  DOMAINE_BY_CODE, isDomainePro, normaliserClassement, type Classement,
+} from '@/lib/taxonomy/domaines';
 import {
   ANNEX_BY_SCENE, checkTp, deduceLiaisons, deriveNets, emptyMeasure, emptyTp, isPlayable, linkKey,
   moveSlot, poseItem, posteFor, terminalsOf, type Zone,
@@ -50,6 +54,11 @@ interface StudioState {
   dirty: boolean;
   error: string | null;
   anomalies: string[];
+  /**
+   * Le professeur a-t-il choisi la scène lui-même ? Tant que non, choisir un domaine
+   * professionnel propose la scène par défaut du domaine.
+   */
+  sceneTouchee: boolean;
 
   /* -------- générateur de TP (lot 8) -------- */
   /** Dossier pédagogique généré, relu et corrigé par le professeur. */
@@ -68,7 +77,8 @@ interface StudioState {
   validatedAt: string | null;
   validating: boolean;
 
-  load: (id: string | null, source?: string | null) => Promise<void>;
+  /** `domaine` : code pré-rempli pour un nouveau TP (`/prof/tp/nouveau?domaine=CODE`). */
+  load: (id: string | null, source?: string | null, domaine?: string | null) => Promise<void>;
   say: (m: string | null) => void;
   setTab: (t: StudioTab) => void;
   setZone: (z: Zone) => void;
@@ -97,6 +107,8 @@ interface StudioState {
   toggleDiploma: (d: DiplomaId) => void;
   patchDef: (patch: Partial<TpDefinition>) => void;
   setScene: (s: SceneKind) => void;
+  /** Modifie le classement du TP (domaine, sous-domaine, secondaires, activités, mots-clés). */
+  setClassement: (patch: Partial<Classement>) => void;
 
   save: () => Promise<string | null>;
   publish: () => Promise<void>;
@@ -115,6 +127,19 @@ interface StudioState {
   /** Écrit `validated_by` / `validated_at` puis autorise la publication. */
   validate: () => Promise<boolean>;
 }
+
+/** Message affiché quand on tente de publier un TP sans domaine professionnel. */
+export const MESSAGE_DOMAINE_REQUIS =
+  'Choisis le domaine professionnel du TP (onglet « Réglages », bloc « Classement ») avant de le publier : '
+  + 'c’est lui qui range le TP dans le catalogue des élèves.';
+
+/** Libellé court d'une scène, pour les messages du studio. */
+const SCENE_COURT: Record<SceneKind, string> = {
+  ind: 'Industriel · armoire', hab: 'Habitat · tableau', ter: 'Tertiaire · coffret', pv: 'Photovoltaïque',
+};
+
+/** Classement déclaré d'une définition, toujours complet (tableaux vides, `null`). */
+export const classementDeclare = (def: TpDefinition): Classement => normaliserClassement(def.classement);
 
 /** Délai d'enregistrement automatique du brouillon. */
 export const AUTOSAVE_MS = 5000;
@@ -194,6 +219,7 @@ export const useStudio = create<StudioState>((set, get) => {
     dirty: false,
     error: null,
     anomalies: [],
+    sceneTouchee: false,
     pedagogie: null,
     generated: false,
     genAnomalies: [],
@@ -203,8 +229,9 @@ export const useStudio = create<StudioState>((set, get) => {
     generationId: null,
     validating: false,
 
-    async load(id, source) {
-      set({ loading: true, error: null });
+    async load(id, source, domaine) {
+      // Un TP existant ou dupliqué a déjà sa scène : le domaine ne la change plus d'office.
+      set({ loading: true, error: null, sceneTouchee: Boolean(id || source) });
       // Nouveau TP : rien du TP précédent ne doit rester (dossier généré, anomalies, validation).
       if (!id) set({ generated: false, generationId: null, pedagogie: null, validatedAt: null, genAnomalies: [], corrections: [], cout: null });
       try {
@@ -266,7 +293,19 @@ export const useStudio = create<StudioState>((set, get) => {
         }
         const def = emptyTp('', 'ind');
         set({ id: null, def, published: false, archived: false, dirty: false, savedAt: null });
-        await resolve(def);
+        // `?domaine=CODE` : domaine pré-rempli, et la scène par défaut du domaine avec lui.
+        const code = typeof domaine === 'string' ? domaine.trim().toUpperCase() : '';
+        if (isDomainePro(code)) {
+          const scene = DOMAINE_BY_CODE[code].scene;
+          set({
+            def: {
+              ...def,
+              scene, family: scene, annex: ANNEX_BY_SCENE[scene],
+              classement: normaliserClassement({ domaine: code }),
+            },
+          });
+        }
+        await resolve(get().def);
       } catch (e) {
         set({ error: e instanceof Error ? e.message : 'Chargement impossible.' });
       } finally {
@@ -435,7 +474,29 @@ export const useStudio = create<StudioState>((set, get) => {
 
     setScene(s) {
       const { def } = get();
-      touch({ def: { ...def, scene: s, family: s, annex: ANNEX_BY_SCENE[s] } });
+      touch({ def: { ...def, scene: s, family: s, annex: ANNEX_BY_SCENE[s] }, sceneTouchee: true });
+    },
+
+    setClassement(patch) {
+      const { def, sceneTouchee } = get();
+      const avant = classementDeclare(def);
+      const classement = normaliserClassement({ ...avant, ...patch });
+      let next: TpDefinition = { ...def, classement };
+      const code = classement.domaine;
+      if (code && code !== avant.domaine) {
+        const scene = DOMAINE_BY_CODE[code].scene;
+        const vide = def.slots.length === 0 && !(def.annexItems ?? []).length && !(def.recvItems ?? []).length;
+        if (scene !== def.scene) {
+          if (!sceneTouchee && vide) {
+            // Scène jamais choisie et platine vide : on prend la scène par défaut du domaine.
+            next = { ...next, scene, family: scene, annex: ANNEX_BY_SCENE[scene] };
+            say(`Scène « ${SCENE_COURT[scene]} » proposée pour le domaine ${code} : tu peux la changer dans « Famille et scène ».`);
+          } else {
+            say(`La scène habituelle du domaine ${code} est « ${SCENE_COURT[scene]} » : change-la dans « Famille et scène » si besoin.`);
+          }
+        }
+      }
+      touch({ def: next });
     },
 
     async save() {
@@ -467,6 +528,13 @@ export const useStudio = create<StudioState>((set, get) => {
           published,
           archived,
           playable: complete.playable,
+          // Classement déclaré dans le bloc « Classement » (`def.classement`), complété par
+          // ce qui se déduit (activités de la nature du TP, domaine de la famille à défaut).
+          // Tant que le domaine n'est pas CHOISI, il n'est pas enregistré : sinon le domaine
+          // déduit de la famille reviendrait au rechargement comme s'il avait été choisi.
+          classement: classementDeclare(complete).domaine
+            ? classementDe(complete)
+            : { ...classementDe(complete), domaine: null, sousDomaine: null },
           ...(generated ? { generated: true } : {}),
           ...(generationId ? { generation_id: generationId } : {}),
         };
@@ -500,6 +568,11 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     async publish() {
+      // Publier exige un domaine professionnel CHOISI (pas seulement déduit de la famille).
+      if (!classementDeclare(get().def).domaine) {
+        set({ error: MESSAGE_DOMAINE_REQUIS, tab: 'reglages' });
+        return;
+      }
       set({ published: true, error: null });
       const id = await get().save();
       // La base refuse la publication d'un TP généré non validé : le message remonte tel quel.
@@ -514,7 +587,7 @@ export const useStudio = create<StudioState>((set, get) => {
     },
 
     importDefinition(def, domains, diplomas) {
-      touch({ def, domains, diplomas, sel: null });
+      touch({ def, domains, diplomas, sel: null, sceneTouchee: true });
       void resolve(def);
     },
 
@@ -532,7 +605,7 @@ export const useStudio = create<StudioState>((set, get) => {
         published: false,
         tab: 'dossier',
       });
-      touch({ def, diplomas: [diploma], sel: null });
+      touch({ def, diplomas: [diploma], sel: null, sceneTouchee: true });
       void resolve(def);
       say(res.deductions.length
         ? 'Brouillon généré : vérifiez d’abord ce qui porte la pastille « proposé par l’IA ».'

@@ -226,6 +226,13 @@ export const TP_ECOBIKE_KNX: TpDefinition = {
   title: 'Écobike · Éclairage KNX du local à vélos (TP 3)',
   level: 'Tle Bac Pro MELEC',
   family: 'ter',
+  classement: {
+    domaine: 'DOM',
+    domainesSecondaires: ['TER'],
+    sousDomaine: 'DOM.eclairage',
+    activites: [], // déduites par classementDe()
+    motsCles: ['KNX', 'CGM 2023', 'Écobike'],
+  },
   scene: 'ter',
   annex: 'local',
   playable: true,

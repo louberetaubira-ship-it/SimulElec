@@ -104,6 +104,13 @@ export const TP_ECOBIKE_RESEAU: TpDefinition = {
   title: 'Écobike · Réseau et supervision (TP 4)',
   level: 'Tle Bac Pro MELEC',
   family: 'ter',
+  classement: {
+    domaine: 'COM',
+    domainesSecondaires: ['TER', 'DOM'],
+    sousDomaine: 'COM.ip',
+    activites: [], // déduites par classementDe()
+    motsCles: ['Ethernet', 'supervision', 'CGM 2023', 'Écobike'],
+  },
   kind: 'reseau',
   scene: 'ter',
   annex: 'local',

@@ -6,10 +6,13 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { countHelpByAttempt, getStudentFile, type StudentFile } from '@/lib/db/classes';
 import { competenceTps, eleveStats, noteSur20 } from '@/lib/eleve-stats';
 import { DIPLOMAS } from '@/lib/data/competences';
+import { TPS } from '@/lib/data/tps';
+import { isBundledTp, listMyTps, type TpRow } from '@/lib/db/tps';
+import { DomainesEleve } from '@/components/prof/CouvertureDomaines';
 import BilanExport from '@/components/parcours/BilanExport';
 import {
   BilanCompetences,
@@ -35,6 +38,8 @@ const STATUT_CLASS: Record<string, string> = {
 export default function FicheElevePage({ params }: { params: { id: string } }) {
   const [file, setFile] = useState<StudentFile | null>(null);
   const [aide, setAide] = useState<Record<string, number>>({});
+  // TP du professeur : classement des domaines (une seule requête pour toute la fiche).
+  const [tpsProf, setTpsProf] = useState<TpRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -42,9 +47,13 @@ export default function FicheElevePage({ params }: { params: { id: string } }) {
     let alive = true;
     (async () => {
       try {
-        const data = await getStudentFile(params.id);
+        const [data, lignes] = await Promise.all([
+          getStudentFile(params.id),
+          listMyTps().catch(() => [] as TpRow[]),
+        ]);
         if (!alive) return;
         setFile(data);
+        setTpsProf(lignes);
         if (data) setAide(await countHelpByAttempt(data.attempts.map((a) => a.id)));
       } catch (e) {
         if (alive) setErr(e instanceof Error ? e.message : 'Erreur de chargement.');
@@ -56,6 +65,15 @@ export default function FicheElevePage({ params }: { params: { id: string } }) {
       alive = false;
     };
   }, [params.id]);
+
+  // TP publiés visibles de l'élève : ceux fournis avec l'application + ceux publiés du professeur.
+  const publies = useMemo(
+    () => [
+      ...TPS.map((t) => t.id),
+      ...tpsProf.filter((t) => t.published && !t.archived && !isBundledTp(t.id)).map((t) => t.id),
+    ],
+    [tpsProf],
+  );
 
   if (loading) return <main className="mx-auto max-w-5xl px-4 py-8 text-[14px] text-muted">Chargement…</main>;
 
@@ -146,6 +164,10 @@ export default function FicheElevePage({ params }: { params: { id: string } }) {
             </tbody>
           </table>
         </div>
+      </Panneau>
+
+      <Panneau title="Domaines travaillés">
+        <DomainesEleve attempts={attempts} rows={tpsProf} publies={publies} />
       </Panneau>
 
       <Panneau title="Bilan de compétences cumulé" className="bilan-sheet">

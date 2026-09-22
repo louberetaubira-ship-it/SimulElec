@@ -3,7 +3,7 @@
  *
  * POST /api/generateur/pedagogie
  *   entrée  : { diplomaId, classId?, theme, resume, duration, sequenceType, activities[],
- *               materielDisponible[], scene?, docs: [{ name, mime, dataBase64 }] }
+ *               materielDisponible[], scene?, domaine?, docs: [{ name, mime, dataBase64 }] }
  *   sortie  : flux NDJSON → { pedagogie, cout: { tokens, euros, secondes } }
  *
  * C'est la SEULE route qui reçoit le dossier technique joint, et la seule qui consomme le
@@ -18,7 +18,7 @@ import { contexteReferentiel } from '@/lib/generateur/contexte';
 import { SYSTEME_PEDAGOGIE, construirePromptPedagogie } from '@/lib/generateur/prompt';
 import { OUTIL_PEDAGOGIE, lirePedagogieOutil } from '@/lib/generateur/schema';
 import {
-  ErreurGeneration, appelModele, fluxReponse, journaliser, lireBrief, ouvrirAcces, rapporteur,
+  ErreurGeneration, appelModele, arbitrerClassement, fluxReponse, journaliser, lireBrief, ouvrirAcces, rapporteur,
   type CorpsBrief,
 } from '@/lib/generateur/serveur';
 
@@ -116,7 +116,9 @@ export async function POST(request: NextRequest) {
         }],
       });
 
-      const pedagogie = lirePedagogieOutil(entree);
+      const lue = lirePedagogieOutil(entree);
+      // Classement : relu (codes connus seulement) puis arbitré, le brief primant sur l'IA.
+      const pedagogie = lue ? arbitrerClassement(lue, brief) : null;
       if (!pedagogie) {
         await journaliser(caller, {
           brief, debut, jetonsEntree, jetonsSortie, passes: 1, anomalies: 0,

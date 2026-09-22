@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import VisuTp from '@/components/prof/VisuTp';
 import VisuMes from '@/components/prof/VisuMes';
+import CouvertureDomaines from '@/components/prof/CouvertureDomaines';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
@@ -17,7 +18,9 @@ import {
   type StudentBrief,
 } from '@/lib/db/classes';
 import { addMessage, closeAttempt, reopenAttempt, resetAttempt } from '@/lib/db/attempts';
-import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
+import { listMyTps, listTps, resolveDefinition, type TpRow, type TpSummary } from '@/lib/db/tps';
+import { couvertureClasse, resolveurClassement } from '@/lib/prof/couverture';
+import { CODES_DOMAINES } from '@/lib/taxonomy/domaines';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
 import {
@@ -147,6 +150,8 @@ export default function ProfPage() {
   const [students, setStudents] = useState<StudentBrief[]>([]);
   const [attempts, setAttempts] = useState<AttemptWithStudent[]>([]);
   const [tps, setTps] = useState<TpSummary[]>([]);
+  // Lignes `tps` du professeur : classement par domaine des TP qu'il a rédigés.
+  const [myTps, setMyTps] = useState<TpRow[]>([]);
   const [newClass, setNewClass] = useState('');
   const [newLevel, setNewLevel] = useState('');
   const [assignChoice, setAssignChoice] = useState('');
@@ -240,6 +245,18 @@ export default function ProfPage() {
     return top ? top[0] : null;
   }, [visibleAttempts]);
 
+  // Couverture des domaines de la classe : élèves ayant terminé ≥ 1 TP de chaque domaine.
+  const resoudreClassement = useMemo(() => resolveurClassement(myTps), [myTps]);
+  const lignesDomaines = useMemo(() => {
+    const parDomaine = couvertureClasse(attempts, students.map((s) => s.id), resoudreClassement);
+    return CODES_DOMAINES.map((code) => ({
+      code,
+      valeur: parDomaine[code],
+      max: students.length,
+      detail: `${parDomaine[code]}/${students.length}`,
+    }));
+  }, [attempts, students, resoudreClassement]);
+
   const openedAttempt = useMemo(() => attempts.find((a) => a.id === openId) ?? null, [attempts, openId]);
   /** Tentative rejouée en lecture seule, et la définition de son TP. */
   const visuAttempt = useMemo(() => attempts.find((a) => a.id === visuId) ?? null, [attempts, visuId]);
@@ -250,9 +267,14 @@ export default function ProfPage() {
         const p = await getMyProfile();
         setProfile(p);
         if (p && (p.role === 'professeur' || p.role === 'admin')) {
-          const [cs, ts] = await Promise.all([listMyClasses(), listTps()]);
+          const [cs, ts, mine] = await Promise.all([
+            listMyClasses(),
+            listTps(),
+            listMyTps().catch(() => [] as TpRow[]),
+          ]);
           setClasses(cs);
           setTps(ts);
+          setMyTps(mine);
           setAssignChoice(ts[0]?.id ?? '');
           setCurrentId(cs[0]?.id ?? null);
         }
@@ -740,6 +762,20 @@ export default function ProfPage() {
             ))}
             <span className="ml-auto"><b>prov.</b> = étapes faites · <b>projetée</b> = si arrêt maintenant</span>
           </div>
+
+          {/* Couverture des domaines professionnels par la classe */}
+          <section className="mt-4 rounded-2xl border border-[#E7EAEF] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.05)]">
+            <div className="mb-3 flex flex-wrap items-baseline gap-2">
+              <h2 className="text-[11px] font-bold uppercase tracking-[.06em] text-[#94A3B8]">
+                Domaines couverts — {current.name}
+              </h2>
+              <span className="ml-auto text-[12px] text-[#66717F]">élèves ayant terminé au moins un TP du domaine</span>
+            </div>
+            <CouvertureDomaines
+              lignes={students.length > 0 ? lignesDomaines : []}
+              vide="Aucun élève dans cette classe."
+            />
+          </section>
         </>
       )}
 

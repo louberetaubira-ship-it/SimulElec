@@ -2,7 +2,8 @@
 
 /**
  * Création d'un TP : le studio, sans identifiant. Le TP est créé en base au premier
- * enregistrement (brouillon). `?from=<id>` duplique un TP existant, fourni ou non.
+ * enregistrement (brouillon). `?from=<id>` duplique un TP existant, fourni ou non ;
+ * `?domaine=CODE` pré-remplit le domaine professionnel (et le brief du générateur).
  */
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -11,7 +12,14 @@ import StudioClient from '@/components/studio/StudioClient';
 function Nouveau() {
   const params = useSearchParams();
   // `?generer=1` ouvre directement l'écran de brief du générateur.
-  return <StudioClient id={null} source={params.get('from')} generer={params.get('generer') === '1'} />;
+  return (
+    <StudioClient
+      id={null}
+      source={params.get('from')}
+      generer={params.get('generer') === '1'}
+      domaine={params.get('domaine')}
+    />
+  );
 }
 
 export default function NouveauTpPage() {

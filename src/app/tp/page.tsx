@@ -1,16 +1,15 @@
-import Link from 'next/link';
 import type { Metadata } from 'next';
-import { TPS_CATALOGUE } from '@/lib/data/tps';
+import { TPS } from '@/lib/data/tps';
 import { spriteUrl } from '@/lib/data/catalogue';
-import { FAMILY_LABEL, tpSprites } from '@/components/parcours/tpSprites';
-import TpsProfesseur from './TpsProfesseur';
+import { tpSprites } from '@/components/parcours/tpSprites';
 import { createClient } from '@/lib/supabase/server';
 import { getTpImages } from '@/lib/db/tpImages';
-import { SUJETS } from '@/lib/data/sujets';
+import { classementDe } from '@/lib/taxonomy/classement';
+import CatalogueClient, { type CarteTp } from './CatalogueClient';
 
 export const metadata: Metadata = {
   title: 'Catalogue des TP · SimulElec',
-  description: 'Quatorze travaux pratiques d\'électrotechnique simulés : du cahier des charges à la mise en service.',
+  description: 'Travaux pratiques d\'électrotechnique simulés, classés par domaine professionnel : du cahier des charges à la mise en service.',
 };
 
 const SCENE_LABEL: Record<string, string> = {
@@ -20,154 +19,34 @@ const SCENE_LABEL: Record<string, string> = {
   pv: 'coffret photovoltaïque',
 };
 
-const FAMILIES: ('ind' | 'hab' | 'ter' | 'pv')[] = ['ind', 'hab', 'ter', 'pv'];
-
+/**
+ * Catalogue des TP — shell serveur.
+ *
+ * Il charge les images de couverture posées par l'administrateur et réduit les TP
+ * fournis à ce que la carte affiche (on n'envoie pas la définition complète au
+ * navigateur). Le composant client y ajoute les TP publiés par les professeurs, puis
+ * filtre et groupe le tout par domaine professionnel.
+ */
 export default async function CataloguePage() {
   // Image de couverture posée par l'administrateur, s'il y en a une : elle
   // remplace le montage automatique des photos d'appareils.
   const images = await getTpImages(createClient());
 
-  return (
-    <div className="mx-auto max-w-[1080px] px-4 py-8">
-      <header className="mb-6">
-        <div className="font-title text-[12px] font-semibold uppercase tracking-[.14em] text-accent">
-          Bac Pro MELEC · BTS Électrotechnique
-        </div>
-        <h1 className="text-[40px] font-bold">Catalogue des TP</h1>
-        <p className="mt-1 max-w-[66ch] text-[15px] text-muted">
-          Choisis un TP : tu liras l&apos;énoncé, choisiras le matériel, poseras les appareils, câbleras
-          borne à borne, puis tu passeras aux EPI, à la consignation, aux mesures hors tension, à la
-          déconsignation et aux mesures sous tension avant de valider.
-        </p>
-      </header>
+  const fournis: CarteTp[] = TPS.map((tp) => ({
+    id: tp.id,
+    title: tp.title,
+    summary: tp.summary,
+    level: tp.level,
+    competences: tp.competences,
+    contexte: SCENE_LABEL[tp.scene] ?? null,
+    kind: tp.kind ?? null,
+    playable: tp.playable,
+    prof: false,
+    generated: false,
+    validatedAt: null,
+    sprites: tpSprites(tp.id).map((k) => spriteUrl(k)),
+    classement: classementDe(tp),
+  }));
 
-      {/*
-       * TP photovoltaïque autonome : désormais joué en NATIF comme les autres TP
-       * (carte standard sous la famille « Photovoltaïque » ci-dessous, via TPS).
-       * L'ancien parcours HTML reste accessible en cycle complet dédié.
-       */}
-      <Link
-        href="/tp-solaire-autonome"
-        className="mb-8 flex flex-col gap-4 rounded-2xl border border-accent/40 bg-gradient-to-br from-[var(--surface)] to-accent/5 p-4 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center"
-      >
-        <div className="grid h-16 w-16 flex-none place-items-center rounded-2xl bg-accent/15 text-[34px]">☀</div>
-        <div className="min-w-0">
-          <div className="font-title text-[11px] font-semibold uppercase tracking-[.12em] text-accent">
-            Cycle complet · dimensionnement guidé
-          </div>
-          <div className="text-[18px] font-bold">Installation solaire autonome — étude PVGIS pas à pas</div>
-          <p className="mt-0.5 text-[13px] text-muted">
-            Localisation PVGIS → bilan → couplage série/parallèle → calepinage → choix du matériel.
-            Le TP câblé et jouable est plus bas, dans « Photovoltaïque ».
-          </p>
-        </div>
-        <span className="ml-auto hidden text-[13px] font-semibold text-accent sm:block">Ouvrir →</span>
-      </Link>
-
-      {/* Sujets d'examen numériques : copies conformes jouables (`/sujet/<id>`). */}
-      {SUJETS.length > 0 && (
-        <section className="mb-8" data-sujets>
-          <h2 className="mb-3 font-title text-[13px] font-semibold uppercase tracking-[.1em] text-muted">
-            Sujets d&apos;examen numériques
-          </h2>
-          <div className="flex flex-col gap-3">
-            {SUJETS.map(s => (
-              <div key={s.id} className="flex flex-col gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center">
-                <div className="grid h-16 w-16 flex-none place-items-center rounded-2xl bg-[#1B222C] text-[30px] text-accent">📝</div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-title text-[11px] font-semibold uppercase tracking-[.12em] text-accent">{s.sousTitre}</div>
-                  <h3 className="text-[18px] font-bold leading-tight">{s.titre}</h3>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-semibold">
-                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">⏱ {Math.floor(s.dureeMin / 60)} h{s.dureeMin % 60 ? ` ${s.dureeMin % 60} min` : ''}</span>
-                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">{s.questions.length} questions</span>
-                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">{s.parties.length} parties</span>
-                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-muted">DTR {s.dtr.length} pages</span>
-                    {Array.from(new Set(s.parties.flatMap(p => p.competences))).map(c => (
-                      <span key={c} className="rounded-full bg-accent/20 px-2 py-0.5 text-accent">{c}</span>
-                    ))}
-                  </div>
-                </div>
-                <Link href={`/sujet/${s.id}`} data-sujet={s.id}
-                  className="grid min-h-touch place-items-center rounded-[10px] bg-[#141A21] px-5 text-[13px] font-bold text-white">
-                  Ouvrir
-                </Link>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {FAMILIES.map(fam => {
-        const list = TPS_CATALOGUE.filter(t => t.family === fam);
-        if (!list.length) return null;
-        return (
-          <section key={fam} className="mb-8">
-            <h2 className="mb-3 font-title text-[13px] font-semibold uppercase tracking-[.1em] text-muted">
-              {FAMILY_LABEL[fam]}
-            </h2>
-            <div className="flex flex-col gap-3">
-              {list.map(tp => (
-                <Link
-                  key={tp.id}
-                  href={`/tp/${tp.id}`}
-                  data-tp={tp.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-stretch"
-                >
-                  {/* Gauche : image de présentation + titre */}
-                  <div className="sm:w-[280px] sm:flex-none">
-                    <div className="flex h-[150px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--surface-2)]">
-                      {images[tp.id] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={images[tp.id]} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        tpSprites(tp.id).map((k, i) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={`${k}-${i}`} src={spriteUrl(k)} alt="" className="max-h-[110px] max-w-[130px] object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />
-                        ))
-                      )}
-                    </div>
-                    <div className="mt-2.5 flex flex-wrap items-baseline gap-2">
-                      <h3 className="text-[19px] font-bold leading-tight">{tp.title}</h3>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${tp.playable ? 'bg-good/20 text-good' : 'bg-[var(--surface-2)] text-muted'}`}>
-                        {tp.playable ? 'jouable' : 'prévu'}
-                      </span>
-                      {tp.kind === 'dimensionnement' && (
-                        <span data-kind="dimensionnement" className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                          dimensionnement
-                        </span>
-                      )}
-                      {tp.kind === 'miseEnService' && (
-                        <span data-kind="miseEnService" className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                          mise en service
-                        </span>
-                      )}
-                      {tp.kind === 'reseau' && (
-                        <span data-kind="reseau" className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
-                          courant faible
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Droite : description + compétences */}
-                  <div className="flex-1 sm:border-l sm:border-[var(--line)] sm:pl-4">
-                    <p className="m-0 text-[13.5px] leading-relaxed text-muted">{tp.summary}</p>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">{tp.level}</span>
-                      <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-muted">{SCENE_LABEL[tp.scene]}</span>
-                      {tp.competences.map(c => (
-                        <span key={c} className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-muted">{c}</span>
-                      ))}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        );
-      })}
-
-      <TpsProfesseur />
-    </div>
-  );
+  return <CatalogueClient fournis={fournis} images={images} />;
 }

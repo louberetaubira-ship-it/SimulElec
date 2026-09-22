@@ -13,6 +13,7 @@
  */
 import React from 'react';
 import type { SceneKind } from '@/lib/types';
+import { DOMAINES, DOMAINE_BY_CODE, isDomainePro, type DomainePro } from '@/lib/taxonomy/domaines';
 import { CATALOGUE } from '@/lib/data/catalogue';
 import { COMPETENCES, DIPLOMAS, type DiplomaId } from '@/lib/data/competences';
 import { listMyClasses } from '@/lib/db/classes';
@@ -83,12 +84,14 @@ export interface LancementBrief {
 }
 
 export default function Brief({
-  onLancer, onAnnuler, initial,
+  onLancer, onAnnuler, initial, domaineInitial,
 }: {
   onLancer: (l: LancementBrief) => void;
   onAnnuler: () => void;
   /** Brief précédent : le professeur revient le corriger sans tout ressaisir. */
   initial?: LancementBrief | null;
+  /** Domaine pré-rempli (`/prof/tp/nouveau?domaine=CODE`). */
+  domaineInitial?: DomainePro | null;
 }) {
   const depart = initial?.brief ?? null;
   const [diplomaId, setDiplomaId] = React.useState<DiplomaId>(depart?.diplomaId ?? 'bacpro');
@@ -99,6 +102,9 @@ export default function Brief({
   const [theme, setTheme] = React.useState(depart?.theme ?? '');
   const [resume, setResume] = React.useState(depart?.resume ?? '');
   const [scene, setScene] = React.useState<SceneKind | ''>(depart?.scene ?? '');
+  const [domaine, setDomaine] = React.useState<DomainePro | ''>(depart?.domaine ?? domaineInitial ?? '');
+  // Scène retenue quand le professeur n'en choisit pas : celle du domaine, s'il y en a un.
+  const sceneDomaine: SceneKind | '' = domaine ? DOMAINE_BY_CODE[domaine].scene : '';
   const [activities, setActivities] = React.useState<string[]>(depart?.activities ?? []);
   const [materiel, setMateriel] = React.useState<string[]>(depart?.materielDisponible ?? []);
   const [docs, setDocs] = React.useState<DocumentJoint[]>(initial?.docs ?? []);
@@ -143,7 +149,8 @@ export default function Brief({
     ...(docs.length ? [] : ['le dossier technique']),
     ...(activities.length ? [] : ['les compétences et activités']),
     ...(materiel.length ? [] : ['le matériel']),
-    ...(scene ? [] : ['le type d’installation']),
+    ...(scene || sceneDomaine ? [] : ['le type d’installation']),
+    ...(domaine ? [] : ['le domaine professionnel']),
     ...(duration === null ? ['la durée'] : []),
     ...(resume.trim() ? [] : ['la situation professionnelle']),
   ];
@@ -209,23 +216,41 @@ export default function Brief({
               {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </label>
+          <label className="st-field">
+            <span>Durée (facultatif)</span>
+            <select
+              className="st-select"
+              value={duration === null ? DUREE_IA : String(duration)}
+              onChange={(e) => setDuration(e.target.value === DUREE_IA ? null : Number(e.target.value))}
+              data-testid="gen-duree"
+            >
+              <option value={DUREE_IA}>✦ Laisser l’IA choisir</option>
+              {DUREES.map((d) => <option key={d} value={d}>{d} min</option>)}
+            </select>
+          </label>
           <div className="st-two">
-            <label className="st-field">
-              <span>Durée (facultatif)</span>
-              <select
-                className="st-select"
-                value={duration === null ? DUREE_IA : String(duration)}
-                onChange={(e) => setDuration(e.target.value === DUREE_IA ? null : Number(e.target.value))}
-                data-testid="gen-duree"
-              >
-                <option value={DUREE_IA}>✦ Laisser l’IA choisir</option>
-                {DUREES.map((d) => <option key={d} value={d}>{d} min</option>)}
-              </select>
-            </label>
             <label className="st-field">
               <span>Installation (facultatif)</span>
               <select className="st-select" value={scene} onChange={(e) => setScene(e.target.value as SceneKind | '')} data-testid="gen-scene">
-                {SCENES.map((s) => <option key={s.id || 'auto'} value={s.id}>{s.label}</option>)}
+                {SCENES.map((s) => (
+                  <option key={s.id || 'auto'} value={s.id}>
+                    {!s.id && sceneDomaine
+                      ? `Celle du domaine (${SCENES.find((x) => x.id === sceneDomaine)?.label ?? sceneDomaine})`
+                      : s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="st-field">
+              <span>Domaine professionnel (facultatif)</span>
+              <select
+                className="st-select"
+                value={domaine}
+                onChange={(e) => { const v = e.target.value; setDomaine(isDomainePro(v) ? v : ''); }}
+                data-testid="gen-domaine"
+              >
+                <option value="">✦ Laisser l’IA classer</option>
+                {DOMAINES.map((d) => <option key={d.code} value={d.code}>{d.code} · {d.court}</option>)}
               </select>
             </label>
           </div>
@@ -416,6 +441,7 @@ export default function Brief({
               activities,
               materielDisponible: materiel,
               scene,
+              domaine,
             },
             docs,
           })}

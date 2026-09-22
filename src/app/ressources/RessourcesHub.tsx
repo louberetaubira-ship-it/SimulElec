@@ -6,9 +6,14 @@
  * Les TD et Évaluations interactifs arrivent dans un second temps : leurs cartes
  * sont visibles mais marquées « bientôt ».
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CATALOGUES, fichesParType, TP_RESSOURCES, type ResType } from '@/lib/data/ressources';
+import { tpById } from '@/lib/data/tps';
+import { classementDe } from '@/lib/taxonomy/classement';
+import type { DomainePro } from '@/lib/taxonomy/domaines';
+import DomaineChips from '@/components/catalogue/DomaineChips';
+import DomaineBadge from '@/components/catalogue/DomaineBadge';
 
 type Onglet = 'tp' | ResType;
 
@@ -20,6 +25,14 @@ const ONGLETS: { key: Onglet; label: string; couleur: string; verbe: string; des
 /** Tous les catalogues sont actifs. */
 const ACTIF: Record<Onglet, boolean> = { tp: true, cours: true, fiche: true, td: true, eval: true };
 
+/** Domaine principal de chaque TP des ressources, résolu une fois depuis sa définition. */
+const DOMAINE_RESSOURCE: Record<string, DomainePro | null> = Object.fromEntries(
+  TP_RESSOURCES.map((t) => {
+    const tp = tpById(t.tpId);
+    return [t.tpId, tp ? classementDe(tp).domaine : null];
+  }),
+);
+
 function hrefPour(type: Onglet, tpId: string): string {
   if (type === 'tp') return `/tp/${tpId}`;
   return `/${type}/${tpId}`;
@@ -29,6 +42,18 @@ export default function RessourcesHub() {
   const [onglet, setOnglet] = useState<Onglet>('tp');
   const meta = ONGLETS.find((o) => o.key === onglet)!;
   const actif = ACTIF[onglet];
+  const [domaine, setDomaine] = useState<DomainePro | null>(null);
+
+  // Compteurs par domaine ; les domaines sans ressource sont masqués.
+  const counts = useMemo(() => {
+    const c: Partial<Record<DomainePro, number>> = {};
+    for (const t of TP_RESSOURCES) {
+      const d = DOMAINE_RESSOURCE[t.tpId];
+      if (d) c[d] = (c[d] ?? 0) + 1;
+    }
+    return c;
+  }, []);
+  const cartes = TP_RESSOURCES.filter((t) => !domaine || DOMAINE_RESSOURCE[t.tpId] === domaine);
 
   // Titre de chaque carte : pour TP on garde le nom court ; sinon le titre de la fiche.
   const fiches = onglet === 'tp' ? [] : fichesParType(onglet as ResType);
@@ -87,9 +112,13 @@ export default function RessourcesHub() {
         {!actif && <span className="ml-1 font-semibold text-warn">— disponible très bientôt.</span>}
       </p>
 
+      {/* filtre par domaine professionnel */}
+      <DomaineChips className="mb-4" counts={counts} value={domaine} onChange={setDomaine} total={TP_RESSOURCES.length} />
+
       {/* cartes */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {TP_RESSOURCES.map((t) => {
+        {cartes.map((t) => {
+          const dom = DOMAINE_RESSOURCE[t.tpId];
           const titre = onglet === 'tp' ? t.nom : (fiches.find((f) => f.tpId === t.tpId)?.titre ?? t.nom);
           const href = hrefPour(onglet, t.tpId);
           const carte = (
@@ -98,7 +127,10 @@ export default function RessourcesHub() {
                 {t.angle}
               </div>
               <div className="mt-1 font-title text-[16px] font-semibold leading-snug text-[#141A21]">{titre}</div>
-              <div className="mt-2 text-[12px] text-muted">{t.nom}</div>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px] text-muted">
+                {dom && <DomaineBadge code={dom} />}
+                <span>{t.nom}</span>
+              </div>
               {!actif && (
                 <span className="mt-3 inline-block rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-[11px] font-semibold text-warn">
                   bientôt

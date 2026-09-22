@@ -210,3 +210,19 @@
 
 /* Libellés longs des listes à cocher du brief : ils s'enroulent au lieu d'être coupés. */
 .st-line .head .n.libre { white-space: normal; overflow: visible; }
+
+/* ---------------------------------------------- bloc « Classement » (domaines pro) */
+.st-classement { border-top: 3px solid #D3D9E1; margin: 4px 0 10px; }
+.st-classement .st-h { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.st-classement-titre { display: block; margin-top: 8px; font-weight: 600; }
+.st-classement-titre em { font-weight: 400; font-style: normal; }
+.st-sub.warn { color: #D97706; font-weight: 600; margin-top: 4px; }
+.st-select.st-requis { border-color: #D97706; }
+.st-cases { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; }
+.st-case {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 2px 8px;
+  border: 1px solid #D3D9E1; border-radius: 8px; font-size: 12px; color: #141A21; cursor: pointer;
+  background: #fff;
+}
+.st-case:has(input:checked) { border-color: #141A21; background: #F5F6F8; }
+.st-pastille { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }

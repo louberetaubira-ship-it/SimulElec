@@ -18,6 +18,13 @@ export const TP_STATION_RELEVAGE: TpDefinition = {
   title: 'Mise en service industrielle · station de relevage',
   level: '1re / Term Bac Pro MELEC',
   family: 'ind',
+  classement: {
+    domaine: 'EAU',
+    domainesSecondaires: ['IND'],
+    sousDomaine: 'EAU.stations',
+    activites: [], // déduites par classementDe()
+    motsCles: ['mise en service', 'station de relevage'],
+  },
   kind: 'miseEnService',
   scene: 'ind',
   annex: 'door',

@@ -54,6 +54,13 @@ export const TP_PORTAIL: TpDefinition = {
   title: 'Portail coulissant · deux sens de marche',
   level: 'Tle Bac Pro MELEC',
   family: 'ind',
+  classement: {
+    domaine: 'IND',
+    domainesSecondaires: ['INF'],
+    sousDomaine: 'IND.demarrage',
+    activites: [], // déduites par classementDe()
+    motsCles: ['KM1/KM2', 'verrouillage', 'fins de course', '2 sens'],
+  },
   scene: 'ind',
   annex: 'door',
   playable: true,

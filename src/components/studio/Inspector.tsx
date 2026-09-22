@@ -12,7 +12,10 @@ import { RAILS } from '@/lib/scene/geometry';
 import { STAGES } from '@/lib/sim/progress';
 import { NET_LIST, terminalsOf, type TerminalRef } from './model';
 import type { ChampDeduit } from './generation';
-import { competenceCodes, useStudio, type StudioTab } from './store';
+import { classementDeclare, competenceCodes, useStudio, type StudioTab } from './store';
+import {
+  ACTIVITES, DOMAINES, DOMAINE_BY_CODE, activitesDeduites, isDomainePro, sousDomainesDe, type ActivitePro,
+} from '@/lib/taxonomy/domaines';
 
 /** Libellé de la pastille « proposé par l'IA », par champ déduit. */
 const DEDUIT_LABEL: Record<ChampDeduit, string> = {
@@ -22,6 +25,7 @@ const DEDUIT_LABEL: Record<ChampDeduit, string> = {
   scene: 'installation proposée par l’IA',
   annexe: 'annexe proposée par l’IA',
   duree: 'durée proposée par l’IA',
+  classement: 'classement proposé par l’IA',
 };
 
 /**
@@ -465,6 +469,127 @@ function Competences() {
 
 /* -------------------------------------------------------------- réglages */
 
+/**
+ * Bloc « Classement » : domaine professionnel (obligatoire pour publier), sous-domaine,
+ * domaines secondaires, activités du référentiel et mots-clés du catalogue.
+ */
+function BlocClassement() {
+  const def = useStudio((s) => s.def);
+  const setClassement = useStudio((s) => s.setClassement);
+  const deductions = useStudio((s) => s.pedagogie?.deductions);
+
+  const c = classementDeclare(def);
+  const sous = c.domaine ? sousDomainesDe(c.domaine) : [];
+  // Liste vide = activités déduites de la nature du TP, affichées pré-cochées.
+  const deduites = activitesDeduites(def);
+  const activites: ActivitePro[] = c.activites.length ? c.activites : deduites;
+  const auto = c.activites.length === 0;
+
+  // Saisie des mots-clés : texte libre tant que le champ a le focus, tableau à la sortie.
+  const [motsTexte, setMotsTexte] = React.useState(c.motsCles.join(', '));
+  const [edition, setEdition] = React.useState(false);
+  const motsJoints = c.motsCles.join(', ');
+  React.useEffect(() => { if (!edition) setMotsTexte(motsJoints); }, [motsJoints, edition]);
+  const validerMots = (texte: string) => {
+    setClassement({ motsCles: texte.split(',').map((m) => m.trim()).filter(Boolean) });
+  };
+
+  const basculerSecondaire = (code: (typeof DOMAINES)[number]['code']) => {
+    const liste = c.domainesSecondaires;
+    setClassement({ domainesSecondaires: liste.includes(code) ? liste.filter((x) => x !== code) : [...liste, code] });
+  };
+
+  const basculerActivite = (id: ActivitePro) => {
+    setClassement({ activites: activites.includes(id) ? activites.filter((x) => x !== id) : [...activites, id] });
+  };
+
+  const couleur = c.domaine ? DOMAINE_BY_CODE[c.domaine].couleur : undefined;
+
+  return (
+    <div className="st-card st-classement" style={couleur ? { borderTopColor: couleur } : undefined} data-testid="st-classement">
+      <h3 className="st-h">
+        Classement <PastilleIa champ="classement" deductions={deductions} />
+      </h3>
+      <label className="st-field">
+        <span>Domaine professionnel (obligatoire pour publier)</span>
+        <select
+          className={`st-select${c.domaine ? '' : ' st-requis'}`}
+          value={c.domaine ?? ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            setClassement({ domaine: isDomainePro(v) ? v : null });
+          }}
+          data-testid="st-domaine"
+          aria-required="true"
+        >
+          <option value="">— Choisir un domaine —</option>
+          {DOMAINES.map((d) => <option key={d.code} value={d.code}>{d.code} · {d.label}</option>)}
+        </select>
+      </label>
+      {!c.domaine && <p className="st-sub warn">Sans domaine, le TP ne peut pas être publié.</p>}
+      <label className="st-field">
+        <span>Sous-domaine</span>
+        <select
+          className="st-select"
+          value={c.sousDomaine ?? ''}
+          disabled={!c.domaine}
+          onChange={(e) => setClassement({ sousDomaine: e.target.value || null })}
+          data-testid="st-sous-domaine"
+        >
+          <option value="">{c.domaine ? '— Aucun —' : 'Choisis d’abord un domaine'}</option>
+          {sous.map((sd) => <option key={sd.id} value={sd.id}>{sd.label}</option>)}
+        </select>
+      </label>
+
+      <span className="st-sub st-classement-titre">Domaines secondaires</span>
+      <div className="st-cases" data-testid="st-domaines-sec">
+        {DOMAINES.filter((d) => d.code !== c.domaine).map((d) => (
+          <label key={d.code} className="st-case" title={d.label}>
+            <input
+              type="checkbox"
+              checked={c.domainesSecondaires.includes(d.code)}
+              onChange={() => basculerSecondaire(d.code)}
+              data-secondaire={d.code}
+            />
+            <span className="st-pastille" style={{ background: d.couleur }} aria-hidden="true" />
+            {d.code}
+          </label>
+        ))}
+      </div>
+
+      <span className="st-sub st-classement-titre">
+        Activités {auto && <em>(déduites du TP : coche ou décoche pour les fixer)</em>}
+      </span>
+      <div className="st-cases" data-testid="st-activites">
+        {ACTIVITES.map((a) => (
+          <label key={a.id} className="st-case">
+            <input
+              type="checkbox"
+              checked={activites.includes(a.id)}
+              onChange={() => basculerActivite(a.id)}
+              data-activite={a.id}
+            />
+            {a.label}
+          </label>
+        ))}
+      </div>
+
+      <label className="st-field">
+        <span>Mots-clés (séparés par des virgules)</span>
+        <input
+          className="st-input"
+          value={motsTexte}
+          placeholder="contacteur, relais thermique, démarrage direct"
+          onFocus={() => setEdition(true)}
+          onChange={(e) => { setMotsTexte(e.target.value); validerMots(e.target.value); }}
+          onBlur={(e) => { setEdition(false); validerMots(e.target.value); }}
+          data-testid="st-mots-cles"
+        />
+      </label>
+    </div>
+  );
+}
+
 function Reglages() {
   const def = useStudio((s) => s.def);
   const patchDef = useStudio((s) => s.patchDef);
@@ -483,6 +608,7 @@ function Reglages() {
         <span>Niveau</span>
         <input className="st-input" value={def.level} onChange={(e) => patchDef({ level: e.target.value })} />
       </label>
+      <BlocClassement />
       <label className="st-field">
         <span>Famille et scène <PastilleIa champ="scene" deductions={deductions} /></span>
         <select className="st-select" value={def.scene} onChange={(e) => setScene(e.target.value as SceneKind)} data-testid="st-scene">

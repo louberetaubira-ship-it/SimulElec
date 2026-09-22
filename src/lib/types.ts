@@ -1,6 +1,7 @@
 // ---------- Domain types shared by the simulator, the TP engine and the UI (v3) ----------
 
 import type { DiplomaId } from './data/competences';
+import type { Classement } from './taxonomy/domaines';
 
 /**
  * Barème d'un TP : poids de chaque étape (points sur 100) et coût des gestes fautifs.
@@ -964,19 +965,17 @@ export interface TpDefinition {
   title: string;
   level: string;
   family: 'ind' | 'hab' | 'ter' | 'pv';
+  /**
+   * Classement par domaine professionnel (voir `src/lib/taxonomy/domaines.ts`). Absent ou
+   * partiel : `classementDe(tp)` complète (domaine ← famille, activités déduites).
+   */
+  classement?: Classement;
   /** Type de parcours ; absent = `'platine'`. */
   kind?: TpKind;
   scene: SceneKind;
   annex: AnnexKind;
   /** Jouable de bout en bout (liaisons + mesures définies). Sinon affiché « prévu ». */
   playable: boolean;
-  /**
-   * TP de service, non listé au catalogue : joué depuis un sujet numérique (mode « câblage
-   * réel » d'une question schéma, voir `src/components/sujet/CablageReel.tsx`). Il reste
-   * accessible par `tpById` et par la route `/tp/<id>`, mais n'apparaît ni au catalogue de
-   * l'élève, ni dans les listes du professeur (imposition, suivi).
-   */
-  hidden?: boolean;
   competences: string[];
   summary: string;
   situation: string;

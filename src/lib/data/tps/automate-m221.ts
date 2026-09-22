@@ -11,6 +11,13 @@ export const TP_AUTOMATE_M221: TpDefinition = {
   title: 'Câblage d\'un automate M221',
   level: 'Tle Bac Pro MELEC / BTS',
   family: 'ind',
+  classement: {
+    domaine: 'IND',
+    domainesSecondaires: ['COM'],
+    sousDomaine: 'IND.api',
+    activites: [], // déduites par classementDe()
+    motsCles: ['M221', 'entrées/sorties', '24 V'],
+  },
   scene: 'ind',
   annex: 'door',
   playable: true,

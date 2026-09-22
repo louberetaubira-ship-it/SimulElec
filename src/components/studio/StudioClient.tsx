@@ -15,7 +15,8 @@ import { useRouter } from 'next/navigation';
 import { getMyProfile } from '@/lib/db/profiles';
 import type { ProfileRow } from '@/lib/db/types';
 import { toFile } from './model';
-import { useStudio } from './store';
+import { classementDeclare, useStudio } from './store';
+import { isDomainePro, type DomainePro } from '@/lib/taxonomy/domaines';
 import Library from './Library';
 import Stage from './Stage';
 import Inspector from './Inspector';
@@ -50,8 +51,16 @@ function jourMois(iso: string | null): string {
 }
 
 export default function StudioClient({
-  id, source, generer,
-}: { id: string | null; source?: string | null; generer?: boolean }) {
+  id, source, generer, domaine,
+}: {
+  id: string | null;
+  source?: string | null;
+  generer?: boolean;
+  /** `?domaine=CODE` : domaine professionnel pré-rempli d'un nouveau TP. */
+  domaine?: string | null;
+}) {
+  const codeDomaine = domaine?.trim().toUpperCase();
+  const domaineInitial: DomainePro | null = isDomainePro(codeDomaine) ? codeDomaine : null;
   const router = useRouter();
   const [profile, setProfile] = React.useState<ProfileRow | null>(null);
   const [ready, setReady] = React.useState(false);
@@ -82,12 +91,12 @@ export default function StudioClient({
   // travail en cours.
   const charge = React.useRef<string | null>(null);
   React.useEffect(() => {
-    const cle = `${id ?? ''}|${source ?? ''}`;
+    const cle = `${id ?? ''}|${source ?? ''}|${domaineInitial ?? ''}`;
     if (charge.current === cle) return;
     if (charge.current !== null && !id && useStudio.getState().id) return;
     charge.current = cle;
-    void load(id, source ?? null);
-  }, [load, id, source]);
+    void load(id, source ?? null, domaineInitial);
+  }, [load, id, source, domaineInitial]);
 
   // L'identifiant est attribué au premier enregistrement : l'URL suit sans recharger.
   const storeId = s.id;
@@ -133,6 +142,7 @@ export default function StudioClient({
       <main className="st-gen-wrap">
         <Brief
           initial={lancement}
+          domaineInitial={domaineInitial}
           onLancer={(l) => { setLancement(l); setMode('generation'); }}
           onAnnuler={() => setMode('editeur')}
         />
@@ -176,6 +186,8 @@ export default function StudioClient({
   const bloquantes = s.genAnomalies.filter((a) => a.gravite === 'bloquante');
   const avertissements = s.genAnomalies.filter((a) => a.gravite === 'avertissement');
   const aValider = s.generated && !s.validatedAt;
+  // Publier exige un domaine professionnel : le store refuse avec un message clair.
+  const sansDomaine = !classementDeclare(s.def).domaine;
 
   /** Amène le professeur à l'endroit concerné par une anomalie. */
   const allerA = (a: AnomalieGeneration) => {
@@ -234,8 +246,11 @@ export default function StudioClient({
             className="st-btn primary"
             onClick={() => void s.publish()}
             data-testid="st-publish"
+            data-sans-domaine={sansDomaine ? 'true' : undefined}
             disabled={aValider}
-            title={aValider ? 'Validez le TP généré avant de le publier.' : undefined}
+            title={aValider
+              ? 'Validez le TP généré avant de le publier.'
+              : sansDomaine ? 'Choisissez d’abord le domaine professionnel (Réglages › Classement).' : undefined}
           >
             Publier
           </button>

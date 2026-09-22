@@ -22,6 +22,10 @@ import { DIPLOMAS } from '@/lib/data/competences';
 import { fail, requireTeacher, type Caller } from '@/lib/api/auth';
 import { QUOTA_MENSUEL, cout } from './limites';
 import type { Brief } from './prompt';
+import type { PedagogieGeneree } from './schema';
+import {
+  DOMAINE_BY_CODE, isDomainePro, normaliserClassement, type DomainePro,
+} from '@/lib/taxonomy/domaines';
 
 /** Modèle utilisé, avec repli sur celui du professeur virtuel. */
 const MODELE = process.env.ANTHROPIC_MODEL_GENERATEUR || 'claude-sonnet-4-5';
@@ -61,6 +65,15 @@ export interface CorpsBrief {
   activities?: string[];
   materielDisponible?: string[];
   scene?: string;
+  /** Domaine professionnel imposé (code, facultatif). */
+  domaine?: string;
+}
+
+/** Code de domaine reçu du client : un code inconnu devient `null`, jamais d'exception. */
+export function lireDomaine(v: unknown): DomainePro | null {
+  if (typeof v !== 'string') return null;
+  const code = v.trim().toUpperCase();
+  return isDomainePro(code) ? code : null;
 }
 
 /**
@@ -72,6 +85,11 @@ export interface CorpsBrief {
 export function lireBrief(corps: CorpsBrief, documents: string[] = []): Brief | null {
   const theme = texte(corps.theme);
   if (!theme || !estDiplome(corps.diplomaId)) return null;
+  const domaine = lireDomaine(corps.domaine);
+  // Un domaine imposé sans scène fixe la scène par défaut du domaine.
+  const scene: SceneKind | null = SCENES.includes(corps.scene as SceneKind)
+    ? (corps.scene as SceneKind)
+    : domaine ? DOMAINE_BY_CODE[domaine].scene : null;
   return {
     diplomaId: corps.diplomaId,
     theme,
@@ -80,9 +98,38 @@ export function lireBrief(corps: CorpsBrief, documents: string[] = []): Brief | 
     sequenceType: texte(corps.sequenceType, 'séance de travaux pratiques'),
     activities: listeTexte(corps.activities),
     materielDisponible: listeTexte(corps.materielDisponible),
-    scene: SCENES.includes(corps.scene as SceneKind) ? (corps.scene as SceneKind) : null,
+    scene,
+    domaine,
     documents,
   };
+}
+
+/**
+ * Classement du dossier pédagogique, relu et arbitré : le domaine imposé par le brief
+ * prime sur celui du modèle (brief > IA). Relecture par `normaliserClassement` : un code
+ * inconnu devient `null`, un sous-domaine étranger au domaine est écarté. Jamais d'exception.
+ */
+export function arbitrerClassement(pedagogie: PedagogieGeneree, brief: Brief): PedagogieGeneree {
+  let brut: unknown = pedagogie.classement;
+  try {
+    if (brief.domaine) {
+      const ia = normaliserClassement(brut);
+      brut = { ...ia, domaine: brief.domaine, sousDomaine: ia.domaine === brief.domaine ? ia.sousDomaine : null };
+    }
+    const c = normaliserClassement(brut);
+    // Un classement imposé par le professeur n'est pas une proposition de l'IA.
+    const deductions = brief.domaine
+      ? (pedagogie.deductions ?? []).filter((d) => d !== 'classement')
+      : pedagogie.deductions;
+    const out: PedagogieGeneree = { ...pedagogie };
+    delete out.classement;
+    delete out.deductions;
+    if (c.domaine) out.classement = c;
+    if (deductions?.length) out.deductions = deductions;
+    return out;
+  } catch {
+    return pedagogie;
+  }
 }
 
 /** Scène effective : celle imposée par le professeur, sinon celle déduite du thème. */

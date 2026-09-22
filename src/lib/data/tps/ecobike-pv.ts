@@ -294,6 +294,13 @@ export const TP_ECOBIKE_PV: TpDefinition = {
   title: 'Écobike · Énergie photovoltaïque (TP 1)',
   level: 'Tle Bac Pro MELEC',
   family: 'pv',
+  classement: {
+    domaine: 'ENR',
+    domainesSecondaires: ['TER'],
+    sousDomaine: 'ENR.autoconsommation',
+    activites: [], // déduites par classementDe()
+    motsCles: ['IMEON', 'autoconsommation', 'CGM 2023', 'Écobike'],
+  },
   scene: 'pv',
   annex: 'roof',
   playable: true,

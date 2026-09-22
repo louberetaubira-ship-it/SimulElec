@@ -75,3 +75,8 @@ Simulateur web (PWA) de montages électrotechniques pour Bac Pro MELEC / BTS. Ne
 ## Qualité
 - `npm run build` doit passer sans erreur ni warning ESLint bloquant. Pas de `any` gratuit. Composants client marqués `'use client'`.
 - Aucune clé secrète côté client. Les images sont servies depuis `public/sprites` (pas de data URI dans le code).
+
+## Domaines professionnels (classement des TP)
+- `src/lib/taxonomy/domaines.ts` est la **source unique** des 11 domaines (HAB, TER, IND, DOM, ENR, RES, INF, SEC, COM, CVC, EAU), de leurs sous-domaines, couleurs et scène par défaut, et des 5 activités du référentiel. « Mesures & maintenance » n'est pas un domaine : c'est une activité. Ne pas confondre avec `Domain` de `competences.ts` (domaines d'activité → compétences).
+- Chaque TP porte `classement` (`domaine`, `domainesSecondaires`, `sousDomaine`, `activites`, `motsCles`) ; `classementDe(tp)` complète les absents (domaine déduit de `family`, activités déduites du parcours). En base : colonnes `domaine`, `domaines_sec`, `sous_domaine`, `activites`, `mots_cles` (migration 0014) + copie dans `definition.classement` ; `classementOfRow(row)` les relit.
+- Règles d'affichage : un domaine sans TP publié est masqué côté élève, visible en pointillé côté professeur ; publier un TP du studio exige un domaine choisi. Le générateur reçoit `taxonomiePourPrompt()` et propose un classement que le professeur valide.
