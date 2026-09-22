@@ -21,6 +21,8 @@ import {
 } from '@/lib/sim/progress';
 import { mesureDone, mesuresFor } from '@/lib/sim/mesures';
 import { liveBilan, liveNotes } from '@/lib/sim/live';
+import { aReseau } from '@/lib/sim/reseau';
+import ReseauScene from '@/components/reseau/ReseauScene';
 
 const col = (r: number) => (r >= 0.9 ? '#0F7A3D' : r >= 0.75 ? '#16A34A' : r >= 0.6 ? '#EAB308' : r >= 0.45 ? '#F97316' : '#DC2626');
 const pct = (r: number) => `${Math.round(r * 100)} %`;
@@ -70,12 +72,15 @@ export default function VisuTp({ attempt, tp, onClose }: {
     ...st.wires.map((w) => ({ a: w.a, b: w.b, net: w.net })),
   ], [tp, st.wires]);
 
-  const platine = (cover: boolean) => (
+  const platine = (cover: boolean) => (aReseau(tp) ? (
+    // TP réseau : la scène courant faible, armoire telle que composée, liaisons posées
+    <ReseauScene def={tp.reseau!} rack={cover ? st.reseau?.rack ?? {} : st.reseau?.rack} wires={wires} />
+  ) : (
     <div className="overflow-hidden rounded-[10px] border border-[var(--line)] bg-[var(--surface-2)]">
       {/* aucun handler : la platine est purement contemplative */}
       <Panel tp={tp} items={items} wires={wires} cover={cover} marks />
     </div>
-  );
+  ));
 
   const body = (i: number): React.ReactNode => {
     switch (i) {
@@ -127,7 +132,9 @@ export default function VisuTp({ attempt, tp, onClose }: {
         return <>
           {platine(true)}
           <p className="mt-1.5 text-[12px] text-muted">
-            {tp.slots.filter((s) => st.placed[s.id]).length} / {tp.slots.length} appareils posés ·{' '}
+            {aReseau(tp)
+              ? `${tp.reseau!.rack.filter((r) => st.reseau?.rack?.[r.id] != null).length} / ${tp.reseau!.rack.length} éléments de l’armoire posés`
+              : `${tp.slots.filter((s) => st.placed[s.id]).length} / ${tp.slots.length} appareils posés`} ·{' '}
             <b style={{ color: st.poseErrors ? '#DC2626' : '#16A34A' }}>{st.poseErrors} erreur(s) de pose</b>
           </p>
         </>;

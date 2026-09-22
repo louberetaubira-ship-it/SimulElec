@@ -3,7 +3,7 @@
  *
  * Huit TP : perceuse radiale, variateur de vitesse, automate M221, portail deux
  * sens, installation solaire autonome, plateau tertiaire KNX, et la mise en
- * service industrielle d'une station de relevage (parcours propre, sans platine), et les trois TP du chantier Écobike (CGM 2023) : portail piloté par M221, éclairage KNX, énergie photovoltaïque. Ils portent un folio de commande, des mesures attendues, des
+ * service industrielle d'une station de relevage (parcours propre, sans platine), et les quatre TP du chantier Écobike (CGM 2023) : portail piloté par M221, éclairage KNX, énergie photovoltaïque, réseau et supervision (scène courant faible, `kind: 'reseau'`). Ils portent un folio de commande, des mesures attendues, des
  * pannes diagnosticables et un barème — ce sont les TP de RÉFÉRENCE, et le
  * gabarit de structure des TP que le professeur crée dans le studio ou fait
  * générer.
@@ -23,6 +23,7 @@ import { TP_STATION_RELEVAGE } from './station-relevage';
 import { TP_ECOBIKE_PORTAIL } from './ecobike-portail';
 import { TP_ECOBIKE_KNX } from './ecobike-knx';
 import { TP_ECOBIKE_PV } from './ecobike-pv';
+import { TP_ECOBIKE_RESEAU } from './ecobike-reseau';
 
 export const TPS: TpDefinition[] = [
   TP_PERCEUSE_RADIALE,
@@ -35,6 +36,7 @@ export const TPS: TpDefinition[] = [
   TP_ECOBIKE_PORTAIL,
   TP_ECOBIKE_KNX,
   TP_ECOBIKE_PV,
+  TP_ECOBIKE_RESEAU,
 ];
 
 export const TP_BY_ID: Record<string, TpDefinition> = Object.fromEntries(TPS.map((t) => [t.id, t]));
@@ -45,5 +47,5 @@ export function tpById(id: string): TpDefinition | undefined {
 
 export {
   TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_PORTAIL, TP_SOLAIRE_AUTONOME, TP_KNX_TERTIAIRE,
-  TP_STATION_RELEVAGE, TP_ECOBIKE_PORTAIL, TP_ECOBIKE_KNX, TP_ECOBIKE_PV,
+  TP_STATION_RELEVAGE, TP_ECOBIKE_PORTAIL, TP_ECOBIKE_KNX, TP_ECOBIKE_PV, TP_ECOBIKE_RESEAU,
 };

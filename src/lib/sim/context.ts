@@ -6,6 +6,7 @@ import { isControlLive, isRunning, type SimState } from './engine';
 import { ETAPE, nextLiaison, requiredLiaisons, STAGES } from './progress';
 import { repereSlot } from './reperes';
 import { EPI, mesureDone, mesuresFor, readingLabel } from './mesures';
+import { aReseau, contexteReseau } from './reseau';
 
 const fr = (v: number, d = 1) => v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
 
@@ -89,7 +90,10 @@ export function buildContext(
     lines.push(`Dernières lectures d'instrument : ${last || 'aucune'}.`);
   }
 
-  if (st.stage >= ETAPE.MISE_EN_SERVICE) {
+  // TP réseau : pas de moteur, pas de contacteur — l'état de l'armoire, du connecteur et de l'automate
+  if (aReseau(tp)) lines.push(...contexteReseau(tp, st));
+
+  if (st.stage >= ETAPE.MISE_EN_SERVICE && !aReseau(tp)) {
     lines.push(
       `État du montage : ${repereSlot(tp, 'q1')} ${sim.q1 ? 'fermé' : 'ouvert'}, ` +
       `${repereSlot(tp, 'f2')} ${sim.f2 ? 'fermé' : 'ouvert'}, ${repereSlot(tp, 'f3')} ${sim.f3 ? 'fermé' : 'ouvert'}, ` +
@@ -143,6 +147,41 @@ export const HELLO: Record<number, string> = {
   9: 'Sous tension : bonne position du sélecteur, bons cordons, et tu notes ce que tu lis.',
   10: 'On t\'a signalé une panne. Méthode : symptôme, hypothèses, mesure qui tranche. Que dit le symptôme ?',
 };
+
+/** Mot d'accueil du TP réseau (scène courant faible), indexé par étape. */
+export const HELLO_RESEAU: Record<number, string> = {
+  1: 'Regarde le synoptique : dix équipements, dix adresses, et une seule sortie vers Internet. Lequel est à 150 m ?',
+  2: 'Chaque réponse se lit sur un document du dossier : synoptique, DTR 22 à 26, fiches DT 52 à 56. Commence par le synoptique.',
+  3: 'Pour chaque poste, pars du besoin : combien de U, quelle catégorie, combien de ports avec la réserve, quel PoE ?',
+  4: 'Une armoire se compose de haut en bas : obturateur, alimentation, puis le switch encadré de ses passe-fils, le panneau, et le poids en bas.',
+  5: 'Trois familles de liaisons : la fibre vers la loge, les cordons courts switch → panneau, les câbles F/UTP vers les prises. Puis le connecteur, broche par broche.',
+  6: 'Avant d’alimenter quoi que ce soit : repérage, séparation courant fort / courant faible, testeur de câble, fibre au stylo optique.',
+  7: 'Le switch est alimenté par le PDU différentiel : c’est lui qu’on consigne. Séparation, condamnation, identification, VAT.',
+  8: 'Hors tension, le testeur de câble parle : 8 brins, dans l’ordre, câble droit. Que ferait une paire coupée ?',
+  9: 'L’automate sort d’usine en 192.168.1.50. Quels réglages lui donner pour que la loge le voie ? Le ping tranchera.',
+  10: 'En service : 48 V⎓ sur les paires d’une caméra, 1 Gbit/s sur les ports, et un ping pour chaque équipement. Puis la supervision.',
+  11: 'Symptôme, hypothèses, vérification qui tranche : un ping, une LED, un testeur, une tension PoE. Que dit le symptôme ?',
+};
+
+/** Questions rapides du TP réseau, par étape. */
+export const QUICK_RESEAU: Record<number, string[]> = {
+  2: ['Pourquoi une fibre vers la loge ?', 'Que veut dire F/UTP ?', 'Comment lire les DIP ?'],
+  3: ['Pourquoi 18 ports ?', 'PoE ou PoE+ ?'],
+  4: ['Pourquoi des passe-fils ?', 'Où mettre le NAS ?'],
+  5: ['Quel ordre en T568B ?', 'Cordon ou câble ?'],
+  8: ['Que vérifie le testeur ?', 'Droit ou croisé ?'],
+  9: ['Pourquoi 192.168.1.50 ne marche pas ?', 'Quel câble pour paramétrer ?'],
+  10: ['Où mesurer le PoE ?', 'Que veut dire la LED orange ?'],
+  11: ['Par où commencer ?', 'Ping ou testeur ?'],
+};
+
+/** Mot d'accueil d'une étape, selon la nature du TP. */
+export const helloDe = (tp: Pick<TpDefinition, 'kind' | 'reseau'>, stage: number): string | undefined =>
+  (aReseau(tp) ? HELLO_RESEAU[stage] : HELLO[stage]);
+
+/** Questions rapides d'une étape, selon la nature du TP. */
+export const questionsDe = (tp: Pick<TpDefinition, 'kind' | 'reseau'>, stage: number): string[] =>
+  (aReseau(tp) ? QUICK_RESEAU[stage] : QUICK_QUESTIONS[stage]) ?? [];
 
 /** Réponses préparées, utilisées si l'API du professeur n'est pas disponible. */
 export function fallbackAnswer(q: string): string {

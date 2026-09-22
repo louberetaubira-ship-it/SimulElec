@@ -24,6 +24,21 @@ import {
   reseauCommande, resistanceCommande, tensionCommande, type Arete,
 } from '@/lib/sim/commande';
 import type { TpDefinition } from '@/lib/types';
+import { etatReference, observations, observer } from '@/lib/sim/reseau';
+
+/**
+ * TP réseau : l'« instrument » est l'observation du technicien courant faible (ping, LED de
+ * port, V⎓ PoE, testeur de câble, ipconfig, arp, supervision). Même exigence : chaque panne
+ * change au moins une observation, et deux pannes ne donnent jamais les mêmes partout.
+ */
+function signatureReseau(tp: TpDefinition, fault: string | null): Map<string, string> {
+  const e = etatReference(tp, fault);
+  return new Map(observations(tp).map(o => [o.label, observer(tp, e, o.id).court]));
+}
+function distingueReseau(a: Map<string, string>, b: Map<string, string>): string | null {
+  for (const [k, v] of Array.from(a.entries())) if (b.get(k) !== v) return `${k} : « ${v} » au lieu de « ${b.get(k)} »`;
+  return null;
+}
 
 /** Platine câblée d'après le TP, panne `fault` injectée. */
 function etat(tp: TpDefinition, fault: string | null) {
@@ -101,6 +116,19 @@ for (const tp of TPS) {
   if (!tp.playable) continue;
   console.log(`\n═══ ${tp.title} (${tp.id})`);
 
+  if (tp.kind === 'reseau' && tp.reseau) {
+    const saine = signatureReseau(tp, null);
+    for (const f of tp.faults) {
+      if (!f.action) { ko++; console.log(`  ✗ ${f.id} : pas d'action de remise en état déclarée`); continue; }
+      const sig = signatureReseau(tp, f.id);
+      const vs = distingueReseau(sig, saine);
+      if (!vs) { ko++; console.log(`  ✗ ${f.id} : aucune observation ne la distingue d'une installation saine`); continue; }
+      const confusions = tp.faults.filter(g => g.id !== f.id && distingueReseau(sig, signatureReseau(tp, g.id)) == null).map(g => g.id);
+      if (confusions.length) { ko++; console.log(`  ✗ ${f.id} : indiscernable de ${confusions.join(', ')}`); continue; }
+      console.log(`  ✓ ${f.id} — ${vs}`);
+    }
+    continue;
+  }
   const bornesPlatine = new Set(Object.keys(tp.nets));
   const sain = signature(tp, null);
 

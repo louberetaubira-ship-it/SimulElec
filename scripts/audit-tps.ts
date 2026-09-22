@@ -15,9 +15,50 @@ import { TPS } from '@/lib/data/tps';
 import { CATALOGUE_COMPLET as CATALOGUE_BY_KEY } from './catalogue-complet';
 import { sceneContext, annexTerminals, recvTerminals } from '@/lib/scene/route';
 import { MTERM, MT2, RES, pupitreOf, pupitreTerminals, resIds, term } from '@/lib/scene/geometry';
+import { TERMINAUX } from '@/components/reseau/geometrie';
+import type { TpDefinition } from '@/lib/types';
+
+/**
+ * TP réseau (`kind: 'reseau'`) : pas de platine ni de borniers — la scène courant faible a ses
+ * propres points de raccordement (`src/components/reseau/geometrie.ts`). On y vérifie la même
+ * chose : bornes existantes, pas de doublon, pas de mélange cuivre / fibre, un port du switch
+ * par équipement et chaque équipement desservi.
+ */
+function auditReseau(tp: TpDefinition): string[] {
+  const pb: string[] = [];
+  const def = tp.reseau!;
+  const vus = new Set<string>();
+  tp.liaisons.forEach((l, i) => {
+    for (const b of [l.a, l.b]) if (!TERMINAUX[b]) pb.push(`liaison ${i} : point « ${b} » absent de la scène`);
+    const k = [l.a, l.b].sort().join('~');
+    if (vus.has(k)) pb.push(`liaison ${i} en double : ${l.a} → ${l.b}`);
+    vus.add(k);
+    const fibre = l.a.endsWith('.FO') || l.b.endsWith('.FO');
+    if (fibre !== (l.net === 'FO')) pb.push(`liaison ${i} : ${l.a} → ${l.b} mélange fibre et cuivre`);
+  });
+  const ports = def.equipements.filter(e => e.port != null).map(e => e.port!);
+  if (new Set(ports).size !== ports.length) pb.push('deux équipements sur le même port du switch');
+  for (const e of def.equipements) {
+    if (e.port == null) continue;
+    if (!tp.liaisons.some(l => l.a === `SW.${e.port}` || l.b === `SW.${e.port}`)) pb.push(`${e.nom} : aucun cordon sur le port ${e.port}`);
+  }
+  const ips = def.equipements.filter(e => e.ip).map(e => e.ip);
+  if (new Set(ips).size !== ips.length) pb.push('adresse IP en double dans le synoptique');
+  const u = def.rack.filter(r => !r.id.startsWith('res2')).reduce((a, r) => a + r.u, 0) + (def.rack.find(r => r.id === 'res2')?.u ?? 0);
+  if (u !== def.rackU) pb.push(`armoire : ${u} U d'éléments pour ${def.rackU} U`);
+  return pb;
+}
+
 
 let total = 0;
 for (const tp of TPS) {
+  if (tp.kind === 'reseau' && tp.reseau) {
+    const pb = auditReseau(tp);
+    total += pb.length;
+    console.log(`\n${pb.length ? '✗' : '✓'} ${tp.id} (scène courant faible, ${tp.liaisons.length} liaisons)`);
+    for (const p of pb) console.log(`   - ${p}`);
+    continue;
+  }
   const pb: string[] = [];
   const ctx = sceneContext(tp, CATALOGUE_BY_KEY);
 

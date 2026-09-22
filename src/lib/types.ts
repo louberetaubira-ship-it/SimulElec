@@ -42,7 +42,9 @@ export type BaremeOverride = Partial<Omit<Bareme, 'poids'>> & { poids?: Partial<
  * sortie (actionneur KNX) : électriquement la phase L1 quand le contact est fermé, mais
  * un conducteur distinct — violet, couleur imposée par le schéma C.3.2 du sujet CGM 2023.
  */
-export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-' | 'BAR' | 'LC';
+export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-' | 'BAR' | 'LC'
+  /** Courant faible (TP réseau) : liaison cuivre Ethernet (câble F/UTP ou cordon) et fibre optique. */
+  | 'ETH' | 'FO';
 
 export type DeviceKind =
   | 'main' | 'mcb' | 'rcd' | 'motorcb' | 'contactor' | 'thermal'
@@ -562,6 +564,11 @@ export interface PrepBloc {
   titre: string;
   consigne: string;
   questions: PrepQuestion[];
+  /**
+   * Outil interactif affiché au-dessus des questions du bloc. `dip` : micro-interrupteurs
+   * d'un contrôleur à basculer (binaire → décimal → dernier octet de l'adresse IP).
+   */
+  outil?: 'dip';
 }
 
 /**
@@ -633,7 +640,9 @@ export interface Poste { id: string; name: string; need: string; options: PosteO
 export interface TestHorsTension { id: string; title: string; how: string; expected: string }
 
 /** Instrument utilisable à l'étape mesures. */
-export type InstrumentKind = 'mm' | 'clamp' | 'ctrl' | 'vat' | 'tach';
+export type InstrumentKind = 'mm' | 'clamp' | 'ctrl' | 'vat' | 'tach'
+  /** Courant faible : testeur de câble réseau, et observation réseau (ping, LED de port, supervision). */
+  | 'lan' | 'net';
 
 /** Mesure attendue dans une étape (hors ou sous tension). */
 export interface ExpectedMeasure {
@@ -695,7 +704,9 @@ export interface Fault {
  * quel résultat on attend — est ce qui sépare le diagnostic du tâtonnement.
  * Le simulateur confronte ensuite la prévision au relevé.
  */
-export type Prevision = '24' | '0' | 'cont' | 'ol';
+export type Prevision = '24' | '0' | 'cont' | 'ol'
+  /** TP réseau : observation conforme (le ping répond, 1 Gbit/s, 48 V…) ou anomalie. */
+  | 'ok' | 'ko';
 
 /** Un test d'hypothèse : la vérification définie, faite, et ce qu'elle a tranché. */
 export interface HypTest {
@@ -822,9 +833,69 @@ export interface InterPosition {
 /**
  * Nature du parcours :
  * - `platine` (défaut) : les 11 étapes de câblage / mesures sur la platine ;
- * - `dimensionnement` : étude et dimensionnement (aucune platine, aucun câblage).
+ * - `dimensionnement` : étude et dimensionnement (aucune platine, aucun câblage) ;
+ * - `reseau` : les MÊMES 12 étapes que la platine (même store, même notation), mais sur
+ *   une scène « courant faible » — armoire de brassage 19" à composer, liaisons cuivre et
+ *   fibre, connecteur RJ45 fil par fil, adressage IP, supervision. Voir `ReseauDef`.
  */
-export type TpKind = 'platine' | 'dimensionnement' | 'miseEnService';
+export type TpKind = 'platine' | 'dimensionnement' | 'miseEnService' | 'reseau';
+
+/** Équipement du réseau local (synoptique DTR 1). */
+export interface ReseauEquipement {
+  /** Identifiant, préfixe de sa borne : `NAS` → `NAS.RJ`. */
+  id: string;
+  /** Nom court affiché (« NAS », « Caméra 3 »). */
+  nom: string;
+  /** Rôle, en clair. */
+  role: string;
+  /** Adresse IP statique (DTR 1) ; `null` pour un équipement sans adresse (convertisseur). */
+  ip: string | null;
+  /** Bloc de la scène. */
+  zone: 'loge' | 'local' | 'velos' | 'entree' | 'onduleur';
+  /** Port du switch (et du panneau de brassage) qui le dessert. */
+  port?: number;
+  /** Alimenté par le switch (PoE). */
+  poe?: boolean;
+  /** Adresse MAC (table ARP). */
+  mac?: string;
+}
+
+/** Élément de l'armoire 19" à composer (étape pose). */
+export interface ReseauRackItem {
+  id: string;
+  label: string;
+  ref?: string;
+  /** Hauteur en U. */
+  u: number;
+  /**
+   * Emplacements de départ admis (1 = U du haut). Deux éléments identiques (les réserves
+   * 2 U) partagent les mêmes positions : l'ordre entre eux est indifférent.
+   */
+  debut: number[];
+}
+
+/** Paramètres IP d'un équipement (automate). */
+export interface ReseauIp { ip: string; masque: string; passerelle: string; dns: string }
+
+/**
+ * Scène « courant faible » d'un TP réseau : équipements du synoptique, armoire à composer,
+ * automate à re-paramétrer, poste de supervision, câblage T568B. La logique (ping, PoE, LED,
+ * pannes, observations) est dans `src/lib/sim/reseau.ts`.
+ */
+export interface ReseauDef {
+  equipements: ReseauEquipement[];
+  /** Hauteur de l'armoire (U). */
+  rackU: number;
+  rack: ReseauRackItem[];
+  /** Automate à paramétrer : identifiant d'équipement, référence, réglages d'usine et attendus. */
+  automate: { id: string; ref: string; defaut: ReseauIp; attendu: ReseauIp };
+  /** Poste de la loge (DTR 25). */
+  poste: { id: string; nom: string; description: string; mac: string; dns: string[] };
+  /** Couleurs attendues broche par broche (1 à 8) sur le connecteur de brassage. */
+  t568b: string[];
+  /** Port du panneau dont on raccorde le connecteur en T568B (lien de l'automate). */
+  portT568b: number;
+}
 
 export interface TpDefinition {
   id: string;
@@ -897,6 +968,8 @@ export interface TpDefinition {
    * de l'installation que l'écran de supervision affiche.
    */
   essaisPv?: EssaiPvDef;
+  /** Scène courant faible (TP `kind: 'reseau'`). */
+  reseau?: ReseauDef;
   /**
    * Organes de sectionnement SUPPLÉMENTAIRES simulés, au-delà des trois que connaît
    * le moteur (`q1`, `f2`, `f3`) : identifiants de slot. Chacun a son état ouvert /
@@ -1114,6 +1187,18 @@ export interface AttemptState {
    * déconsignation. `applique` : réglages validés et conformes.
    */
   imeon?: { priorite?: string; injection?: boolean; batterie?: string; applique?: boolean };
+  /**
+   * TP réseau : armoire composée (élément → U de départ), connecteur T568B (broche →
+   * couleur), câble de paramétrage choisi, réglages IP appliqués à l'automate, ping réussi.
+   */
+  reseau?: {
+    rack?: Record<string, number>;
+    t568?: Record<string, string>;
+    cableParam?: 'croise' | 'droit';
+    cableService?: 'croise' | 'droit';
+    ip?: ReseauIp;
+    pingOk?: boolean;
+  };
   placed: Record<string, boolean>;
   wires: { a: string; b: string; net: NetKind }[];
   wireErrors: number;

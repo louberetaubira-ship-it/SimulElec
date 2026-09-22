@@ -3,7 +3,7 @@
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import type { SimState } from '@/lib/sim/engine';
-import { buildContext, fallbackAnswer, HELLO, QUICK_QUESTIONS } from '@/lib/sim/context';
+import { buildContext, fallbackAnswer, helloDe, questionsDe } from '@/lib/sim/context';
 import { COURS, coursPrompt } from '@/lib/data/cours';
 import { useParcours } from '@/app/tp/[id]/store';
 
@@ -36,9 +36,9 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
   React.useEffect(() => {
     if (helloRef.current === st.stage) return;
     helloRef.current = st.stage;
-    const hello = HELLO[st.stage];
+    const hello = helloDe(tp, st.stage);
     if (hello) setMsgs(m => [...m, { role: 'assistant', content: hello }]);
-  }, [st.stage]);
+  }, [st.stage, tp]);
 
   React.useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -100,7 +100,7 @@ export default function ProfBot({ tp, st, sim, attemptId, turns, onTurn }: Props
     void ask(q);
   }, [ask, busy, consumeQuestion, pendingQuestion]);
 
-  const quick = QUICK_QUESTIONS[st.stage] ?? [];
+  const quick = questionsDe(tp, st.stage);
 
   return (
     <div className="flex min-h-0 flex-col bg-[var(--surface)] lg:border-l lg:border-[var(--line)]">

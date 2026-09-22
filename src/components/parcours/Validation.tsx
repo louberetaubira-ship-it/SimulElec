@@ -22,6 +22,9 @@ import SchemaCommande from '@/components/schema/SchemaCommande';
 import SchemaPv from '@/components/schema/SchemaPv';
 import { deviceStateOf, lampsOf } from './panelState';
 import { Center, Hint, Side } from './StageLayout';
+import { aReseau } from '@/lib/sim/reseau';
+import DepannageReseau from '@/components/reseau/DepannageReseau';
+import ReseauScene from '@/components/reseau/ReseauScene';
 
 /** Quiz de validation : une bonne réponse par question, correction immédiate. */
 function Quiz({ tp, st, onQuiz }: { tp: TpDefinition; st: AttemptState; onQuiz: (n: number) => void }) {
@@ -113,7 +116,7 @@ function Bilan({ tp, st }: { tp: TpDefinition; st: AttemptState }) {
                   {tp.faults.find(f => f.id === t.id)?.title ?? t.id}
                 </td>
                 <td className="border-b border-[var(--line)] px-1.5 py-1 font-mono-num whitespace-nowrap">
-                  {t.dial} {t.a ?? '—'}/{t.b ?? '—'}
+                  {t.dial}{t.instrument === 'net' ? '' : ` ${t.a ?? '—'}/${t.b ?? '—'}`}
                 </td>
                 <td className="border-b border-[var(--line)] px-1.5 py-1 font-mono-num whitespace-nowrap">
                   {LIBELLE_PREVISION[t.attendu]} {t.prevu ? '✓' : '✗'}
@@ -407,6 +410,7 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
   }, []);
 
   if (finished) return <Rapport tp={tp} st={st} />;
+  const reseauTp = aReseau(tp);
 
   const panneau = (
     <>
@@ -418,15 +422,26 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
             <Note>
               Symptôme signalé par l&apos;utilisateur : <b>{injected?.symptom}</b>
               <br />
-              Refais l&apos;essai, observe, puis pose tes hypothèses. Les appareils sont à ta
-              disposition : tu choisis l&apos;instrument, le calibre, l&apos;état de la platine, et tu
-              poses tes pointes où tu veux. Sous tension pour les tensions, consignée pour les
-              continuités — l&apos;ohmmètre refuse un circuit alimenté, comme le vrai.
+              {reseauTp ? (
+                <>
+                  Observe, puis pose tes hypothèses. Tu as les outils du technicien courant faible : le
+                  terminal de la loge, les LED du switch, le multimètre sur une prise de caméra, le
+                  testeur de câble et l&apos;écran de supervision. Chaque vérification tranche — ou pas.
+                </>
+              ) : (
+                <>
+                  Refais l&apos;essai, observe, puis pose tes hypothèses. Les appareils sont à ta
+                  disposition : tu choisis l&apos;instrument, le calibre, l&apos;état de la platine, et tu
+                  poses tes pointes où tu veux. Sous tension pour les tensions, consignée pour les
+                  continuités — l&apos;ohmmètre refuse un circuit alimenté, comme le vrai.
+                </>
+              )}
             </Note>
           </Card>
 
           <Hypotheses tp={tp} st={st} onPoser={s.poserHypothese} />
 
+          {!reseauTp && (<>
           <Card title="Appareil de mesure">
             <Instrument
               tp={tp}
@@ -448,6 +463,7 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
           </Card>
 
           <Test tp={tp} st={st} mes={mes} marche={marche} s={s} />
+          </>)}
           <Bilan tp={tp} st={st} />
           {porte.ouverte
             ? <Conclusion tp={tp} st={st} s={s} />
@@ -475,7 +491,9 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
     </>
   );
 
-  const platine = (
+  const platine = reseauTp ? (
+    <ReseauScene def={tp.reseau!} rack={st.reseau?.rack} wires={[...tp.liaisons.filter(l => l.prewired), ...st.wires]} pduOn />
+  ) : (
     <TpPanel
       trayEnabled={!st.fixed}
       dock={panneau}
@@ -510,8 +528,14 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
         {st.fixed ? (
           <>
             {platine}
-            <Hint>Réparation faite. Relance le moteur pour confirmer, puis envoie le rapport.</Hint>
+            <Hint>
+              {reseauTp
+                ? 'Réparation faite : la supervision de la loge retrouve tous les équipements. Réponds aux questions, puis envoie le rapport.'
+                : 'Réparation faite. Relance le moteur pour confirmer, puis envoie le rapport.'}
+            </Hint>
           </>
+        ) : reseauTp ? (
+          <DepannageReseau tp={tp} st={st} vise={mes.vise} onViser={s.viser} onNoter={s.reseauNoterTest} />
         ) : (
           <div
             ref={workRef}

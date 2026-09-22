@@ -13,12 +13,31 @@ import {
   ANNEX_H, ANNEX_X, DUCT_L, DUCT_R, glandOf, motorOf, resOf, sceneOf, slotGeom, tbOf,
 } from '@/lib/scene/geometry';
 import { TPS } from '@/lib/data/tps';
+import { placerRack } from '@/lib/sim/reseau';
 
 let ko = 0;
 const chevauche = (a: { x: number; w: number }, b: { x: number; w: number }) =>
   a.x < b.x + b.w && b.x < a.x + a.w;
 
 for (const tp of TPS) {
+  // TP réseau : pas de platine. L'encombrement, c'est l'armoire 19" : la composition du
+  // corrigé doit tenir dans ses U, sans chevauchement, chaque élément à une place admise.
+  if (tp.kind === 'reseau' && tp.reseau) {
+    const def = tp.reseau;
+    const rack: Record<string, number> = {};
+    const libres = new Map<string, number[]>();
+    let pb = 0;
+    for (const r of def.rack) {
+      const places = libres.get(r.debut.join(',')) ?? [...r.debut];
+      const d = places.shift();
+      libres.set(r.debut.join(','), places);
+      const res = d == null ? { ok: false, raison: 'aucune place' } : placerRack(def, rack, r.id, d);
+      if (!res.ok) { pb++; console.log(`  ✗ ${tp.id} · ${r.label} : ${res.raison}`); } else rack[r.id] = d!;
+    }
+    ko += pb;
+    console.log(`${tp.id} — armoire ${def.rackU} U\n  ${pb ? '✗' : '✓'} ${def.rack.length} éléments, ${pb ? 'composition impossible' : 'composition du corrigé sans chevauchement ni débordement'}`);
+    continue;
+  }
   const geo = sceneOf(tp);
   const boxes = tp.slots
     .map((s) => ({ s, it: CATALOGUE_BY_KEY[s.key] }))

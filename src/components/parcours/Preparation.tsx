@@ -31,6 +31,7 @@ import SchemaAutomate from '@/components/schema/SchemaAutomate';
 import { GrafcetIntro, GrafcetPortail } from './Grafcet';
 import DocumentsDossier from './DocumentsDossier';
 import { Center, Side } from './StageLayout';
+import DipOutil from '@/components/reseau/DipOutil';
 
 interface Props {
   tp: TpDefinition;
@@ -53,7 +54,9 @@ function zoneDuRepere(tp: TpDefinition, rep: string | null): string[] {
   return out;
 }
 
-function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive }: {
+function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive, outil }: {
+  /** Outil interactif affiché avant les questions (`PrepBloc.outil`). */
+  outil?: 'dip';
   titre: string;
   consigne: string;
   questions: PrepQuestion[];
@@ -67,6 +70,7 @@ function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive }: {
     <section className="flex flex-col gap-2.5">
       <h3 className="font-title text-[19px] font-semibold uppercase tracking-wide">{titre}</h3>
       <Note>{consigne}</Note>
+      {outil === 'dip' && <DipOutil />}
       {questions.map(q => {
         const ch = st.prep?.[q.id];
         const repondu = ch != null;
@@ -367,6 +371,7 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
                       key={b.id}
                       titre={b.titre}
                       consigne={b.consigne}
+                      outil={b.outil}
                       questions={b.questions} st={st} actif={actif}
                       onAnswer={onAnswer} onActive={setActif}
                     />

@@ -127,6 +127,8 @@ export const LIBELLE_PREVISION: Record<Prevision, string> = {
   '0': '0 V',
   cont: 'continuité',
   ol: 'circuit ouvert',
+  ok: 'conforme',
+  ko: 'anomalie',
 };
 
 /**

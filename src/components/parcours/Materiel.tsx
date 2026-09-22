@@ -17,8 +17,9 @@ import { Center, Side } from './StageLayout';
  */
 function Vignette({ itemKey, img }: { itemKey: string; img?: string }) {
   if (img) {
+    // photo de catalogue parfois très large (PDU, panneau 19") : bornée pour laisser lire la référence
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={img} alt="" className="h-[52px]" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />;
+    return <img src={img} alt="" className="h-[52px] max-w-[84px] flex-none object-contain" style={{ filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.3))' }} />;
   }
   const vector = svgForKey(itemKey);
   if (vector) return <span className="grid h-[52px] w-[40px] flex-none place-items-center">{vector}</span>;

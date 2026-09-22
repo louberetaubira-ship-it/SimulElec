@@ -13,6 +13,7 @@ import { initialSim, motorOf, type SimState } from '../src/lib/sim/engine';
 import { read } from '../src/lib/sim/mesures';
 import { estBorneMoteur, estEnroulement, resistancePlaque } from '../src/lib/sim/plaque';
 import type { ExpectedMeasure, TpDefinition } from '../src/lib/types';
+import { etatReference, valeurMesure } from '../src/lib/sim/reseau';
 
 /** État du montage correspondant à la condition d'une mesure. */
 function simPour(tp: TpDefinition, m: ExpectedMeasure): SimState {
@@ -64,6 +65,17 @@ for (const tp of TPS) {
   if (!tp.playable || !tp.mesures?.length) continue;
   console.log(`\n=== ${tp.title} (${tp.id})`);
 
+  // TP réseau : testeur, PoE, LED et ping se lisent sur l'installation de référence
+  if (tp.kind === 'reseau' && tp.reseau) {
+    for (const m of tp.mesures) {
+      const e = { ...etatReference(tp, null), enService: m.stage === 'sousTension' };
+      const v = valeurMesure(tp, e, m);
+      const ok = v != null && v >= m.min && v <= m.max;
+      if (!ok) defauts++;
+      console.log(`  ${ok ? '✓' : '✗'} ${m.id} · ${v} ${m.unit} (attendu ${m.min}–${m.max})`);
+    }
+    continue;
+  }
   for (const m of tp.mesures) {
     const sim = simPour(tp, m);
     const clamp = m.wire

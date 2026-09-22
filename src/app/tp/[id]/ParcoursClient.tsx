@@ -18,6 +18,14 @@ import MesuresHorsTension from '@/components/parcours/MesuresHorsTension';
 import Deconsignation from '@/components/parcours/Deconsignation';
 import MesuresSousTension from '@/components/parcours/MesuresSousTension';
 import Validation from '@/components/parcours/Validation';
+import ArmoireReseau from '@/components/reseau/ArmoireReseau';
+import CablageReseau from '@/components/reseau/CablageReseau';
+import TestsReseau from '@/components/reseau/TestsReseau';
+import ConsignationReseau from '@/components/reseau/ConsignationReseau';
+import MesuresHorsReseau from '@/components/reseau/MesuresHorsReseau';
+import MiseEnServiceReseau from '@/components/reseau/MiseEnServiceReseau';
+import MesuresSousReseau from '@/components/reseau/MesuresSousReseau';
+import { aReseau } from '@/lib/sim/reseau';
 import ProfBot from '@/components/parcours/ProfBot';
 import ProfAvatar from '@/components/parcours/ProfAvatar';
 import ProfCoach from '@/components/parcours/ProfCoach';
@@ -112,6 +120,33 @@ export default function ParcoursClient({ tp }: { tp: TpDefinition }) {
 
   const stage = (() => {
     if (!ready) return null;
+    // TP réseau : mêmes étapes, même store, mais la scène « courant faible » remplace la
+    // platine de la pose aux mesures sous tension (voir `src/components/reseau/`).
+    if (aReseau(tp)) {
+      switch (st.stage) {
+        case ETAPE.POSE:
+          return <ArmoireReseau tp={tp} st={st} onPlace={s.reseauRack} onNext={() => next(ETAPE.POSE)} />;
+        case ETAPE.CABLAGE:
+          return (
+            <CablageReseau
+              tp={tp} st={st} selTerminal={s.selTerminal} onTerminal={s.clickTerminal} onT568={s.reseauT568}
+              onNext={() => next(ETAPE.CABLAGE)} prof={dip.apercu}
+            />
+          );
+        case ETAPE.TESTS:
+          return <TestsReseau tp={tp} st={st} onRunTest={s.runTest} onNext={() => next(ETAPE.TESTS)} />;
+        case ETAPE.EPI:
+          return <ConsignationReseau onNext={() => next(ETAPE.EPI)} />;
+        case ETAPE.HORS:
+          return <MesuresHorsReseau onNext={() => next(ETAPE.HORS)} />;
+        case ETAPE.MISE_EN_SERVICE:
+          return <MiseEnServiceReseau onNext={() => next(ETAPE.MISE_EN_SERVICE)} />;
+        case ETAPE.SOUS:
+          return <MesuresSousReseau onNext={() => next(ETAPE.SOUS)} />;
+        default:
+          break;
+      }
+    }
     switch (st.stage) {
       case ETAPE.CHOIX:
         return (
