@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import type { AttemptState, TpDefinition } from '@/lib/types';
-import type { SimState } from '@/lib/sim/engine';
+import { auxFerme, type SimState } from '@/lib/sim/engine';
 import { repereSlot, repereBorne, schemaDeLOrgane } from '@/lib/sim/reperes';
 import { Button } from '@/components/ui';
 
@@ -43,23 +43,35 @@ export default function Consignation({ tp, st, sim, onAct }: ConsignationProps) 
   const need = avalPairs ? avalPairs.length : 3;
   // Seconde source indépendante (champ PV) : double coupure Q1 + Q2.
   const q2 = cfg?.champ ? repereSlot(tp, cfg.champ) : null;
-  const organes = q2 ? `${q1} et ${q2}` : q1;
+  // Au-delà : autres sources indépendantes (second string, parc batterie…).
+  const autres = (cfg?.sources ?? []).map(id => ({ id, rep: repereSlot(tp, id), ouvert: !auxFerme(sim, id) }));
+  const tous = [q1, ...(q2 ? [q2] : []), ...autres.map(a => a.rep)];
+  const organes = tous.length > 2 ? `${tous.slice(0, -1).join(', ')} et ${tous[tous.length - 1]}` : tous.join(' et ');
   const champOuvert = q2 ? !sim.f2 : true;
 
   return (
     <div className="flex flex-col gap-1.5">
       {q2 && (
         <div className="rounded-[10px] border border-[#e8cfa0] bg-[#fdf3e3] p-2 text-[12.5px] text-[#6b4300]">
-          <b>Installation à deux sources.</b> Le parc batteries (isolé par {q1}) <b>et</b> le champ PV
-          (isolé par {q2}) sont deux sources. Ouvrir {q1} ne coupe pas le champ : <b>tant qu&apos;il fait
-          jour, l&apos;amont du régulateur reste sous tension</b>. Il faut donc consigner {q1} <b>et</b> {q2}.
+          {cfg?.explication ? (
+            <><b>Installation à {autres.length + 2} sources.</b> {cfg.explication}</>
+          ) : (
+            <>
+              <b>Installation à deux sources.</b> Le parc batteries (isolé par {q1}) <b>et</b> le champ PV
+              (isolé par {q2}) sont deux sources. Ouvrir {q1} ne coupe pas le champ : <b>tant qu&apos;il fait
+              jour, l&apos;amont du régulateur reste sous tension</b>. Il faut donc consigner {q1} <b>et</b> {q2}.
+            </>
+          )}
         </div>
       )}
 
       <Step done={c.sep} n="1">
-        <b>Séparation</b> — ouvre {organes} sur la platine{q2 ? ' (les deux sectionneurs DC : parc et champ)' : ''}.
+        <b>Séparation</b> — ouvre {organes} sur la platine{q2 && !autres.length ? ' (les deux sectionneurs DC : parc et champ)' : ''}.
         {sim.q1 ? <span className="block text-muted">{q1} est encore fermé.</span> : null}
-        {q2 && !champOuvert ? <span className="block text-muted">{q2} (champ PV) est encore fermé.</span> : null}
+        {q2 && !champOuvert ? <span className="block text-muted">{q2}{autres.length ? '' : ' (champ PV)'} est encore fermé.</span> : null}
+        {autres.filter(a => !a.ouvert).map(a => (
+          <span key={a.id} className="block text-muted">{a.rep} est encore fermé.</span>
+        ))}
       </Step>
 
       <Step done={c.lock} n="2">

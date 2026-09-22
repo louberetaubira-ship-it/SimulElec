@@ -29,6 +29,7 @@ import SchemaPv from '@/components/schema/SchemaPv';
 import PreparationEtudePv from './PreparationEtudePv';
 import SchemaAutomate from '@/components/schema/SchemaAutomate';
 import { GrafcetIntro, GrafcetPortail } from './Grafcet';
+import DocumentsDossier from './DocumentsDossier';
 import { Center, Side } from './StageLayout';
 
 interface Props {
@@ -89,10 +90,13 @@ function Bloc({ titre, consigne, questions, st, actif, onAnswer, onActive }: {
                 </span>
               )}
               {q.invite}
-              {q.focus && (
+              {q.focus && !q.doc && (
                 <small className="font-sans text-[11px] font-normal text-muted">
                   · repère {q.focus} sur le schéma {q.schema === 'commande' ? 'de commande' : 'de puissance'}
                 </small>
+              )}
+              {q.doc && (
+                <small className="font-sans text-[11px] font-normal text-muted">· document affiché à gauche</small>
               )}
             </h4>
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -155,7 +159,20 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
 
   // Schéma dédié pour le photovoltaïque : la chaîne off-grid n'entre pas dans le
   // schéma de puissance triphasé générique.
-  const pv = tp.scene === 'pv';
+  // Un TP qui porte ses DOCUMENTS réels (DTR, folio) garde la préparation par blocs,
+  // documents à gauche, même sur la scène photovoltaïque.
+  const docs = p?.documents ?? [];
+  const pv = tp.scene === 'pv' && docs.length === 0;
+  const titre = (bloc: 'identification' | 'fonctions' | 'calculs' | 'adressage', t: string, c: string) =>
+    ({ titre: p?.intitules?.[bloc]?.titre ?? t, consigne: p?.intitules?.[bloc]?.consigne ?? c });
+  const tIdent = titre('identification', '1 · Identifier les éléments du schéma',
+    'Chaque repère du schéma désigne un organe précis. Retrouve-le sur le schéma affiché à gauche.');
+  const tFonc = titre('fonctions', '2 · Donner la fonction de chaque équipement',
+    'Un organe se choisit sur sa fonction, pas sur son allure. Dis ce que chacun fait dans CE montage.');
+  const tCalc = titre('calculs', '3 · Calculer et dimensionner',
+    'Données de la plaque du motoréducteur : Pu = 0,37 kW, η = 83,6 %, cos φ = 0,78, 230 / 400 V. Réseau 3 × 400 V.');
+  const tAdr = titre('adressage', '4 · Adresser les entrées et sorties',
+    'Dans le programme, on n\'écrit pas « S3 » mais l\'adresse de la borne où il est câblé. Complète la table d\'adressage.');
   // Pour le PV, l'étude de dimensionnement 11 étapes EST la préparation : on
   // verrouille la validation tant qu'elle n'est pas terminée.
   const [etudeDone, setEtudeDone] = React.useState(false);
@@ -254,7 +271,12 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
           <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,.88fr)]">
             {/* Colonne gauche : schéma zoomable + plein écran */}
             <div className="flex min-h-0 flex-col gap-2">
-              {(tp.puissance || tp.folio || pv) && (
+              {docs.length > 0 && (
+                <div className="min-h-0 overflow-auto lg:flex-1">
+                  <DocumentsDossier docs={docs} actif={courante?.doc ?? null} />
+                </div>
+              )}
+              {docs.length === 0 && (tp.puissance || tp.folio || pv) && (
                 <>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <div className="inline-flex items-center overflow-hidden rounded-lg border border-[var(--line)]">
@@ -313,33 +335,42 @@ export default function Preparation({ tp, st, onAnswer, onNext }: Props) {
               {p && (
                 <>
                   <Bloc
-                    titre="1 · Identifier les éléments du schéma"
-                    consigne="Chaque repère du schéma désigne un organe précis. Retrouve-le sur le schéma affiché à gauche."
+                    titre={tIdent.titre}
+                    consigne={tIdent.consigne}
                     questions={p.identification} st={st} actif={actif}
                     onAnswer={onAnswer} onActive={setActif}
                   />
                   <Bloc
-                    titre="2 · Donner la fonction de chaque équipement"
-                    consigne="Un organe se choisit sur sa fonction, pas sur son allure. Dis ce que chacun fait dans CE montage."
+                    titre={tFonc.titre}
+                    consigne={tFonc.consigne}
                     questions={p.fonctions} st={st} actif={actif}
                     onAnswer={onAnswer} onActive={setActif}
                   />
                   {p.calculs && (
                     <Bloc
-                      titre="3 · Calculer et dimensionner"
-                      consigne="Données de la plaque du motoréducteur : Pu = 0,37 kW, η = 83,6 %, cos φ = 0,78, 230 / 400 V. Réseau 3 × 400 V."
+                      titre={tCalc.titre}
+                      consigne={tCalc.consigne}
                       questions={p.calculs} st={st} actif={actif}
                       onAnswer={onAnswer} onActive={setActif}
                     />
                   )}
                   {p.adressage && (
                     <Bloc
-                      titre="4 · Adresser les entrées et sorties"
-                      consigne="Dans le programme, on n'écrit pas « S3 » mais l'adresse de la borne où il est câblé. Complète la table d'adressage."
+                      titre={tAdr.titre}
+                      consigne={tAdr.consigne}
                       questions={p.adressage} st={st} actif={actif}
                       onAnswer={onAnswer} onActive={setActif}
                     />
                   )}
+                  {(p.blocs ?? []).map(b => (
+                    <Bloc
+                      key={b.id}
+                      titre={b.titre}
+                      consigne={b.consigne}
+                      questions={b.questions} st={st} actif={actif}
+                      onAnswer={onAnswer} onActive={setActif}
+                    />
+                  ))}
                   {p.grafcetQuiz && (
                     <>
                       <GrafcetIntro />

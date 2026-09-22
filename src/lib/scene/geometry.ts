@@ -403,16 +403,22 @@ export function mt2Of(geo: Pick<SceneGeom, 'recvY'>): Record<string, Point> {
  * `sansPe` retire le presse-étoupe PE : en régime TT la terre vient du piquet de
  * l'usager, pas du réseau (voir `TpDefinition.sansPeReseau`).
  */
-export function resIds(scene: SceneKind, mono = false, sansPe = false): string[] {
-  const ids = mono || scene === 'pv' || scene === 'hab'
+export function resIds(scene: SceneKind, mono?: boolean, sansPe = false): string[] {
+  // `mono` absent : la scène décide (pv et hab monophasées d'office). `false` force
+  // le triphasé — une installation PV raccordée en 3 × 400 V + N, par exemple.
+  const ids = arriveeMonophasee(scene, mono)
     ? ['RES.L1', 'RES.N', 'RES.PE']
     : Object.keys(RES);
   // Régime TT : le distributeur n'amène pas de PE (voir `TpDefinition.sansPeReseau`).
   return sansPe ? ids.filter((id) => id !== 'RES.PE') : ids;
 }
+/** L'arrivée est-elle monophasée ? `mono` absent : d'après la scène. */
+export const arriveeMonophasee = (scene: SceneKind, mono?: boolean): boolean =>
+  mono ?? (scene === 'pv' || scene === 'hab');
+
 /** Étiquette d'une borne réseau (L au lieu de L1 en monophasé). */
-export function resLabel(id: string, scene: SceneKind): string {
-  if (id === 'RES.L1' && (scene === 'pv' || scene === 'hab')) return 'L';
+export function resLabel(id: string, scene: SceneKind, mono?: boolean): string {
+  if (id === 'RES.L1' && arriveeMonophasee(scene, mono)) return 'L';
   return id.split('.')[1];
 }
 

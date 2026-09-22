@@ -347,6 +347,8 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: '1+', fx: 0.3, fy: 0.07 }, { id: '3−', fx: 0.7, fy: 0.07 },
       { id: '2+', fx: 0.3, fy: 0.93 }, { id: '4−', fx: 0.7, fy: 0.93 },
     ],
+    // les deux cartouches : une par polarité
+    passes: [['1+', '2+'], ['3−', '4−']],
   }),
   vector({
     key: 'dcspd', name: 'Parafoudre DC type 2 · 1000 V', ref: 'SPD-DC-T2', kind: 'dc',
@@ -382,6 +384,69 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: 'B+', fx: 0.16, fy: 0.95 }, { id: 'B−', fx: 0.34, fy: 0.95 },
       { id: 'L', fx: 0.58, fy: 0.95 }, { id: 'N', fx: 0.73, fy: 0.95 }, { id: 'PE', fx: 0.87, fy: 0.95 },
     ],
+  }),
+  // ---- Installation hybride raccordée (chantier Écobike, CGM 2023) ----
+  //
+  // Onduleur hybride triphasé IMEON 9.12 (DTR 28), format « book » : les ENTRÉES
+  // CONTINUES en haut (strings 1 et 2 sur deux MPPT, parc batterie 48 V), les deux
+  // borniers ALTERNATIFS en bas — l'entrée/sortie réseau (E/S réseau AC) et la sortie
+  // vers l'utilisation (SORTIE AC), repérée prime comme au folio 01.
+  vector({
+    key: 'imeon912', name: 'Onduleur hybride triphasé IMEON 9.12 · 9 kW · 2 MPPT · 48 V', ref: 'IMEON 9.12',
+    brand: 'IMEON Energy', kind: 'inverter', family: 'Photovoltaïque', poles: 5, w: 180, h: 200,
+    terminals: [
+      { id: 'PV1+', fx: 0.08, fy: 0.03 }, { id: 'PV1−', fx: 0.18, fy: 0.03 },
+      { id: 'PV2+', fx: 0.32, fy: 0.03 }, { id: 'PV2−', fx: 0.42, fy: 0.03 },
+      { id: 'BAT+', fx: 0.72, fy: 0.03 }, { id: 'BAT−', fx: 0.86, fy: 0.03 },
+      { id: 'L1', fx: 0.06, fy: 0.97 }, { id: 'L2', fx: 0.15, fy: 0.97 }, { id: 'L3', fx: 0.24, fy: 0.97 },
+      { id: 'N', fx: 0.33, fy: 0.97 }, { id: 'PE', fx: 0.42, fy: 0.97 },
+      { id: 'L1\'', fx: 0.58, fy: 0.97 }, { id: 'L2\'', fx: 0.67, fy: 0.97 }, { id: 'L3\'', fx: 0.76, fy: 0.97 },
+      { id: 'N\'', fx: 0.85, fy: 0.97 }, { id: 'PE\'', fx: 0.94, fy: 0.97 },
+    ],
+  }),
+  // Module de batterie lithium Pylontech US2000C (DTR 29) : 48 V · 50 Ah · 2,4 kWh,
+  // boîtier 19" noir. Dessiné vu de face dans son rack (bornes de puissance en façade).
+  vector({
+    key: 'us2000c', name: 'Module batterie lithium Pylontech US2000C · 48 V · 50 Ah · 2,4 kWh', ref: 'US2000C',
+    brand: 'Pylontech', kind: 'battery', family: 'Photovoltaïque', poles: 2, w: 300, h: 26,
+    terminals: [{ id: '+', fx: 0.86, fy: 0.5 }, { id: '−', fx: 0.95, fy: 0.5 }],
+  }),
+  // Module Victron SPM043602402 (DTR 27) posé en PORTRAIT, comme au calepinage du
+  // corrigé (1,002 m le long des 10,1 m) : + en haut à gauche, − en haut à droite.
+  vector({
+    key: 'pvmodule', name: 'Module monocristallin Victron SPM043602402 · 360 Wc · 24 V', ref: 'SPM043602402',
+    brand: 'Victron Energy', kind: 'pv', family: 'Photovoltaïque', poles: 2, w: 28, h: 56, door: true,
+    terminals: [{ id: '+', fx: 0.14, fy: 0 }, { id: '−', fx: 0.86, fy: 0 }],
+  }),
+  // Boîte de jonction d'un string, en toiture : raccordement MC4 du string et départ
+  // en câble solaire 6 mm² vers le coffret, avec la liaison équipotentielle des cadres.
+  vector({
+    key: 'jbstring', name: 'Boîte de jonction de string · MC4 → câble solaire 6 mm² + PE des cadres', ref: 'JB-STRING',
+    kind: 'pv', family: 'Photovoltaïque', poles: 3, w: 70, h: 64, door: true,
+    terminals: [
+      { id: '+', fx: 0, fy: 0.3 }, { id: '−', fx: 0, fy: 0.62 },
+      { id: 'P', fx: 0.25, fy: 0.8 }, { id: 'M', fx: 0.5, fy: 0.8 }, { id: 'PE', fx: 0.75, fy: 0.8 },
+    ],
+    passes: [['+', 'P'], ['−', 'M']],
+  }),
+  // Sectionneur DC du PARC BATTERIE : il doit tenir le courant de décharge de
+  // l'onduleur (200 A pour l'IMEON 9.12), pas les 32 A d'un sectionneur de string.
+  vector({
+    key: 'dcswitchbat', name: 'Sectionneur DC batterie 2P 250 A · cadenassable', ref: 'SECT-DC-250',
+    kind: 'dc', family: 'Photovoltaïque', poles: 2, w: 52, h: 120,
+    terminals: [
+      { id: '1+', fx: 0.3, fy: 0.07 }, { id: '3−', fx: 0.7, fy: 0.07 },
+      { id: '2+', fx: 0.3, fy: 0.93 }, { id: '4−', fx: 0.7, fy: 0.93 },
+    ],
+  }),
+  vector({
+    key: 'dcfusebat', name: 'Porte-fusibles batterie NH00 · 250 A DC', ref: 'PF-NH00-250',
+    kind: 'dc', family: 'Photovoltaïque', poles: 2, w: 52, h: 120,
+    terminals: [
+      { id: '1+', fx: 0.3, fy: 0.07 }, { id: '3−', fx: 0.7, fy: 0.07 },
+      { id: '2+', fx: 0.3, fy: 0.93 }, { id: '4−', fx: 0.7, fy: 0.93 },
+    ],
+    passes: [['1+', '2+'], ['3−', '4−']],
   }),
   vector({
     key: 'megafuse', name: 'Fusible batterie MEGA 125 A', ref: 'MEGA-125', kind: 'dc',

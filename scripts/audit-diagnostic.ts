@@ -106,10 +106,22 @@ for (const tp of TPS) {
 
   for (const f of tp.faults) {
     // ---- la panne dit-elle ce qu'elle fait au réseau ?
-    if (!f.coupe && !f.ouvre) {
+    if (!f.coupe && !f.ouvre && !f.croise) {
       ko++;
-      console.log(`  ✗ ${f.id} : ne déclare ni « coupe » ni « ouvre » — invisible à l'instrument`);
+      console.log(`  ✗ ${f.id} : ne déclare ni « coupe », ni « ouvre », ni « croise » — invisible à l'instrument`);
       continue;
+    }
+    // paire croisée : les deux liaisons d'origine doivent exister
+    if (f.croise) {
+      const absentes = f.croise.filter(c => {
+        const [x, y] = c.split('>');
+        return !tp.liaisons.some(l => (l.a === x && l.b === y) || (l.a === y && l.b === x));
+      });
+      if (absentes.length) {
+        ko++;
+        console.log(`  ✗ ${f.id} : « croise » ne correspond à aucune liaison du TP → ${absentes.join(', ')}`);
+        continue;
+      }
     }
     if (!f.action) {
       ko++;
@@ -142,7 +154,7 @@ for (const tp of TPS) {
       continue;
     }
     const confusions = tp.faults
-      .filter(g => g.id !== f.id && (g.coupe || g.ouvre))
+      .filter(g => g.id !== f.id && (g.coupe || g.ouvre || g.croise))
       .filter(g => distingue(sig, signature(tp, g.id)) == null)
       .map(g => g.id);
     if (confusions.length) {

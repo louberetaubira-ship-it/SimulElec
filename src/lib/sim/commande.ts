@@ -105,6 +105,8 @@ export interface EffetPanne {
   coupe?: string;
   /** Identifiant de slot ou repère d'organe dont le contact reste ouvert. */
   ouvre?: string;
+  /** Deux liaisons dont les extrémités sont interverties (paire croisée). */
+  croise?: [string, string];
 }
 
 /** État du montage au moment de la mesure, tel que l'élève l'a réglé. */
@@ -164,7 +166,7 @@ function contactsAuxiliaires(
 }
 
 export const effetDe = (f: Fault | undefined): EffetPanne =>
-  f ? { coupe: f.coupe, ouvre: f.ouvre } : {};
+  f ? { coupe: f.coupe, ouvre: f.ouvre, croise: f.croise } : {};
 
 /**
  * La panne active coupe-t-elle la liaison a–b ? Utile hors du calcul de réseau —
@@ -178,6 +180,8 @@ export function liaisonCoupee(
   b: string,
 ): boolean {
   const panne = effetDe(tp.faults.find(f => f.id === faultId));
+  // une paire croisée retire aussi les deux liaisons d'origine
+  if (panne.croise?.some(c => cle(...(c.split('>') as [string, string])) === cle(a, b))) return true;
   if (panne.coupe == null) return false;
   const [ca, cb] = panne.coupe.split('>') as [string, string];
   return cle(ca, cb) === cle(a, b);
@@ -198,7 +202,9 @@ export function reseauCommande(
 ): Arete[] {
   const e: Arete[] = [];
   const panne = effetDe(tp.faults.find(f => f.id === st.fault));
-  const coupee = (id: string): boolean => panne.coupe != null && cle(...(panne.coupe.split('>') as [string, string])) === id;
+  const croisees = new Set((panne.croise ?? []).map(c => cle(...(c.split('>') as [string, string]))));
+  const coupee = (id: string): boolean =>
+    (panne.coupe != null && cle(...(panne.coupe.split('>') as [string, string])) === id) || croisees.has(id);
   const ouvert = (organe: string): boolean => panne.ouvre === organe;
 
   /** Fil posé par l'élève : il disparaît du réseau si la panne l'a coupé. */
@@ -240,6 +246,15 @@ export function reseauCommande(
     const id = cle(w.a, w.b);
     if (!coupee(id)) e.push({ a: w.a, b: w.b, r: R.FIL, id, puissance: true, nature: 'fil' });
   }
+  // ---- paire croisée : les deux conducteurs arrivent chacun sur la borne de l'autre
+  if (panne.croise) {
+    const [[a1, b1], [a2, b2]] = panne.croise.map(c => c.split('>')) as [[string, string], [string, string]];
+    const posees = new Set(st.wires.map(w => cle(w.a, w.b)));
+    if (posees.has(cle(a1, b1)) && posees.has(cle(a2, b2))) {
+      e.push({ a: a1, b: b2, r: R.FIL, id: cle(a1, b2), puissance: true, nature: 'fil' });
+      e.push({ a: a2, b: b1, r: R.FIL, id: cle(a2, b1), puissance: true, nature: 'fil' });
+    }
+  }
 
   // ---- les deux faces d'une borne de bornier sont le MÊME point électrique.
   // Sans ce pont, tout ce qui est câblé en porte (pupitre, voyant) se retrouve
@@ -268,6 +283,16 @@ export function reseauCommande(
       ...(l.puissance ? { puissance: true } : {}),
     });
   }
+
+  // ---- passages internes (cartouche d'un porte-fusible, bornier d'une boîte de
+  // jonction) : l'appareil se traverse à l'ohmmètre, sauf si la panne l'a ouvert.
+  const passages = (prefixe: string, key: string, organe: string) => {
+    for (const [a, b] of CATALOGUE_BY_KEY[key]?.passes ?? []) {
+      contact(`${prefixe}.${a}`, `${prefixe}.${b}`, true, organe);
+    }
+  };
+  for (const slot of tp.slots) passages(slot.id, slot.key, slot.id);
+  for (const it of [...(tp.annexItems ?? []), ...(tp.recvItems ?? [])]) passages(it.rep, it.key, it.rep);
 
   // ---- organes de la platine
   const rBobine = resistanceDeclaree(tp, /bobine/i) ?? R.BOBINE;

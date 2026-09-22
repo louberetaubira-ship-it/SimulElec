@@ -6,6 +6,7 @@ import { listeMiseSousTension, repereSlot } from './reperes';
 import { linkKey } from './layout';
 import { aParametrage, paramConforme, paramNonConformes, parametresOf } from './parametrage';
 import { aKnxMiseEnService, knxConforme, knxErreurs } from './knxMiseEnService';
+import { aImeonMiseEnService, imeonConforme, imeonErreurs, IMEON_BLOCS } from './imeonMiseEnService';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
 import type { CoursId } from '../data/cours';
 import {
@@ -450,8 +451,23 @@ export const ESSAIS_KNX_LOCAL = [
 export const essaisKnxLocalComplete = (tp: TpDefinition, st: AttemptState): boolean =>
   !tp.essaisKnxLocal || ESSAIS_KNX_LOCAL.every(e => st.essais?.[e.id]);
 
+/**
+ * Essai des quatre situations de fonctionnement d'une installation PV hybride, dans
+ * l'ordre de la fiche d'essais (sujet CGM 2023, A.1.2).
+ */
+export const ESSAIS_PV = [
+  { id: 'pv-nuit', label: 'Nuit, pas de production : le réseau alimente' },
+  { id: 'pv-ilot', label: 'Réseau coupé : les batteries alimentent (site isolé)' },
+  { id: 'pv-def', label: 'Déficit : le PV et les batteries alimentent ensemble' },
+  { id: 'pv-sur', label: 'Surplus : le PV alimente et charge les batteries' },
+] as const;
+
+export const essaisPvComplete = (tp: TpDefinition, st: AttemptState): boolean =>
+  !tp.essaisPv || ESSAIS_PV.every(e => st.essais?.[e.id]);
+
 export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) =>
-  mesuresComplete(tp, st, 'sousTension') && essaisPortailComplete(tp, st) && essaisKnxLocalComplete(tp, st);
+  mesuresComplete(tp, st, 'sousTension') && essaisPortailComplete(tp, st) && essaisKnxLocalComplete(tp, st)
+  && essaisPvComplete(tp, st);
 /**
  * Mise en service terminée : essai concluant ET, sur un TP à variateur ou à mise en
  * service KNX, réglages conformes. L'essai reste possible avec de mauvais réglages —
@@ -459,8 +475,8 @@ export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) =>
  * cahier des charges.
  */
 export const deconsComplete = (
-  st: AttemptState, tp?: Pick<TpDefinition, 'variateur' | 'knxMiseEnService' | 'knxZones'>,
-) => st.decons.essai && (!tp || (paramConforme(tp, st) && knxConforme(tp, st)));
+  st: AttemptState, tp?: Pick<TpDefinition, 'variateur' | 'knxMiseEnService' | 'knxZones' | 'imeonMiseEnService'>,
+) => st.decons.essai && (!tp || (paramConforme(tp, st) && knxConforme(tp, st) && imeonConforme(tp, st)));
 
 export interface ServiceCheck { id: string; title: string; ok: boolean }
 
@@ -484,6 +500,9 @@ export function serviceChecks(tp: TpDefinition, st: AttemptState, sim: SimState)
       : []),
     ...(aKnxMiseEnService(tp)
       ? [{ id: 'knx', title: 'Mise en service KNX (interface, adresses, liaisons, paramètres, téléchargement)', ok: st.decons.close && knxConforme(tp, st) }]
+      : []),
+    ...(aImeonMiseEnService(tp)
+      ? [{ id: 'imeon', title: `Paramétrer ${repereSlot(tp, 'km1')} (priorité des sources, injection, type de batterie)`, ok: st.decons.close && imeonConforme(tp, st) }]
       : []),
     { id: 'essai', title: essaiTitle, ok: st.decons.essai },
     { id: 'run', title: tp.hasMotor ? 'Moteur en marche' : 'Installation en service (230 V présent)', ok: isRunning(sim) || st.decons.essai },
@@ -510,7 +529,7 @@ export function prepQuestions(tp: TpDefinition): PrepQuestion[] {
   return p
     ? [
       ...p.identification, ...p.fonctions, ...(p.calculs ?? []), ...(p.adressage ?? []),
-      ...(p.grafcetQuiz ?? []), ...(p.grafcet?.cases ?? []),
+      ...(p.grafcetQuiz ?? []), ...(p.grafcet?.cases ?? []), ...(p.blocs ?? []).flatMap(b => b.questions),
     ]
     : [];
 }
@@ -676,6 +695,11 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
         // Mise en service KNX : la moitié de la note, au prorata des blocs conformes
         // (interface, adresses, liaisons, paramètres — voir `knxErreurs`).
         const ok = (4 - knxErreurs(tp, st).length) / 4;
+        return clamp01(0.5 * base + 0.5 * ok);
+      }
+      if (aImeonMiseEnService(tp)) {
+        // Onduleur hybride : la moitié de la note, au prorata des réglages conformes.
+        const ok = (IMEON_BLOCS - imeonErreurs(tp, st).length) / IMEON_BLOCS;
         return clamp01(0.5 * base + 0.5 * ok);
       }
       if (!aParametrage(tp)) return base;

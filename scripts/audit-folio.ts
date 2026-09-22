@@ -18,6 +18,7 @@
  *
  *     npx tsx scripts/audit-folio.ts
  */
+import { existsSync } from 'node:fs';
 import { TPS } from '@/lib/data/tps';
 import { initialSim, type SimState } from '@/lib/sim/engine';
 import { initialState } from '@/lib/sim/progress';
@@ -53,6 +54,18 @@ for (const tp of TPS) {
   if (!tp.playable) continue;
   console.log(`\n═══ ${tp.title} (${tp.id})`);
   if (!tp.folio) {
+    // Pas de circuit de commande à dessiner : le TP montre au dépannage le schéma de
+    // l'installation tiré du dossier (`schemaImage`). Encore faut-il que le document existe.
+    if (tp.schemaImage) {
+      const fichier = `public${tp.schemaImage.src}`;
+      if (existsSync(fichier)) {
+        console.log(`  — pas de circuit de commande : schéma de l'installation en document (${tp.schemaImage.src})`);
+      } else {
+        ko++;
+        console.log(`  ✗ schéma de l'installation introuvable : ${fichier}`);
+      }
+      continue;
+    }
     ko++;
     console.log('  ✗ pas de folio : l\'étape de dépannage n\'a pas de schéma à montrer');
     continue;

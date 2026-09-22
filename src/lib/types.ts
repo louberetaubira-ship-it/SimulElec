@@ -95,6 +95,13 @@ export interface CatalogueItem {
   small?: boolean;
   /** Se pose en annexe (porte / pièce / toiture) plutôt que sur un rail. */
   door?: boolean;
+  /**
+   * Passages INTERNES de l'appareil : paires de bornes reliées à l'intérieur
+   * (cartouche d'un porte-fusible, bornier de passage d'une boîte de jonction).
+   * Sans eux, l'ohmmètre ne traverse pas l'appareil et un fusible fondu ne se
+   * trouve pas à la mesure. Une panne `ouvre: <slot ou repère>` les coupe tous.
+   */
+  passes?: [string, string][];
 }
 
 /** Élément de bibliothèque (public/lib/<famille>.json). */
@@ -286,6 +293,43 @@ export interface KnxMiseEnServiceDef {
   participants: { id: string; rep: string; adresse: string }[];
 }
 
+/**
+ * Mise en service d'un onduleur HYBRIDE (écran de l'appareil) : priorité des sources,
+ * injection réseau, type de batterie. Le TP déclare les choix proposés et les réglages
+ * attendus d'après son cahier des charges ; `src/lib/sim/imeonMiseEnService.ts` juge.
+ */
+export interface ImeonMiseEnServiceDef {
+  /** Nom affiché sur l'écran (« IMEON 9.12 »). */
+  appareil: string;
+  /** Ordres de priorité proposés (« PV › Stockage › Réseau »…). */
+  priorites: string[];
+  /** Ordre attendu (un élément de `priorites`). */
+  priorite: string;
+  /** Injection du surplus sur le réseau public : réglage attendu. */
+  injection: boolean;
+  /** Types de batterie proposés. */
+  batteries: string[];
+  /** Type attendu (un élément de `batteries`). */
+  batterie: string;
+  /** Justifications affichées à la vérification, par réglage. */
+  pourquoi: { priorite: string; injection: string; batterie: string };
+}
+
+/** Grandeurs d'une installation PV hybride pour l'essai des quatre situations. */
+export interface EssaiPvDef {
+  /** Puissance crête installée (Wc). */
+  pc: number;
+  /** Consommation maximale simulée (W). */
+  pMax: number;
+  /** Tension MPP d'un string (V). */
+  umpp: number;
+  /** Tension du parc (V). */
+  ubat: number;
+  /** Décharge et charge maximales retenues pour l'essai (W). */
+  decharge: number;
+  charge: number;
+}
+
 /** Une zone du local desservie par un détecteur, sur un ou deux canaux (canal commun). */
 export interface KnxZone {
   id: string;
@@ -458,6 +502,38 @@ export interface PrepQuestion {
   focus?: string;
   /** Schéma sur lequel chercher : la puissance ou la commande. */
   schema?: 'puissance' | 'commande';
+  /**
+   * Document du dossier (identifiant dans `PreparationDef.documents`) à afficher
+   * pendant qu'on répond. L'élève lit la valeur sur le vrai document — le tableau
+   * CALSOL, le synoptique — au lieu de la recevoir dans l'énoncé.
+   */
+  doc?: string;
+}
+
+/**
+ * Document réel du dossier technique, affiché à la préparation (DTR, folio,
+ * fiche constructeur). Une image extraite du sujet, ou un tableau à compléter.
+ */
+export interface PrepDocument {
+  id: string;
+  /** Titre court de l'onglet : « DTR 2 », « DTR 4 », « A.1.6 ». */
+  titre: string;
+  /** Légende sous le document. */
+  legende: string;
+  /** Image servie depuis `public/` (« /tp/ecobike-pv/dtr2.jpg »). */
+  src?: string;
+  /** Tableau de données (quand le document est un tableau à compléter). */
+  tableau?: { entetes: string[]; lignes: string[][] };
+  /** Montré aussi à l'énoncé (situation, lieu, synoptique). */
+  enonce?: boolean;
+}
+
+/** Bloc de préparation propre à un TP : un titre, une consigne, des questions. */
+export interface PrepBloc {
+  id: string;
+  titre: string;
+  consigne: string;
+  questions: PrepQuestion[];
 }
 
 /**
@@ -511,6 +587,16 @@ export interface PreparationDef {
    * une question à choix : `id` = identifiant de la case dans le dessin.
    */
   grafcet?: { cases: PrepQuestion[] };
+  /**
+   * Documents réels du dossier, affichés dans un visualiseur à onglets à la place
+   * du schéma dessiné. Présents, ils remplacent aussi l'étude de dimensionnement
+   * embarquée de la scène photovoltaïque.
+   */
+  documents?: PrepDocument[];
+  /** Blocs supplémentaires propres au TP, après les blocs standard. */
+  blocs?: PrepBloc[];
+  /** Titres et consignes des blocs standard, quand ceux par défaut ne conviennent pas. */
+  intitules?: Partial<Record<'identification' | 'fonctions' | 'calculs' | 'adressage', { titre: string; consigne: string }>>;
 }
 
 export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string; /** Photo propre à cette référence (sinon : sprite/dessin de `key`). */ img?: string }
@@ -558,6 +644,18 @@ export interface Fault {
   coupe?: string;
   /** Organe dont le contact reste ouvert : identifiant de slot (`f3`) ou repère de pupitre (`S1`). */
   ouvre?: string;
+  /**
+   * Deux liaisons « a>b » dont les extrémités `b` sont INTERVERTIES : les deux
+   * conducteurs d'une paire croisés au raccordement (polarité inversée). Le réseau
+   * mesuré relie alors a₁ à b₂ et a₂ à b₁, et les bornes b échangent leur polarité.
+   */
+  croise?: [string, string];
+  /**
+   * Ce que la panne change à la table des réseaux, borne par borne : une entrée
+   * qui ne reçoit plus rien (`live: 'off'`), une tension continue partielle
+   * (`u`). Sans cela une coupure se verrait à l'ohmmètre mais pas au voltmètre.
+   */
+  nets?: Record<string, Partial<TerminalNet>>;
   /** Action de remise en état attendue, proposée à l'élève parmi d'autres. */
   action?: string;
 }
@@ -616,7 +714,16 @@ export interface TerminalNet {
    * Q2 est fermé, que Q1 le soit ou non). À distinguer de 'f2' (aval de q1 ET f2, modèle
    * moteur où f2 est une protection en aval du sectionneur général).
    */
-  live: 'always' | 'q1' | 'q2' | 'q3' | 'onduDC' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off';
+  live: 'always' | 'q1' | 'q2' | 'q3' | 'onduDC' | 'ctl' | 'run' | 'f2' | 'f3' | 'km1' | 'off'
+    // Aval d'un organe de sectionnement SUPPLÉMENTAIRE (`TpDefinition.sectionneurs`) :
+    // vif seulement quand cet organe est fermé (`sim.aux[slot]`).
+    | `aux:${string}`;
+  /**
+   * Tension CONTINUE de cette borne par rapport à la polarité opposée (V) : un
+   * string photovoltaïque à vide (474 V) n'est pas un parc batterie (48 V). Elle
+   * prime sur `TpDefinition.uContinu` et sur la reconstitution par zone.
+   */
+  u?: number;
 }
 
 /**
@@ -739,6 +846,35 @@ export interface TpDefinition {
    * zone ↔ détecteur ↔ canal si elle devait changer.
    */
   knxZones?: KnxZone[];
+  /**
+   * Mise en service d'un onduleur hybride (étape déconsignation & mise en service) :
+   * écran de réglage — priorité des sources, injection, type de batterie. Sa
+   * conformité conditionne le démarrage de l'onduleur et l'essai des situations.
+   */
+  imeonMiseEnService?: ImeonMiseEnServiceDef;
+  /**
+   * Essai des quatre situations de fonctionnement d'une installation PV hybride
+   * (mesures sous tension). Présent = l'essai est exigé ; il porte les grandeurs
+   * de l'installation que l'écran de supervision affiche.
+   */
+  essaisPv?: EssaiPvDef;
+  /**
+   * Organes de sectionnement SUPPLÉMENTAIRES simulés, au-delà des trois que connaît
+   * le moteur (`q1`, `f2`, `f3`) : identifiants de slot. Chacun a son état ouvert /
+   * fermé dans `sim.aux`, se manœuvre au clic, se referme à la remise sous tension, et
+   * ses bornes avales se déclarent `live: 'aux:<slot>'`. Une installation à trois
+   * sources (réseau, champ PV, parc batterie) n'a pas assez de trois organes.
+   */
+  sectionneurs?: string[];
+  /** Libellés propres à la scène (bandeau toiture, bloc du bas, goulottes). */
+  libelles?: { toiture?: string; recv?: string; rangees?: string[] };
+  /** Titre de la plaque affichée à l'énoncé (« MOTEUR ASYNCHRONE 3~ » par défaut). */
+  plaqueTitre?: string;
+  /**
+   * Schéma de l'installation en DOCUMENT (folio du dossier), montré à l'étape de
+   * dépannage quand le TP n'a pas de folio de commande dessiné.
+   */
+  schemaImage?: { src: string; legende: string };
   station: boolean;
   /**
    * Composition du coffret de porte, de haut en bas. Absent = pupitre historique
@@ -864,6 +1000,14 @@ export interface TpDefinition {
      * être contrôlée séparément (via une paire d'`avalPairs` côté champ).
      */
     champ?: string;
+    /**
+     * Autres SOURCES indépendantes à séparer (slots de `sectionneurs`) : sectionneur
+     * du second string, sectionneur du parc batterie… La séparation exige qu'ils
+     * soient tous ouverts, et ils portent le cadenas comme `q1`.
+     */
+    sources?: string[];
+    /** Explication propre au TP, affichée en tête de la consignation (repères compris). */
+    explication?: string;
   };
 }
 
@@ -926,6 +1070,11 @@ export interface AttemptState {
     /** Mode du canal 8, local électrique (commutation simple, pas de minuterie). */
     ch8?: 'Commutation' | 'Minuterie';
   };
+  /**
+   * Mise en service de l'onduleur hybride (écran de réglage), pendant la
+   * déconsignation. `applique` : réglages validés et conformes.
+   */
+  imeon?: { priorite?: string; injection?: boolean; batterie?: string; applique?: boolean };
   placed: Record<string, boolean>;
   wires: { a: string; b: string; net: NetKind }[];
   wireErrors: number;

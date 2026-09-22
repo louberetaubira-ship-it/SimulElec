@@ -4,7 +4,7 @@
  * de `docs/reference/illustration-v3.tpl.html`, généralisé par la table `nets` des TP.
  */
 import type { AttemptState, ExpectedMeasure, InstrumentKind, ReadingRecord, TerminalNet, TpDefinition } from '../types';
-import { f3Ok, isControlLive, isRunning, motorOf, type SimState } from './engine';
+import { auxFerme, f3Ok, isControlLive, isRunning, motorOf, type SimState } from './engine';
 import { resistanceCommande, tensionCommande, liaisonCoupee, type Arete } from './commande';
 import { estBorneMoteur, resistancePlaque } from './plaque';
 
@@ -63,10 +63,12 @@ export const instrumentDef = (id: InstrumentKind | null): InstrumentDef | null =
 
 /* ------------------------------------------------------------------ nets */
 
-export interface NetInfo { net: string; live: boolean; src?: boolean }
+export interface NetInfo { net: string; live: boolean; src?: boolean; /** Tension continue propre à la borne (V). */ u?: number }
 
 /** La condition de présence de tension est-elle remplie ? */
 function liveWhen(cond: TerminalNet['live'], sim: SimState): boolean {
+  // Aval d'un organe de sectionnement supplémentaire : vif s'il est fermé.
+  if (cond.startsWith('aux:')) return auxFerme(sim, cond.slice(4));
   switch (cond) {
     case 'always': return true;
     case 'q1': return sim.q1;
@@ -94,8 +96,8 @@ function liveWhen(cond: TerminalNet['live'], sim: SimState): boolean {
 export function netOf(tp: TpDefinition, sim: SimState, id: string | null): NetInfo | null {
   if (!id) return null;
   if (id.startsWith('RES.')) return { net: id.slice(4), live: true, src: true };
-  const table = tp.nets[id];
-  if (table) return { net: table.net, live: liveWhen(table.live, sim) };
+  const table = netDeclare(tp, sim.fault, id);
+  if (table) return { net: table.net, live: liveWhen(table.live, sim), ...(table.u != null ? { u: table.u } : {}) };
 
   // secours : préfixes connus non déclarés par le TP
   const dot = id.indexOf('.');
@@ -107,6 +109,29 @@ export function netOf(tp: TpDefinition, sim: SimState, id: string | null): NetIn
   }
   if (['S1', 'S2', 'H1', 'H2'].includes(prefix)) return { net: 'C', live: isControlLive(sim) };
   return null;
+}
+
+/**
+ * Réseau DÉCLARÉ d'une borne, panne comprise.
+ *
+ * Une panne peut dire ce qu'elle change à la table (`Fault.nets`) : une entrée qui ne
+ * reçoit plus rien, une tension partielle. Une paire CROISÉE (`Fault.croise`) échange
+ * le réseau des deux bornes d'arrivée : c'est la polarité inversée qu'on lit au voltmètre.
+ */
+function netDeclare(tp: TpDefinition, fault: string | null, id: string): TerminalNet | undefined {
+  const base = tp.nets[id];
+  const f = fault ? tp.faults.find(x => x.id === fault) : undefined;
+  if (!f) return base;
+  let out = base;
+  if (f.croise) {
+    const [[a1, b1], [a2, b2]] = f.croise.map(c => c.split('>')) as [[string, string], [string, string]];
+    // la borne b₁ reçoit désormais le conducteur venu de a₂, et inversement
+    if (id === b1 && tp.nets[a2]) out = { ...(base ?? tp.nets[a2]), net: tp.nets[a2].net };
+    if (id === b2 && tp.nets[a1]) out = { ...(base ?? tp.nets[a1]), net: tp.nets[a1].net };
+  }
+  const ov = f.nets?.[id];
+  if (ov && out) out = { ...out, ...ov };
+  return out;
 }
 
 const PHASES = ['L1', 'L2', 'L3'];
@@ -147,6 +172,9 @@ export function voltage(
   if (isDC(A.net) && isDC(B.net)) {
     if (!A.live || !B.live) return 0;
     if (A.net === B.net) return 0;
+    // Tension continue propre à la borne (string à vide, parc batterie) : elle prime.
+    const uBorne = A.u ?? B.u;
+    if (uBorne != null) return uBorne;
     // Tension continue DÉCLARÉE par le TP (bus KNX : 29 V) : elle prime sur la
     // reconstitution par zone, qui ne vaut que pour l'installation photovoltaïque.
     if (tp.uContinu != null) return tp.uContinu;
@@ -326,6 +354,12 @@ function pairKind(tp: TpDefinition, sim: SimState, a: string | null, b: string |
 
 const EMPTY: ReadOut = { value: null, display: '', unit: '' };
 
+/** Pointe rouge sur un (−), pointe noire sur un (+) ? */
+function polariteInverse(tp: TpDefinition, sim: SimState, r: string | null, k: string | null): boolean {
+  const A = netOf(tp, sim, r), B = netOf(tp, sim, k);
+  return A?.net === 'DC-' && B?.net === 'DC+';
+}
+
 /** Le conducteur serré par la pince porte-t-il le courant moteur ? */
 function clampCurrent(sim: SimState, w: ClampWire | null): number {
   if (!w || !isRunning(sim)) return 0;
@@ -384,8 +418,12 @@ export function read(
     const wantDC = dial === 'V⎓' || dial === 'mV';
     const bon = wantDC ? kind === 'DC' : kind === 'AC';
     if (!bon) return { value: 0, display: fr(0, dial === 'mV' ? 1 : 1), unit: `${dial} · mauvais calibre` };
-    if (dial === 'mV') return { value: u * 1000, display: fr(u * 1000, 0), unit: 'mV⎓' };
-    return { value: u, display: fr(u, 1), unit: dial };
+    // En continu, le multimètre affiche le SIGNE : pointe rouge sur le (−) et noire sur
+    // le (+), il lit une tension négative. C'est ce qui révèle une polarité inversée.
+    const signe = wantDC && polariteInverse(tp, sim, r, k) ? -1 : 1;
+    const v = signe * u;
+    if (dial === 'mV') return { value: v * 1000, display: fr(v * 1000, 0), unit: 'mV⎓' };
+    return { value: v, display: fr(v, 1), unit: dial };
   }
 
   if (dial === 'Ω' || dial === 'RPE 200 mA' || dial === '•))') {

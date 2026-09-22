@@ -72,11 +72,15 @@ export function OnduleurSvg() {
   );
 }
 
-export type DcKind = 'sw' | 'spd' | 'fuse';
+export type DcKind = 'sw' | 'spd' | 'fuse' | 'swbat' | 'fusebat';
 
-export function DcModSvg({ kind }: { kind: DcKind }) {
-  const lab = kind === 'sw' ? ['SECT. DC', '1000 V', '2P 32 A']
-    : kind === 'spd' ? ['PARAF. DC', 'Type 2', 'Y'] : ['FUSIBLE DC', 'gPV 15 A', '10×38'];
+export function DcModSvg({ kind: k }: { kind: DcKind }) {
+  const lab = k === 'sw' ? ['SECT. DC', '1000 V', '2P 32 A']
+    : k === 'swbat' ? ['SECT. BAT', '80 V DC', '2P 250 A']
+      : k === 'spd' ? ['PARAF. DC', 'Type 2', 'Y']
+        : k === 'fusebat' ? ['FUS. BAT.', 'NH00', '250 A'] : ['FUSIBLE DC', 'gPV 15 A', '10×38'];
+  // le dessin (manette, cartouches) ne dépend que de la famille de l'appareil
+  const kind = k === 'swbat' ? 'sw' : k === 'fusebat' ? 'fuse' : k;
   const w = 52;
   return (
     <svg viewBox={`0 0 ${w} 120`} style={{ width: '100%', height: '100%', ...SHADOW2 }}>
@@ -462,6 +466,126 @@ export function CombinerSvg() {
   );
 }
 
+/**
+ * Onduleur hybride triphasé IMEON 9.12, vu de face. Entrées continues en haut
+ * (« Entrée PV string 1 / 2 », « ENTRÉE BATTERIES »), borniers alternatifs en bas
+ * (« E/S réseau AC », « SORTIE AC ») — les libellés du folio 01. L'écran ne
+ * s'allume qu'en service. Les bornes suivent les fractions du catalogue (`imeon912`).
+ */
+export function Imeon912Svg({ running = false }: { running?: boolean }) {
+  const gid = React.useId();
+  const lcd = running ? '#7CD8FF' : '#2E4A66';
+  const top = [0.08, 0.18, 0.32, 0.42, 0.72, 0.86];
+  const bot = [0.06, 0.15, 0.24, 0.33, 0.42, 0.58, 0.67, 0.76, 0.85, 0.94];
+  const W = 180, H = 200;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#5B6570" /><stop offset=".5" stopColor="#77818C" /><stop offset="1" stopColor="#56606B" />
+        </linearGradient>
+      </defs>
+      <rect x="3" y="14" width={W - 6} height={H - 28} rx="7" fill={`url(#${gid})`} stroke="#3A4047" strokeWidth="1.5" />
+      {/* borniers : continu en haut, alternatif en bas */}
+      <rect x="6" y="2" width="76" height="14" rx="2" fill="#2A2E33" />
+      <rect x="120" y="2" width="44" height="14" rx="2" fill="#2A2E33" />
+      <rect x="4" y={H - 16} width="76" height="14" rx="2" fill="#2A2E33" />
+      <rect x="98" y={H - 16} width="80" height="14" rx="2" fill="#2A2E33" />
+      {top.map((f, i) => (
+        <circle key={`t${i}`} cx={W * f} cy={H * 0.03} r="3.2" fill={i % 2 === 0 ? '#D93A3A' : '#E8EAEC'} stroke="#111" strokeWidth=".6" />
+      ))}
+      {bot.map((f, i) => (
+        <circle key={`b${i}`} cx={W * f} cy={H * 0.97} r="3" fill={i % 5 === 4 ? '#37B34A' : '#C9CED4'} stroke="#111" strokeWidth=".6" />
+      ))}
+      {/* libellés des borniers */}
+      <g fontFamily={SANS} fontSize="5.4" fontWeight="700" fill="#F4F5F7">
+        <text x="6" y="24">Entrées PV · strings 1 et 2</text>
+        <text x="118" y="24">ENTRÉE BATTERIES</text>
+        <text x="6" y={H - 20}>E/S réseau AC</text>
+        <text x="100" y={H - 20}>SORTIE AC</text>
+      </g>
+      {/* façade : logo, écran, voyants */}
+      <text x={W / 2} y="44" textAnchor="middle" fontFamily={COND} fontSize="15" fontWeight="700" fill="#fff" letterSpacing=".04em">IMEON 9.12</text>
+      <text x={W / 2} y="55" textAnchor="middle" fontFamily={SANS} fontSize="6" fill="#DCE3EA">onduleur hybride · 3/N/PE 230/400 V</text>
+      {/* le repère de la platine se pose au milieu : l'écran est dessous */}
+      <rect x="44" y="114" width="92" height="34" rx="4" fill="#0B1726" stroke="#1C2B3C" />
+      <text x="52" y="128" fontFamily={MONO} fontSize="8" fill={lcd}>{running ? 'EN SERVICE' : 'VEILLE'}</text>
+      <text x="52" y="141" fontFamily={MONO} fontSize="7" fill={lcd}>{running ? 'PV 384 V · BAT 49,6 V' : 'réglages à faire'}</text>
+      <circle cx="70" cy="157" r="3.2" fill={running ? '#35E36A' : '#3A4047'} />
+      <circle cx="90" cy="157" r="3.2" fill={running ? '#FFB020' : '#3A4047'} />
+      <circle cx="110" cy="157" r="3.2" fill="#3A4047" />
+      <text x={W / 2} y="171" textAnchor="middle" fontFamily={SANS} fontSize="5.5" fill="#DCE3EA">2 MPPT 280–700 V · 48 V · 9 kW</text>
+    </svg>
+  );
+}
+
+/**
+ * Module batterie lithium Pylontech US2000C, en façade de rack 19" : interrupteur,
+ * ports RS485 / CAN, voyants d'état, puis les deux bornes de puissance à droite —
+ * + (orange) et − (noire), alignées sur `recvTerminals` (86 % et 95 %).
+ */
+export function Us2000cSvg() {
+  return (
+    <svg viewBox="0 0 300 26" preserveAspectRatio="none" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="0.5" y="0.5" width="299" height="25" rx="2" fill="#1B1F24" stroke="#000" />
+      <rect x="4" y="4" width="6" height="18" rx="1" fill="#2E343B" /><rect x="290" y="4" width="6" height="18" rx="1" fill="#2E343B" />
+      <circle cx="20" cy="13" r="3.5" fill="#D93A3A" />
+      <g fill="#E8EAEC">
+        <rect x="32" y="7" width="12" height="12" rx="1" /><rect x="48" y="7" width="12" height="12" rx="1" /><rect x="64" y="7" width="12" height="12" rx="1" />
+      </g>
+      <g fontFamily={MONO} fontSize="4.2" fill="#9AA3AD"><text x="32" y="24">RS485</text><text x="64" y="24">CAN</text></g>
+      {[0, 1, 2, 3, 4, 5].map((i) => <circle key={i} cx={96 + i * 7} cy="17" r="1.8" fill="#35E36A" />)}
+      <text x="150" y="16" fontFamily={COND} fontSize="10" fontWeight="700" fill="#F4F5F7">US2000C</text>
+      <text x="196" y="16" fontFamily={MONO} fontSize="5.5" fill="#9AA3AD">48 V · 50 Ah</text>
+      <rect x="252" y="5" width="12" height="16" rx="2" fill="#E0761A" stroke="#7A3A00" />
+      <rect x="279" y="5" width="12" height="16" rx="2" fill="#20262D" stroke="#555" />
+    </svg>
+  );
+}
+
+/** Module photovoltaïque en PORTRAIT (72 cellules, 6 × 12), cadre aluminium. */
+export function PvModulePortraitSvg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 50 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#1B2C5E" /><stop offset=".5" stopColor="#0E1A3C" /><stop offset="1" stopColor="#25407A" />
+        </linearGradient>
+      </defs>
+      <rect x="0.5" y="0.5" width="49" height="99" rx="2" fill="#B9BEC4" stroke="#5E656D" />
+      <rect x="3" y="3" width="44" height="94" fill={`url(#${gid})`} />
+      <g fill="none" stroke="#9FB3D9" strokeWidth=".7" opacity=".8">
+        {Array.from({ length: 13 }, (_, i) => <path key={`h${i}`} d={`M3 ${3 + i * (94 / 12)}h44`} />)}
+        {Array.from({ length: 7 }, (_, i) => <path key={`v${i}`} d={`M${3 + i * (44 / 6)} 3v94`} />)}
+      </g>
+      <rect x="5" y="5" width="14" height="22" fill="#fff" opacity=".07" />
+    </svg>
+  );
+}
+
+/**
+ * Boîte de jonction d'un string en toiture : presse-étoupes MC4 à gauche (+ rouge,
+ * − noir), bornier de départ à droite (P+, M−, PE vert-jaune) vers le coffret.
+ */
+export function JbStringSvg() {
+  return (
+    <svg viewBox="0 0 70 64" preserveAspectRatio="none" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x="1" y="1" width="68" height="62" rx="4" fill="#D5D9DE" stroke="#7E8790" strokeWidth="1.5" />
+      <rect x="1" y="1" width="68" height="10" rx="4" fill="#C1C6CC" />
+      <text x="35" y="8.5" textAnchor="middle" fontFamily={SANS} fontSize="5.4" fontWeight="700" fill="#3A4047">BOÎTE DE JONCTION</text>
+      <rect x="0" y="16" width="9" height="7" rx="2" fill="#D93A3A" /><rect x="0" y="36" width="9" height="7" rx="2" fill="#20262D" />
+      <path d="M9 19.2H52" stroke="#D93A3A" strokeWidth="1.6" /><path d="M9 39.7H52" stroke="#20262D" strokeWidth="1.6" />
+      {/* départs vers la gaine du coffret : P+ à 25 %, M− à 50 %, PE à 75 % (à 80 % de la hauteur) */}
+      <path d="M52 19.2H17.5V51" stroke="#D93A3A" strokeWidth="1.6" fill="none" />
+      <path d="M52 39.7H35V51" stroke="#20262D" strokeWidth="1.6" fill="none" />
+      <path d="M52.5 44V51" stroke="#37B34A" strokeWidth="1.6" strokeDasharray="3 2" />
+      <text x="40" y="31" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#3A4047">MC4</text>
+      <text x="40" y="47" fontFamily={MONO} fontSize="4" fill="#1E7A33">cadres</text>
+    </svg>
+  );
+}
+
 /* ------------------------------------------------------------------ KNX
  *
  * Les quatre appareils du banc DOMO-KNX de l'établissement. Aucune photo dans le
@@ -827,6 +951,12 @@ export function svgForKey(key: string, running = false): React.ReactNode | null 
     case 'dcswitch': return <DcModSvg kind="sw" />;
     case 'dcspd': return <DcModSvg kind="spd" />;
     case 'dcfuse': return <DcModSvg kind="fuse" />;
+    case 'dcswitchbat': return <DcModSvg kind="swbat" />;
+    case 'dcfusebat': return <DcModSvg kind="fusebat" />;
+    case 'imeon912': return <Imeon912Svg running={running} />;
+    case 'us2000c': return <Us2000cSvg />;
+    case 'jbstring': return <JbStringSvg />;
+    case 'pvmodule': return <PvModulePortraitSvg />;
     case 'battery': return <BatterySvg />;
     case 'agcp': return <AgcpSvg />;
     case 'mppt': return <MpptSvg />;

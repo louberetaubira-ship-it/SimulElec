@@ -18,10 +18,12 @@ import type { ExpectedMeasure, TpDefinition } from '../src/lib/types';
 function simPour(tp: TpDefinition, m: ExpectedMeasure): SimState {
   const s = initialSim();
   const mot = motorOf(tp);
+  // organes de sectionnement supplémentaires (`sectionneurs`) : fermés en service
+  const aux = Object.fromEntries((tp.sectionneurs ?? []).map(id => [id, true]));
   if (m.when === 'run' || m.stage === 'sousTension') {
-    return { ...s, q1: true, f2: true, f3: true, km1: true, I: mot.In, n: mot.n };
+    return { ...s, q1: true, f2: true, f3: true, km1: true, I: mot.In, n: mot.n, aux };
   }
-  if (m.when === 'ctl') return { ...s, q1: true, f2: true, f3: true };
+  if (m.when === 'ctl') return { ...s, q1: true, f2: true, f3: true, aux };
   // hors tension : installation consignée
   return { ...s, q1: false, f2: false, f3: false, km1: false, I: 0, n: 0 };
 }

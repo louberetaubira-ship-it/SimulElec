@@ -10,7 +10,7 @@ import { Button, Card, Note, SideTitle } from '@/components/ui';
 import { isControlLive, isRunning, startButtons, type SimState } from '@/lib/sim/engine';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import {
-  ESSAIS_KNX_LOCAL, ESSAIS_PORTAIL, consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
+  ESSAIS_KNX_LOCAL, ESSAIS_PORTAIL, ESSAIS_PV, consignationOk, deconsComplete, epiOk, horsTensionComplete, sousTensionComplete,
 } from '@/lib/sim/progress';
 import EpiChecklist from '@/components/mesures/EpiChecklist';
 import ConsignationSteps from '@/components/mesures/Consignation';
@@ -20,6 +20,8 @@ import MesuresPanel from '@/components/mesures/MesuresPanel';
 import SecuriteGate from '@/components/mesures/SecuriteGate';
 import EssaisPortail from '@/components/mesures/EssaisPortail';
 import EssaiKnxLocal from '@/components/mesures/EssaiKnxLocal';
+import EssaiImeon from '@/components/mesures/EssaiImeon';
+import { imeonConforme, imeonState } from '@/lib/sim/imeonMiseEnService';
 import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
 import { secuComplete } from '@/lib/sim/securite';
 import { listeMiseSousTension, repereSlot, repereBorne } from '@/lib/sim/reperes';
@@ -103,6 +105,10 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
   const secuOk = variant !== 'sousTension' || secuComplete(st.secu);
   const [essaisOuverts, setEssaisOuverts] = React.useState(false);
   const [essaiKnxOuvert, setEssaiKnxOuvert] = React.useState(false);
+  const [essaiPvOuvert, setEssaiPvOuvert] = React.useState(false);
+  const nEssaisPv = ESSAIS_PV.filter(e => st.essais?.[e.id]).length;
+  // l'essai des situations exige l'onduleur EN SERVICE, donc paramétré conformément
+  const essaiPvPossible = secuComplete(st.secu) && isRunning(sim) && imeonConforme(tp, st);
   const nEssais = ESSAIS_PORTAIL.filter(e => st.essais?.[e.id]).length;
   const nEssaisKnx = ESSAIS_KNX_LOCAL.filter(e => st.essais?.[e.id]).length;
   const mesureVerrouillee = variant === 'sousTension' && !secuOk;
@@ -141,6 +147,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
             <DeconsignationSteps
               tp={tp} st={st} sim={sim} onAct={s.consAct} onParam={s.setParam}
               onKnxIface={s.knxSetIface} onKnxProg={s.knxProg} onKnxLink={s.knxToggleLink} onKnxParam={s.knxSetParam}
+              onImeonSet={s.imeonSet} onImeonAppliquer={s.imeonAppliquer}
             />
           </Card>
         )}
@@ -257,7 +264,23 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           </Card>
         )}
 
-        {variant === 'sousTension' && (
+        {variant === 'sousTension' && tp.essaisPv && (
+          <Card title="Essai · situations de fonctionnement">
+            <Note>
+              Sur l&apos;écran de supervision de {repereSlot(tp, 'km1')}, provoque les quatre situations du cahier des
+              charges : nuit, réseau coupé, déficit, surplus — et vérifie où va l&apos;énergie.
+            </Note>
+            <div className="my-1.5 font-mono-num text-[13px]">{nEssaisPv} / {ESSAIS_PV.length} situations vérifiées</div>
+            <Button size="sm" data-open-essai-pv disabled={!essaiPvPossible} onClick={() => setEssaiPvOuvert(true)}>
+              Ouvrir la supervision
+            </Button>
+            {!essaiPvPossible && (
+              <Note className="mt-1">{repereSlot(tp, 'km1')} en service (réglages appliqués) et équipement de sécurité validé exigés.</Note>
+            )}
+          </Card>
+        )}
+
+        {variant === 'sousTension' && !tp.essaisPv && (
           <Card title="Charge mécanique">
             <label className="flex items-center gap-2.5 text-[12px]">
               <span>Charge</span>
@@ -292,7 +315,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           wires={wires}
           cover={false}
           marks
-          deviceState={deviceStateOf(sim)}
+          deviceState={deviceStateOf(sim, tp)}
           lamps={lampsOf(sim, tp)}
           latched={sim.latched}
           motorRpm={sim.n}
@@ -312,16 +335,32 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
         {essaiKnxOuvert && (
           <EssaiKnxLocal zones={tp.knxZones ?? []} faits={st.essais} onReussi={s.essaiReussi} onClose={() => setEssaiKnxOuvert(false)} />
         )}
+        {essaiPvOuvert && tp.essaisPv && (
+          <EssaiImeon
+            donnees={{ ...tp.essaisPv, injection: imeonState(st).injection ?? tp.imeonMiseEnService?.injection ?? false }}
+            repReseau={repereSlot(tp, 'q1')}
+            repOnduleur={repereSlot(tp, 'km1')}
+            faits={st.essais}
+            onReussi={s.essaiReussi}
+            onClose={() => setEssaiPvOuvert(false)}
+          />
+        )}
         <Hint>
           {variant === 'epi'
             ? conseilConsignation(tp, st, sim, repQ1)
             : variant === 'horsTension'
               ? 'Installation consignée : choisis ton appareil, pose les deux pointes sur les bornes indiquées.'
               : variant === 'decons'
-                ? (isRunning(sim) ? 'Le moteur tourne : la mise en service est faite.' : isControlLive(sim) ? `Commande sous tension : appuie sur ${marche} en porte.` : `Referme ${listeMiseSousTension(tp)} en les cliquant.`)
-                : isRunning(sim)
-                  ? 'Moteur en marche : fais tes relevés (V~, pince, tachymètre).'
-                  : `Relance le moteur par ${marcheRep} pour les mesures qui l'exigent.`}
+                ? (!tp.hasMotor && startButtons(tp).length === 0 || tp.essaisPv
+                  ? (isRunning(sim) ? 'L\'installation est en service : la mise en service est faite.' : `Referme ${listeMiseSousTension(tp)}, puis mets ${repereSlot(tp, 'km1')} en service en le cliquant.`)
+                  : isRunning(sim) ? 'Le moteur tourne : la mise en service est faite.' : isControlLive(sim) ? `Commande sous tension : appuie sur ${marche} en porte.` : `Referme ${listeMiseSousTension(tp)} en les cliquant.`)
+                : tp.essaisPv
+                  ? (isRunning(sim)
+                    ? 'Installation en service : fais tes relevés (V⎓ côté continu, V~ côté alternatif), puis l\'essai des situations.'
+                    : `Remets ${repereSlot(tp, 'km1')} en service en le cliquant pour les mesures qui l'exigent.`)
+                  : isRunning(sim)
+                    ? 'Moteur en marche : fais tes relevés (V~, pince, tachymètre).'
+                    : `Relance le moteur par ${marcheRep} pour les mesures qui l'exigent.`}
         </Hint>
       </Center>
     </>

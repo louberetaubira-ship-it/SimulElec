@@ -69,10 +69,15 @@ export function repereSlot(tp: Pick<TpDefinition, 'slots'>, id: string): string 
 export const reperesMiseSousTension = (tp: Pick<TpDefinition, 'slots'>): [string, string, string] =>
   [repereSlot(tp, 'q1'), repereSlot(tp, 'f2'), repereSlot(tp, 'f3')];
 
-/** « Q1, Q2 puis Q3 » — la liste telle qu'on l'écrit dans une consigne. */
-export function listeMiseSousTension(tp: Pick<TpDefinition, 'slots'>, dernier = 'puis'): string {
+/**
+ * « Q1, Q2 puis Q3 » — la liste telle qu'on l'écrit dans une consigne. Les organes
+ * de sectionnement supplémentaires (`sectionneurs`) s'insèrent avant le dernier :
+ * sur une installation à trois sources, on les referme tous.
+ */
+export function listeMiseSousTension(tp: Pick<TpDefinition, 'slots' | 'sectionneurs'>, dernier = 'puis'): string {
   const [a, b, c] = reperesMiseSousTension(tp);
-  return `${a}, ${b} ${dernier} ${c}`;
+  const aux = (tp.sectionneurs ?? []).map(id => repereSlot(tp, id));
+  return `${[a, b, ...aux].join(', ')} ${dernier} ${c}`;
 }
 
 /**

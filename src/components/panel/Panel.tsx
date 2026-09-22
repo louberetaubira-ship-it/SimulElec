@@ -10,7 +10,7 @@ import React from 'react';
 import type { CatalogueItem, NetKind, TpDefinition } from '@/lib/types';
 import {
   ALIM_W, GAINE_LEN, PANEL_W, TOIT_TOP, gaineW, glandOf, motorOf, mt2Of, mtermOf, resOf, sceneOf, tbOf,
-  pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
+  arriveeMonophasee, pupitreOf, pupitreTerminals, recvBoxOf, resIds, resLabel, term, type Point,
 } from '@/lib/scene/geometry';
 import {
   annexTerminals, planLanes, recvGlandX, recvTerminals, route, sceneContext, terreTerminals, tpos,
@@ -229,7 +229,7 @@ export default function Panel(props: PanelProps) {
   const annexTerms: TerminalMark[] = React.useMemo(() => {
     const out: TerminalMark[] = [];
     for (const it of tp.annexItems ?? []) {
-      const dc = it.key === 'battery' || it.key === 'pvpanel';
+      const dc = it.key === 'battery' || it.key === 'pvpanel' || it.key === 'pvmodule';
       for (const [id, p] of Object.entries(annexTerminals(it))) {
         const term = id.split('.')[1];
         // Sur le champ PV et le parc batterie : X1 = pôle + (rouge), X2 = pôle − (noir).
@@ -244,8 +244,12 @@ export default function Panel(props: PanelProps) {
         // pastille + au bord gauche → « + » posé à SA GAUCHE ; pastille − au bord droit
         // → « − » posé à SA DROITE. Le repère ne chevauche plus la pastille ni les cellules.
         const onLeft = p.x < it.x + it.w / 2;
-        const dx = compact ? (onLeft ? -11 : 11) : 8;
-        out.push({ id, pos: { x: p.x, y: p.y }, label, dx, dy: 0, pol });
+        // Boîte de jonction : les arrivées du string sont sur son bord gauche, leur
+        // repère se lit à l'extérieur, du côté des modules.
+        const dx = compact ? (onLeft ? -11 : 11) : it.key === 'jbstring' && onLeft ? -8 : 8;
+        // départs par le bas : repère au-dessus de la borne, le nom de la boîte reste lisible dessous
+        const bas = it.key === 'jbstring' && p.y > it.y + it.h * 0.7;
+        out.push({ id, pos: { x: p.x, y: p.y }, label, dx: bas ? 0 : dx, dy: bas ? -9 : 0, pol });
       }
     }
     return out;
@@ -274,7 +278,7 @@ export default function Panel(props: PanelProps) {
   const recvTerms: TerminalMark[] = React.useMemo(() => {
     const out: TerminalMark[] = [];
     for (const it of recvItems) {
-      const bat = it.key === 'battery';
+      const bat = it.key === 'battery' || it.key === 'us2000c';
       for (const [id, p] of Object.entries(recvTerminals(geo, it))) {
         const term = id.split('.')[1];
         // Batteries du parc : X1 = pôle + (rouge), X2 = pôle − (noir), repère « + » / « − ».
@@ -403,6 +407,8 @@ export default function Panel(props: PanelProps) {
     const ids = ['q1'];
     const champ = tp.consignationVat?.champ;
     if (champ) ids.push(champ);
+    // installation à plus de deux sources : chaque organe séparé porte son cadenas
+    ids.push(...(tp.consignationVat?.sources ?? []));
     const boxes = ids
       .map((id) => ctx.slots.find((s) => s.id === id))
       .filter((s): s is NonNullable<typeof s> => !!s)
@@ -410,7 +416,7 @@ export default function Panel(props: PanelProps) {
     return boxes.length ? boxes : null;
   }, [lock, ctx, tp.consignationVat]);
 
-  const mono = tp.scene === 'pv' || tp.scene === 'hab';
+  const mono = arriveeMonophasee(tp.scene, tp.arriveeMono);
 
   const panel = (
     <div
@@ -439,7 +445,7 @@ export default function Panel(props: PanelProps) {
       <div className="se-cab" style={tp.annex === 'roof' ? { top: TOIT_TOP, height: geo.cabH - TOIT_TOP } : { height: geo.cabH }} />
       {tp.scene === 'hab' ? <div className="se-tab" /> : null}
       {/* bloc récepteurs, sous la platine */}
-      <Recv annex={tp.annex} items={recvItems} catalogue={items} y={geo.recvY} h={geo.recvH} />
+      <Recv annex={tp.annex} items={recvItems} catalogue={items} y={geo.recvY} h={geo.recvH} titre={tp.libelles?.recv} />
       {/* l'ensemble terre est DEHORS : son bloc a sa ligne de sol et son piquet enfoui */}
       {tp.terre && geo.terreY != null ? (
         <Terre
@@ -450,9 +456,9 @@ export default function Panel(props: PanelProps) {
           sol={tp.terre.sol}
         />
       ) : null}
-      <Ducts scene={tp.scene} cover={cover} ducts={geo.ducts} />
+      <Ducts scene={tp.scene} cover={cover} ducts={geo.ducts} labels={tp.libelles?.rangees} />
       <Rails rails={geo.rails} />
-      <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} />
+      <Annex annex={tp.annex} items={tp.annexItems ?? []} catalogue={items} titre={tp.libelles?.toiture} />
 
       {/* fils sous les couvercles : masqués par les goulottes quand les couvercles sont fermés */}
       <WiresUnder alimW={geo.alimW} porteW={geo.porteW} panelH={geo.panelH} pied={geo.ducts[geo.ducts.length - 1][1]} wires={routed} highlight={highlight} selected={selectedWire} pick={pickWires} onWire={onWire} onWireLongPress={onWireLongPress} />
@@ -607,7 +613,7 @@ export default function Panel(props: PanelProps) {
       />
       {netTerminals.map((t) => (
         <div key={`lab${t.id}`} className="se-res" style={{ left: t.pos.x, top: t.pos.y + 6 }}>
-          {resLabel(t.id, tp.scene)}
+          {resLabel(t.id, tp.scene, tp.arriveeMono)}
         </div>
       ))}
       {/* Le libellé d'arrivée suit le pupitre : c'est lui la source, désormais. */}

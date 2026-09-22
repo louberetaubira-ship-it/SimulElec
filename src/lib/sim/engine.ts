@@ -53,8 +53,12 @@ export interface SimState {
   peak: number;
   /** Image thermique du relais F1. */
   heat: number;
-  /** Panne injectée par le professeur (secrète pour l'élève). */
-  fault: FaultId | null;
+  /**
+   * Panne injectée (secrète pour l'élève) : identifiant d'une panne du TP. Les
+   * cinq pannes historiques (`FaultId`) gardent leur effet câblé dans le moteur ;
+   * les autres agissent par ce qu'elles déclarent (`coupe`, `ouvre`, `croise`, `nets`).
+   */
+  fault: string | null;
   /** Bouton marche maintenu enfoncé. */
   s2Held: boolean;
   /**
@@ -98,6 +102,11 @@ export interface SimState {
   coilBurnt: boolean;
   /** Échauffement de la bobine sur-alimentée (s). */
   coilHeat: number;
+  /**
+   * Organes de sectionnement supplémentaires (`TpDefinition.sectionneurs`) : fermé ?
+   * Absent = ouvert, comme `q1`, `f2` et `f3` au départ.
+   */
+  aux?: Record<string, boolean>;
 }
 
 export const initialSim = (): SimState => ({
@@ -106,7 +115,25 @@ export const initialSim = (): SimState => ({
   fault: null, s2Held: false, latched: {}, carter: true,
   t: 0, stoppedByS1: false, chattering: false,
   u2: null, trafoDiag: null, trafoTrip: false, coilBurnt: false, coilHeat: 0,
+  aux: {},
 });
+
+/** Un organe de sectionnement supplémentaire est-il fermé ? */
+export const auxFerme = (s: Pick<SimState, 'aux'>, id: string): boolean => s.aux?.[id] === true;
+
+/** Tous les organes supplémentaires du TP sont-ils fermés ? (vrai s'il n'y en a pas) */
+export const sectionneursFermes = (tp: Pick<TpDefinition, 'sectionneurs'>, s: Pick<SimState, 'aux'>): boolean =>
+  (tp.sectionneurs ?? []).every(id => auxFerme(s, id));
+
+/** Bascule un organe supplémentaire. */
+export function toggleAux(s: SimState, id: string, tp?: Rep): ActionResult {
+  const ferme = !auxFerme(s, id);
+  const r = rep(tp, id);
+  return {
+    state: { ...s, aux: { ...(s.aux ?? {}), [id]: ferme } },
+    message: ferme ? `${r} fermé.` : `${r} ouvert : son aval est séparé.`,
+  };
+}
 
 /** Caractéristiques moteur par défaut (TP sans moteur). */
 const MOTOR_DEFAULT = { P: 1500, U: 400, In: 3.3, n: 1440, ns: 1500, cosPhi: 0.8 };
@@ -409,7 +436,7 @@ export function toggleCarter(s: SimState, tp: Pick<TpDefinition, 'interPosition'
 }
 
 /** Injecte une panne et remet la platine dans un état de départ pour le dépannage. */
-export function injectFault(s: SimState, fault: FaultId): SimState {
+export function injectFault(s: SimState, fault: string): SimState {
   return { ...s, fault, km1: false, f1trip: false, heat: 0, I: 0, n: 0, peak: 0, chattering: false, stoppedByS1: false };
 }
 
@@ -417,11 +444,21 @@ export function repairFault(s: SimState): SimState {
   return { ...s, fault: null, f1trip: false, heat: 0, chattering: false, coilBurnt: false, coilHeat: 0 };
 }
 
-export function pickFault(tp: TpDefinition, rnd: number = Math.random()): FaultId {
-  const ids = tp.faults.map(f => f.id).filter(isFaultId);
+/**
+ * Tire au sort une panne PARMI CELLES DU TP. Une panne qui déclare son effet au
+ * réseau (`coupe`, `ouvre`, `croise`) est aussi légitime qu'une panne historique :
+ * les limiter aux cinq identifiants câblés dans le moteur faisait tirer « a2 » sur un
+ * TP qui n'en a pas, et l'étape de dépannage n'avait plus de constat à montrer.
+ */
+export function pickFault(tp: TpDefinition, rnd: number = Math.random()): string {
+  const ids = tp.faults.map(f => f.id);
   if (!ids.length) return 'a2';
   return ids[Math.min(ids.length - 1, Math.floor(rnd * ids.length))];
 }
+
+/** La panne fait-elle partie de ce TP ? (sinon on ne l'injecte pas dans la simulation) */
+export const estPanneDuTp = (tp: Pick<TpDefinition, 'faults'>, id: string | null | undefined): id is string =>
+  id != null && tp.faults.some(f => f.id === id);
 
 // ---------------------------------------------------------------- simulation
 

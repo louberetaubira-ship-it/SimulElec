@@ -4,6 +4,7 @@ import React from 'react';
 import type { TpDefinition } from '@/lib/types';
 import { Button, Note, SideTitle } from '@/components/ui';
 import { Center, Side } from './StageLayout';
+import DocumentsDossier from './DocumentsDossier';
 
 export default function Enonce({ tp, onNext }: { tp: TpDefinition; onNext: () => void }) {
   return (
@@ -29,9 +30,13 @@ export default function Enonce({ tp, onNext }: { tp: TpDefinition; onNext: () =>
             className="grid grid-cols-2 gap-x-4 gap-y-1 rounded border-2 border-[#9AA3AD] bg-[#DDE1E6] p-3 font-mono-num text-[12px] text-[#141A21] sm:grid-cols-4"
             style={{ boxShadow: 'inset 0 1px 0 #fff' }}
           >
-            <b className="col-span-full font-title text-[16px] tracking-[.06em]">MOTEUR ASYNCHRONE 3~</b>
+            <b className="col-span-full font-title text-[16px] tracking-[.06em]">{tp.plaqueTitre ?? 'MOTEUR ASYNCHRONE 3~'}</b>
             {Object.entries(tp.plaque).map(([k, v]) => <span key={k}>{k} = {v}</span>)}
           </div>
+
+          {(tp.preparation?.documents ?? []).some(d => d.enonce) && (
+            <DocumentsDossier docs={(tp.preparation?.documents ?? []).filter(d => d.enonce)} maxH="40vh" />
+          )}
 
           <h3 className="mt-1 text-[17px] font-bold">Cahier des charges</h3>
           <div className="grid gap-x-4 text-[13px] sm:grid-cols-2">

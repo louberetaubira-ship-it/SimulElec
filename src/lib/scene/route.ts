@@ -118,10 +118,24 @@ export function annexTerminals(it: AnnexItem): Record<string, ExtPoint> {
       [`${it.rep}.P`]: { x: it.x + it.w, y: it.y + it.h * 0.5, ext: 'door', free: true },
     };
   }
+  // Boîte de jonction d'UN string : arrivées MC4 + / − sur le bord GAUCHE (face aux
+  // modules, cheminement toiture), départs P (+), M (−) et PE (liaison équipotentielle
+  // des cadres) en bas de la boîte (le repère JB reste lisible dessous), qui redescendent
+  // chacun à son aplomb dans leur gaine. Les
+  // passages internes + → P et − → M sont déclarés au catalogue (`passes`).
+  if (it.key === 'jbstring') {
+    return {
+      [`${it.rep}.+`]: { x: it.x, y: it.y + it.h * 0.3, ext: 'door', free: true, roof: true },
+      [`${it.rep}.−`]: { x: it.x, y: it.y + it.h * 0.62, ext: 'door', free: true, roof: true },
+      [`${it.rep}.P`]: { x: it.x + it.w * 0.25, y: it.y + it.h * 0.8, ext: 'door', free: true },
+      [`${it.rep}.M`]: { x: it.x + it.w * 0.5, y: it.y + it.h * 0.8, ext: 'door', free: true },
+      [`${it.rep}.PE`]: { x: it.x + it.w * 0.75, y: it.y + it.h * 0.8, ext: 'door', free: true },
+    };
+  }
   // Module PV : + (X1) en HAUT-GAUCHE, − (X2) en HAUT-DROITE (disposition réelle d'un
   // module, plus pratique au câblage). La série relie le − d'un module au + du suivant
   // par un saut court le long du HAUT, et les départs/retours remontent au-dessus.
-  if (it.key === 'pvpanel') {
+  if (it.key === 'pvpanel' || it.key === 'pvmodule') {
     return {
       [`${it.rep}.X1`]: { x: it.x + it.w * 0.14, y: it.y, ext: 'door', free: true, roof: true },
       [`${it.rep}.X2`]: { x: it.x + it.w * 0.86, y: it.y, ext: 'door', free: true, roof: true },
@@ -160,6 +174,15 @@ export function recvTerminals(geo: Pick<SceneGeom, 'recvY'>, it: AnnexItem): Rec
     return {
       [`${it.rep}.X1`]: { x: b.x + b.w * 0.16, y: b.y, ext: 'recv' },
       [`${it.rep}.X2`]: { x: b.x + b.w * 0.84, y: b.y, ext: 'recv' },
+    };
+  }
+  // Module de batterie en rack (Pylontech US2000C) : les deux bornes de puissance sont
+  // en FAÇADE, côte à côte à droite, + (X1) puis − (X2) — comme sur l'appareil. Empilés
+  // dans le rack, les modules se relient en parallèle par deux descentes verticales.
+  if (it.key === 'us2000c') {
+    return {
+      [`${it.rep}.X1`]: { x: b.x + b.w * 0.86, y: b.y + b.h * 0.5, ext: 'recv' },
+      [`${it.rep}.X2`]: { x: b.x + b.w * 0.95, y: b.y + b.h * 0.5, ext: 'recv' },
     };
   }
   // Détecteur 3 fils (cellule photoélectrique) : + 24 V (marron), 0 V (bleu), sortie (noir).
@@ -429,6 +452,16 @@ function roofRoute(A: TPos, B: TPos, aId: string, bId: string): Pt[] {
   const base = plus ? 16 : 30;
   const spread = plus ? (J.y - 40) * 0.05 : (P.x - 40) * 0.03;
   const laneY = P.y - (base + Math.max(0, spread));
+  // Boîte de jonction d'un string (bornes « + » / « − » sur son bord gauche) : les deux
+  // arrivées descendent sur deux axes distincts devant la boîte, sinon elles se
+  // superposeraient. L'axe extérieur revient à celle qui vient de plus loin.
+  const jId = pvA ? bId : aId;
+  if (/\.[+−]$/.test(jId)) {
+    const exterieur = laneY < J.y ? !plus : plus;
+    const xa = J.x - (exterieur ? 14 : 7);
+    const jb: Pt[] = [[P.x, P.y], [side, P.y], [side, laneY], [xa, laneY], [xa, J.y], [J.x, J.y]];
+    return pvA ? jb : jb.reverse();
+  }
   const full: Pt[] = [[P.x, P.y], [side, P.y], [side, laneY], [J.x, laneY], [J.x, J.y]];
   return pvA ? full : full.reverse();
 }

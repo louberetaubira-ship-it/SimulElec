@@ -484,7 +484,7 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
       wires={wires}
       cover={false}
       marks
-      deviceState={deviceStateOf(sim)}
+      deviceState={deviceStateOf(sim, tp)}
       lamps={lampsOf(sim, tp)}
       latched={sim.latched}
       motorRpm={sim.n}
@@ -534,7 +534,19 @@ export default function Validation({ onFinish }: { onFinish: () => void }) {
             </div>
             <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
               <div className="flex min-h-0 flex-col overflow-auto">
-                {tp.scene === 'pv' ? (
+                {tp.schemaImage ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- document du dossier servi depuis public/tp */}
+                    <img
+                      src={tp.schemaImage.src} alt={tp.schemaImage.legende} data-schema-image
+                      className="block w-full rounded-lg border border-[var(--line)] bg-white object-contain"
+                    />
+                    <Note className="mt-2">
+                      {tp.schemaImage.legende}. Repère sur le schéma l&apos;organe que tu soupçonnes, puis pose tes
+                      pointes sur la platine, à droite : c&apos;est l&apos;appareil de mesure qui tranche.
+                    </Note>
+                  </>
+                ) : tp.scene === 'pv' ? (
                   <>
                     <SchemaPv
                       tp={tp}

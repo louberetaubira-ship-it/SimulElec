@@ -6,11 +6,15 @@ import type { SceneKind } from '@/lib/types';
 import { DUCTS_H, DUCT_L, DUCT_R, RAILS, RAIL_X, ROW_LABELS } from '@/lib/scene/geometry';
 
 export function Ducts(
-  { scene, cover, ducts = DUCTS_H }:
-  { scene: SceneKind; cover: boolean; ducts?: readonly (readonly [number, number])[] },
+  { scene, cover, ducts = DUCTS_H, labels: propres }:
+  {
+    scene: SceneKind; cover: boolean; ducts?: readonly (readonly [number, number])[];
+    /** Libellés propres au TP (sinon ceux de la scène). */
+    labels?: string[];
+  },
 ) {
   const open = cover ? '' : ' open';
-  const labels = ROW_LABELS[scene] ?? ROW_LABELS.ind;
+  const labels = propres ?? ROW_LABELS[scene] ?? ROW_LABELS.ind;
   return (
     <>
       {ducts.map((d, i) => (

@@ -45,7 +45,7 @@ function LocalDeco() {
  * PV et la boîte de jonction se posent dessus (z-index supérieur) ; le parc batterie,
  * lui, est un bloc à part, sous le bandeau. Dessiné derrière les organes (z-index bas).
  */
-function RoofBand() {
+function RoofBand({ titre }: { titre?: string }) {
   const sky = React.useId();
   return (
     <svg className="deco" viewBox="0 0 560 720" preserveAspectRatio="none">
@@ -71,7 +71,7 @@ function RoofBand() {
       </g>
       {/* libellé en haut à gauche du bandeau */}
       <text x="16" y="20" fontSize="8" fontWeight="700" fill="#2C5E8A" letterSpacing=".04em">
-        ① CHAMP PV · 3S4P (hors coffret)
+        {titre ?? '① CHAMP PV · 3S4P (hors coffret)'}
       </text>
     </svg>
   );
@@ -85,9 +85,11 @@ export interface AnnexProps {
   annex: AnnexKind;
   items: AnnexItem[];
   catalogue: Record<string, CatalogueItem>;
+  /** Libellé du bandeau toiture propre au TP. */
+  titre?: string;
 }
 
-export default function Annex({ annex, items, catalogue }: AnnexProps) {
+export default function Annex({ annex, items, catalogue, titre }: AnnexProps) {
   if (annex === 'door') {
     return <div className="se-door"><span className="t">PORTE</span></div>;
   }
@@ -98,7 +100,7 @@ export default function Annex({ annex, items, catalogue }: AnnexProps) {
   const band = annex === 'roof';
   return (
     <div className={band ? 'se-annex band' : 'se-annex'}>
-      {band ? <RoofBand /> : React.createElement(DECO[annex])}
+      {band ? <RoofBand titre={titre} /> : React.createElement(DECO[annex])}
       {/* En bandeau toiture, le libellé « ① TOITURE » est déjà porté par le SVG :
           on ne réaffiche pas le titre d'annexe pour éviter le double libellé. */}
       {band ? null : <span className="t">{ANNEX_TITLE[annex]}</span>}

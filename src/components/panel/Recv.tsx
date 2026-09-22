@@ -18,12 +18,14 @@ export interface RecvProps {
   /** Position et hauteur du bloc, quand l'armoire du TP n'a pas la hauteur d'origine. */
   y?: number;
   h?: number;
+  /** Titre propre au TP (sinon celui de l'annexe). */
+  titre?: string;
 }
 
-export default function Recv({ annex, items, catalogue, y = RECV_Y, h = RECV_H }: RecvProps) {
+export default function Recv({ annex, items, catalogue, y = RECV_Y, h = RECV_H, titre }: RecvProps) {
   return (
     <div className="se-recv" style={{ top: y, height: h }}>
-      <span className="t">{RECV_TITLE[annex]}</span>
+      <span className="t">{titre ?? RECV_TITLE[annex]}</span>
       {items.map((it) => {
         const item = catalogue[it.key];
         const vector = svgForKey(it.key);

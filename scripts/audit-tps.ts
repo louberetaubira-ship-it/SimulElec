@@ -24,7 +24,8 @@ for (const tp of TPS) {
   // toutes les bornes réellement existantes
   const bornes = new Set<string>();
   for (const s of ctx.slots) for (const t of s.terminals) bornes.add(`${s.id}.${t.id}`);
-  for (const id of resIds(tp.scene)) bornes.add(id);
+  // l'arrivée telle que le TP la déclare : monophasée d'office en pv / hab, sauf `arriveeMono: false`
+  for (const id of resIds(tp.scene, tp.arriveeMono, tp.sansPeReseau)) bornes.add(id);
   for (const it of tp.recvItems ?? []) Object.keys(recvTerminals(ctx.geo, it)).forEach((k) => bornes.add(k));
   for (const it of tp.annexItems ?? []) Object.keys(annexTerminals(it)).forEach((k) => bornes.add(k));
   if (tp.station) Object.keys(pupitreTerminals(pupitreOf(tp))).forEach((k) => bornes.add(k));

@@ -6,14 +6,18 @@ import type {
   ReadingRecord, TpDefinition,
 } from '@/lib/types';
 import {
-  initialSim, injectFault, isControlLive, isFaultId, netLive, pickFault, pressButton, releaseButton, repairFault,
-  resetF1, setCoupling, tick, toggleCarter, toggleF2, toggleF3, toggleQ1, type SimState,
+  auxFerme, estPanneDuTp, initialSim, injectFault, isControlLive, netLive, pickFault, pressButton, releaseButton,
+  repairFault, resetF1, sectionneursFermes, setCoupling, tick, toggleAux, toggleCarter, toggleF2, toggleF3, toggleQ1,
+  type SimState,
 } from '@/lib/sim/engine';
 import { couplageDesBarrettes } from '@/lib/sim/couplage';
 import { etatTrafo, expliqueTrafo, substitutTrafo } from '@/lib/sim/trafo';
 import { liaisonCoupee, reseauCommande } from '@/lib/sim/commande';
 import { aParametrage, fmtParam, paramNonConformes, parametresOf, tpParametre } from '@/lib/sim/parametrage';
 import { aKnxMiseEnService } from '@/lib/sim/knxMiseEnService';
+import {
+  aImeonMiseEnService, imeonConforme, imeonReglagesFaux, LIBELLE_REGLAGE, type ImeonReglage,
+} from '@/lib/sim/imeonMiseEnService';
 import {
   conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
 } from '@/lib/sim/diagnostic';
@@ -231,6 +235,10 @@ interface ParcoursState {
   knxToggleLink: (det: string, canal: number) => void;
   /** Mise en service KNX : mode d'un groupe de canaux (1-7 ou 8). */
   knxSetParam: (which: 'chX' | 'ch8', value: 'Commutation' | 'Minuterie') => void;
+  /** Onduleur hybride : un réglage de l'écran (priorité, injection, type de batterie). */
+  imeonSet: (reglage: ImeonReglage, value: string | boolean) => void;
+  /** Onduleur hybride : applique les réglages — refusés s'ils ne sont pas conformes. */
+  imeonAppliquer: () => void;
   record: () => void;
   currentRead: () => ReadOut;
 
@@ -386,8 +394,10 @@ export const useParcours = create<ParcoursState>((set, get) => {
     // l'onduleur, mais PAS le champ (Q2/f2) — les modules produisent tant qu'il fait
     // jour. La séparation exige donc la double coupure Q1 ET Q2.
     const champId = tp.consignationVat?.champ; // ex. 'f2' (sectionneur champ PV)
+    // autres sources indépendantes (second string, parc batterie) : toutes ouvertes
+    const autres = tp.consignationVat?.sources ?? [];
     if (stage === ETAPE.EPI) {
-      const sepDone = !sim.q1 && (!champId || !sim.f2);
+      const sepDone = !sim.q1 && (!champId || !sim.f2) && autres.every(id => !auxFerme(sim, id));
       if (st.cons.sep !== sepDone) patch(s => ({ ...s, cons: { ...s.cons, sep: sepDone } }));
     }
     if (stage === ETAPE.EPI && !sim.q1) {
@@ -406,7 +416,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     // ---- déconsignation (étape 8)
     if (stage === ETAPE.MISE_EN_SERVICE) {
       const d = st.decons;
-      const close = d.unlock && sim.q1 && sim.f2 && sim.f3;
+      const close = d.unlock && sim.q1 && sim.f2 && sim.f3 && sectionneursFermes(tp, sim);
       const essai = (d.close || close) && sim.km1;
       // Paramétrage : conforme une fois le variateur sous tension et tous les réglages justes.
       const param = aParametrage(tp) ? (d.close || close) && paramNonConformes(tp, st).length === 0 : undefined;
@@ -481,7 +491,10 @@ export const useParcours = create<ParcoursState>((set, get) => {
             say('Installation consignée : tu peux mesurer hors tension.');
           }
         } else if (!known && champId && (out.value ?? 0) > 50) {
-          mlog(`⚠ ${r} / ${k} : présence de tension — le champ PV (${repereSlot(tp, 'f2')}) n'est pas ouvert. C'est une source indépendante : ouvre ${repereSlot(tp, 'f2')} pour la couper.`);
+          const encore = [champId, ...autres].filter(id => (id === champId ? sim.f2 : auxFerme(sim, id)));
+          mlog(encore.length
+            ? `⚠ ${r} / ${k} : présence de tension — ${encore.map(id => repereSlot(tp, id)).join(', ')} n'${encore.length > 1 ? 'ont' : 'a'} pas été ouvert${encore.length > 1 ? 's' : ''}. Chaque source se sépare à part.`
+            : `⚠ ${r} / ${k} : présence de tension — une source n'est pas séparée.`);
         }
       } else if (sim.q1 && (out.value ?? 0) > 50) {
         mlog(`⚠ Présence de tension : ${repereSlot(tp, 'q1')} n'est pas ouvert, ne touche à rien.`);
@@ -657,7 +670,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
           attemptId: row.id,
           locked,
           st: restored,
-          sim: isFaultId(restored.fault) && !restored.fixed
+          sim: estPanneDuTp(tp, restored.fault) && !restored.fixed
             ? { ...initialSim(), fault: restored.fault }
             : initialSim(),
         });
@@ -975,7 +988,8 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { st, sim } = get();
       // à l'arrivée sur la consignation, l'installation est en service : c'est l'élève qui sépare
       if (stage === ETAPE.EPI && !st.cons.lock && !st.cons.vatRef2 && !st.decons.unlock && !sim.q1) {
-        set({ sim: { ...sim, q1: true, f2: true, f3: true } });
+        const aux = Object.fromEntries((get().tp.sectionneurs ?? []).map(id => [id, true]));
+        set({ sim: { ...sim, q1: true, f2: true, f3: true, aux: { ...(sim.aux ?? {}), ...aux } } });
         say('L\'installation est en service : c\'est à toi de la consigner.');
       }
       evaluate();
@@ -1081,6 +1095,38 @@ export const useParcours = create<ParcoursState>((set, get) => {
       evaluate();
     },
 
+    imeonSet(reglage, value) {
+      const { tp, st } = get();
+      const def = tp.imeonMiseEnService;
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !def) return;
+      if (!st.decons.close) {
+        say(`${repereSlot(tp, 'km1')} est hors tension : referme d'abord ${listeMiseSousTension(tp, 'et')}.`);
+        return;
+      }
+      // Toucher un réglage remet la validation à faire : l'écran n'applique rien tout seul.
+      patch(x => ({ ...x, imeon: { ...(x.imeon ?? {}), [reglage]: value, applique: false } }));
+      mlog(`${def.appareil} · ${LIBELLE_REGLAGE[reglage]} : ${typeof value === 'boolean' ? (value ? 'oui' : 'non') : value}.`);
+      evaluate();
+    },
+
+    imeonAppliquer() {
+      const { tp, st } = get();
+      const def = tp.imeonMiseEnService;
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !def || !st.decons.close) return;
+      const faux = imeonReglagesFaux(tp, st);
+      if (faux.length) {
+        // chaque validation refusée compte comme une erreur de l'étape (une par réglage faux)
+        patch(x => ({ ...x, paramErrors: (x.paramErrors ?? 0) + faux.length, imeon: { ...(x.imeon ?? {}), applique: false } }));
+        mlog(`${def.appareil} · réglages refusés : ${faux.map(f => LIBELLE_REGLAGE[f]).join(', ')} non conforme${faux.length > 1 ? 's' : ''} au cahier des charges.`);
+        say(`Réglages non conformes : ${faux.map(f => LIBELLE_REGLAGE[f]).join(', ')}.`);
+        return;
+      }
+      patch(x => ({ ...x, imeon: { ...(x.imeon ?? {}), applique: true } }));
+      mlog(`${def.appareil} · réglages appliqués : ${def.priorite}, injection ${def.injection ? 'oui' : 'non'}, batterie ${def.batterie}.`);
+      say(`Réglages conformes : ${repereSlot(tp, 'km1')} peut être mis en service.`);
+      evaluate();
+    },
+
     consAct(a) {
       const { st, sim, tp } = get();
       if (a === 'lock') {
@@ -1145,6 +1191,21 @@ export const useParcours = create<ParcoursState>((set, get) => {
       const { sim, tp, st } = get();
       if (st.stage < ETAPE.CABLAGE) return;
       if (slotId === 'q1' && st.cons.lock) { say(`${repereSlot(tp, 'q1')} est condamné par un cadenas : impossible de manœuvrer.`); return; }
+      // Sur une installation à plusieurs sources, chaque organe séparé porte son cadenas.
+      const cadenasses = [tp.consignationVat?.champ, ...(tp.consignationVat?.sources ?? [])].filter(Boolean);
+      if (st.cons.lock && cadenasses.includes(slotId) && (tp.consignationVat?.sources?.length ?? 0) > 0) {
+        say(`${repereSlot(tp, slotId)} est condamné par un cadenas : impossible de manœuvrer.`);
+        return;
+      }
+      if ((tp.sectionneurs ?? []).includes(slotId)) {
+        const r = toggleAux(sim, slotId, tp);
+        // le parc batterie séparé, l'onduleur hybride ne peut plus tenir
+        const km1 = auxFerme(r.state, slotId) ? r.state.km1 : false;
+        set({ sim: { ...r.state, km1 } });
+        say(r.message);
+        evaluate();
+        return;
+      }
       if (slotId === 'q1') { const r = toggleQ1(sim, tp); set({ sim: r.state }); say(r.message); evaluate(); return; }
       if (slotId === 'f2') {
         const r = toggleF2(sim, tp);
@@ -1167,7 +1228,19 @@ export const useParcours = create<ParcoursState>((set, get) => {
         // Reste bloqué pendant la consignation / le hors tension (étapes < mise en service).
         if (st.stage >= ETAPE.MISE_EN_SERVICE) {
           if (!sim.km1) {
-            if (sim.q1 && sim.f2 && sim.f3) {
+            // Onduleur hybride : il ne démarre qu'avec ses réglages validés.
+            if (aImeonMiseEnService(tp) && !imeonConforme(tp, st)) {
+              say(`${rep} reste en veille : valide d'abord ses réglages à l'écran (priorité des sources, injection, batterie).`);
+              return;
+            }
+            if (sim.q1 && sim.f2 && sim.f3 && sectionneursFermes(tp, sim)) {
+              // Paire croisée sur une entrée continue : l'onduleur détecte la polarité
+              // inversée et refuse de démarrer — c'est le symptôme, la mesure dira où.
+              const panne = st.fixed ? undefined : tp.faults.find(f => f.id === st.fault);
+              if (panne?.croise) {
+                say(`${rep} affiche un défaut « batterie » : il reste en veille — mesure la polarité de ses entrées.`);
+                return;
+              }
               // Panne active coupant l'alimentation continue de l'onduleur : il ne
               // peut pas démarrer tant que le fil + du bus (q1.2+ → km1.B+) est ouvert…
               if (!st.fixed && liaisonCoupee(tp, st.fault, 'km1.B+', 'q1.2+')) {
@@ -1242,7 +1315,7 @@ export const useParcours = create<ParcoursState>((set, get) => {
     ensureFault() {
       const { tp, st, sim } = get();
       if (st.fault || st.fixed) {
-        if (isFaultId(st.fault) && !st.fixed && sim.fault !== st.fault) {
+        if (estPanneDuTp(tp, st.fault) && !st.fixed && sim.fault !== st.fault) {
           set({ sim: injectFault(sim, st.fault) });
         }
         return;
