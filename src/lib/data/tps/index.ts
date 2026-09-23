@@ -27,6 +27,8 @@ import { TP_ECOBIKE_RESEAU } from './ecobike-reseau';
 import { TP_EIP_Q13_CUMULUS } from './eip-q13-cumulus';
 import { TP_EIP_Q58_MYHOME } from './eip-q58-myhome';
 import { TP_EIP_Q67_VIGIK } from './eip-q67-vigik';
+import { TP_SCIERIE_D31_ATV340 } from './scierie-d31-atv340';
+import { TP_SCIERIE_E343_DC } from './scierie-e343-dc';
 
 export const TPS: TpDefinition[] = [
   TP_PERCEUSE_RADIALE,
@@ -45,6 +47,10 @@ export const TPS: TpDefinition[] = [
   TP_EIP_Q13_CUMULUS,
   TP_EIP_Q58_MYHOME,
   TP_EIP_Q67_VIGIK,
+  // TP de service du sujet numérique Scierie (mode « câblage réel » des questions D.3.1 et
+  // E.3.4.3) : `hidden`, joués depuis `/sujet/scierie` et ses sujets thématiques.
+  TP_SCIERIE_D31_ATV340,
+  TP_SCIERIE_E343_DC,
 ];
 
 /**
@@ -66,5 +72,5 @@ export const estTpCache = (id: string): boolean => TP_BY_ID[id]?.hidden === true
 export {
   TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_PORTAIL, TP_SOLAIRE_AUTONOME, TP_KNX_TERTIAIRE,
   TP_STATION_RELEVAGE, TP_ECOBIKE_PORTAIL, TP_ECOBIKE_KNX, TP_ECOBIKE_PV, TP_ECOBIKE_RESEAU,
-  TP_EIP_Q13_CUMULUS, TP_EIP_Q58_MYHOME, TP_EIP_Q67_VIGIK,
+  TP_EIP_Q13_CUMULUS, TP_EIP_Q58_MYHOME, TP_EIP_Q67_VIGIK, TP_SCIERIE_D31_ATV340, TP_SCIERIE_E343_DC,
 };

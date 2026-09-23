@@ -3,9 +3,36 @@
  * Module pur.
  */
 
-import type { ReponseSujet, SujetQuestion, SujetQuestionType } from './types';
+import type { ChampValeur, QuestionBase, ReponseSujet, SujetQuestion, SujetQuestionType } from './types';
 import { fmtNombre } from './normalize';
-import { cleCavalier } from './correction';
+import { cleCavalier, etatPlacement, nomReperes, resumePlacement } from './correction';
+
+/** Repère affiché d'une question : repère imprimé (« A.2.1.1 ») ou « Q12 ». */
+export const repere = (q: Pick<QuestionBase, 'num' | 'label'>): string => q.label ?? `Q${q.num}`;
+
+/** Intervalle de questions (ordre du sujet) : « Q14 à Q38 », « B.1.1 à B.2.9 » (séparateur au choix). */
+export function intervalleReperes(qs: Pick<QuestionBase, 'num' | 'label'>[], sep = ' à '): string {
+  if (!qs.length) return '';
+  const tri = [...qs].sort((a, b) => a.num - b.num);
+  const a = repere(tri[0]);
+  const b = repere(tri[tri.length - 1]);
+  return tri.length === 1 ? a : `${a}${sep}${b}`;
+}
+
+/**
+ * Sous-section d'un repère hiérarchique (séparateurs de la navigation) : les deux premiers
+ * niveaux pour un repère d'au moins trois niveaux (« A.2.1.1 » → « A.2 »), sinon la partie
+ * (« A.1 » → « A », « C.3 » → « C »). Sans repère : null.
+ */
+export function sousSection(q: Pick<QuestionBase, 'label'>): string | null {
+  if (!q.label) return null;
+  const seg = q.label.split('.');
+  return seg.length >= 3 ? seg.slice(0, 2).join('.') : seg[0];
+}
+
+/** Champs complémentaires (valeur, placement) : « Rendement : 97 % ». */
+const lignesChamps = (champs: ChampValeur[], v: Record<string, string>) =>
+  champs.map(c => `${c.label} : ${v[c.id]?.trim() || '—'}${c.unite && v[c.id]?.trim() ? ` ${c.unite}` : ''}`);
 
 /** Libellé de l'outil de réponse (badge de la question). */
 export const LIBELLE_OUTIL: Record<SujetQuestionType, string> = {
@@ -17,6 +44,7 @@ export const LIBELLE_OUTIL: Record<SujetQuestionType, string> = {
   tableau: 'Tableau',
   redige: 'Texte rédigé',
   bulles: 'Bulles sur plan',
+  placement: 'Placer sur un plan',
   cavaliers: 'Cavaliers',
   schema: 'Schéma (2 modes)',
 };
@@ -39,10 +67,8 @@ export function texteReponse(q: SujetQuestion, r: ReponseSujet | undefined): str
       const rg = (r as Extract<ReponseSujet, { type: 'ordonner' }>).rangs;
       return q.items.map((it, i) => `${rg[i] ?? '—'} · ${it}`);
     }
-    case 'valeur': {
-      const v = (r as Extract<ReponseSujet, { type: 'valeur' }>).valeurs;
-      return q.champs.map(c => `${c.label} : ${v[c.id]?.trim() || '—'}${c.unite && v[c.id]?.trim() ? ` ${c.unite}` : ''}`);
-    }
+    case 'valeur':
+      return lignesChamps(q.champs, (r as Extract<ReponseSujet, { type: 'valeur' }>).valeurs);
     case 'calcul': {
       const c = r as Extract<ReponseSujet, { type: 'calcul' }>;
       return [
@@ -60,6 +86,13 @@ export function texteReponse(q: SujetQuestion, r: ReponseSujet | undefined): str
     case 'bulles': {
       const v = (r as Extract<ReponseSujet, { type: 'bulles' }>).valeurs;
       return [q.bulles.map((b, i) => `${i + 1}: ${v[b.id]?.trim() || '—'}`).join(' · ')];
+    }
+    case 'placement': {
+      const p = r as Extract<ReponseSujet, { type: 'placement' }>;
+      const { nom, place } = nomReperes(q, p.points.length);
+      const out = [`${p.points.length} ${nom} ${place.replace(/^plac/, 'pos')} — ${resumePlacement(q, etatPlacement(q, p.points))}`];
+      if (q.champs?.length) out.push(...lignesChamps(q.champs, p.valeurs ?? {}));
+      return out;
     }
     case 'cavaliers': {
       const v = (r as Extract<ReponseSujet, { type: 'cavaliers' }>).valeurs;
@@ -99,6 +132,14 @@ export function texteAttendu(q: SujetQuestion): string[] {
     case 'tableau': return q.lignes.map(l => l.cellules.map(c => (typeof c === 'string' ? c : nombreOuTexte(c))).join(' | '));
     case 'redige': return q.corrige.split('\n');
     case 'bulles': return [q.bulles.map((b, i) => `${i + 1}: ${b.attendu}`).join(' · ')];
+    case 'placement': {
+      const { nom, place } = nomReperes(q, q.attendus.length);
+      const libelles = q.attendus.map(a => a.label).filter(Boolean);
+      return [
+        `${q.attendus.length} ${nom} ${place} (voir le plan)${libelles.length ? ` : ${libelles.join(' · ')}` : ''}`,
+        ...(q.champs ?? []).map(c => `${c.label} : ${nombreOuTexte(c, c.unite)}`),
+      ];
+    }
     case 'cavaliers': return q.composants.map(c => `${c.label} : ${c.positions.map(p => `${p.label} ${p.attendu}`).join(' · ')}`);
     case 'schema': {
       const lab = new Map(q.traits.bornes.map(b => [b.id, b.label]));

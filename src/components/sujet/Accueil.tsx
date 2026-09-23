@@ -7,6 +7,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { estRepondue } from '@/lib/sujet/correction';
+import { resumeDtr } from '@/lib/sujet/dtr';
+import { intervalleReperes, repere } from '@/lib/sujet/format';
 import { fmtDuree, useSujet } from '@/lib/sujet/store';
 import { THEMES } from '@/lib/sujet/themes';
 import type { SujetMode } from '@/lib/sujet/types';
@@ -22,14 +24,11 @@ export default function Accueil({ onEntrer, lienProf }: { onEntrer: () => void; 
   const enCours = !!st.debut;
   const nbRep = sujet.questions.filter(q => estRepondue(q, st.reponses[q.num])).length;
   const garde = sujet.pagesSujet[0];
-  const intervalle = (p: number) => {
-    const qs = sujet.questions.filter(q => q.partie === p).map(q => q.num);
-    return qs.length ? `Q${Math.min(...qs)} à Q${Math.max(...qs)}` : '';
-  };
+  const qCourante = sujet.questions.find(x => x.num === st.courante);
+  const intervalle = (p: number) => intervalleReperes(sujet.questions.filter(q => q.partie === p));
 
   const lancer = () => { if (!enCours) demarrer(mode); onEntrer(); };
   const theme = sujet.parent && sujet.themes?.[0] ? THEMES[sujet.themes[0]] : null;
-  const nums = sujet.questions.map(q => q.num);
   const points = sujet.questions.reduce((a, q) => a + q.points, 0);
 
   return (
@@ -50,11 +49,11 @@ export default function Accueil({ onEntrer, lienProf }: { onEntrer: () => void; 
             <div className="mt-2 flex flex-wrap gap-1.5 text-[12px]">
               <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">⏱ {fmtDuree(sujet.dureeMin * 60)}</span>
               <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">
-                {sujet.questions.length} questions{nums.length ? ` · Q${Math.min(...nums)} → Q${Math.max(...nums)}` : ''}
+                {sujet.questions.length} questions{sujet.questions.length ? ` · ${intervalleReperes(sujet.questions, ' → ')}` : ''}
               </span>
               <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">{points} points</span>
               <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">{sujet.parties.length} partie{sujet.parties.length > 1 ? 's' : ''}</span>
-              <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">DTR {sujet.dtr.length} pages</span>
+              <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">DTR {resumeDtr(sujet.dtr)}</span>
             </div>
             {sujet.parent && (
               <p className="mt-2 text-[12.5px] text-muted">
@@ -108,7 +107,7 @@ export default function Accueil({ onEntrer, lienProf }: { onEntrer: () => void; 
         {enCours ? (
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex-1 text-[14px]">
-              <b>Une copie est en cours</b> ({st.mode === 'examen' ? 'mode examen' : 'mode entraînement'}) : {nbRep} / {sujet.questions.length} réponses, question {st.courante},
+              <b>Une copie est en cours</b> ({st.mode === 'examen' ? 'mode examen' : 'mode entraînement'}) : {nbRep} / {sujet.questions.length} réponses, question {qCourante ? repere(qCourante) : st.courante},
               {' '}{st.mode === 'examen' ? `${fmtDuree(Math.max(0, sujet.dureeMin * 60 - st.secondesEcoulees))} restantes` : `${fmtDuree(st.secondesEcoulees)} passées`}.
             </div>
             <button type="button" className={BOUTON_FORT} onClick={lancer} data-reprendre>Reprendre ma copie ▸</button>

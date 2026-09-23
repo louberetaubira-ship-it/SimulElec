@@ -6,7 +6,8 @@
  */
 import { useState } from 'react';
 import type { CorrectionQuestion, SujetAttemptState, SujetNumerique, SujetQuestion } from '@/lib/sujet/types';
-import { LIBELLE_OUTIL, texteAttendu, texteReponse } from '@/lib/sujet/format';
+import { nomsPagesDtr } from '@/lib/sujet/dtr';
+import { LIBELLE_OUTIL, repere, texteAttendu, texteReponse } from '@/lib/sujet/format';
 import { fmtNombre } from '@/lib/sujet/normalize';
 import Texte from './Texte';
 
@@ -77,7 +78,7 @@ export default function Correction({ sujet, st, prof, onRevoir }: Props) {
                 return (
                   <article key={q.num} className="break-inside-avoid rounded-xl border border-line bg-surface p-3" data-copie-question={q.num}>
                     <header className="mb-1.5 flex flex-wrap items-center gap-2">
-                      <b className="font-title text-[17px]">Q{q.num}</b>
+                      <b className="font-title text-[17px]">{repere(q)}</b>
                       <span className="rounded-full border border-[#B9CDF5] bg-[#E8F0FF] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[.05em] text-[#1F4FA3]">{LIBELLE_OUTIL[q.type]}</span>
                       <span className="text-[11.5px] text-muted">{q.competence}</span>
                       <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${statut.cls}`}>{statut.t}</span>
@@ -100,7 +101,7 @@ export default function Correction({ sujet, st, prof, onRevoir }: Props) {
                     {c?.detail && <p className="mt-1.5 text-[12px] text-muted">{c.detail}</p>}
                     {q.explication && <p className="mt-1 text-[12.5px]"><b>Explication :</b> <Texte>{q.explication}</Texte></p>}
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-muted">
-                      <span>DTR {q.dtr.join(', ')} · sujet p. {q.pageSujet}</span>
+                      <span>{q.dtr.length ? `${sujet.dtr.some(p => p.doc != null) ? nomsPagesDtr(sujet, q.dtr) : `DTR ${q.dtr.join(', ')}`} · ` : ''}sujet p. {q.pageSujet}</span>
                       {onRevoir && (
                         <button type="button" onClick={() => onRevoir(q.num)} className="rounded-md border border-line px-2 py-0.5 font-semibold text-ink hover:border-accent print:hidden">
                           Revoir la question
@@ -138,11 +139,11 @@ function NoteProf({ q, c, annotation, onNote, onAnnotation }: {
           </button>
         ))}
         <input type="range" min={0} max={1} step={0.25} value={score} onChange={e => onNote(q.num, Number(e.target.value))}
-          aria-label={`Note de la question ${q.num}`} className="w-[120px] accent-[#1F4FA3]" />
+          aria-label={`Note de la question ${repere(q)}`} className="w-[120px] accent-[#1F4FA3]" />
         <span className="font-mono text-[12px]">{fmtNombre(Math.round(score * q.points * 100) / 100, 2)} / {fmtNombre(q.points)}</span>
       </div>
       <textarea value={annotation} onChange={e => onAnnotation(q.num, e.target.value)} rows={2} placeholder="Annotation pour l’élève (facultatif)"
-        className="mt-1.5 w-full rounded-md border border-line bg-white px-2 py-1 text-[12.5px]" aria-label={`Annotation de la question ${q.num}`} />
+        className="mt-1.5 w-full rounded-md border border-line bg-white px-2 py-1 text-[12.5px]" aria-label={`Annotation de la question ${repere(q)}`} />
     </div>
   );
 }

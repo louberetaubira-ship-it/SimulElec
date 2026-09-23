@@ -37,6 +37,7 @@ function carteSujet(s: SujetNumerique, dossier: string): CarteSujet {
     questions: r.questions,
     premiere: r.premiere,
     derniere: r.derniere,
+    intervalle: r.intervalle,
     points: r.points,
     duree: dureeLisible(s.dureeMin),
     dtr: r.dtrDe != null ? `DTR ${r.dtrDe}–${r.dtrA}` : `DTR ${r.dtrPages} p.`,

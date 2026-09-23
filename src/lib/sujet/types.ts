@@ -78,6 +78,13 @@ export interface DtrPage {
   titre: string;
   /** Regroupement (« Habilitations », « Éclairage », « MyHOME », « VIGIK »). */
   section?: string;
+  /**
+   * Document DTR auquel appartient la page, quand le dossier numérote ses DTR par DOCUMENT
+   * (un document peut couvrir plusieurs pages : « DTR 28 » = pages 29 à 32). Absent : la page
+   * est elle-même le document (`num`). Le viewer regroupe alors les pages par document et
+   * affiche « DTR 28 · p. 2/4 ». Les références `dtr` des questions restent des `num` de page.
+   */
+  doc?: number;
 }
 
 export interface SujetPartie {
@@ -120,6 +127,13 @@ export interface QuestionBase {
   indice?: string;
   /** Explication du corrigé, montrée à la correction. */
   explication?: string;
+  /**
+   * Repère imprimé quand le sujet numérote hiérarchiquement (« A.2.1.1 ») ; `num` reste un
+   * entier séquentiel 1..n (clé technique). Absent : on affiche « Q{num} ».
+   */
+  label?: string;
+  /** Tableau de données imprimé avant la question (planning, relevé…), rendu en HTML. */
+  tableauContexte?: { titre?: string; colonnes: string[]; lignes: string[][] };
 }
 
 /** Cocher une case (ou plusieurs). */
@@ -227,6 +241,29 @@ export interface QBulles extends QuestionBase {
   choix?: string[];
 }
 
+/**
+ * Placer des repères sur un plan ou une abaque (implantation de luminaires, croix sur un
+ * disque solaire…). Positions en fraction (0..1) de l'image. Correction : appariement de
+ * chaque repère posé au repère attendu libre le plus proche, dans l'ellipse de tolérance ;
+ * score points = max(0, bien placés − repères en trop) / attendus. Avec `champs`, la note est
+ * ½ placement + ½ champs (même correction que `valeur`).
+ */
+export interface QPlacement extends QuestionBase {
+  type: 'placement';
+  plan: { src: string; alt: string; w: number; h: number };
+  /** Symbole posé à chaque clic. */
+  symbole: 'luminaire' | 'croix' | 'point';
+  /** Zone où l'on peut poser (fraction de l'image) ; un clic hors zone est ignoré. */
+  zone?: { x0: number; y0: number; x1: number; y1: number };
+  attendus: { x: number; y: number; label?: string }[];
+  /** Demi-axes de l'ellipse de tolérance, en fraction de largeur (x) et de hauteur (y). */
+  tolerance: { x: number; y: number };
+  /** Nombre maximal de repères posables (défaut : nombre d'attendus). */
+  max?: number;
+  /** Champs complémentaires (rendement lu, viabilité…). */
+  champs?: ChampValeur[];
+}
+
 /** Cavaliers / configurateurs (MyHOME : A, PL, M, S, T, D…). */
 export interface QCavaliers extends QuestionBase {
   type: 'cavaliers';
@@ -277,7 +314,8 @@ export interface SchemaTraitsDef {
 }
 
 export type SujetQuestion =
-  | QCocher | QRelier | QOrdonner | QValeur | QCalcul | QTableau | QRedige | QBulles | QCavaliers | QSchema;
+  | QCocher | QRelier | QOrdonner | QValeur | QCalcul | QTableau | QRedige | QBulles | QCavaliers | QSchema
+  | QPlacement;
 
 export type SujetQuestionType = SujetQuestion['type'];
 
@@ -295,6 +333,7 @@ export type ReponseSujet =
   | { type: 'tableau'; cellules: Record<string, string> }
   | { type: 'redige'; texte: string }
   | { type: 'bulles'; valeurs: Record<string, string> }
+  | { type: 'placement'; points: { x: number; y: number }[]; valeurs?: Record<string, string> }
   | { type: 'cavaliers'; valeurs: Record<string, string> } // clé `${composant}.${position}`
   | { type: 'schema'; traits: TraitPose[]; platine: PlatineResultat | null };
 

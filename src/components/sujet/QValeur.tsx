@@ -1,14 +1,20 @@
 'use client';
 /** Outil « valeur » : une ou plusieurs valeurs / références à saisir (unité affichée). */
 import { saisieJuste } from '@/lib/sujet/correction';
+import type { ChampValeur } from '@/lib/sujet/types';
 import { CHAMP, etatChamp, type OutilProps } from './outils';
 
-export default function QValeur({ q, r, onChange, readOnly, montrer }: OutilProps<'valeur'>) {
-  const valeurs = r?.valeurs ?? {};
-  const fixer = (id: string, v: string) => onChange({ type: 'valeur', valeurs: { ...valeurs, [id]: v } });
+/** Grille de champs libellés (outil « valeur », champs complémentaires d'un placement). */
+export function ChampsValeur({ champs, valeurs, onFixer, readOnly, montrer }: {
+  champs: ChampValeur[];
+  valeurs: Record<string, string>;
+  onFixer: (id: string, v: string) => void;
+  readOnly: boolean;
+  montrer: boolean;
+}) {
   return (
     <div className="grid gap-2 sm:grid-cols-[minmax(0,auto)_minmax(0,1fr)] sm:items-center">
-      {q.champs.map(c => {
+      {champs.map(c => {
         const v = valeurs[c.id] ?? '';
         const note = c.attendu != null || (c.acceptes?.length ?? 0) > 0;
         return (
@@ -20,7 +26,7 @@ export default function QValeur({ q, r, onChange, readOnly, montrer }: OutilProp
                 value={v}
                 placeholder={c.placeholder ?? '…'}
                 disabled={readOnly}
-                onChange={e => fixer(c.id, e.target.value)}
+                onChange={e => onFixer(c.id, e.target.value)}
                 data-champ={c.id}
                 inputMode={c.attendu != null && !c.acceptes?.length ? 'decimal' : 'text'}
                 autoComplete="off"
@@ -32,4 +38,10 @@ export default function QValeur({ q, r, onChange, readOnly, montrer }: OutilProp
       })}
     </div>
   );
+}
+
+export default function QValeur({ q, r, onChange, readOnly, montrer }: OutilProps<'valeur'>) {
+  const valeurs = r?.valeurs ?? {};
+  const fixer = (id: string, v: string) => onChange({ type: 'valeur', valeurs: { ...valeurs, [id]: v } });
+  return <ChampsValeur champs={q.champs} valeurs={valeurs} onFixer={fixer} readOnly={readOnly} montrer={montrer} />;
 }

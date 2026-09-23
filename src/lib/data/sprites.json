@@ -278,5 +278,40 @@
     "w": 58,
     "h": 50,
     "states": false
+  },
+  "atv340": {
+    "w": 309,
+    "h": 957,
+    "states": false
+  },
+  "xb5ad21": {
+    "w": 44,
+    "h": 61,
+    "states": true
+  },
+  "xb5ad25": {
+    "w": 44,
+    "h": 61,
+    "states": true
+  },
+  "nsx100": {
+    "w": 152,
+    "h": 233,
+    "states": true
+  },
+  "ins80": {
+    "w": 131,
+    "h": 123,
+    "states": true
+  },
+  "symo125": {
+    "w": 460,
+    "h": 200,
+    "states": false
+  },
+  "symodc": {
+    "w": 72,
+    "h": 100,
+    "states": true
   }
 }

@@ -20,6 +20,8 @@ export interface CarteSujet {
   questions: number;
   premiere: number;
   derniere: number;
+  /** Repères de la première et de la dernière question (« Q14 → Q38 », « B.1.1 → B.2.9 »). */
+  intervalle?: string;
   points: number;
   duree: string;
   dtr: string;
@@ -77,7 +79,7 @@ function Carte({ c }: { c: CarteSujet }) {
   const t = c.theme ? THEMES[c.theme] : THEME_COMPLET;
   const complet = c.theme === null;
   const stats = [
-    `${c.questions} questions · Q${c.premiere} → Q${c.derniere}`,
+    `${c.questions} questions · ${c.intervalle ?? `Q${c.premiere} → Q${c.derniere}`}`,
     `${c.points} pts`,
     `⏱ ${c.duree}`,
     c.dtr,

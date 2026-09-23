@@ -8,13 +8,16 @@
  *  - valeur / tableau : proportion de champs justes (numérique avec tolérance, ou texte normalisé parmi `acceptes`) ;
  *  - calcul : résultat dans la tolérance = 1 ; sinon ½ si la formule contient tous les mots-clés ; sinon 0 ;
  *  - redige : pré-note par mots-clés (≥ min → 1 ; ≥ 1 → ½ ; sinon 0), statut `aValider` (professeur) ;
- *  - schema : ½ « traits » + ½ « câblage réel » (voir `corrigerSchema`).
+ *  - schema : ½ « traits » + ½ « câblage réel » (voir `corrigerSchema`) ;
+ *  - placement : appariement glouton au plus proche dans l'ellipse de tolérance ;
+ *    points = max(0, bien placés − repères en trop) / attendus (voir `etatPlacement`) ;
+ *    avec des champs notés : ½ placement + ½ champs.
  * Sans réponse → statut `sansReponse`, score 0.
  */
 
 import type {
   CelluleSaisie, ChampValeur, CorrectionQuestion, QBulles, QCalcul, QCavaliers, QCocher, QOrdonner,
-  QRedige, QRelier, QSchema, QTableau, QValeur, ReponseSujet, SujetAttemptState, SujetNumerique,
+  QPlacement, QRedige, QRelier, QSchema, QTableau, QValeur, ReponseSujet, SujetAttemptState, SujetNumerique,
   SujetQuestion, TraitPose,
 } from './types';
 import { contientMotCle, estVide, nombreJuste, normTexte, texteAccepte } from './normalize';
@@ -65,6 +68,7 @@ export function estRepondue(q: SujetQuestion, r: ReponseSujet | undefined): bool
     case 'tableau': return Object.values(r.cellules).some(v => !estVide(v));
     case 'redige': return !estVide(r.texte);
     case 'bulles': return Object.values(r.valeurs).some(v => !estVide(v));
+    case 'placement': return r.points.length > 0 || Object.values(r.valeurs ?? {}).some(v => !estVide(v));
     case 'cavaliers': return Object.values(r.valeurs).some(v => !estVide(v));
     case 'schema': return r.traits.length > 0 || r.platine != null;
   }
@@ -149,6 +153,84 @@ function corrigerBulles(q: QBulles, valeurs: Record<string, string>): Correction
   const n = q.bulles.length;
   const justes = q.bulles.filter(b => texteAccepte(valeurs[b.id], [b.attendu, ...(b.acceptes ?? [])])).length;
   return auto(q.num, n ? justes / n : 0, `${justes}/${n} bulles justes`);
+}
+
+/* ───────────────────────────── placement ───────────────────────────── */
+
+/** Détail de la correction d'un placement (aussi utilisé pour colorer les repères). */
+export interface EtatPlacement {
+  /** Pour chaque repère posé (même ordre que la réponse), l'index de l'attendu apparié, ou null. */
+  apparies: (number | null)[];
+  /** Index des attendus sans repère apparié. */
+  manquants: number[];
+  /** Repères bien placés (appariés). */
+  bien: number;
+  /** Repères posés non appariés, dans la limite du nombre d'attendus (mal placés). */
+  malPlaces: number;
+  /** Repères posés au-delà du nombre d'attendus (pénalisés). */
+  enTrop: number;
+  total: number;
+  /** Score 0..1 de la partie « placement ». */
+  score: number;
+}
+
+/**
+ * Appariement glouton au plus proche : toutes les paires (repère posé, attendu) dont la distance
+ * normalisée par l'ellipse de tolérance est ≤ 1 sont triées de la plus proche à la plus
+ * lointaine, et retenues tant que ni le repère ni l'attendu ne sont déjà pris.
+ * Score = max(0, bien placés − repères en trop) / attendus, où « en trop » = repères posés au-delà
+ * du nombre d'attendus (un repère mal placé ne rapporte rien mais n'est pas pénalisé deux fois).
+ */
+export function etatPlacement(q: QPlacement, points: { x: number; y: number }[]): EtatPlacement {
+  const tx = q.tolerance.x > 0 ? q.tolerance.x : 1e-9;
+  const ty = q.tolerance.y > 0 ? q.tolerance.y : 1e-9;
+  const paires: { i: number; j: number; d: number }[] = [];
+  points.forEach((p, i) => q.attendus.forEach((a, j) => {
+    const d = Math.hypot((p.x - a.x) / tx, (p.y - a.y) / ty);
+    if (d <= 1 + 1e-9) paires.push({ i, j, d });
+  }));
+  paires.sort((a, b) => a.d - b.d || a.i - b.i || a.j - b.j);
+  const apparies: (number | null)[] = points.map(() => null);
+  const pris = new Set<number>();
+  for (const { i, j } of paires) {
+    if (apparies[i] != null || pris.has(j)) continue;
+    apparies[i] = j;
+    pris.add(j);
+  }
+  const total = q.attendus.length;
+  const bien = pris.size;
+  const enTrop = Math.max(0, points.length - total);
+  const malPlaces = points.length - bien - enTrop;
+  const manquants = q.attendus.map((_, j) => j).filter(j => !pris.has(j));
+  return { apparies, manquants, bien, malPlaces, enTrop, total, score: total ? borne((bien - enTrop) / total) : 0 };
+}
+
+/** Nom des repères d'un placement, accordé : « luminaires », « croix », « repères ». */
+export function nomReperes(q: Pick<QPlacement, 'symbole'>, n: number): { nom: string; place: string } {
+  const pl = n > 1;
+  if (q.symbole === 'croix') return { nom: 'croix', place: `placée${pl ? 's' : ''}` };
+  if (q.symbole === 'luminaire') return { nom: `luminaire${pl ? 's' : ''}`, place: `placé${pl ? 's' : ''}` };
+  return { nom: `repère${pl ? 's' : ''}`, place: `placé${pl ? 's' : ''}` };
+}
+
+/** Résumé lisible : « 13/15 luminaires bien placés, 1 mal placé, 1 en trop ». */
+export function resumePlacement(q: QPlacement, e: EtatPlacement): string {
+  const { nom, place } = nomReperes(q, e.total);
+  const accord = (n: number) => (q.symbole === 'croix' ? `placée${n > 1 ? 's' : ''}` : `placé${n > 1 ? 's' : ''}`);
+  return `${e.bien}/${e.total} ${nom} bien ${place}`
+    + (e.malPlaces ? `, ${e.malPlaces} mal ${accord(e.malPlaces)}` : '')
+    + (e.enTrop ? `, ${e.enTrop} en trop` : '');
+}
+
+function corrigerPlacement(q: QPlacement, r: Extract<ReponseSujet, { type: 'placement' }>): CorrectionQuestion {
+  const valeurs = r.valeurs ?? {};
+  if (r.points.length === 0 && !Object.values(valeurs).some(v => !estVide(v))) return sansReponse(q.num);
+  const e = etatPlacement(q, r.points);
+  const notes = (q.champs ?? []).filter(estNote);
+  if (!notes.length) return auto(q.num, e.score, resumePlacement(q, e));
+  const justes = notes.filter(c => saisieJuste(valeurs[c.id], c)).length;
+  const sc = justes / notes.length;
+  return auto(q.num, 0.5 * e.score + 0.5 * sc, `${resumePlacement(q, e)} · ${justes}/${notes.length} valeur${notes.length > 1 ? 's' : ''} juste${justes > 1 ? 's' : ''}`);
 }
 
 /** Valeur « aucun cavalier » : tiret, vide ou 0 écrit « — ». */
@@ -349,6 +431,7 @@ export function corriger(q: SujetQuestion, r: ReponseSujet | undefined): Correct
     case 'tableau': return corrigerTableau(q, (r as Extract<ReponseSujet, { type: 'tableau' }>).cellules);
     case 'redige': return corrigerRedige(q, (r as Extract<ReponseSujet, { type: 'redige' }>).texte);
     case 'bulles': return corrigerBulles(q, (r as Extract<ReponseSujet, { type: 'bulles' }>).valeurs);
+    case 'placement': return corrigerPlacement(q, r as Extract<ReponseSujet, { type: 'placement' }>);
     case 'cavaliers': return corrigerCavaliers(q, (r as Extract<ReponseSujet, { type: 'cavaliers' }>).valeurs);
     case 'schema': return corrigerSchema(q, r as Extract<ReponseSujet, { type: 'schema' }>);
   }

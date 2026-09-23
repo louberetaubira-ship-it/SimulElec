@@ -1,5 +1,6 @@
 /**
- * Modèles de fonctionnement des TP platine du sujet numérique EIP (mode « câblage réel »).
+ * Modèles de fonctionnement des TP platine des sujets numériques (mode « câblage réel ») :
+ * EIP (Q13, Q58, Q67) et Scierie (D.3.1 variateur ATV340, E.3.4.3 câblage DC des strings).
  *
  * Le moteur du parcours (`src/lib/sim/`) sait ce que valent les mesures ; il ne sait pas
  * dire si l'horloge enclenche le contacteur, si l'actionneur allume la lampe ou si le relais
@@ -17,6 +18,8 @@
  */
 import type { SimState } from '@/lib/sim/engine';
 import type { AttemptState, TpDefinition } from '@/lib/types';
+import { CATALOGUE_BY_KEY } from '@/lib/data/catalogue';
+import { MODULES_PAR_PANNEAU, VMPP_NOCT, VOC_NOCT } from '@/lib/data/tps/scierie-e343-dc';
 
 type Arete = [string, string];
 
@@ -44,6 +47,22 @@ export interface Voyant {
   picto?: string;
 }
 
+/**
+ * Afficheur d'un appareil (écran du variateur, de l'onduleur) : quelques lignes de texte
+ * dessinées sur la platine, à l'endroit de l'écran du sprite.
+ */
+export interface Afficheur {
+  id: string;
+  /** Position : près de cette borne, décalée de (dx, dy) — coin haut-gauche de l'écran. */
+  ancre: { borne: string; dx: number; dy: number };
+  /** Taille de l'écran (unités de platine). */
+  w: number;
+  h: number;
+  lignes: string[];
+  /** Écran éteint (appareil hors tension). */
+  eteint?: boolean;
+}
+
 export interface Evaluation {
   /** Voyants de la mise sous tension (alimentations, bus…). */
   alim: Voyant[];
@@ -51,6 +70,14 @@ export interface Evaluation {
   recepteurs: Voyant[];
   /** La mise sous tension est réussie : organes fermés, alimentations présentes. */
   sousTension: boolean;
+  /** Vitesse du moteur de la platine (tr/min), quand le TP en a un. */
+  rpm?: number;
+  /** État affiché d'appareils que la simulation ne manœuvre pas (sélecteur S2…). */
+  etats?: Record<string, 'on' | 'off'>;
+  /** Écrans des appareils. */
+  afficheurs?: Afficheur[];
+  /** Grandeurs calculées (fréquence, tensions…), lues par `observer`. */
+  valeurs?: Record<string, number>;
 }
 
 /** Un bouton de l'essai. */
@@ -67,7 +94,12 @@ export interface CommandeEssai {
    */
   relache?: (e: Entrees) => Entrees;
   /** Le bouton est-il « enfoncé » (état affiché) ? */
-  actif?: (e: Entrees) => boolean;
+  actif?: (e: Entrees, sim: SimState) => boolean;
+  /**
+   * Le bouton manœuvre un ORGANE de la simulation (identifiant de slot) au lieu de changer
+   * les commandes : c'est l'appareil de la platine lui-même (sélecteur de marche).
+   */
+  organe?: string;
 }
 
 export interface ModelePlatine {
@@ -85,6 +117,11 @@ export interface ModelePlatine {
   attendus: { id: string; label: string }[];
   /** Consigne de l'essai. */
   consigne: string;
+  /**
+   * Appareils de la platine manœuvrés au clic pendant l'essai sans être des organes de la
+   * simulation (slot → effet sur les commandes) : le sélecteur S2 se tourne sur la platine.
+   */
+  surAppareil?: Record<string, (e: Entrees) => Entrees>;
 }
 
 /* ------------------------------------------------------------ union-find */
@@ -348,8 +385,214 @@ const Q67: ModelePlatine = {
   ],
 };
 
+/* ------------------------------------------------------------ Scierie · D.3.1 · ATV340 */
+
+/** Vitesses présélectionnées réglées sur le variateur (D.3.2, D.3.3) : 1 000 et 1 500 tr/min, 4 pôles. */
+const SP2 = 100 / 3;
+const SP4 = 50;
+const virgule = (v: number, d = 1) => v.toFixed(d).replace('.', ',');
+
+const D31: ModelePlatine = {
+  tpId: 'scierie-d31-atv340',
+  organes: () => [
+    { id: 'q1', label: 'Q1 · interrupteur-sectionneur INS80 (consignation)' },
+    { id: 'f2', label: 'Q2 · disjoncteur NSX100 · ligne du variateur' },
+  ],
+  entreesInitiales: { s2: '1' },
+  commandes: [
+    { id: 's1', label: 'S1 · marche avant', sub: 'sélecteur 0 / I', organe: 'f3', effet: e => e, actif: (_e, sim) => sim.f3 },
+    { id: 's2p1', label: 'S2 · position 1', sub: 'petite vitesse (PV)', effet: e => ({ ...e, s2: '1' }), actif: e => e.s2 !== '2' },
+    { id: 's2p2', label: 'S2 · position 2', sub: 'grande vitesse (GV)', effet: e => ({ ...e, s2: '2' }), actif: e => e.s2 === '2' },
+  ],
+  surAppareil: { s2: e => ({ ...e, s2: e.s2 === '2' ? '1' : '2' }) },
+  consigne: 'Mets S1 sur I (marche avant), puis tourne S2 : en position 1, le variateur doit donner la vitesse '
+    + 'présélectionnée 2 (33,3 Hz, petite vitesse) ; en position 2, la vitesse présélectionnée 4 (50 Hz, grande '
+    + 'vitesse). S1 sur 0 : la turbine s’arrête. Les sélecteurs se manœuvrent aussi sur la platine.',
+  evaluer(tp, st, sim, e) {
+    // La puissance est posée par l'installateur : Q1 et Q2 fermés, le variateur est alimenté
+    // et sa sortie +24 V interne (24V / 0V) existe.
+    const alim = organeFerme(sim, 'q1') && organeFerme(sim, 'f2');
+    const aretes: Arete[] = [...filsPoses(tp, st), ...passagesBorniers(tp)];
+    if (sim.f3) aretes.push(['f3.13', 'f3.14']);                          // S1 sur I
+    aretes.push(e.s2 === '2' ? ['s2.13', 's2.14'] : ['s2.21', 's2.22']);  // S2 : position 2 / 1
+    const find = equipotentielles(aretes);
+    const court = find('u1.24V') === find('u1.0V');
+    // Une entrée logique est active quand elle est reliée à la borne 24V du variateur.
+    const di = (n: string) => alim && !court && find(`u1.${n}`) === find('u1.24V');
+    const marche = di('DI1');
+    const pv = di('DI3');
+    const gv = di('DI4');
+    // Vitesses présélectionnées : DI4 (vitesse 4) l'emporte sur DI3 (vitesse 2) ; sans l'une ni
+    // l'autre, la consigne vient de AI1 — non câblée, donc 0 Hz : marche sans vitesse.
+    const f = alim && marche ? (gv ? SP4 : pv ? SP2 : 0) : 0;
+    const rpm = Math.round(f * 30);
+    const vitesse = gv ? 'vitesse présél. 4' : pv ? 'vitesse présél. 2' : 'consigne AI1 = 0';
+    return {
+      alim: [
+        { id: 'var', label: 'Variateur alimenté (Q1 et Q2 fermés)', on: alim, tone: 'good' },
+        { id: 'p24', label: 'Sortie +24 V⎓ interne (24V – 0V)', on: alim && !court, tone: 'good' },
+        { id: 'di1', label: 'DI1 · marche avant', on: marche, tone: 'accent' },
+        { id: 'di3', label: 'DI3 · vitesse présélectionnée 2 (PV)', on: pv, tone: 'accent' },
+        { id: 'di4', label: 'DI4 · vitesse présélectionnée 4 (GV)', on: gv, tone: 'accent' },
+      ],
+      recepteurs: [{
+        id: 'turbine', label: rpm > 0 ? `Turbine : ${virgule(f)} Hz · ${rpm} tr/min` : 'Turbine à l’arrêt',
+        on: rpm > 0, tone: 'good',
+      }],
+      sousTension: alim,
+      rpm,
+      etats: { s2: e.s2 === '2' ? 'on' : 'off' },
+      // Écran graphique de l'ATV340 : repéré depuis la borne R1A (sprite `atv340`).
+      afficheurs: [{
+        id: 'atv', ancre: { borne: 'u1.R1A', dx: 69, dy: -407 }, w: 121, h: 58, eteint: !alim,
+        lignes: !marche
+          ? ['rdY · prêt', `${virgule(0)} Hz`]
+          : [`RUN · ${vitesse}`, `${virgule(f)} Hz`, `${rpm} tr/min`],
+      }],
+      valeurs: { f, s2: e.s2 === '2' ? 2 : 1 },
+    };
+  },
+  observer(ev, e) {
+    const f = ev.valeurs?.f ?? 0;
+    const out: string[] = [];
+    if (ev.sousTension && e.s2 !== '2' && Math.abs(f - SP2) < 0.05) out.push('pv');
+    if (ev.sousTension && e.s2 === '2' && Math.abs(f - SP4) < 0.05) out.push('gv');
+    return out;
+  },
+  attendus: [
+    { id: 'pv', label: 'Essai PV : S1 sur I, S2 en position 1 → 33,3 Hz, 1 000 tr/min' },
+    { id: 'gv', label: 'Essai GV : S1 sur I, S2 en position 2 → 50 Hz, 1 500 tr/min' },
+  ],
+};
+
+/* ------------------------------------------------------------ Scierie · E.3.4.3 · strings DC */
+
+/** Passages internes déclarés au catalogue (bornes DC+1, DC+2 et DC− reliées dans l'onduleur). */
+function passagesInternes(tp: TpDefinition): Arete[] {
+  return tp.slots.flatMap(s => (CATALOGUE_BY_KEY[s.key]?.passes ?? []).map(([a, b]) => [`${s.id}.${a}`, `${s.id}.${b}`] as Arete));
+}
+
+/**
+ * Tension d'une entrée DC (borne + par rapport à la borne −), signée : on part du − et on
+ * suit les modules posés en série, chacun ajoutant `vModule` de son − vers son +. `null` :
+ * aucun chemin (circuit ouvert, l'entrée ne voit rien). Court-circuit : 0.
+ */
+function tensionEntree(
+  find: (x: string) => string, modules: string[], plus: string, moins: string, vModule: number,
+): { u: number; n: number } | null {
+  const cible = find(plus);
+  const depart = find(moins);
+  if (cible === depart) return { u: 0, n: 0 };
+  const pot = new Map<string, { u: number; n: number }>([[depart, { u: 0, n: 0 }]]);
+  const file = [depart];
+  while (file.length) {
+    const x = file.shift() as string;
+    const px = pot.get(x)!;
+    for (const m of modules) {
+      const moinsM = find(`${m}.X2`), plusM = find(`${m}.X1`);
+      const voisin = x === moinsM ? { r: plusM, u: px.u + vModule } : x === plusM ? { r: moinsM, u: px.u - vModule } : null;
+      if (!voisin || pot.has(voisin.r)) continue;
+      pot.set(voisin.r, { u: voisin.u, n: px.n + 1 });
+      file.push(voisin.r);
+    }
+  }
+  return pot.get(cible) ?? null;
+}
+
+/** Plage MPP et tension minimale d'entrée du Fronius SYMO 12.5-3-M (DTR 34). */
+const MPP_MIN = 320;
+const MPP_MAX = 800;
+const U_DEMARRAGE = 200;
+/** Puissance d'un module en NOCT (386 W) et rendement maximal de l'onduleur (98 %). */
+const P_MODULE = 386;
+const RENDEMENT = 0.98;
+
+const E343: ModelePlatine = {
+  tpId: 'scierie-e343-dc',
+  organes: () => [
+    { id: 'q1', label: 'Q1 · disjoncteur 4P · départ de l’onduleur' },
+    { id: 'f3', label: 'Q2 · interrupteur différentiel 4P · côté AC' },
+    { id: 'f2', label: 'QDC · sectionneur DC de l’onduleur' },
+  ],
+  entreesInitiales: { tracker2: false },
+  commandes: [
+    { id: 'tr2on', label: 'MPP Tracker 2 : ON', sub: 'deux entrées indépendantes', effet: e => ({ ...e, tracker2: true }), actif: e => e.tracker2 === true },
+    { id: 'tr2off', label: 'MPP Tracker 2 : OFF', sub: 'mode Single MPP Tracker', effet: e => ({ ...e, tracker2: false }), actif: e => e.tracker2 !== true },
+  ],
+  consigne: 'Il fait jour : le champ produit. Règle la fonction MPP Tracker 2 au menu de l’onduleur, puis observe '
+    + 'ses deux entrées : chaque tracker doit trouver son string, à une tension dans la plage MPP de l’onduleur (320 à 800 V).',
+  evaluer(tp, st, sim, e) {
+    const find = equipotentielles([...filsPoses(tp, st), ...passagesBorniers(tp), ...passagesInternes(tp)]);
+    const modules = (tp.annexItems ?? []).filter(it => it.key === 'pvmodule').map(it => it.rep);
+    const ac = organeFerme(sim, 'q1') && organeFerme(sim, 'f3');
+    const dc = organeFerme(sim, 'f2');
+    const entree = (plus: string) => {
+      const vide = tensionEntree(find, modules, plus, 'ond.DC-1', MODULES_PAR_PANNEAU * VOC_NOCT);
+      return vide ? { n: vide.n, uVide: Math.round(vide.u), inverse: vide.u < 0 } : null;
+    };
+    const e1 = entree('ond.DC+1-1');
+    const e2 = entree('ond.DC+2-1');
+    const valide = (x: typeof e1) => x != null && !x.inverse && x.uVide >= U_DEMARRAGE;
+    // L'onduleur démarre : réseau présent, sectionneur DC fermé, au moins une entrée valide,
+    // et aucune entrée en inversion de polarité (il se met en défaut).
+    const inversion = !!(e1?.inverse || e2?.inverse);
+    const enService = ac && dc && !inversion && (valide(e1) || valide(e2));
+    const umpp = (x: typeof e1) => (x ? Math.round(Math.abs(x.n) * MODULES_PAR_PANNEAU * VMPP_NOCT) : 0);
+    const suivi = (x: typeof e1, actif: boolean) =>
+      enService && actif && valide(x) && umpp(x) >= MPP_MIN && umpp(x) <= MPP_MAX;
+    const t1 = suivi(e1, true);
+    const t2 = suivi(e2, e.tracker2 === true);
+    const nModules = (t1 ? (e1?.n ?? 0) : 0) + (t2 ? (e2?.n ?? 0) : 0);
+    const kw = (nModules * MODULES_PAR_PANNEAU * P_MODULE * RENDEMENT) / 1000;
+    const lire = (x: typeof e1, t: boolean) =>
+      x == null ? 'rien (circuit ouvert)'
+        : x.inverse ? `INVERSION ${x.uVide} V`
+          : t ? `${umpp(x)} V (MPP)` : `${x.uVide} V à vide`;
+    return {
+      alim: [
+        { id: 'ac', label: 'Réseau AC au bornier de l’onduleur (Q1, Q2)', on: ac, tone: 'good' },
+        { id: 'dc', label: 'Sectionneur DC fermé', on: dc, tone: 'good' },
+        { id: 'u1', label: `DC+1 / DC− : ${lire(e1, t1)}`, on: e1 != null && !e1.inverse && e1.uVide > 0, tone: e1?.inverse ? 'crit' : 'good' },
+        { id: 'u2', label: `DC+2 / DC− : ${lire(e2, t2)}`, on: e2 != null && !e2.inverse && e2.uVide > 0, tone: e2?.inverse ? 'crit' : 'good' },
+      ],
+      recepteurs: [
+        { id: 'tr1', label: t1 ? `Tracker 1 : string suivi à ${umpp(e1)} V` : 'Tracker 1 : pas de string suivi', on: t1, tone: 'good' },
+        {
+          id: 'tr2',
+          label: t2 ? `Tracker 2 : string suivi à ${umpp(e2)} V`
+            : e.tracker2 !== true && enService ? 'Tracker 2 sur OFF : entrée DC+2 non suivie (mode Single MPP Tracker)'
+              : 'Tracker 2 : pas de string suivi',
+          on: t2, tone: 'good',
+        },
+        ...(inversion ? [{ id: 'pol', label: 'Défaut : polarité DC inversée, l’onduleur reste arrêté', on: true, tone: 'crit' as const }] : []),
+      ],
+      sousTension: ac && dc,
+      // Écran de l'onduleur : repéré depuis la borne DC+1-1 (sprite `symo125`).
+      afficheurs: [{
+        id: 'symo', ancre: { borne: 'ond.DC+1-1', dx: 249, dy: -59 }, w: 162, h: 32, eteint: !ac,
+        lignes: inversion ? ['STATE 4xx · DC', 'polarité inversée']
+          : enService ? [`MPP1 ${t1 ? `${umpp(e1)} V` : '—'} · MPP2 ${t2 ? `${umpp(e2)} V` : e.tracker2 === true ? '—' : 'OFF'}`, `P ≈ ${virgule(kw)} kW`]
+            : ['en attente', dc ? 'tension DC insuffisante' : 'sectionneur DC ouvert'],
+      }],
+      valeurs: { t1: t1 ? 1 : 0, t2: t2 ? 1 : 0, u1: e1?.uVide ?? 0, u2: e2?.uVide ?? 0, kw },
+    };
+  },
+  observer(ev) {
+    const out: string[] = [];
+    if (ev.valeurs?.t1 === 1) out.push('tr1');
+    if (ev.valeurs?.t2 === 1) out.push('tr2');
+    return out;
+  },
+  attendus: [
+    { id: 'tr1', label: 'Tracker 1 : le string 1 est suivi (537 V, dans la plage MPP 320-800 V)' },
+    { id: 'tr2', label: 'Tracker 2 sur ON : le string 2 est suivi (537 V)' },
+  ],
+};
+
 export const MODELES: Record<string, ModelePlatine> = {
   [Q13.tpId]: Q13,
   [Q58.tpId]: Q58,
   [Q67.tpId]: Q67,
+  [D31.tpId]: D31,
+  [E343.tpId]: E343,
 };

@@ -5,7 +5,9 @@
  * correction), marquée par l'élève (drapeau).
  */
 import { estRepondue } from '@/lib/sujet/correction';
+import { repere, sousSection } from '@/lib/sujet/format';
 import { useSujet } from '@/lib/sujet/store';
+import type { SujetQuestion } from '@/lib/sujet/types';
 
 export type EtatNav = 'courante' | 'juste' | 'aRevoir' | 'repondue' | 'vide';
 
@@ -33,38 +35,63 @@ export default function NavQuestions({ onChoisir }: { onChoisir?: () => void }) 
     vide: 'border-line bg-surface text-ink',
   };
 
+  const pastille = (q: SujetQuestion) => {
+    const e = etat(q.num);
+    const cour = q.num === st.courante;
+    const marque = st.marquees.includes(q.num);
+    const r = repere(q);
+    return (
+      <button
+        key={q.num}
+        type="button"
+        onClick={() => { aller(q.num); onChoisir?.(); }}
+        data-nav={q.num}
+        data-etat={e}
+        aria-current={cour ? 'step' : undefined}
+        aria-label={`Question ${r}${marque ? ', marquée à revoir' : ''}`}
+        title={q.label ? `${q.label} (question ${q.num})` : undefined}
+        className={`relative grid h-[28px] ${q.label ? 'min-w-[34px] px-1.5' : 'w-[34px]'} place-items-center whitespace-nowrap rounded-md border font-mono text-[11.5px] font-semibold transition hover:-translate-y-px ${CLS[e]} ${cour ? 'ring-2 ring-accent ring-offset-1' : ''}`}
+      >
+        {q.label ?? q.num}
+        {marque && <span className="absolute -right-1 -top-1.5 text-[10px]" aria-hidden>🚩</span>}
+      </button>
+    );
+  };
+
   return (
     <nav aria-label="Questions du sujet" className="space-y-3 text-[12.5px]">
       {sujet.parties.map(p => {
         const qs = sujet.questions.filter(q => q.partie === p.num);
         if (!qs.length) return null;
+        // Sous-sections (A.1, A.2…) : un séparateur discret quand la partie en compte plusieurs.
+        const groupes: { cle: string | null; qs: SujetQuestion[] }[] = [];
+        for (const q of qs) {
+          const k = sousSection(q);
+          const g = groupes[groupes.length - 1];
+          if (g && g.cle === k) g.qs.push(q); else groupes.push({ cle: k, qs: [q] });
+        }
+        const separer = groupes.length > 1;
         return (
           <div key={p.num}>
             <div className="mb-1 font-semibold leading-tight">
               <span className="text-muted">Partie {p.num}</span> · {p.titre}
             </div>
-            <div className="flex flex-wrap gap-1">
-              {qs.map(q => {
-                const e = etat(q.num);
-                const cour = q.num === st.courante;
-                const marque = st.marquees.includes(q.num);
-                return (
-                  <button
-                    key={q.num}
-                    type="button"
-                    onClick={() => { aller(q.num); onChoisir?.(); }}
-                    data-nav={q.num}
-                    data-etat={e}
-                    aria-current={cour ? 'step' : undefined}
-                    aria-label={`Question ${q.num}${marque ? ', marquée à revoir' : ''}`}
-                    className={`relative grid h-[28px] w-[34px] place-items-center rounded-md border font-mono text-[11.5px] font-semibold transition hover:-translate-y-px ${CLS[e]} ${cour ? 'ring-2 ring-accent ring-offset-1' : ''}`}
-                  >
-                    {q.num}
-                    {marque && <span className="absolute -right-1 -top-1.5 text-[10px]" aria-hidden>🚩</span>}
-                  </button>
-                );
-              })}
-            </div>
+            {separer ? (
+              <div className="space-y-1">
+                {groupes.map((g, i) => (
+                  <div key={`${g.cle}-${i}`} className="flex flex-wrap items-center gap-1" data-sous-section={g.cle ?? ''}>
+                    {(i > 0 || g.cle?.includes('.')) && (
+                      <span className={`w-full font-mono text-[9.5px] font-semibold tracking-[.06em] text-muted ${i > 0 ? 'border-t border-line/70 pt-0.5' : ''}`}>
+                        {g.cle?.includes('.') ? g.cle : '\u00a0'}
+                      </span>
+                    )}
+                    {g.qs.map(pastille)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1">{qs.map(pastille)}</div>
+            )}
           </div>
         );
       })}

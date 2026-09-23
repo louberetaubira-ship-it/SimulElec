@@ -6,6 +6,7 @@ import QCalcul from './QCalcul';
 import QCavaliers from './QCavaliers';
 import QCocher from './QCocher';
 import QOrdonner from './QOrdonner';
+import QPlacement from './QPlacement';
 import QRedige from './QRedige';
 import QRelier from './QRelier';
 import QSchema from './QSchema';
@@ -32,6 +33,7 @@ export default function Question({ q, r, onChange, readOnly, montrer }: Props) {
     case 'tableau': return <QTableau q={q} r={r as RDe<'tableau'> | undefined} {...p} />;
     case 'redige': return <QRedige q={q} r={r as RDe<'redige'> | undefined} {...p} />;
     case 'bulles': return <QBulles q={q} r={r as RDe<'bulles'> | undefined} {...p} />;
+    case 'placement': return <QPlacement q={q} r={r as RDe<'placement'> | undefined} {...p} />;
     case 'cavaliers': return <QCavaliers q={q} r={r as RDe<'cavaliers'> | undefined} {...p} />;
     case 'schema': return <QSchema q={q} r={r as RDe<'schema'> | undefined} {...p} />;
   }

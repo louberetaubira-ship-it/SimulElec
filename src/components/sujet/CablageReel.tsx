@@ -264,6 +264,9 @@ function CablageReelPlatine({
   const commande = (id: string) => {
     const c = modele.commandes.find(x => x.id === id);
     if (!c) return;
+    // Bouton qui manœuvre un organe de la platine (sélecteur de marche) : même geste qu'un clic
+    // sur l'appareil.
+    if (c.organe) { s.deviceClick(c.organe); return; }
     setEntrees(e => c.effet(e));
     if (c.relache) {
       const relache = c.relache;
@@ -291,9 +294,39 @@ function CablageReelPlatine({
     />
   );
 
-  /** Récepteurs signalés sur la platine (lampe allumée, volet en course, gâche ouverte…). */
+  /** Clic sur un appareil pendant la mise sous tension et l'essai. */
+  const surAppareil = (id: string) => {
+    const f = modele.surAppareil?.[id];
+    if (f) { setEntrees(e => f(e)); return; }
+    s.deviceClick(id);
+  };
+
+  /**
+   * Récepteurs signalés sur la platine (lampe allumée, volet en course, gâche ouverte…) et
+   * écrans des appareils (fréquence du variateur, tensions des trackers de l'onduleur).
+   */
   const overlay = (at: (id: string) => { x: number; y: number } | null) => (
     <svg style={{ position: 'absolute', left: 0, top: 0, width: 1, height: 1, overflow: 'visible', pointerEvents: 'none', zIndex: 30 }}>
+      {(ev?.afficheurs ?? []).map((a) => {
+        const p = at(a.ancre.borne);
+        if (!p) return null;
+        const x = p.x + a.ancre.dx, y = p.y + a.ancre.dy;
+        const pas = Math.min(15, (a.h - 4) / Math.max(1, a.lignes.length));
+        return (
+          <g key={a.id} data-afficheur={a.id}>
+            <rect x={x} y={y} width={a.w} height={a.h} rx={3} fill={a.eteint ? '#101418' : '#0f2317'} />
+            {!a.eteint && a.lignes.map((l, i) => (
+              <text
+                key={i} x={x + a.w / 2} y={y + 3 + pas * (i + 0.78)} textAnchor="middle"
+                fontSize={i === 1 ? Math.min(13, pas) : Math.min(9, pas - 1)} fontWeight={i === 1 ? 700 : 500}
+                fontFamily="var(--font-mono), monospace" fill="#6dff9e"
+              >
+                {l}
+              </text>
+            ))}
+          </g>
+        );
+      })}
       {(ev?.recepteurs ?? []).filter(r => r.on && r.ancre).map((r) => {
         const p = at(r.ancre!.borne);
         if (!p) return null;
@@ -337,14 +370,15 @@ function CablageReelPlatine({
           cover={false}
           marks
           fixedScale
-          deviceState={deviceStateOf(sim, tp)}
+          deviceState={{ ...deviceStateOf(sim, tp), ...(ev?.etats ?? {}) }}
+          motorRpm={ev?.rpm ?? 0}
           aimed={cabler ? s.aimed : null}
           pickTerminals={cabler}
           onTerminal={cabler ? s.clickTerminal : undefined}
           selectedWire={cabler ? s.selWire : null}
           onWire={cabler ? s.selectWire : undefined}
           onWireLongPress={cabler ? s.openWireMenu : undefined}
-          onDevice={manoeuvre ? s.deviceClick : undefined}
+          onDevice={manoeuvre ? surAppareil : undefined}
           overlay={overlay}
         />
       ) : <div />}
@@ -425,7 +459,7 @@ function CablageReelPlatine({
         )}
         <div className="grid grid-cols-2 gap-1.5">
           {modele.commandes.map(c => {
-            const actif = c.actif?.(entrees) ?? false;
+            const actif = c.actif?.(entrees, sim) ?? false;
             return (
               <button
                 key={c.id}

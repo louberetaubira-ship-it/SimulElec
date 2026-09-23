@@ -12,6 +12,8 @@
  * Module pur (utilisé côté serveur, côté client et par les scripts).
  */
 import type { DeclinaisonSujet, SujetNumerique, ThemeSujet } from './types';
+import { cleDocPage, docDePage, dtrParDocument } from './dtr';
+import { intervalleReperes } from './format';
 
 /** Durée lisible en heures et minutes : « 5 h », « 1 h 35 », « 45 min ». */
 export function dureeLisible(min: number): string {
@@ -31,14 +33,6 @@ function problematiqueDePartie(situation: string): string | null {
   return `${majuscule(t)}.`;
 }
 
-/** Intervalle des questions d'une liste : « Q14 à Q38 ». */
-function intervalle(nums: number[]): string {
-  if (!nums.length) return '';
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  return min === max ? `Q${min}` : `Q${min} à Q${max}`;
-}
-
 /** Le sujet dérivé d'une déclinaison. */
 export function sujetDerive(base: SujetNumerique, d: DeclinaisonSujet): SujetNumerique {
   const garder = new Set(d.parties);
@@ -46,7 +40,11 @@ export function sujetDerive(base: SujetNumerique, d: DeclinaisonSujet): SujetNum
   const questions = base.questions.filter(q => garder.has(q.partie));
 
   const dtrUtiles = new Set<number>([...parties.flatMap(p => p.dtrPages), ...questions.flatMap(q => q.dtr)]);
-  const dtr = base.dtr.filter(p => dtrUtiles.has(p.num));
+  // DTR numéroté par document : un document utile est gardé en entier (toutes ses pages).
+  const docsUtiles = new Set(base.dtr.filter(p => dtrUtiles.has(p.num)).map(p => cleDocPage(base.dtr, p)));
+  const dtr = dtrParDocument(base.dtr)
+    ? base.dtr.filter(p => docsUtiles.has(cleDocPage(base.dtr, p)))
+    : base.dtr.filter(p => dtrUtiles.has(p.num));
 
   const pagesUtiles = new Set<number>(questions.map(q => q.pageSujet));
   for (const p of parties) {
@@ -61,7 +59,7 @@ export function sujetDerive(base: SujetNumerique, d: DeclinaisonSujet): SujetNum
   const consignes = [
     `Durée : ${dureeLisible(d.dureeMin)}.`,
     `Sujet thématique : ${plurielParties ? 'parties' : 'partie'} ${numsParties} du sujet « ${base.titre} ». `
-      + `Les questions gardent leur numéro du sujet complet (${intervalle(questions.map(q => q.num))}).`,
+      + `Les questions gardent leur numéro du sujet complet (${intervalleReperes(questions)}).`,
     ...base.consignes.filter(c => !/^Durée\s*:/.test(c) && !/parties de ce sujet sont indépendantes/.test(c)),
   ];
 
@@ -101,8 +99,10 @@ export interface ResumeSujet {
   questions: number;
   premiere: number;
   derniere: number;
+  /** Repères de la première et de la dernière question (« Q14 », « B.1.1 »). */
+  intervalle: string;
   points: number;
-  /** Pages DTR conseillées par les parties (première et dernière). */
+  /** DTR conseillés par les parties (premier et dernier) : numéros de DOCUMENT si le dossier en a. */
   dtrDe: number | null;
   dtrA: number | null;
   dtrPages: number;
@@ -111,11 +111,15 @@ export interface ResumeSujet {
 
 export function resumeSujet(s: SujetNumerique): ResumeSujet {
   const nums = s.questions.map(q => q.num);
-  const dtrParties = s.parties.flatMap(p => p.dtrPages);
+  const pages = new Map(s.dtr.map(p => [p.num, p]));
+  const dtrParties = s.parties.flatMap(p => p.dtrPages)
+    .map(n => (pages.has(n) ? (dtrParDocument(s.dtr) ? pages.get(n)!.doc ?? null : docDePage(pages.get(n)!)) : n))
+    .filter((n): n is number => n != null);
   return {
     questions: s.questions.length,
     premiere: nums.length ? Math.min(...nums) : 0,
     derniere: nums.length ? Math.max(...nums) : 0,
+    intervalle: intervalleReperes(s.questions, ' → '),
     points: Math.round(s.questions.reduce((a, q) => a + q.points, 0) * 100) / 100,
     dtrDe: dtrParties.length ? Math.min(...dtrParties) : null,
     dtrA: dtrParties.length ? Math.max(...dtrParties) : null,

@@ -6,6 +6,7 @@
  */
 import { COMPETENCES, NIVEAU_BILAN, NIVEAU_COLOR, NIVEAU_ON, niveauOf } from '@/lib/data/competences';
 import type { BilanSujet, SujetAttemptState, SujetNumerique } from '@/lib/sujet/types';
+import { repere } from '@/lib/sujet/format';
 import { fmtNombre } from '@/lib/sujet/normalize';
 import { fmtDuree } from '@/lib/sujet/store';
 
@@ -117,13 +118,13 @@ export default function Bilan({ sujet, bilan, st, onQuestion, eleve }: Props) {
           {bilan.aValider.length > 0 && (
             <section className="rounded-2xl border border-line bg-surface p-4">
               <h3 className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-muted">À valider par le professeur</h3>
-              <Pastilles nums={bilan.aValider} onQuestion={onQuestion} cls="border-accent bg-accent/15" />
+              <Pastilles sujet={sujet} nums={bilan.aValider} onQuestion={onQuestion} cls="border-accent bg-accent/15" />
             </section>
           )}
           {bilan.sansReponse.length > 0 && (
             <section className="rounded-2xl border border-line bg-surface p-4">
               <h3 className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-muted">Sans réponse ({bilan.sansReponse.length})</h3>
-              <Pastilles nums={bilan.sansReponse} onQuestion={onQuestion} cls="border-crit/50 bg-[#FDE8E6]" />
+              <Pastilles sujet={sujet} nums={bilan.sansReponse} onQuestion={onQuestion} cls="border-crit/50 bg-[#FDE8E6]" />
             </section>
           )}
         </div>
@@ -132,13 +133,14 @@ export default function Bilan({ sujet, bilan, st, onQuestion, eleve }: Props) {
   );
 }
 
-function Pastilles({ nums, onQuestion, cls }: { nums: number[]; onQuestion?: (n: number) => void; cls: string }) {
+function Pastilles({ sujet, nums, onQuestion, cls }: { sujet: SujetNumerique; nums: number[]; onQuestion?: (n: number) => void; cls: string }) {
+  const lab = new Map(sujet.questions.map(q => [q.num, repere(q)]));
   return (
     <div className="flex flex-wrap gap-1">
       {nums.map(n => (
         <button key={n} type="button" disabled={!onQuestion} onClick={() => onQuestion?.(n)}
-          className={`grid h-7 min-w-[36px] place-items-center rounded-md border px-1 font-mono text-[11.5px] font-semibold disabled:cursor-default ${cls}`}>
-          Q{n}
+          className={`grid h-7 min-w-[36px] place-items-center whitespace-nowrap rounded-md border px-1.5 font-mono text-[11.5px] font-semibold disabled:cursor-default ${cls}`}>
+          {lab.get(n) ?? `Q${n}`}
         </button>
       ))}
     </div>
