@@ -1,6 +1,7 @@
 // ---------- Domain types shared by the simulator, the TP engine and the UI (v3) ----------
 
 import type { DiplomaId } from './data/competences';
+import type { Classement } from './taxonomy/domaines';
 
 /**
  * Barème d'un TP : poids de chaque étape (points sur 100) et coût des gestes fautifs.
@@ -977,6 +978,14 @@ export interface TpDefinition {
    * l'élève, ni dans les listes du professeur (imposition, suivi).
    */
   hidden?: boolean;
+  /**
+   * Classement par domaine professionnel (voir `src/lib/taxonomy/domaines.ts`) : domaine
+   * principal, secondaires, sous-domaine, activités, mots-clés. Absent ou partiel sur les
+   * TP anciens : `classementDe(tp)` (`src/lib/taxonomy/classement.ts`) complète depuis la
+   * famille et la nature du TP. Persisté en base dans les colonnes `domaine`, `domaines_sec`,
+   * `sous_domaine`, `activites`, `mots_cles` ET dans `definition.classement` (migration 0015).
+   */
+  classement?: Classement;
   competences: string[];
   summary: string;
   situation: string;

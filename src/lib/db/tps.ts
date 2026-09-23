@@ -18,6 +18,9 @@ import type { DiplomaId, Domain } from '@/lib/data/competences';
 import type { PedagogieGeneree } from '@/lib/generateur/schema';
 import { DOMAIN_LABEL } from '@/lib/data/competences';
 import { isDiplomaId } from '@/lib/student';
+import {
+  activitesDeduites, domaineParFamily, normaliserClassement, type Classement,
+} from '@/lib/taxonomy/domaines';
 
 export interface TpSummary {
   id: string;
@@ -130,10 +133,16 @@ export interface TpRow {
   validated_by?: string | null;
   /** Date de validation humaine : obligatoire avant publication d'un TP généré. */
   validated_at?: string | null;
+  /** Classement par domaine professionnel (migration 0015). `null`/vides sur les TP anciens. */
+  domaine?: string | null;
+  domaines_sec?: string[] | null;
+  sous_domaine?: string | null;
+  activites?: string[] | null;
+  mots_cles?: string[] | null;
 }
 
 const TP_COLS =
-  'id, title, level, competences, summary, definition, published, family, scene, playable, author, archived, diplomas, updated_at, generated, generation_id, validated_by, validated_at';
+  'id, title, level, competences, summary, definition, published, family, scene, playable, author, archived, diplomas, updated_at, generated, generation_id, validated_by, validated_at, domaine, domaines_sec, sous_domaine, activites, mots_cles';
 
 /** Saisie envoyée en base par le studio. */
 export interface TpSavePayload {
@@ -151,6 +160,11 @@ export interface TpSavePayload {
   /** TP issu du générateur : la base interdit sa publication tant qu'il n'est pas validé. */
   generated?: boolean;
   generation_id?: string | null;
+  /**
+   * Classement à enregistrer. Absent (duplication, import) : celui que porte déjà
+   * `definition.classement`. Écrit dans les 5 colonnes ET dans `definition.classement`.
+   */
+  classement?: Classement;
 }
 
 /** Identifiant lisible dérivé du titre (« Éclairage d'atelier » → « eclairage-d-atelier »). */
@@ -165,12 +179,19 @@ export function slugifyTitle(title: string): string {
 }
 
 function row(payload: TpSavePayload) {
+  const classement = payload.classement ?? normaliserClassement(payload.definition.classement);
+  const definition: TpStoredDefinition = { ...payload.definition, classement };
   return {
     title: payload.title.trim() || 'TP sans titre',
     level: payload.level.trim() || null,
     competences: payload.competences,
     summary: payload.summary.trim() || null,
-    definition: payload.definition as unknown as Record<string, unknown>,
+    definition: definition as unknown as Record<string, unknown>,
+    domaine: classement.domaine,
+    domaines_sec: classement.domainesSecondaires,
+    sous_domaine: classement.sousDomaine,
+    activites: classement.activites,
+    mots_cles: classement.motsCles,
     published: payload.published,
     family: payload.family,
     scene: payload.scene,
@@ -449,6 +470,57 @@ function readNets(v: unknown): Record<string, TerminalNet> {
   return out;
 }
 
+/**
+ * Classement DÉCLARÉ d'une ligne, sans rien déduire : les colonnes de la table si un domaine
+ * y est écrit, sinon `definition.classement`. Le domaine reste `null` tant que le professeur
+ * ne l'a pas choisi — le studio s'en sert pour exiger un choix avant publication.
+ */
+function classementDeclareOfRow(row_: TpRow): Classement {
+  const colonnes = normaliserClassement({
+    domaine: row_.domaine,
+    domaines_sec: row_.domaines_sec,
+    sous_domaine: row_.sous_domaine,
+    activites: row_.activites,
+    mots_cles: row_.mots_cles,
+  });
+  if (colonnes.domaine) return colonnes;
+  const def = obj(row_.definition);
+  const declare = normaliserClassement(def?.classement);
+  if (declare.domaine) return declare;
+  // Aucun domaine choisi : on garde tout de même activités et mots-clés saisis, d'où qu'ils viennent.
+  return normaliserClassement({
+    domaine: null,
+    activites: declare.activites.length ? declare.activites : colonnes.activites,
+    motsCles: declare.motsCles.length ? declare.motsCles : colonnes.motsCles,
+  });
+}
+
+/**
+ * Classement COMPLET d'une ligne `tps` (catalogue, suivi, couverture) : colonnes d'abord,
+ * sinon `definition.classement`, sinon domaine déduit de `family` ; activités déduites de
+ * la nature du TP si aucune n'est déclarée. Pendant de `classementDe(tp)` pour les TP fournis.
+ */
+export function classementOfRow(row_: TpRow): Classement {
+  const declare = classementDeclareOfRow(row_);
+  const def = obj(row_.definition);
+  const family = SCENES.includes(row_.family as SceneKind)
+    ? (row_.family as SceneKind)
+    : SCENES.includes(def?.family as SceneKind) ? (def?.family as SceneKind) : null;
+  const complet = declare.domaine || !family
+    ? declare
+    : normaliserClassement({ ...declare, domaine: domaineParFamily(family) });
+  if (complet.activites.length) return complet;
+  return {
+    ...complet,
+    activites: activitesDeduites({
+      kind: typeof def?.kind === 'string' ? def.kind : undefined,
+      playable: row_.playable === true,
+      faults: Array.isArray(def?.faults) ? def.faults : [],
+      mesures: Array.isArray(def?.mesures) ? def.mesures : [],
+    }),
+  };
+}
+
 /** Métadonnées du studio d'une ligne (domaines et diplômes), tolérante aux TP anciens. */
 export function studioMetaOf(row_: TpRow): TpStudioMeta {
   const def = obj(row_.definition);
@@ -530,5 +602,6 @@ export function rowToDefinition(row_: TpRow): TpDefinition | null {
     motor,
     station: def.station === true,
     hasMotor: def.hasMotor === true,
+    classement: classementDeclareOfRow(row_),
   };
 }
