@@ -207,16 +207,6 @@ export const CATALOGUE: CatalogueItem[] = [
   item({ key: 'kontakt', dims: { largeur: 45, hauteur: 77, profondeur: 95, source: 'fiche' }, name: 'Contacteur LC1D09 bobine 230 V', ref: 'LC1D09P7', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 230,
     terminals: [{ id: 'A1', fx: 0.08, fy: 0.07 }, { id: '1', fx: 0.3, fy: 0.07 }, { id: '3', fx: 0.52, fy: 0.07 }, { id: '5', fx: 0.74, fy: 0.07 }, { id: '13', fx: 0.93, fy: 0.07 },
       { id: 'A2', fx: 0.08, fy: 0.93 }, { id: '2', fx: 0.3, fy: 0.93 }, { id: '4', fx: 0.52, fy: 0.93 }, { id: '6', fx: 0.74, fy: 0.93 }, { id: '14', fx: 0.93, fy: 0.93 }] }),
-  // Un des deux contacteurs de l'inverseur TeSys LC2D09BD (sujet CGM 2023, B.2.6) : même
-  // corps que le LC1D09 — la photo est la sienne — mais bobine 24 V CONTINU (repère BD)
-  // et ses deux contacts auxiliaires intégrés, 13-14 à fermeture ET 21-22 à ouverture.
-  // Le 21-22 sert au verrouillage électrique croisé du folio 02 : KM1.2 NF en série
-  // avec la bobine de KM1.1, et réciproquement. Bornes placées sur celles de la photo.
-  item({ key: 'lc2d09bd', dims: { largeur: 45, hauteur: 77, profondeur: 95, source: 'fiche' }, name: 'Contacteur-inverseur LC2D09BD · un contacteur · bobine 24 V⎓', ref: 'LC2D09BD', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 24,
-    terminals: [{ id: '1', fx: 0.2, fy: 0.07 }, { id: '3', fx: 0.49, fy: 0.07 }, { id: '5', fx: 0.78, fy: 0.07 },
-      { id: '13', fx: 0.36, fy: 0.3 }, { id: '21', fx: 0.62, fy: 0.3 }, { id: 'A1', fx: 0.86, fy: 0.3 },
-      { id: '14', fx: 0.36, fy: 0.76 }, { id: '22', fx: 0.62, fy: 0.76 }, { id: 'A2', fx: 0.86, fy: 0.76 },
-      { id: '2', fx: 0.2, fy: 0.93 }, { id: '4', fx: 0.49, fy: 0.93 }, { id: '6', fx: 0.78, fy: 0.93 }] }),
   // Le bloc LADN11 se monte SUR LA FACE du contacteur : il n'élargit pas
   // l'appareil, il occupe la fenêtre centrale — c'est ce que montre le sprite.
   item({ key: 'kontaktaux', dims: { largeur: 45, hauteur: 77, profondeur: 95, source: 'fiche' }, name: 'Contacteur LC1D09 bobine 24 V + bloc LADN11', ref: 'LC1D09B7 + LADN11', brand: 'Schneider', kind: 'contactor', family: 'Industriel', modules: 2.5, poles: 3, In: 9, coil: 24,
@@ -589,29 +579,6 @@ export const CATALOGUE: CatalogueItem[] = [
     kind: 'button', family: 'Portail', poles: 2, w: 30, h: 92,
     terminals: [{ id: 'X1', fx: 0.34, fy: 0 }, { id: 'X2', fx: 0.66, fy: 0 }],
   }),
-  // ---- Portail Écobike v2 : commande en 24 V continu (sujet CGM 2023, folios 01 et 02) ----
-  //
-  // Alimentation à découpage WAGO 787-1012 (DTR 40) : 100-240 V~ → 24 V⎓ 2,5 A, 72 × 89 ×
-  // 55 mm. Entrée L / N en haut, sortie + / − en bas, comme sur la face de l'appareil.
-  vector({
-    key: 'alim24dc', name: 'Alimentation à découpage 230 V~ → 24 V⎓ · 2,5 A', ref: 'WAGO 787-1012',
-    brand: 'WAGO', kind: 'dc', family: 'Alimentation', poles: 2, w: 104, h: 129,
-    dims: { largeur: 72, hauteur: 89, profondeur: 55, source: 'fiche' },
-    terminals: [
-      { id: 'L', fx: 0.3, fy: 0.07 }, { id: 'N', fx: 0.5, fy: 0.07 },
-      { id: '+24', fx: 0.3, fy: 0.93 }, { id: '0V', fx: 0.7, fy: 0.93 },
-    ],
-  }),
-  // Contact auxiliaire instantané GV-AE1, à montage FRONTAL sur le disjoncteur moteur GV2ME
-  // (DTR 38, B.2.3). Il suit l'appareil qui le porte (`Slot.auxDe`) : 13-14 fermé quand
-  // le GV2 est enclenché, ouvert s'il est ouvert ou déclenché. Au folio 01, il est en série
-  // sur le + 24 V de commande. Dessiné comme un bloc rapporté de 9 mm, à côté du GV2.
-  vector({
-    key: 'gvae1', name: 'Contact auxiliaire instantané frontal GV-AE1 · NO', ref: 'GVAE1',
-    brand: 'Schneider', kind: 'misc', family: 'Disjoncteurs', poles: 1, w: 22, h: 90,
-    dims: { largeur: 15, hauteur: 62, profondeur: 30, source: 'arelever' },
-    terminals: [{ id: '13', fx: 0.5, fy: 0.08 }, { id: '14', fx: 0.5, fy: 0.92 }],
-  }),
   vector({
     key: 'iddr', name: 'Interrupteur différentiel 30 mA · type A · 2P', ref: 'IDDR-30A-2P', kind: 'mcb',
     family: 'Différentiels', poles: 2, w: 72, h: 120,
@@ -620,119 +587,6 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: 'L2', fx: 0.3, fy: 0.93 }, { id: 'N2', fx: 0.7, fy: 0.93 },
     ],
   }),
-  // ---- Sujet numérique EIP (TP platine des questions Q13, Q58, Q67) ----
-  //
-  // Sprites dessinés d'après les documents du sujet (DTR 5, DTR 6, DTR 20, schémas corrigés) :
-  // la face et le repérage des bornes sont ceux du dossier, la photo constructeur n'étant pas
-  // dans le pack. Les appareils modulaires suivent le pas normalisé (18 mm, 85 mm).
-  //
-  // Disjoncteur Legrand DX3 phase + neutre, 1 module (4 067 71 en 2 A, 4 067 74 en 16 A) :
-  // mêmes bornes que l'iC60N 1P+N — N et 1 en haut, N et 2 en bas.
-  item({ key: 'dx3pn', dims: dimsModulaire(1), name: 'Disjoncteur Legrand DX3 phase + neutre · 1 module', ref: 'Legrand DX3 1P+N · 4 067 71 (2 A) / 4 067 74 (16 A)', brand: 'Legrand', kind: 'mcb', family: 'Disjoncteurs', modules: 1, poles: 2, In: 16,
-    terminals: [{ id: 'N', fx: 0.28, fy: 0.06 }, { id: '1', fx: 0.72, fy: 0.06 }, { id: 'N2', fx: 0.28, fy: 0.94 }, { id: '2', fx: 0.72, fy: 0.94 }] }),
-  // Disjoncteur différentiel de tête du tableau MyHOME (Q56 : 40 A, 30 mA).
-  item({ key: 'dx3diff', dims: dimsModulaire(2), name: 'Disjoncteur différentiel Legrand DX3 40 A 30 mA · phase + neutre', ref: 'Legrand DX3 ID 1P+N 40 A 30 mA', brand: 'Legrand', kind: 'rcd', family: 'Différentiels', modules: 2, poles: 2, In: 40,
-    terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }] }),
-  // Contacteur « heures creuses » 25 A avec manette I / AUTO / 0 (DTR 5, Legrand 4 125 01) :
-  // puissance 1-2 et 3-4, bobine 230 V~ A1-A2 sous les bornes 2 et 4, comme sur la face avant.
-  item({ key: 'contacthc', dims: dimsModulaire(1), name: 'Contacteur « heures creuses » 25 A avec manette I / AUTO / 0', ref: 'Legrand 4 125 01 · 25 A · Ue 250 V~', brand: 'Legrand', kind: 'contactor', family: 'Domestique', modules: 1, poles: 2, In: 25, coil: 230,
-    terminals: [{ id: '1', fx: 0.28, fy: 0.06 }, { id: '3', fx: 0.72, fy: 0.06 }, { id: '2', fx: 0.28, fy: 0.8 }, { id: '4', fx: 0.72, fy: 0.8 },
-      { id: 'A1', fx: 0.28, fy: 0.94 }, { id: 'A2', fx: 0.72, fy: 0.94 }] }),
-  // Interrupteur horaire Legrand MicroRex (DTR 6) : moteur U1-U2, contact inverseur 1 (commun),
-  // 4 (fermeture) et 2 (ouverture), toutes les bornes en bas comme sur le schéma constructeur.
-  item({ key: 'horlogelg', dims: dimsModulaire(3), name: 'Interrupteur horaire (horloge programmable) · contact inverseur 16 A', ref: 'Legrand MicroRex · 4128 11', brand: 'Legrand', kind: 'misc', family: 'Domestique', modules: 3, poles: 2,
-    terminals: [{ id: 'U1', fx: 0.12, fy: 0.94 }, { id: 'U2', fx: 0.31, fy: 0.94 }, { id: '1', fx: 0.5, fy: 0.94 }, { id: '4', fx: 0.69, fy: 0.94 }, { id: '2', fx: 0.88, fy: 0.94 }] }),
-  // Alimentation du bus MyHOME / SCS : primaire 230 V~ (L N), bus 27 V⎓ 1,2 A (DTR 20).
-  item({ key: 'scsalim', dims: dimsModulaire(8), name: 'Alimentation bus MyHOME / SCS · 27 V⎓ 1,2 A', ref: 'BTicino E46ADCN', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 8, poles: 2,
-    terminals: [{ id: 'L', fx: 0.07, fy: 0.94 }, { id: 'N', fx: 0.15, fy: 0.94 }, { id: '+', fx: 0.62, fy: 0.94 }, { id: '−', fx: 0.72, fy: 0.94 }] }),
-  // Actionneurs MyHOME (DTR 21) : les bornes de puissance en haut, le bus (2 fils) en bas.
-  item({ key: 'f411n', dims: dimsModulaire(2), name: 'Actionneur MyHOME 1 relais', ref: 'BTicino F411/1N', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 2, poles: 2,
-    terminals: [{ id: '1', fx: 0.22, fy: 0.06 }, { id: '2', fx: 0.5, fy: 0.06 }, { id: '3', fx: 0.78, fy: 0.06 }, { id: '+', fx: 0.18, fy: 0.94 }, { id: '−', fx: 0.38, fy: 0.94 }] }),
-  item({ key: 'f411x4', dims: dimsModulaire(2), name: 'Actionneur MyHOME 4 relais · commun 1', ref: 'BTicino F411/4', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 2, poles: 2,
-    terminals: [1, 2, 3, 4, 5].map((n, i) => ({ id: String(n), fx: 0.12 + i * 0.19, fy: 0.06 })).concat([{ id: '+', fx: 0.18, fy: 0.94 }, { id: '−', fx: 0.38, fy: 0.94 }]) }),
-  item({ key: 'f411v', dims: dimsModulaire(2), name: 'Actionneur MyHOME volet roulant (CAD) · L 1 N 2 3', ref: 'BTicino F411U2', brand: 'Legrand / BTicino', kind: 'dc', family: 'MyHOME', modules: 2, poles: 2,
-    terminals: ['L', '1', 'N', '2', '3'].map((id, i) => ({ id, fx: 0.12 + i * 0.19, fy: 0.06 })).concat([{ id: '+', fx: 0.18, fy: 0.94 }, { id: '−', fx: 0.38, fy: 0.94 }]) }),
-  // Contrôle d'accès VIGIK (partie 4 du sujet) : alimentation 12 V⎓ de la centrale (AL2),
-  // transformateur 230 V~ / 12 V~ de la gâche (AL3), centrale et appareils de la porte.
-  item({ key: 'al12dc', dims: dimsModulaire(2), name: 'Alimentation modulaire 230 V~ → 12 V⎓', ref: 'Legrand 1 467 11', brand: 'Legrand', kind: 'dc', family: 'Alimentation', modules: 2, poles: 2,
-    terminals: [{ id: '+V', fx: 0.3, fy: 0.06 }, { id: '−V', fx: 0.7, fy: 0.06 }, { id: 'L', fx: 0.3, fy: 0.94 }, { id: 'N', fx: 0.7, fy: 0.94 }] }),
-  item({ key: 'trsonn', dims: dimsModulaire(4), name: 'Transformateur modulaire 230 V~ / 12 V~ 1,5 A', ref: 'Legrand 336842', brand: 'Legrand', kind: 'trafo', family: 'Alimentation', modules: 4, poles: 2,
-    terminals: [{ id: 'S1', fx: 0.15, fy: 0.06 }, { id: 'S2', fx: 0.85, fy: 0.06 }, { id: 'P1', fx: 0.15, fy: 0.94 }, { id: 'P2', fx: 0.85, fy: 0.94 }] }),
-  // Centrale VIGIK autonome : AC AC (alimentation), BP (−), L+ L− (tête de lecture),
-  // relais C (commun), R (repos), T (travail). Placée dans le coffret (cahier des charges).
-  item({ key: 'cenvigik', name: 'Centrale de contrôle d\'accès VIGIK · 1 porte', ref: 'BTicino BT348043', brand: 'Legrand / BTicino', kind: 'misc', family: 'VIGIK', modules: 0, poles: 2,
-    terminals: ['AC1', 'AC2', 'BP', '−', 'L+', 'L−', 'C', 'R', 'T'].map((id, i) => ({ id, fx: 0.08 + i * 0.105, fy: 0.84 })) }),
-  // Appareils de terrain, posés dans la colonne annexe : bornes sur le bord droit.
-  item({ key: 'lectvigik', name: 'Tête de lecture VIGIK encastrée', ref: 'BTicino BT348704', brand: 'Legrand / BTicino', kind: 'button', family: 'VIGIK', modules: 0, poles: 2, door: true,
-    terminals: [{ id: 'L+', fx: 1, fy: 0.35 }, { id: 'L−', fx: 1, fy: 0.7 }] }),
-  item({ key: 'bpsortie', name: 'Bouton poussoir anti-vandale · ouverture sortie', ref: 'Legrand 005522', brand: 'Legrand', kind: 'button', family: 'VIGIK', modules: 0, poles: 2, door: true,
-    terminals: [{ id: '13', fx: 1, fy: 0.35 }, { id: '14', fx: 1, fy: 0.7 }] }),
-  item({ key: 'gache12', name: 'Gâche électrique à émission de courant 12 V', ref: 'Legrand 003033', brand: 'Legrand', kind: 'misc', family: 'VIGIK', modules: 0, poles: 2, door: true,
-    terminals: [{ id: '1', fx: 1, fy: 0.35 }, { id: '2', fx: 1, fy: 0.7 }] }),
-  item({ key: 'motvolet', name: 'Moteur tubulaire de volet roulant 230 V~ · montée L1, descente L2, neutre N', ref: 'moteur de volet', kind: 'misc', family: 'MyHOME', modules: 0, poles: 3, door: true,
-    terminals: [{ id: 'L1', fx: 1, fy: 0.25 }, { id: 'L2', fx: 1, fy: 0.5 }, { id: 'N', fx: 1, fy: 0.75 }] }),
-  // ---- Sujet « Scierie » : aspiration à deux vitesses (D.3.1) ----
-  //
-  // Altivar Machine ATV340D37N4E (DTR 28) : 37 kW en service intensif (HD), 380-480 V
-  // triphasé, 67,1 A en ligne, 74,5 A en sortie. 213 × 660 × 262 mm (fiche Schneider) :
-  // à l'échelle de la platine il fait 309 × 957 px et impose une armoire haute. Dessiné
-  // (aucune photo dans le pack), vu de face capot ouvert sur le bornier de commande ; arrivée
-  // réseau en haut, départ moteur en bas.
-  // Bornier de commande repéré comme au sujet : rangée haute R1A … DQ−, rangée basse
-  // P24 … DQ+. Deux bornes portent le même marquage sur l'appareil (« 24V » et « COM ») :
-  // celles de la rangée haute sont nommées `24VS` (24 V des ponts STO) et `COMQ` (commun
-  // des sorties analogiques) pour rester uniques. Les ponts STOA – STOB – 24V sont posés
-  // en usine (dessinés sur le sprite).
-  item({
-    key: 'atv340', name: 'Variateur de vitesse Altivar Machine ATV340 · 37 kW HD · 400 V',
-    ref: 'ATV340D37N4E', dims: { largeur: 213, hauteur: 660, profondeur: 262, source: 'fiche' },
-    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 12, poles: 3,
-    terminals: [
-      ...['R1A', 'R1B', 'R1C', 'R2A', 'R2C', 'R3A', 'R3C', 'STOA', 'STOB', '24VS', 'AQ1', 'AQ2', 'COMQ', 'DQ-']
-        .map((id, i, t) => ({ id, fx: +(0.08 + i * (0.84 / (t.length - 1))).toFixed(4), fy: 0.64 })),
-      ...['P24', '0V', 'DI1', 'DI2', 'DI3', 'DI4', 'DI5', 'DI6', 'DI7', 'DI8', '24V', '10V', 'AI1', 'COM', 'AI2', 'AI3', 'DQ+']
-        .map((id, i, t) => ({ id, fx: +(0.07 + i * (0.86 / (t.length - 1))).toFixed(4), fy: 0.68 })),
-      // puissance : arrivée réseau EN HAUT, départ moteur EN BAS (terre du moteur : `PE/M`)
-      ...([['PE', 0.1], ['R/L1', 0.59], ['S/L2', 0.738], ['T/L3', 0.886]] as const).map(([id, fx]) => ({ id, fx, fy: 0.045 })),
-      ...([['PE/M', 0.42], ['U/T1', 0.62], ['V/T2', 0.71], ['W/T3', 0.8]] as const).map(([id, fx]) => ({ id, fx, fy: 0.955 })),
-    ],
-    // les deux bornes de terre sont reliées par la masse de l'appareil
-    passes: [['PE', 'PE/M']],
-  }),
-  // Sélecteurs Harmony XB5 Ø22, 2 positions fixes (fiches Schneider : 30 × 42 × 70 mm).
-  // XB5AD21 : 1 contact F 13-14, fermé en position I (droite).
-  item({ key: 'xb5ad21', dims: { largeur: 30, hauteur: 42, profondeur: 70, source: 'fiche' }, name: 'Sélecteur Ø22 · 2 positions fixes · 1 F', ref: 'Harmony XB5AD21', brand: 'Schneider', kind: 'button', family: 'Boutons', modules: 0, poles: 1, door: true,
-    terminals: [{ id: '13', fx: 0.3, fy: 0.94 }, { id: '14', fx: 0.7, fy: 0.94 }] }),
-  // XB5AD25 : 1 O 21-22 (fermé en position 1, gauche) + 1 F 13-14 (fermé en position 2,
-  // droite). Communs 21 et 13 pontés : le sélecteur devient un inverseur à deux positions.
-  item({ key: 'xb5ad25', dims: { largeur: 30, hauteur: 42, profondeur: 70, source: 'fiche' }, name: 'Sélecteur Ø22 · 2 positions fixes · 1 O + 1 F', ref: 'Harmony XB5AD25', brand: 'Schneider', kind: 'button', family: 'Boutons', modules: 0, poles: 2, door: true,
-    terminals: [{ id: '21', fx: 0.3, fy: 0.06 }, { id: '22', fx: 0.7, fy: 0.06 }, { id: '13', fx: 0.3, fy: 0.94 }, { id: '14', fx: 0.7, fy: 0.94 }] }),
-  // Disjoncteur ComPact NSX100F TM80D 3P fixe : 105 × 161 × 86 mm (fiche Schneider) —
-  // protection de la ligne du variateur (67 A en ligne).
-  item({ key: 'nsx100', dims: { largeur: 105, hauteur: 161, profondeur: 86, source: 'fiche' }, name: 'Disjoncteur ComPact NSX100F TM80D · 3P', ref: 'NSX100F TM80D 3P', brand: 'Schneider', kind: 'main', family: 'Disjoncteurs', modules: 6, poles: 3, In: 80,
-    terminals: [...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['1', '3', '5'][i], fx, fy: 0.045 })), ...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['2', '4', '6'][i], fx, fy: 0.955 }))] }),
-  // Interrupteur-sectionneur ComPact INS80 3P, commande rotative cadenassable :
-  // 90 × 85 × 62,5 mm (fiche Schneider 28904).
-  item({ key: 'ins80', dims: { largeur: 90, hauteur: 85, profondeur: 62.5, source: 'fiche' }, name: 'Interrupteur-sectionneur ComPact INS80 · 3P · cadenassable', ref: 'INS80 3P · 28904', brand: 'Schneider', kind: 'main', family: 'Sectionnement', modules: 5, poles: 3, In: 80,
-    terminals: [...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['1', '3', '5'][i], fx, fy: 0.07 })), ...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['2', '4', '6'][i], fx, fy: 0.93 }))] }),
-  // ---- Sujet « Scierie » : câblage DC de l'onduleur d'injection (E.3.4.3) ----
-  //
-  // Fronius SYMO 12.5-3-M (DTR 34, DTR 35) : seule sa ZONE DE RACCORDEMENT est posée sur la
-  // platine — l'onduleur entier (510 × 725 mm) déborderait la scène. Bornier DC : DC+1 et
-  // DC+2 (une entrée par MPP Tracker, 3 bornes chacune, reliées en interne), DC− 6 bornes
-  // reliées en interne ; bornier AC 3 × 400 V + N + PE. Cotes de cette zone à relever.
-  item({ key: 'symo125', name: 'Onduleur Fronius SYMO 12.5-3-M · zone de raccordement DC / AC', ref: 'Fronius SYMO 12.5-3-M', brand: 'Fronius', kind: 'inverter', family: 'Photovoltaïque', modules: 0, poles: 5,
-    terminals: [
-      ...([['DC+1-1', 0.06], ['DC+1-2', 0.11], ['DC+1-3', 0.16], ['DC+2-1', 0.25], ['DC+2-2', 0.3], ['DC+2-3', 0.35]] as const).map(([id, fx]) => ({ id, fx, fy: 0.55 })),
-      ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: `DC-${n}`, fx: +(0.06 + i * 0.065).toFixed(3), fy: 0.8 })),
-      ...([['L1', 0.72], ['L2', 0.78], ['L3', 0.84], ['N', 0.9], ['PE', 0.96]] as const).map(([id, fx]) => ({ id, fx, fy: 0.8 })),
-    ],
-    passes: [['DC+1-1', 'DC+1-2'], ['DC+1-2', 'DC+1-3'], ['DC+2-1', 'DC+2-2'], ['DC+2-2', 'DC+2-3'],
-      ['DC-1', 'DC-2'], ['DC-2', 'DC-3'], ['DC-3', 'DC-4'], ['DC-4', 'DC-5'], ['DC-5', 'DC-6']] }),
-  // Sectionneur DC intégré à l'onduleur (interrupteur principal DC, poignée en façade) :
-  // il sépare l'électronique des entrées DC, pas les bornes DC du champ. Cotes à relever.
-  item({ key: 'symodc', name: 'Sectionneur DC intégré de l\'onduleur · poignée DC ON / OFF', ref: 'Fronius SYMO · interrupteur principal DC', brand: 'Fronius', kind: 'dc', family: 'Photovoltaïque', modules: 0, poles: 2,
-    terminals: [] }),
 ];
 
 export const CATALOGUE_BY_KEY: Record<string, CatalogueItem> = Object.fromEntries(CATALOGUE.map(c => [c.key, c]));

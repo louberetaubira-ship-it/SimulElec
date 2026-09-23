@@ -57,8 +57,6 @@ function reperesDuTp(tp: TpDefinition): Set<string> {
   for (const p of pupitreOf(tp)) s.add(p.rep);
   if (tp.interPosition) s.add(tp.interPosition.rep);
   if (tp.hasMotor) s.add('M1');
-  // appareils de terrain (bloc récepteurs, local, toiture) : ils portent leur repère sur la scène
-  for (const it of [...(tp.recvItems ?? []), ...(tp.annexItems ?? [])]) s.add(it.rep);
   return s;
 }
 

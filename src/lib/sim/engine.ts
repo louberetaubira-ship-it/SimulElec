@@ -17,17 +17,7 @@ const NEUTRE: Record<string, string> = {
   f3: 'La protection du secondaire', f1: 'Le relais thermique', km1: 'Le contacteur',
 };
 const rep = (tp: Partial<Rep> | undefined, id: string): string =>
-  tp?.slots ? repereSlot({ slots: tp.slots }, id === 'f1' ? idThermique(tp.slots) : id) : (NEUTRE[id] ?? id.toUpperCase());
-
-/**
- * Organe qui porte la protection THERMIQUE du moteur. Le moteur de simulation la connaît
- * sous `f1` (relais thermique) ; une platine sans relais séparé la confie au disjoncteur
- * moteur (GV2ME), dont le repère est alors celui qu'il faut nommer — « F1 » n'y existe pas.
- */
-function idThermique(slots: Rep['slots']): string {
-  if (slots.some(s => s.id === 'f1')) return 'f1';
-  return slots.find(s => s.key === 'motorcb')?.id ?? 'f1';
-}
+  tp?.slots ? repereSlot({ slots: tp.slots }, id) : (NEUTRE[id] ?? id.toUpperCase());
 
 /** Pannes injectables (identifiants des `faults` des TP v3). */
 export type FaultId = 'a2' | 's1' | 'l2' | 'x2' | 'f3';
@@ -289,11 +279,9 @@ export function toggleF2(s: SimState, tp?: Rep & Pick<TpDefinition, 'trafo'>): A
   }
   return {
     state: { ...s, f2, km1: f2 ? s.km1 : false, chattering: false, trafoTrip: f2 ? s.trafoTrip : false },
-    // Sans transformateur de commande (alimentation à découpage, tableau sur bus…), on
-    // ne parle pas d'un primaire qui n'existe pas.
     message: f2
-      ? (t ? `${rep(tp, 'f2')} fermé : le primaire du transformateur de commande est alimenté.` : `${rep(tp, 'f2')} fermé : son aval est alimenté.`)
-      : (t ? `${rep(tp, 'f2')} ouvert : plus de primaire sur le transformateur.` : `${rep(tp, 'f2')} ouvert : son aval est séparé.`),
+      ? `${rep(tp, 'f2')} fermé : le primaire du transformateur de commande est alimenté.`
+      : `${rep(tp, 'f2')} ouvert : plus de primaire sur le transformateur.`,
   };
 }
 
@@ -506,9 +494,7 @@ export function tick(
   // Et en commande 3 fils (tCC = 3C), LI1 est l'entrée d'ARRÊT : le contact maintenu
   // de KM1 ne donne jamais l'ordre de marche, le variateur reste prêt (rdY).
   const on = isRunning(s) && cab.pwr && vsd?.tcc !== '3C';
-  // Marche sur deux phases : la panne historique `l2`, ou toute panne qui le déclare
-  // (barrette de couplage absente, conducteur coupé au bornier du moteur).
-  const oneLegLost = s.fault === 'l2' || tp.faults.some(f => f.id === s.fault && f.monophase);
+  const oneLegLost = s.fault === 'l2';
   const kc = s.coupling === 'D' ? 1.73 : 1;
 
   if (on) s.t += dt; else s.t = 0;
@@ -562,7 +548,7 @@ export function tick(
       s.heat = 0;
       // Avec un variateur il n'y a pas de relais thermique : c'est la protection
       // I²t interne qui coupe, et elle le dit par son code de défaut OLF.
-      const prot = vsd ? repereSlot(tp, vsd.slot) : rep(tp, 'f1');
+      const prot = vsd ? repereSlot(tp, vsd.slot) : repereSlot(tp, 'f1');
       message = vsd
         ? (s.coupling === 'D'
           ? `${prot} affiche OLF : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
@@ -570,10 +556,8 @@ export function tick(
             ? `${prot} affiche OLF : le moteur absorbe ${s.I.toFixed(2).replace('.', ',')} A, au-dessus du réglage ItH = ${String(vsd.ith).replace('.', ',')} A.`
             : `${prot} affiche OLF — surcharge moteur détectée par la protection I²t.`)
         : (s.coupling === 'D'
-          ? `${rep(tp, 'f1')} déclenche : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
-          : oneLegLost
-            ? `${rep(tp, 'f1')} déclenche : le moteur tourne sur deux phases, il ronfle et chauffe.`
-            : `${rep(tp, 'f1')} déclenche : surcharge du moteur.`);
+          ? `${repereSlot(tp, 'f1')} déclenche : couplage triangle sur 400 V, le moteur appelle 1,73 fois trop de courant.`
+          : `${repereSlot(tp, 'f1')} déclenche : surcharge du moteur.`);
     }
   } else if (s.heat > 0) {
     s.heat = Math.max(0, s.heat - dt * 0.5);

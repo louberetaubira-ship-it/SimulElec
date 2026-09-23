@@ -955,52 +955,6 @@ export function BarrePalpeuseSvg() {
   );
 }
 
-/**
- * Alimentation à découpage WAGO 787-1012 (DTR 40) : boîtier gris clair, entrée L / N en
- * haut, sortie + / − en bas, voyant « DC OK ». Le repère de slot se pose au centre.
- */
-export function Alim24dcSvg() {
-  const gid = React.useId();
-  return (
-    <svg viewBox="0 0 104 129" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#F4F5F6" /><stop offset="1" stopColor="#D5D9DE" />
-        </linearGradient>
-      </defs>
-      <rect x="1" y="1" width="102" height="127" rx="4" fill={`url(#${gid})`} stroke="#6E7780" />
-      <rect x="1" y="1" width="102" height="17" rx="4" fill="#C3C8CE" />
-      <rect x="1" y="111" width="102" height="17" rx="4" fill="#C3C8CE" />
-      <g fill="#E39A00"><rect x="25" y="5" width="12" height="9" rx="1.5" /><rect x="46" y="5" width="12" height="9" rx="1.5" /></g>
-      <text x="31" y="24" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#3A4047">L</text>
-      <text x="52" y="24" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#3A4047">N</text>
-      <text x="52" y="34" textAnchor="middle" fontFamily={SANS} fontSize="8.5" fontWeight="800" fill="#6CB33F">WAGO</text>
-      <text x="52" y="44" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#66717F">787-1012</text>
-      <text x="52" y="84" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#3A4047">IN 100-240 V~</text>
-      <text x="52" y="93" textAnchor="middle" fontFamily={MONO} fontSize="6.5" fontWeight="700" fill="#3A4047">OUT 24 V⎓ 2,5 A</text>
-      <circle cx="84" cy="44" r="3" fill="#3DFF7A" /><text x="84" y="53" textAnchor="middle" fontFamily={MONO} fontSize="4.5" fill="#66717F">DC OK</text>
-      <rect x="25" y="115" width="12" height="9" rx="1.5" fill="#D93A3A" />
-      <rect x="67" y="115" width="12" height="9" rx="1.5" fill="#2C7BE5" />
-      <text x="31" y="108" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#D93A3A">+</text>
-      <text x="73" y="108" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#2C7BE5">−</text>
-    </svg>
-  );
-}
-
-/** Contact auxiliaire frontal GV-AE1 : petit bloc noir, bornes 13 en haut et 14 en bas. */
-export function Gvae1Svg() {
-  return (
-    <svg viewBox="0 0 22 90" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
-      <rect x="1" y="1" width="20" height="88" rx="3" fill="#2B2F36" stroke="#15181C" />
-      <rect x="5" y="3" width="12" height="9" rx="1.5" fill="#8E969E" />
-      <rect x="5" y="78" width="12" height="9" rx="1.5" fill="#8E969E" />
-      <text x="11" y="21" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#DDE3EA">13</text>
-      <text x="11" y="74" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#DDE3EA">14</text>
-      <text x="11" y="46" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#9FD" transform="rotate(-90 11 46)">GV-AE1 · NO</text>
-    </svg>
-  );
-}
-
 export function svgForKey(key: string, running = false): React.ReactNode | null {
   switch (key) {
     case 'pvpanel': return <PvPanelSvg />;
@@ -1034,8 +988,6 @@ export function svgForKey(key: string, running = false): React.ReactNode | null 
     case 'lecteurrfid': return <LecteurRfidSvg />;
     case 'cellule': return <CelluleSvg />;
     case 'barrepalpeuse': return <BarrePalpeuseSvg />;
-    case 'alim24dc': return <Alim24dcSvg />;
-    case 'gvae1': return <Gvae1Svg />;
     case 'gk1es': return <Gk1Svg />;
     case 'lc1d50': return <Lc1D50Svg />;
     case 'lrd3357': return <Lrd3357Svg />;

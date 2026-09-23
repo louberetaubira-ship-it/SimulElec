@@ -22,7 +22,6 @@ import EssaisPortail from '@/components/mesures/EssaisPortail';
 import EssaiKnxLocal from '@/components/mesures/EssaiKnxLocal';
 import EssaiImeon from '@/components/mesures/EssaiImeon';
 import { imeonConforme, imeonState } from '@/lib/sim/imeonMiseEnService';
-import { programmeTransfere } from '@/lib/sim/automateMiseEnService';
 import { INSTRUMENTS, mesureDone, mesuresFor } from '@/lib/sim/mesures';
 import { secuComplete } from '@/lib/sim/securite';
 import { listeMiseSousTension, repereSlot, repereBorne } from '@/lib/sim/reperes';
@@ -149,7 +148,6 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
               tp={tp} st={st} sim={sim} onAct={s.consAct} onParam={s.setParam}
               onKnxIface={s.knxSetIface} onKnxProg={s.knxProg} onKnxLink={s.knxToggleLink} onKnxParam={s.knxSetParam}
               onImeonSet={s.imeonSet} onImeonAppliquer={s.imeonAppliquer}
-              onAutomateSet={s.automateSet} onAutomateTransferer={s.automateTransferer} onEssai={s.essaiReussi}
             />
           </Card>
         )}
@@ -332,10 +330,7 @@ export default function MesureStage({ variant, onNext }: { variant: MesureVarian
           onButton={(b, down) => s.button(b, down)}
         />
         {essaisOuverts && (
-          <EssaisPortail
-            faits={st.essais} programme={programmeTransfere(tp, st)}
-            onReussi={s.essaiReussi} onClose={() => setEssaisOuverts(false)}
-          />
+          <EssaisPortail faits={st.essais} onReussi={s.essaiReussi} onClose={() => setEssaisOuverts(false)} />
         )}
         {essaiKnxOuvert && (
           <EssaiKnxLocal zones={tp.knxZones ?? []} faits={st.essais} onReussi={s.essaiReussi} onClose={() => setEssaiKnxOuvert(false)} />
