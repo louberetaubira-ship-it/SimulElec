@@ -976,6 +976,13 @@ export interface TpDefinition {
   annex: AnnexKind;
   /** Jouable de bout en bout (liaisons + mesures définies). Sinon affiché « prévu ». */
   playable: boolean;
+  /**
+   * TP de service, non listé au catalogue : joué depuis un sujet numérique (mode « câblage
+   * réel » d'une question schéma, voir `src/components/sujet/CablageReel.tsx`). Il reste
+   * accessible par `tpById` et par la route `/tp/<id>`, mais n'apparaît ni au catalogue de
+   * l'élève, ni dans les listes du professeur (imposition, suivi).
+   */
+  hidden?: boolean;
   competences: string[];
   summary: string;
   situation: string;

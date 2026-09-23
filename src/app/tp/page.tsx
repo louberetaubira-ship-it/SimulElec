@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
-import { TPS } from '@/lib/data/tps';
+import { TPS_CATALOGUE } from '@/lib/data/tps';
 import { spriteUrl } from '@/lib/data/catalogue';
 import { tpSprites } from '@/components/parcours/tpSprites';
 import { createClient } from '@/lib/supabase/server';
 import { getTpImages } from '@/lib/db/tpImages';
 import { classementDe } from '@/lib/taxonomy/classement';
-import CatalogueClient, { type CarteTp } from './CatalogueClient';
+import CatalogueClient, { type CarteSujet, type CarteTp } from './CatalogueClient';
+import { SUJETS } from '@/lib/data/sujets';
 
 export const metadata: Metadata = {
   title: 'Catalogue des TP · SimulElec',
@@ -32,7 +33,7 @@ export default async function CataloguePage() {
   // remplace le montage automatique des photos d'appareils.
   const images = await getTpImages(createClient());
 
-  const fournis: CarteTp[] = TPS.map((tp) => ({
+  const fournis: CarteTp[] = TPS_CATALOGUE.map((tp) => ({
     id: tp.id,
     title: tp.title,
     summary: tp.summary,
@@ -48,5 +49,16 @@ export default async function CataloguePage() {
     classement: classementDe(tp),
   }));
 
-  return <CatalogueClient fournis={fournis} images={images} />;
+  const sujets: CarteSujet[] = SUJETS.map((s) => ({
+    id: s.id,
+    titre: s.titre,
+    sousTitre: s.sousTitre,
+    dureeMin: s.dureeMin,
+    questions: s.questions.length,
+    parties: s.parties.length,
+    dtr: s.dtr.length,
+    competences: Array.from(new Set(s.parties.flatMap((p) => p.competences))),
+  }));
+
+  return <CatalogueClient fournis={fournis} images={images} sujets={sujets} />;
 }

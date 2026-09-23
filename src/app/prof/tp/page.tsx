@@ -15,7 +15,7 @@ import {
   setPublished, studioMetaOf, type TpFamily, type TpRow, type TpStoredDefinition,
 } from '@/lib/db/tps';
 import { listMyGenerations, myQuota, type GenerationRow, type Quota } from '@/lib/db/generations';
-import { TPS } from '@/lib/data/tps';
+import { TPS_CATALOGUE } from '@/lib/data/tps';
 import { DIPLOMAS, type DiplomaId, type Domain } from '@/lib/data/competences';
 import { competencesOf } from '@/components/studio/store';
 import { DOMAINES, labelSousDomaine, normaliserClassement, type Classement, type DomainePro } from '@/lib/taxonomy/domaines';
@@ -266,7 +266,7 @@ export default function CatalogueProfPage() {
           Ces 14 TP ne sont pas modifiables. « Dupliquer » en crée une copie éditable qui t’appartient.
         </p>
         <ul className="space-y-1.5 text-[13px]">
-          {TPS.map((t) => (
+          {TPS_CATALOGUE.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center gap-2 border-b border-line py-1.5 last:border-0">
               <span className="font-semibold">{t.title}</span>
               <span className="rounded-full border border-line bg-[var(--surface-2)] px-2 py-0.5 text-[11px] text-muted">fourni</span>

@@ -9,7 +9,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
-import { TPS } from '@/lib/data/tps';
+import { TPS, TPS_CATALOGUE, estTpCache } from '@/lib/data/tps';
 import type {
   AnnexItem, AnnexKind, ExpectedMeasure, Fault, Liaison, NetKind, Poste, PosteOption,
   SceneKind, Slot, TerminalNet, TestHorsTension, TpDefinition,
@@ -31,7 +31,7 @@ export interface TpSummary {
   competences: string[];
   summary: string | null;
   published: boolean;
-  /** Domaine professionnel principal (migration 0014), `null` si non classé. */
+  /** Domaine professionnel principal (migration 0015), `null` si non classé. */
   domaine: DomainePro | null;
   /** Sous-domaine (`IND.demarrage`), `null` si absent. */
   sous_domaine: string | null;
@@ -61,22 +61,26 @@ export async function listTps(): Promise<TpSummary[]> {
     .select('id, title, level, competences, summary, published, domaine, sous_domaine, mots_cles')
     .eq('published', true)
     .order('title');
-  if (error || !data || data.length === 0) return TPS.map(fromCode);
-  // Relecture défensive : une base pas encore migrée (0014) n'a pas ces colonnes.
-  return (data as Partial<TpSummary>[]).map((r) => {
-    const c = normaliserClassement(r);
-    return {
-      id: String(r.id),
-      title: r.title ?? '',
-      level: r.level ?? null,
-      competences: Array.isArray(r.competences) ? r.competences : [],
-      summary: r.summary ?? null,
-      published: r.published === true,
-      domaine: c.domaine,
-      sous_domaine: c.sousDomaine,
-      mots_cles: c.motsCles,
-    };
-  });
+  if (error || !data || data.length === 0) return TPS_CATALOGUE.map(fromCode);
+  // Relecture défensive : une base pas encore migrée (0014) n'a pas ces colonnes. Un TP de
+  // service (`hidden`, joué depuis un sujet numérique) n'est jamais listé, même s'il a été
+  // publié par erreur dans la table.
+  return (data as Partial<TpSummary>[])
+    .filter((r) => !estTpCache(String(r.id)))
+    .map((r) => {
+      const c = normaliserClassement(r);
+      return {
+        id: String(r.id),
+        title: r.title ?? '',
+        level: r.level ?? null,
+        competences: Array.isArray(r.competences) ? r.competences : [],
+        summary: r.summary ?? null,
+        published: r.published === true,
+        domaine: c.domaine,
+        sous_domaine: c.sousDomaine,
+        mots_cles: c.motsCles,
+      };
+    });
 }
 
 /** Full definition: always the bundled one (the simulator needs the typed object). */
@@ -158,7 +162,7 @@ export interface TpRow {
   validated_by?: string | null;
   /** Date de validation humaine : obligatoire avant publication d'un TP généré. */
   validated_at?: string | null;
-  /** Classement par domaine professionnel (migration 0014) — voir `classementOfRow`. */
+  /** Classement par domaine professionnel (migration 0015) — voir `classementOfRow`. */
   domaine: DomainePro | null;
   domaines_sec: DomainePro[];
   sous_domaine: string | null;
@@ -507,7 +511,7 @@ export function studioMetaOf(row_: TpRow): TpStudioMeta {
 }
 
 /**
- * Classement d'une ligne `tps` : les colonnes d'abord (migration 0014), sinon
+ * Classement d'une ligne `tps` : les colonnes d'abord (migration 0015), sinon
  * `definition.classement`, sinon le domaine de la famille. Les activités vides sont
  * déduites de la définition (nature du TP, pannes déclarées).
  */

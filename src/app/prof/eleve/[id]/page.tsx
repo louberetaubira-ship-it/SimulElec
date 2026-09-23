@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { countHelpByAttempt, getStudentFile, type StudentFile } from '@/lib/db/classes';
 import { competenceTps, eleveStats, noteSur20 } from '@/lib/eleve-stats';
 import { DIPLOMAS } from '@/lib/data/competences';
-import { TPS } from '@/lib/data/tps';
+import { TPS_CATALOGUE } from '@/lib/data/tps';
 import { isBundledTp, listMyTps, type TpRow } from '@/lib/db/tps';
 import { DomainesEleve } from '@/components/prof/CouvertureDomaines';
 import BilanExport from '@/components/parcours/BilanExport';
@@ -69,7 +69,7 @@ export default function FicheElevePage({ params }: { params: { id: string } }) {
   // TP publiés visibles de l'élève : ceux fournis avec l'application + ceux publiés du professeur.
   const publies = useMemo(
     () => [
-      ...TPS.map((t) => t.id),
+      ...TPS_CATALOGUE.map((t) => t.id),
       ...tpsProf.filter((t) => t.published && !t.archived && !isBundledTp(t.id)).map((t) => t.id),
     ],
     [tpsProf],

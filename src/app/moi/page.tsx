@@ -11,7 +11,7 @@ import { getMyProfile } from '@/lib/db/profiles';
 import { listMyAttempts } from '@/lib/db/attempts';
 import { listAssignments } from '@/lib/db/classes';
 import { listTeacherTps, listTps, resolveDefinition, type TpRow, type TpSummary } from '@/lib/db/tps';
-import { TPS } from '@/lib/data/tps';
+import { TPS_CATALOGUE } from '@/lib/data/tps';
 import { createClient } from '@/lib/supabase/client';
 import { competenceTps, eleveStats } from '@/lib/eleve-stats';
 import { liveBilan, liveEvaluation, liveNotes } from '@/lib/sim/live';
@@ -21,6 +21,7 @@ import {
 } from '@/lib/data/competences';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
+import { sujetById } from '@/lib/data/sujets';
 import BilanExport from '@/components/parcours/BilanExport';
 import { DomainesEleve } from '@/components/prof/CouvertureDomaines';
 import {
@@ -128,7 +129,7 @@ export default function MoiPage() {
 
   useEffect(() => {
     const ids = Array.from(
-      new Set(attempts.filter((a) => a.status === 'en_cours').map((a) => a.tp_id)),
+      new Set(attempts.filter((a) => a.status === 'en_cours' && !sujetById(a.tp_id)).map((a) => a.tp_id)),
     );
     const missing = ids.filter((id) => !(id in defs));
     if (missing.length === 0) return;
@@ -145,7 +146,7 @@ export default function MoiPage() {
 
   const stats = useMemo(() => eleveStats(attempts), [attempts]);
   // TP publiés visibles de l'élève : ceux fournis avec l'application + ceux des professeurs.
-  const publies = useMemo(() => [...TPS.map((t) => t.id), ...tpsProf.map((t) => t.id)], [tpsProf]);
+  const publies = useMemo(() => [...TPS_CATALOGUE.map((t) => t.id), ...tpsProf.map((t) => t.id)], [tpsProf]);
   const titres = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
   const tpsParCode = useMemo(() => {
     const brut = competenceTps(attempts);
@@ -182,7 +183,9 @@ export default function MoiPage() {
   const acquises = bilan.filter((c) => c.mastery === 'acquis').length;
   const encoursComp = bilan.filter((c) => c.mastery === 'enCours').length;
 
-  const titre = (id: string) => titres.get(id) ?? id;
+  // Un sujet numérique n'est pas un TP : son titre et sa route viennent de `SUJETS`.
+  const titre = (id: string) => titres.get(id) ?? sujetById(id)?.titre ?? id;
+  const lien = (id: string) => (sujetById(id) ? `/sujet/${id}` : `/tp/${id}`);
 
   return (
     <main className="mx-auto max-w-5xl space-y-4 px-4 py-8">
@@ -209,6 +212,21 @@ export default function MoiPage() {
             <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[.06em] text-muted">Ma progression</h3>
             <div className="mb-4 space-y-4">
               {enCours.map((a) => {
+                const sujet = sujetById(a.tp_id);
+                if (sujet) {
+                  return (
+                    <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-4" data-sujet-en-cours={a.tp_id}>
+                      <Link href={lien(a.tp_id)} className="font-[var(--font-title)] text-[18px] font-bold">{sujet.titre}</Link>
+                      <span className="rounded-full bg-good/10 px-2.5 py-1 text-[11px] font-bold text-good">
+                        Sujet numérique en cours · {a.stage}/{sujet.questions.length} réponses
+                      </span>
+                      <span className="ml-auto text-[11px] text-muted">Mis à jour {dateCourte(a.updated_at)}</span>
+                      <Link href={lien(a.tp_id)} className="rounded-[10px] bg-[#141A21] px-4 py-2 text-[13px] font-bold text-white">
+                        Reprendre ma copie
+                      </Link>
+                    </div>
+                  );
+                }
                 const def = defs[a.tp_id];
                 const notes = def ? liveNotes(def, a.state) : null;
                 const ev = def && diploma ? liveEvaluation(def, a.state, diploma) : null;
@@ -219,7 +237,7 @@ export default function MoiPage() {
                   <div key={a.id} className="space-y-4 rounded-2xl border border-line bg-surface p-4">
                     {/* En-tête de la carte */}
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link href={`/tp/${a.tp_id}`} className="font-[var(--font-title)] text-[18px] font-bold">
+                      <Link href={lien(a.tp_id)} className="font-[var(--font-title)] text-[18px] font-bold">
                         {titre(a.tp_id)}
                       </Link>
                       <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-good/10 px-2.5 py-1 text-[11px] font-bold text-good">
@@ -315,7 +333,7 @@ export default function MoiPage() {
 
                     <div className="flex items-center justify-between gap-2 pt-1">
                       <span className="text-[11px] text-muted">Mis à jour {dateCourte(a.updated_at)}</span>
-                      <Link href={`/tp/${a.tp_id}`} className="rounded-[10px] bg-[#141A21] px-4 py-2 text-[13px] font-bold text-white">
+                      <Link href={lien(a.tp_id)} className="rounded-[10px] bg-[#141A21] px-4 py-2 text-[13px] font-bold text-white">
                         Reprendre le TP
                       </Link>
                     </div>
@@ -335,7 +353,7 @@ export default function MoiPage() {
               {restants.map((id) => (
                 <li key={id}>
                   <Link
-                    href={`/tp/${id}`}
+                    href={lien(id)}
                     className="inline-flex min-h-touch items-center rounded-[10px] border border-accent bg-accent/10 px-3 text-[13px] font-semibold"
                   >
                     {titre(id)}
@@ -358,7 +376,7 @@ export default function MoiPage() {
                   className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-3"
                   style={{ background: 'repeating-linear-gradient(135deg,#fff,#fff 10px,#F3F5F8 10px,#F3F5F8 20px)' }}
                 >
-                  <Link href={`/tp/${a.tp_id}`} className="text-[15px] font-semibold underline">
+                  <Link href={lien(a.tp_id)} className="text-[15px] font-semibold underline">
                     {titre(a.tp_id)}
                   </Link>
                   <span className="rounded-full border border-[#1D6FE0]/40 bg-[#1D6FE0]/10 px-2 py-0.5 text-[11px] font-semibold text-[#1D6FE0]">
@@ -392,7 +410,7 @@ export default function MoiPage() {
                 key={a.id}
                 className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-3"
               >
-                <Link href={`/tp/${a.tp_id}`} className="text-[15px] font-semibold underline">
+                <Link href={lien(a.tp_id)} className="text-[15px] font-semibold underline">
                   {titre(a.tp_id)}
                 </Link>
                 <span className="rounded-full border border-good/50 bg-good/10 px-2 py-0.5 text-[11px] font-semibold text-good">
