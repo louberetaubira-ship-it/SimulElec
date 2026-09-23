@@ -113,16 +113,24 @@ export const DTR: DtrPage[] = DTR_DOCS.flatMap(([doc, p0, p1, titre, section]) =
 });
 
 /** Numéro de page du dossier (1..77) du document DTR n (première page du document). */
+/** DTR 5 et 43 partagent respectivement les pages 7 et 70 avec le document précédent. */
+const DTR_PAGES_PARTAGEES: Record<number, number> = { 5: 7, 43: 70 };
+
+/** Numéro de page du dossier (1..77) du document DTR n (première page du document). */
 export const pageDtr = (doc: number): number => {
-  const d = DTR_DOCS.find(x => x[0] === doc) ?? DTR_DOCS.find(x => x[0] === doc - 1);
-  if (!d) throw new Error(`DTR ${doc} inconnu`);
-  return d[1];
+  const d = DTR_DOCS.find(x => x[0] === doc);
+  if (d) return d[1];
+  const partagee = DTR_PAGES_PARTAGEES[doc];
+  if (partagee != null) return partagee;
+  throw new Error(`DTR ${doc} inconnu`);
 };
 /** Toutes les pages du document DTR n. */
 export const pagesDtr = (doc: number): number[] => {
-  const d = DTR_DOCS.find(x => x[0] === doc) ?? DTR_DOCS.find(x => x[0] === doc - 1);
-  if (!d) throw new Error(`DTR ${doc} inconnu`);
-  return Array.from({ length: d[2] - d[1] + 1 }, (_, i) => d[1] + i);
+  const d = DTR_DOCS.find(x => x[0] === doc);
+  if (d) return Array.from({ length: d[2] - d[1] + 1 }, (_, i) => d[1] + i);
+  const partagee = DTR_PAGES_PARTAGEES[doc];
+  if (partagee != null) return [partagee];
+  throw new Error(`DTR ${doc} inconnu`);
 };
 
 /* ───────────────────────────── Pages du sujet ───────────────────────────── */
