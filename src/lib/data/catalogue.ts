@@ -625,7 +625,7 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: 'L2', fx: 0.3, fy: 0.93 }, { id: 'N2', fx: 0.7, fy: 0.93 },
     ],
   }),
-  // ---- CGM 2021 · EIP du lycée Mireille Grenet (TP platine des questions Q13, Q58, Q67) ----
+  // ---- Sujet numérique EIP (TP platine des questions Q13, Q58, Q67) ----
   //
   // Sprites dessinés d'après les documents du sujet (DTR 5, DTR 6, DTR 20, schémas corrigés) :
   // la face et le repérage des bornes sont ceux du dossier, la photo constructeur n'étant pas
@@ -676,6 +676,68 @@ export const CATALOGUE: CatalogueItem[] = [
     terminals: [{ id: '1', fx: 1, fy: 0.35 }, { id: '2', fx: 1, fy: 0.7 }] }),
   item({ key: 'motvolet', name: 'Moteur tubulaire de volet roulant 230 V~ · montée L1, descente L2, neutre N', ref: 'moteur de volet', kind: 'misc', family: 'MyHOME', modules: 0, poles: 3, door: true,
     terminals: [{ id: 'L1', fx: 1, fy: 0.25 }, { id: 'L2', fx: 1, fy: 0.5 }, { id: 'N', fx: 1, fy: 0.75 }] }),
+  // ---- Sujet « Scierie » : aspiration à deux vitesses (D.3.1) ----
+  //
+  // Altivar Machine ATV340D37N4E (DTR 28) : 37 kW en service intensif (HD), 380-480 V
+  // triphasé, 67,1 A en ligne, 74,5 A en sortie. 213 × 660 × 262 mm (fiche Schneider) :
+  // à l'échelle de la platine il fait 309 × 957 px et impose une armoire haute. Dessiné
+  // (aucune photo dans le pack), vu de face capot ouvert sur le bornier de commande ; arrivée
+  // réseau en haut, départ moteur en bas.
+  // Bornier de commande repéré comme au sujet : rangée haute R1A … DQ−, rangée basse
+  // P24 … DQ+. Deux bornes portent le même marquage sur l'appareil (« 24V » et « COM ») :
+  // celles de la rangée haute sont nommées `24VS` (24 V des ponts STO) et `COMQ` (commun
+  // des sorties analogiques) pour rester uniques. Les ponts STOA – STOB – 24V sont posés
+  // en usine (dessinés sur le sprite).
+  item({
+    key: 'atv340', name: 'Variateur de vitesse Altivar Machine ATV340 · 37 kW HD · 400 V',
+    ref: 'ATV340D37N4E', dims: { largeur: 213, hauteur: 660, profondeur: 262, source: 'fiche' },
+    brand: 'Schneider', kind: 'misc', family: 'Variation de vitesse', modules: 12, poles: 3,
+    terminals: [
+      ...['R1A', 'R1B', 'R1C', 'R2A', 'R2C', 'R3A', 'R3C', 'STOA', 'STOB', '24VS', 'AQ1', 'AQ2', 'COMQ', 'DQ-']
+        .map((id, i, t) => ({ id, fx: +(0.08 + i * (0.84 / (t.length - 1))).toFixed(4), fy: 0.64 })),
+      ...['P24', '0V', 'DI1', 'DI2', 'DI3', 'DI4', 'DI5', 'DI6', 'DI7', 'DI8', '24V', '10V', 'AI1', 'COM', 'AI2', 'AI3', 'DQ+']
+        .map((id, i, t) => ({ id, fx: +(0.07 + i * (0.86 / (t.length - 1))).toFixed(4), fy: 0.68 })),
+      // puissance : arrivée réseau EN HAUT, départ moteur EN BAS (terre du moteur : `PE/M`)
+      ...([['PE', 0.1], ['R/L1', 0.59], ['S/L2', 0.738], ['T/L3', 0.886]] as const).map(([id, fx]) => ({ id, fx, fy: 0.045 })),
+      ...([['PE/M', 0.42], ['U/T1', 0.62], ['V/T2', 0.71], ['W/T3', 0.8]] as const).map(([id, fx]) => ({ id, fx, fy: 0.955 })),
+    ],
+    // les deux bornes de terre sont reliées par la masse de l'appareil
+    passes: [['PE', 'PE/M']],
+  }),
+  // Sélecteurs Harmony XB5 Ø22, 2 positions fixes (fiches Schneider : 30 × 42 × 70 mm).
+  // XB5AD21 : 1 contact F 13-14, fermé en position I (droite).
+  item({ key: 'xb5ad21', dims: { largeur: 30, hauteur: 42, profondeur: 70, source: 'fiche' }, name: 'Sélecteur Ø22 · 2 positions fixes · 1 F', ref: 'Harmony XB5AD21', brand: 'Schneider', kind: 'button', family: 'Boutons', modules: 0, poles: 1, door: true,
+    terminals: [{ id: '13', fx: 0.3, fy: 0.94 }, { id: '14', fx: 0.7, fy: 0.94 }] }),
+  // XB5AD25 : 1 O 21-22 (fermé en position 1, gauche) + 1 F 13-14 (fermé en position 2,
+  // droite). Communs 21 et 13 pontés : le sélecteur devient un inverseur à deux positions.
+  item({ key: 'xb5ad25', dims: { largeur: 30, hauteur: 42, profondeur: 70, source: 'fiche' }, name: 'Sélecteur Ø22 · 2 positions fixes · 1 O + 1 F', ref: 'Harmony XB5AD25', brand: 'Schneider', kind: 'button', family: 'Boutons', modules: 0, poles: 2, door: true,
+    terminals: [{ id: '21', fx: 0.3, fy: 0.06 }, { id: '22', fx: 0.7, fy: 0.06 }, { id: '13', fx: 0.3, fy: 0.94 }, { id: '14', fx: 0.7, fy: 0.94 }] }),
+  // Disjoncteur ComPact NSX100F TM80D 3P fixe : 105 × 161 × 86 mm (fiche Schneider) —
+  // protection de la ligne du variateur (67 A en ligne).
+  item({ key: 'nsx100', dims: { largeur: 105, hauteur: 161, profondeur: 86, source: 'fiche' }, name: 'Disjoncteur ComPact NSX100F TM80D · 3P', ref: 'NSX100F TM80D 3P', brand: 'Schneider', kind: 'main', family: 'Disjoncteurs', modules: 6, poles: 3, In: 80,
+    terminals: [...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['1', '3', '5'][i], fx, fy: 0.045 })), ...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['2', '4', '6'][i], fx, fy: 0.955 }))] }),
+  // Interrupteur-sectionneur ComPact INS80 3P, commande rotative cadenassable :
+  // 90 × 85 × 62,5 mm (fiche Schneider 28904).
+  item({ key: 'ins80', dims: { largeur: 90, hauteur: 85, profondeur: 62.5, source: 'fiche' }, name: 'Interrupteur-sectionneur ComPact INS80 · 3P · cadenassable', ref: 'INS80 3P · 28904', brand: 'Schneider', kind: 'main', family: 'Sectionnement', modules: 5, poles: 3, In: 80,
+    terminals: [...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['1', '3', '5'][i], fx, fy: 0.07 })), ...[0.2, 0.5, 0.8].map((fx, i) => ({ id: ['2', '4', '6'][i], fx, fy: 0.93 }))] }),
+  // ---- Sujet « Scierie » : câblage DC de l'onduleur d'injection (E.3.4.3) ----
+  //
+  // Fronius SYMO 12.5-3-M (DTR 34, DTR 35) : seule sa ZONE DE RACCORDEMENT est posée sur la
+  // platine — l'onduleur entier (510 × 725 mm) déborderait la scène. Bornier DC : DC+1 et
+  // DC+2 (une entrée par MPP Tracker, 3 bornes chacune, reliées en interne), DC− 6 bornes
+  // reliées en interne ; bornier AC 3 × 400 V + N + PE. Cotes de cette zone à relever.
+  item({ key: 'symo125', name: 'Onduleur Fronius SYMO 12.5-3-M · zone de raccordement DC / AC', ref: 'Fronius SYMO 12.5-3-M', brand: 'Fronius', kind: 'inverter', family: 'Photovoltaïque', modules: 0, poles: 5,
+    terminals: [
+      ...([['DC+1-1', 0.06], ['DC+1-2', 0.11], ['DC+1-3', 0.16], ['DC+2-1', 0.25], ['DC+2-2', 0.3], ['DC+2-3', 0.35]] as const).map(([id, fx]) => ({ id, fx, fy: 0.55 })),
+      ...[1, 2, 3, 4, 5, 6].map((n, i) => ({ id: `DC-${n}`, fx: +(0.06 + i * 0.065).toFixed(3), fy: 0.8 })),
+      ...([['L1', 0.72], ['L2', 0.78], ['L3', 0.84], ['N', 0.9], ['PE', 0.96]] as const).map(([id, fx]) => ({ id, fx, fy: 0.8 })),
+    ],
+    passes: [['DC+1-1', 'DC+1-2'], ['DC+1-2', 'DC+1-3'], ['DC+2-1', 'DC+2-2'], ['DC+2-2', 'DC+2-3'],
+      ['DC-1', 'DC-2'], ['DC-2', 'DC-3'], ['DC-3', 'DC-4'], ['DC-4', 'DC-5'], ['DC-5', 'DC-6']] }),
+  // Sectionneur DC intégré à l'onduleur (interrupteur principal DC, poignée en façade) :
+  // il sépare l'électronique des entrées DC, pas les bornes DC du champ. Cotes à relever.
+  item({ key: 'symodc', name: 'Sectionneur DC intégré de l\'onduleur · poignée DC ON / OFF', ref: 'Fronius SYMO · interrupteur principal DC', brand: 'Fronius', kind: 'dc', family: 'Photovoltaïque', modules: 0, poles: 2,
+    terminals: [] }),
 ];
 
 export const CATALOGUE_BY_KEY: Record<string, CatalogueItem> = Object.fromEntries(CATALOGUE.map(c => [c.key, c]));

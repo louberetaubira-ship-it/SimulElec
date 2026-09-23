@@ -81,13 +81,6 @@ export const TP_KNX_TERTIAIRE: TpDefinition = {
   title: 'Plateau tertiaire KNX · éclairage deux zones',
   level: 'BTS Électrotechnique · Tle Bac Pro MELEC',
   family: 'ter',
-  classement: {
-    domaine: 'DOM',
-    domainesSecondaires: ['TER'],
-    sousDomaine: 'DOM.knx',
-    activites: [], // déduites par classementDe()
-    motsCles: ['KNX', 'ETS5', 'Langlois'],
-  },
   scene: 'ter',
   annex: 'local',
   playable: true,

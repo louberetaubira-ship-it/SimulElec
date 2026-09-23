@@ -182,13 +182,6 @@ export const TP_SOLAIRE_AUTONOME: TpDefinition = {
   title: 'Installation solaire autonome · Auberge 24 V',
   level: 'Bac Pro MELEC · BTS Électrotechnique',
   family: 'pv',
-  classement: {
-    domaine: 'ENR',
-    domainesSecondaires: ['HAB'],
-    sousDomaine: 'ENR.pv-autonome',
-    activites: [], // déduites par classementDe()
-    motsCles: ['MPPT', 'LiFePO4', '48 V', 'note de calcul'],
-  },
   scene: 'pv',
   annex: 'roof',
   playable: true,

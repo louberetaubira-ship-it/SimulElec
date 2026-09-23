@@ -233,6 +233,14 @@ const barrettesDe = (poses: readonly Pose[] | undefined): [string, string][] =>
   (poses ?? []).filter(w => w.net === 'BAR').map(w => [w.a, w.b] as [string, string]);
 
 /**
+ * Barrettes réellement en place : celles qui sont posées, moins celle qu'une panne a
+ * retirée (`Fault.coupe` sur une liaison de plaque à bornes). Sans ce filtre, une
+ * barrette manquante resterait « vue » par l'ohmmètre et la panne serait introuvable.
+ */
+const barrettesEnPlace = (tp: TpDefinition, sim: SimState, poses: readonly Pose[] | undefined): [string, string][] =>
+  barrettesDe(poses).filter(([x, y]) => !liaisonCoupee(tp, sim.fault, x, y));
+
+/**
  * Résistance entre deux bornes : valeur, `'ERR'` (sous tension) ou `'OL'`.
  *
  * Sur la plaque à bornes du moteur, la valeur est *résolue* à partir des barrettes que l'élève
@@ -288,7 +296,7 @@ export function ohms(
   // l'élève quand la plaque est inaccessible — moteur immergé, machine en place.
   const ma = borneMoteurAuBout(tp, a), mb = borneMoteurAuBout(tp, b);
   if (ma && mb) {
-    const r = resistancePlaque(resistanceEnroulement(tp), barrettesDe(poses), ma, mb);
+    const r = resistancePlaque(resistanceEnroulement(tp), barrettesEnPlace(tp, sim, poses), ma, mb);
     return r == null ? 'OL' : r;
   }
 
@@ -355,7 +363,9 @@ export interface ReadOut {
 function pairKind(tp: TpDefinition, sim: SimState, a: string | null, b: string | null): 'DC' | 'AC' | null {
   const A = netOf(tp, sim, a), B = netOf(tp, sim, b);
   if (!A || !B) return null;
-  const dc = (n: string) => n === 'DC+' || n === 'DC-';
+  // Commande en courant continu (alimentation 24 V⎓ à découpage) : ses réseaux C / C0
+  // se lisent en V⎓, comme ceux d'un bus.
+  const dc = (n: string) => n === 'DC+' || n === 'DC-' || (!!tp.commandeContinue && (n === 'C' || n === 'C0'));
   return (dc(A.net) || dc(B.net)) ? 'DC' : 'AC';
 }
 
@@ -364,6 +374,7 @@ const EMPTY: ReadOut = { value: null, display: '', unit: '' };
 /** Pointe rouge sur un (−), pointe noire sur un (+) ? */
 function polariteInverse(tp: TpDefinition, sim: SimState, r: string | null, k: string | null): boolean {
   const A = netOf(tp, sim, r), B = netOf(tp, sim, k);
+  if (tp.commandeContinue && A?.net === 'C0' && B?.net === 'C') return true;
   return A?.net === 'DC-' && B?.net === 'DC+';
 }
 
@@ -468,7 +479,7 @@ export function read(
       return { value: 200, display: '> 200', unit: 'MΩ · 500 V DC' };
     }
     if (estBorneMoteur(r) && estBorneMoteur(k)) {
-      const o = resistancePlaque(resistanceEnroulement(tp), barrettesDe(poses), r as string, k as string);
+      const o = resistancePlaque(resistanceEnroulement(tp), barrettesEnPlace(tp, sim, poses), r as string, k as string);
       return o == null
         ? { value: 200, display: '> 200', unit: 'MΩ · 500 V DC' }
         : { value: o, display: fr(o, 1), unit: 'Ω (enroulement)' };

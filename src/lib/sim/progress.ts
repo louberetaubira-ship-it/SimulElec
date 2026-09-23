@@ -7,7 +7,11 @@ import { linkKey } from './layout';
 import { aParametrage, paramConforme, paramNonConformes, parametresOf } from './parametrage';
 import { aKnxMiseEnService, knxConforme, knxErreurs } from './knxMiseEnService';
 import { aImeonMiseEnService, imeonConforme, imeonErreurs, IMEON_BLOCS } from './imeonMiseEnService';
+import { aAutomateMiseEnService, automateConforme, automateErreurs, AUTOMATE_BLOCS } from './automateMiseEnService';
 import { epiComplete, mesureDone, mesuresComplete, mesuresFor } from './mesures';
+import {
+  aReseau, cablageReseauComplet, rackComplet, RESEAU_REGLAGES, reseauErreursMes, reseauMesConforme,
+} from './reseau';
 import type { CoursId } from '../data/cours';
 import {
   evaluate, PLATINE_STAGE_DOMAINS, type CompetenceEval, type DiplomaId,
@@ -159,6 +163,13 @@ export const STAGE_COURS: CoursId[][] = [
  * matériel.
  */
 export const TP_COURS: Record<string, Partial<Record<number, CoursId[]>>> = {
+  // TP réseau : pas de moteur ni de contacteur — les fiches du câblage, des contrôles, de la
+  // consignation (le PDU) et du diagnostic.
+  'ecobike-reseau': {
+    1: ['regles-cablage'], 2: ['regles-cablage', 'tests-hors-tension'], 3: ['regles-cablage'],
+    4: ['regles-cablage'], 5: ['regles-cablage'], 6: ['tests-hors-tension'], 8: ['tests-hors-tension'],
+    9: ['deconsignation'], 10: ['mesure-tension'], 11: ['diagnostic'],
+  },
   'automate-m221': { 2: ['automate-m221'], 4: ['automate-m221', 'borniers'], 8: ['automate-m221', 'deconsignation'] },
 };
 
@@ -431,8 +442,8 @@ export const ESSAIS_PORTAIL = [
   { id: 'badge', label: 'Ouverture par badge' },
   { id: 'feu', label: 'Feu orange 3 s avant chaque mouvement' },
   { id: 'auto', label: 'Fermeture automatique après 20 s' },
-  { id: 'cell', label: 'Réouverture par la cellule S5' },
-  { id: 'barre', label: 'Réouverture par la barre palpeuse S6' },
+  { id: 'cell', label: 'Réouverture par la cellule photoélectrique' },
+  { id: 'barre', label: 'Réouverture par la barre palpeuse' },
   { id: 'au', label: 'Arrêt d\'urgence : la fermeture ne démarre pas' },
 ] as const;
 
@@ -465,9 +476,23 @@ export const ESSAIS_PV = [
 export const essaisPvComplete = (tp: TpDefinition, st: AttemptState): boolean =>
   !tp.essaisPv || ESSAIS_PV.every(e => st.essais?.[e.id]);
 
+/**
+ * Essai de la supervision d'un TP réseau, depuis le poste de la loge (sujet CGM 2023, D.8.3
+ * et cahier des charges) : la fiche d'essais de l'écran de supervision.
+ */
+export const ESSAIS_RESEAU = [
+  { id: 'res-ping', label: 'Communication : les 9 équipements répondent depuis la loge' },
+  { id: 'res-cam', label: 'Les 4 caméras visibles, enregistrement du NAS en cours' },
+  { id: 'res-knx', label: 'Une zone d\'éclairage KNX commandée à distance' },
+  { id: 'res-portail', label: 'Portail ouvert depuis la loge' },
+] as const;
+
+export const essaisReseauComplete = (tp: TpDefinition, st: AttemptState): boolean =>
+  !aReseau(tp) || ESSAIS_RESEAU.every(e => st.essais?.[e.id]);
+
 export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) =>
   mesuresComplete(tp, st, 'sousTension') && essaisPortailComplete(tp, st) && essaisKnxLocalComplete(tp, st)
-  && essaisPvComplete(tp, st);
+  && essaisPvComplete(tp, st) && essaisReseauComplete(tp, st);
 /**
  * Mise en service terminée : essai concluant ET, sur un TP à variateur ou à mise en
  * service KNX, réglages conformes. L'essai reste possible avec de mauvais réglages —
@@ -475,8 +500,11 @@ export const sousTensionComplete = (tp: TpDefinition, st: AttemptState) =>
  * cahier des charges.
  */
 export const deconsComplete = (
-  st: AttemptState, tp?: Pick<TpDefinition, 'variateur' | 'knxMiseEnService' | 'knxZones' | 'imeonMiseEnService'>,
-) => st.decons.essai && (!tp || (paramConforme(tp, st) && knxConforme(tp, st) && imeonConforme(tp, st)));
+  st: AttemptState,
+  tp?: Pick<TpDefinition, 'variateur' | 'knxMiseEnService' | 'knxZones' | 'imeonMiseEnService' | 'automateMiseEnService' | 'kind' | 'reseau'>,
+) => st.decons.essai
+  && (!tp || (paramConforme(tp, st) && knxConforme(tp, st) && imeonConforme(tp, st) && automateConforme(tp, st)
+    && reseauMesConforme(tp, st)));
 
 export interface ServiceCheck { id: string; title: string; ok: boolean }
 
@@ -504,6 +532,9 @@ export function serviceChecks(tp: TpDefinition, st: AttemptState, sim: SimState)
     ...(aImeonMiseEnService(tp)
       ? [{ id: 'imeon', title: `Paramétrer ${repereSlot(tp, 'km1')} (priorité des sources, injection, type de batterie)`, ok: st.decons.close && imeonConforme(tp, st) }]
       : []),
+    ...(aAutomateMiseEnService(tp)
+      ? [{ id: 'automate', title: `Mettre ${repereSlot(tp, 'plc')} en service (adressage, temporisations, transfert)`, ok: st.decons.close && automateConforme(tp, st) }]
+      : []),
     { id: 'essai', title: essaiTitle, ok: st.decons.essai },
     { id: 'run', title: tp.hasMotor ? 'Moteur en marche' : 'Installation en service (230 V présent)', ok: isRunning(sim) || st.decons.essai },
   ];
@@ -526,12 +557,26 @@ export const validationComplete = (st: AttemptState) => st.fixed && st.diagnosis
  */
 export function prepQuestions(tp: TpDefinition): PrepQuestion[] {
   const p = tp.preparation;
-  return p
-    ? [
-      ...p.identification, ...p.fonctions, ...(p.calculs ?? []), ...(p.adressage ?? []),
-      ...(p.grafcetQuiz ?? []), ...(p.grafcet?.cases ?? []), ...(p.blocs ?? []).flatMap(b => b.questions),
-    ]
-    : [];
+  if (!p) return [];
+  const historique: PrepQuestion[] = [
+    ...p.identification, ...p.fonctions, ...(p.calculs ?? []), ...(p.adressage ?? []),
+    ...(p.grafcetQuiz ?? []), ...(p.grafcet?.cases ?? []), ...(p.blocs ?? []).flatMap(b => b.questions),
+  ];
+  if (!p.ordre?.length) return historique;
+  // Ordre déclaré par le TP (`preparation.ordre`) : la question « en cours » de l'écran
+  // suit la page, de haut en bas. Les sections non citées gardent l'ordre historique.
+  const section = (sec: string): PrepQuestion[] => {
+    if (sec === 'identification') return p.identification;
+    if (sec === 'fonctions') return p.fonctions;
+    if (sec === 'calculs') return p.calculs ?? [];
+    if (sec === 'adressage') return p.adressage ?? [];
+    if (sec === 'grafcetQuiz') return p.grafcetQuiz ?? [];
+    if (sec === 'grafcet') return p.grafcet?.cases ?? [];
+    return (p.blocs ?? []).find(b => `bloc:${b.id}` === sec)?.questions ?? [];
+  };
+  const ordonnees = p.ordre.flatMap(section);
+  const vus = new Set(ordonnees.map(q => q.id));
+  return [...ordonnees, ...historique.filter(q => !vus.has(q.id))];
 }
 
 /** Réponses justes à la préparation. */
@@ -549,8 +594,8 @@ export function stageSatisfied(tp: TpDefinition, st: AttemptState, sim: SimState
     case ETAPE.ENONCE: return true;
     case ETAPE.PREPARATION: return preparationComplete(tp, st);
     case ETAPE.MATERIEL: return materielComplete(tp, st);
-    case ETAPE.POSE: return poseComplete(tp, st);
-    case ETAPE.CABLAGE: return wiringComplete(tp, st);
+    case ETAPE.POSE: return aReseau(tp) ? rackComplet(tp.reseau!, st) : poseComplete(tp, st);
+    case ETAPE.CABLAGE: return aReseau(tp) ? cablageReseauComplet(tp, st) : wiringComplete(tp, st);
     case ETAPE.TESTS: return testsComplete(tp, st);
     case ETAPE.EPI: return epiConsComplete(st);
     case ETAPE.HORS: return horsTensionComplete(tp, st);
@@ -611,7 +656,7 @@ export function scoreLines(tp: TpDefinition, st: AttemptState, bareme?: Bareme):
   return [
     { key: 'preparation', label: 'Préparation de l\'opération', points: pts(prepNote(tp, st), w.preparation), max: w.preparation, detail: nPrep === 0 ? 'pas de préparation sur ce TP' : `${goodPrep(tp, st)} / ${nPrep} justes · barème QCM (−1/N par erreur)` },
     { key: 'materiel', label: 'Choix du matériel', points: pts(materielNote(tp, st), w.materiel), max: w.materiel, detail: `${ok} / ${tp.postes.length} références justes · barème QCM (−1/N par erreur)` },
-    { key: 'pose', label: 'Pose sur la platine', points: clamp(w.pose - st.poseErrors * b.coutErreurPose, w.pose), max: w.pose, detail: `${st.poseErrors} erreur${st.poseErrors > 1 ? 's' : ''} de pose` },
+    { key: 'pose', label: aReseau(tp) ? 'Composition de l\'armoire' : 'Pose sur la platine', points: clamp(w.pose - st.poseErrors * b.coutErreurPose, w.pose), max: w.pose, detail: `${st.poseErrors} erreur${st.poseErrors > 1 ? 's' : ''} de pose` },
     { key: 'cablage', label: 'Câblage', points: clamp(wired / Math.max(1, req) * w.cablage - st.wireErrors * b.coutErreurCablage - correctionPenalty(st, b), w.cablage), max: w.cablage, detail: `${wired} / ${req} liaisons · ${st.wireErrors} refus · ${st.wiresRemoved ?? 0} fil${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} retiré${(st.wiresRemoved ?? 0) > 1 ? 's' : ''} · ${st.resets ?? 0} remise${(st.resets ?? 0) > 1 ? 's' : ''} à zéro` },
     { key: 'tests', label: 'Tests hors tension', points: clamp(Object.keys(st.tests).length / nTests * w.tests, w.tests), max: w.tests, detail: `${Object.keys(st.tests).length} / ${tp.tests.length} tests` },
     { key: 'epi', label: 'EPI et consignation', points: clamp((epiOk(st) ? w.epi * 7 / 15 : epiN * w.epi / 15) + (consignationOk(st) ? w.epi * 8 / 15 : st.cons.lock ? w.epi * 3 / 15 : 0), w.epi), max: w.epi, detail: consignationOk(st) ? 'consignation complète' : 'consignation incomplète' },
@@ -660,7 +705,8 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
       return materielNote(tp, st);
     case ETAPE.POSE: {
       // barème historique : une erreur de pose retire une fraction fixe
-      const n = Math.max(1, tp.slots.length);
+      // TP réseau : la pose est la composition de l'armoire, élément par élément
+      const n = Math.max(1, aReseau(tp) ? tp.reseau!.rack.length : tp.slots.length);
       return clamp01(1 - st.poseErrors / n);
     }
     case ETAPE.CABLAGE: {
@@ -695,6 +741,19 @@ function rawStageScore(tp: TpDefinition, st: AttemptState, stage: number, b: Bar
         // Mise en service KNX : la moitié de la note, au prorata des blocs conformes
         // (interface, adresses, liaisons, paramètres — voir `knxErreurs`).
         const ok = (4 - knxErreurs(tp, st).length) / 4;
+        return clamp01(0.5 * base + 0.5 * ok);
+      }
+      if (aReseau(tp)) {
+        // Réseau : la moitié de la note, au prorata des réglages conformes (4 champs IP de
+        // l'automate, câble de paramétrage croisé, câble de service droit).
+        const ok = (RESEAU_REGLAGES - reseauErreursMes(tp, st)) / RESEAU_REGLAGES;
+        return clamp01(0.5 * base + 0.5 * ok);
+      }
+      if (aAutomateMiseEnService(tp)) {
+        // Automate : la moitié de la note, au prorata des blocs conformes du programme
+        // transféré (adresses des entrées, des sorties, temporisations).
+        const err = automateErreurs(tp, st);
+        const ok = err.includes('transfert') ? 0 : (AUTOMATE_BLOCS - err.length) / AUTOMATE_BLOCS;
         return clamp01(0.5 * base + 0.5 * ok);
       }
       if (aImeonMiseEnService(tp)) {

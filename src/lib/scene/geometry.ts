@@ -470,6 +470,8 @@ export const NET_COLOR: Record<NetKind, string> = {
   C: '#E4312B', C0: '#7A3AB8', 'DC+': '#D93A3A', 'DC-': '#20262D', BAR: '#C9A34A',
   // phase commandée (sortie d'actionneur) : violet, comme au schéma C.3.2
   LC: '#8E3FC0',
+  // courant faible : câble Ethernet (rouge du synoptique DTR 1), fibre monomode (gaine jaune)
+  ETH: '#D6453D', FO: '#D4A017',
 };
 
 /** Étiquettes des rangées (goulottes) selon la scène. */

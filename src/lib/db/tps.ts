@@ -18,11 +18,6 @@ import type { DiplomaId, Domain } from '@/lib/data/competences';
 import type { PedagogieGeneree } from '@/lib/generateur/schema';
 import { DOMAIN_LABEL } from '@/lib/data/competences';
 import { isDiplomaId } from '@/lib/student';
-import {
-  activitesDeduites, domaineParFamily, normaliserClassement,
-  type ActivitePro, type Classement, type DomainePro,
-} from '@/lib/taxonomy/domaines';
-import { classementDe } from '@/lib/taxonomy/classement';
 
 export interface TpSummary {
   id: string;
@@ -31,56 +26,29 @@ export interface TpSummary {
   competences: string[];
   summary: string | null;
   published: boolean;
-  /** Domaine professionnel principal (migration 0015), `null` si non classé. */
-  domaine: DomainePro | null;
-  /** Sous-domaine (`IND.demarrage`), `null` si absent. */
-  sous_domaine: string | null;
-  mots_cles: string[];
 }
 
-const fromCode = (t: TpDefinition): TpSummary => {
-  const c = classementDe(t);
-  return {
-    id: t.id,
-    title: t.title,
-    level: t.level,
-    competences: t.competences,
-    summary: t.summary,
-    published: true,
-    domaine: c.domaine,
-    sous_domaine: c.sousDomaine,
-    mots_cles: c.motsCles,
-  };
-};
+const fromCode = (t: TpDefinition): TpSummary => ({
+  id: t.id,
+  title: t.title,
+  level: t.level,
+  competences: t.competences,
+  summary: t.summary,
+  published: true,
+});
 
 /** TP catalogue from the database, falling back on the bundled definitions when the table is empty. */
 export async function listTps(): Promise<TpSummary[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from('tps')
-    .select('id, title, level, competences, summary, published, domaine, sous_domaine, mots_cles')
+    .select('id, title, level, competences, summary, published')
     .eq('published', true)
     .order('title');
   if (error || !data || data.length === 0) return TPS_CATALOGUE.map(fromCode);
-  // Relecture défensive : une base pas encore migrée (0014) n'a pas ces colonnes. Un TP de
-  // service (`hidden`, joué depuis un sujet numérique) n'est jamais listé, même s'il a été
-  // publié par erreur dans la table.
-  return (data as Partial<TpSummary>[])
-    .filter((r) => !estTpCache(String(r.id)))
-    .map((r) => {
-      const c = normaliserClassement(r);
-      return {
-        id: String(r.id),
-        title: r.title ?? '',
-        level: r.level ?? null,
-        competences: Array.isArray(r.competences) ? r.competences : [],
-        summary: r.summary ?? null,
-        published: r.published === true,
-        domaine: c.domaine,
-        sous_domaine: c.sousDomaine,
-        mots_cles: c.motsCles,
-      };
-    });
+  // Un TP de service (`hidden`, joué depuis un sujet numérique) n'est jamais listé, même
+  // s'il a été publié par erreur dans la table.
+  return (data as TpSummary[]).filter((t) => !estTpCache(t.id));
 }
 
 /** Full definition: always the bundled one (the simulator needs the typed object). */
@@ -162,16 +130,10 @@ export interface TpRow {
   validated_by?: string | null;
   /** Date de validation humaine : obligatoire avant publication d'un TP généré. */
   validated_at?: string | null;
-  /** Classement par domaine professionnel (migration 0015) — voir `classementOfRow`. */
-  domaine: DomainePro | null;
-  domaines_sec: DomainePro[];
-  sous_domaine: string | null;
-  activites: ActivitePro[];
-  mots_cles: string[];
 }
 
 const TP_COLS =
-  'id, title, level, competences, summary, definition, published, family, scene, playable, author, archived, diplomas, updated_at, generated, generation_id, validated_by, validated_at, domaine, domaines_sec, sous_domaine, activites, mots_cles';
+  'id, title, level, competences, summary, definition, published, family, scene, playable, author, archived, diplomas, updated_at, generated, generation_id, validated_by, validated_at';
 
 /** Saisie envoyée en base par le studio. */
 export interface TpSavePayload {
@@ -186,11 +148,6 @@ export interface TpSavePayload {
   published: boolean;
   archived: boolean;
   playable: boolean;
-  /**
-   * Classement par domaine professionnel : écrit dans les 5 colonnes (filtres, index) ET
-   * dans `definition.classement` (le fichier exporté le transporte).
-   */
-  classement: Classement;
   /** TP issu du générateur : la base interdit sa publication tant qu'il n'est pas validé. */
   generated?: boolean;
   generation_id?: string | null;
@@ -208,18 +165,12 @@ export function slugifyTitle(title: string): string {
 }
 
 function row(payload: TpSavePayload) {
-  const c = normaliserClassement(payload.classement);
   return {
     title: payload.title.trim() || 'TP sans titre',
     level: payload.level.trim() || null,
     competences: payload.competences,
     summary: payload.summary.trim() || null,
-    definition: { ...payload.definition, classement: c } as unknown as Record<string, unknown>,
-    domaine: c.domaine,
-    domaines_sec: c.domainesSecondaires,
-    sous_domaine: c.sousDomaine,
-    activites: c.activites,
-    mots_cles: c.motsCles,
+    definition: payload.definition as unknown as Record<string, unknown>,
     published: payload.published,
     family: payload.family,
     scene: payload.scene,
@@ -511,41 +462,6 @@ export function studioMetaOf(row_: TpRow): TpStudioMeta {
 }
 
 /**
- * Classement d'une ligne `tps` : les colonnes d'abord (migration 0015), sinon
- * `definition.classement`, sinon le domaine de la famille. Les activités vides sont
- * déduites de la définition (nature du TP, pannes déclarées).
- */
-export function classementOfRow(row_: TpRow): Classement {
-  const def = obj(row_.definition);
-  const colonnes = normaliserClassement({
-    domaine: row_.domaine,
-    domaines_sec: row_.domaines_sec,
-    sous_domaine: row_.sous_domaine,
-    activites: row_.activites,
-    mots_cles: row_.mots_cles,
-  });
-  const stocke = normaliserClassement(def?.classement);
-  const base: Classement = colonnes.domaine ? colonnes : stocke.domaine ? stocke : colonnes;
-  const family = SCENES.includes(row_.family as SceneKind)
-    ? (row_.family as SceneKind)
-    : SCENES.includes(def?.family as SceneKind) ? (def?.family as SceneKind) : null;
-  const domaine = base.domaine ?? (family ? domaineParFamily(family) : null);
-  const c = base.domaine === domaine ? base : normaliserClassement({ ...base, domaine });
-  // Colonnes et définition se complètent quand l'une est vide (base pas encore migrée…).
-  const autre = base === colonnes ? stocke : colonnes;
-  const motsCles = c.motsCles.length ? c.motsCles : autre.motsCles;
-  let activites = c.activites.length ? c.activites : autre.activites;
-  if (!activites.length && def) {
-    activites = activitesDeduites({
-      kind: typeof def.kind === 'string' ? def.kind : undefined,
-      faults: arr(def.faults),
-      mesures: arr(def.mesures),
-    });
-  }
-  return { ...c, motsCles, activites };
-}
-
-/**
  * `TpDefinition` d'une ligne `tps`, ou `null` si la définition n'est pas un parcours
  * de platine exploitable. Toutes les valeurs sont revalidées : un champ manquant ou
  * d'un mauvais type reçoit une valeur de repli plutôt que de casser le parcours.
@@ -573,9 +489,6 @@ export function rowToDefinition(row_: TpRow): TpDefinition | null {
   if (p) for (const [k, v] of Object.entries(p)) if (typeof v === 'string') plaque[k] = v;
 
   const motorObj = obj(def.motor);
-  // Classement : celui de la définition s'il nomme un domaine, sinon celui des colonnes.
-  const stocke = normaliserClassement(def.classement);
-
   const motor = motorObj
     ? {
       P: num(motorObj.P, 1500), U: num(motorObj.U, 400), In: num(motorObj.In, 3.3),
@@ -617,12 +530,5 @@ export function rowToDefinition(row_: TpRow): TpDefinition | null {
     motor,
     station: def.station === true,
     hasMotor: def.hasMotor === true,
-    // Domaine jamais choisi (ni colonne ni définition) : il reste `null` dans la définition,
-    // pour que le studio exige toujours de le choisir avant de publier.
-    classement: stocke.domaine
-      ? stocke
-      : row_.domaine
-        ? classementOfRow(row_)
-        : { ...classementOfRow(row_), domaine: null, sousDomaine: null },
   };
 }

@@ -42,7 +42,9 @@ export type BaremeOverride = Partial<Omit<Bareme, 'poids'>> & { poids?: Partial<
  * sortie (actionneur KNX) : électriquement la phase L1 quand le contact est fermé, mais
  * un conducteur distinct — violet, couleur imposée par le schéma C.3.2 du sujet CGM 2023.
  */
-export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-' | 'BAR' | 'LC';
+export type NetKind = 'L1' | 'L2' | 'L3' | 'N' | 'PE' | 'C' | 'C0' | 'DC+' | 'DC-' | 'BAR' | 'LC'
+  /** Courant faible (TP réseau) : liaison cuivre Ethernet (câble F/UTP ou cordon) et fibre optique. */
+  | 'ETH' | 'FO';
 
 export type DeviceKind =
   | 'main' | 'mcb' | 'rcd' | 'motorcb' | 'contactor' | 'thermal'
@@ -343,6 +345,30 @@ export interface ImeonMiseEnServiceDef {
   pourquoi: { priorite: string; injection: string; batterie: string };
 }
 
+/**
+ * Mise en service d'un AUTOMATE (écran du logiciel de programmation), pendant la
+ * déconsignation : vérifier l'adressage des variables, régler les temporisations,
+ * transférer. Le programme TRANSFÉRÉ est celui qu'exécute ensuite le banc d'essai :
+ * une temporisation fausse se voit à l'essai. Voir `src/lib/sim/automateMiseEnService.ts`.
+ */
+export interface AutomateMiseEnServiceDef {
+  /** Nom affiché (« TM221CE16R · Ecobike_portail.smbp »). */
+  appareil: string;
+  /** Logiciel de programmation (« Machine Expert Basic · Grafcet »). */
+  logiciel: string;
+  /** Variables du programme : mnémonique, rôle, adresse attendue et adresse du programme livré. */
+  variables: { mnemo: string; role: string; attendu: string; usine: string }[];
+  /** Adresses proposées pour les entrées et pour les sorties. */
+  entrees: string[];
+  sorties: string[];
+  /** Temporisations : identifiant (`tm1`), libellé, valeur attendue et valeur livrée (s). */
+  tempos: { id: string; label: string; attendu: number; usine: number; why: string }[];
+  /** Valeurs proposées pour les temporisations (s). */
+  valeurs: number[];
+  /** Justification de l'adressage, affichée à la vérification. */
+  pourquoiAdresses: string;
+}
+
 /** Grandeurs d'une installation PV hybride pour l'essai des quatre situations. */
 export interface EssaiPvDef {
   /** Puissance crête installée (Wc). */
@@ -536,6 +562,15 @@ export interface PrepQuestion {
    * CALSOL, le synoptique — au lieu de la recevoir dans l'énoncé.
    */
   doc?: string;
+  /**
+   * La question ne se répond pas par des boutons mais par un outil interactif :
+   * `plaque` = plaque à bornes du moteur, où l'élève pose lui-même les barrettes de
+   * couplage (sujet B.2.8). L'outil traduit ce qui est posé en l'une des `options`
+   * (la première reste la bonne) : la notation QCM de l'étape s'applique telle quelle.
+   */
+  vue?: 'plaque';
+  /** Document corrigé (image servie depuis `public/`) montré une fois la question répondue. */
+  corrige?: string;
 }
 
 /**
@@ -554,6 +589,11 @@ export interface PrepDocument {
   tableau?: { entetes: string[]; lignes: string[][] };
   /** Montré aussi à l'énoncé (situation, lieu, synoptique). */
   enonce?: boolean;
+  /**
+   * Schéma DESSINÉ par le simulateur au lieu d'une image : `automate` = câblage de
+   * l'automate déduit de `tp.plcIo` (transposition du folio constructeur sur le M221).
+   */
+  schema?: 'automate';
 }
 
 /** Bloc de préparation propre à un TP : un titre, une consigne, des questions. */
@@ -562,6 +602,11 @@ export interface PrepBloc {
   titre: string;
   consigne: string;
   questions: PrepQuestion[];
+  /**
+   * Outil interactif affiché au-dessus des questions du bloc. `dip` : micro-interrupteurs
+   * d'un contrôleur à basculer (binaire → décimal → dernier octet de l'adresse IP).
+   */
+  outil?: 'dip';
 }
 
 /**
@@ -624,8 +669,18 @@ export interface PreparationDef {
   /** Blocs supplémentaires propres au TP, après les blocs standard. */
   blocs?: PrepBloc[];
   /** Titres et consignes des blocs standard, quand ceux par défaut ne conviennent pas. */
-  intitules?: Partial<Record<'identification' | 'fonctions' | 'calculs' | 'adressage', { titre: string; consigne: string }>>;
+  intitules?: Partial<Record<'identification' | 'fonctions' | 'calculs' | 'adressage' | 'grafcetQuiz' | 'grafcet', { titre: string; consigne: string }>>;
+  /**
+   * Ordre d'affichage des blocs, quand l'ordre historique (identification, fonctions,
+   * calculs, adressage, blocs propres, préliminaire Grafcet, Grafcet) ne suit pas la
+   * démarche du TP. Un bloc propre se désigne par `bloc:<id>`. Les blocs non cités
+   * s'affichent ensuite, dans l'ordre historique.
+   */
+  ordre?: PrepSection[];
 }
+
+/** Section de la préparation, pour `PreparationDef.ordre`. */
+export type PrepSection = 'identification' | 'fonctions' | 'calculs' | 'adressage' | 'grafcetQuiz' | 'grafcet' | `bloc:${string}`;
 
 export interface PosteOption { ref: string; spec: string; ok?: boolean; half?: boolean; why: string; key: string; /** Photo propre à cette référence (sinon : sprite/dessin de `key`). */ img?: string }
 export interface Poste { id: string; name: string; need: string; options: PosteOption[] }
@@ -633,7 +688,9 @@ export interface Poste { id: string; name: string; need: string; options: PosteO
 export interface TestHorsTension { id: string; title: string; how: string; expected: string }
 
 /** Instrument utilisable à l'étape mesures. */
-export type InstrumentKind = 'mm' | 'clamp' | 'ctrl' | 'vat' | 'tach';
+export type InstrumentKind = 'mm' | 'clamp' | 'ctrl' | 'vat' | 'tach'
+  /** Courant faible : testeur de câble réseau, et observation réseau (ping, LED de port, supervision). */
+  | 'lan' | 'net';
 
 /** Mesure attendue dans une étape (hors ou sous tension). */
 export interface ExpectedMeasure {
@@ -686,6 +743,20 @@ export interface Fault {
   nets?: Record<string, Partial<TerminalNet>>;
   /** Action de remise en état attendue, proposée à l'élève parmi d'autres. */
   action?: string;
+  /**
+   * Panne de RÉGLAGE (programme, paramètre) : le câblage est sain, aucune mesure
+   * électrique ne la montre. Elle se trouve par élimination — toutes les hypothèses de
+   * câblage tombent à l'instrument — et se confirme en lisant le réglage à l'écran
+   * (« %TM3 = 5 s »). Une panne de réglage ne déclare ni `coupe`, ni `ouvre`, ni
+   * `croise`, et un TP n'en porte qu'une (deux seraient indiscernables).
+   */
+  reglage?: string;
+  /**
+   * La panne fait tourner le moteur sur DEUX phases (barrette de couplage absente,
+   * conducteur coupé) : il ronfle, chauffe, et sa protection thermique déclenche.
+   * La panne historique `l2` le fait d'office ; les autres le déclarent ici.
+   */
+  monophase?: boolean;
 }
 
 /**
@@ -695,7 +766,9 @@ export interface Fault {
  * quel résultat on attend — est ce qui sépare le diagnostic du tâtonnement.
  * Le simulateur confronte ensuite la prévision au relevé.
  */
-export type Prevision = '24' | '0' | 'cont' | 'ol';
+export type Prevision = '24' | '0' | 'cont' | 'ol'
+  /** TP réseau : observation conforme (le ping répond, 1 Gbit/s, 48 V…) ou anomalie. */
+  | 'ok' | 'ko';
 
 /** Un test d'hypothèse : la vérification définie, faite, et ce qu'elle a tranché. */
 export interface HypTest {
@@ -822,9 +895,69 @@ export interface InterPosition {
 /**
  * Nature du parcours :
  * - `platine` (défaut) : les 11 étapes de câblage / mesures sur la platine ;
- * - `dimensionnement` : étude et dimensionnement (aucune platine, aucun câblage).
+ * - `dimensionnement` : étude et dimensionnement (aucune platine, aucun câblage) ;
+ * - `reseau` : les MÊMES 12 étapes que la platine (même store, même notation), mais sur
+ *   une scène « courant faible » — armoire de brassage 19" à composer, liaisons cuivre et
+ *   fibre, connecteur RJ45 fil par fil, adressage IP, supervision. Voir `ReseauDef`.
  */
-export type TpKind = 'platine' | 'dimensionnement' | 'miseEnService';
+export type TpKind = 'platine' | 'dimensionnement' | 'miseEnService' | 'reseau';
+
+/** Équipement du réseau local (synoptique DTR 1). */
+export interface ReseauEquipement {
+  /** Identifiant, préfixe de sa borne : `NAS` → `NAS.RJ`. */
+  id: string;
+  /** Nom court affiché (« NAS », « Caméra 3 »). */
+  nom: string;
+  /** Rôle, en clair. */
+  role: string;
+  /** Adresse IP statique (DTR 1) ; `null` pour un équipement sans adresse (convertisseur). */
+  ip: string | null;
+  /** Bloc de la scène. */
+  zone: 'loge' | 'local' | 'velos' | 'entree' | 'onduleur';
+  /** Port du switch (et du panneau de brassage) qui le dessert. */
+  port?: number;
+  /** Alimenté par le switch (PoE). */
+  poe?: boolean;
+  /** Adresse MAC (table ARP). */
+  mac?: string;
+}
+
+/** Élément de l'armoire 19" à composer (étape pose). */
+export interface ReseauRackItem {
+  id: string;
+  label: string;
+  ref?: string;
+  /** Hauteur en U. */
+  u: number;
+  /**
+   * Emplacements de départ admis (1 = U du haut). Deux éléments identiques (les réserves
+   * 2 U) partagent les mêmes positions : l'ordre entre eux est indifférent.
+   */
+  debut: number[];
+}
+
+/** Paramètres IP d'un équipement (automate). */
+export interface ReseauIp { ip: string; masque: string; passerelle: string; dns: string }
+
+/**
+ * Scène « courant faible » d'un TP réseau : équipements du synoptique, armoire à composer,
+ * automate à re-paramétrer, poste de supervision, câblage T568B. La logique (ping, PoE, LED,
+ * pannes, observations) est dans `src/lib/sim/reseau.ts`.
+ */
+export interface ReseauDef {
+  equipements: ReseauEquipement[];
+  /** Hauteur de l'armoire (U). */
+  rackU: number;
+  rack: ReseauRackItem[];
+  /** Automate à paramétrer : identifiant d'équipement, référence, réglages d'usine et attendus. */
+  automate: { id: string; ref: string; defaut: ReseauIp; attendu: ReseauIp };
+  /** Poste de la loge (DTR 25). */
+  poste: { id: string; nom: string; description: string; mac: string; dns: string[] };
+  /** Couleurs attendues broche par broche (1 à 8) sur le connecteur de brassage. */
+  t568b: string[];
+  /** Port du panneau dont on raccorde le connecteur en T568B (lien de l'automate). */
+  portT568b: number;
+}
 
 export interface TpDefinition {
   id: string;
@@ -837,6 +970,13 @@ export interface TpDefinition {
   annex: AnnexKind;
   /** Jouable de bout en bout (liaisons + mesures définies). Sinon affiché « prévu ». */
   playable: boolean;
+  /**
+   * TP de service, non listé au catalogue : joué depuis un sujet numérique (mode « câblage
+   * réel » d'une question schéma, voir `src/components/sujet/CablageReel.tsx`). Il reste
+   * accessible par `tpById` et par la route `/tp/<id>`, mais n'apparaît ni au catalogue de
+   * l'élève, ni dans les listes du professeur (imposition, suivi).
+   */
+  hidden?: boolean;
   competences: string[];
   summary: string;
   situation: string;
@@ -892,11 +1032,19 @@ export interface TpDefinition {
    */
   imeonMiseEnService?: ImeonMiseEnServiceDef;
   /**
+   * Mise en service d'un automate (étape déconsignation & mise en service) : adressage,
+   * temporisations, transfert. Sa conformité conditionne la validation de l'étape ; le
+   * programme transféré pilote le banc d'essai du portail.
+   */
+  automateMiseEnService?: AutomateMiseEnServiceDef;
+  /**
    * Essai des quatre situations de fonctionnement d'une installation PV hybride
    * (mesures sous tension). Présent = l'essai est exigé ; il porte les grandeurs
    * de l'installation que l'écran de supervision affiche.
    */
   essaisPv?: EssaiPvDef;
+  /** Scène courant faible (TP `kind: 'reseau'`). */
+  reseau?: ReseauDef;
   /**
    * Organes de sectionnement SUPPLÉMENTAIRES simulés, au-delà des trois que connaît
    * le moteur (`q1`, `f2`, `f3`) : identifiants de slot. Chacun a son état ouvert /
@@ -913,7 +1061,14 @@ export interface TpDefinition {
    * Schéma de l'installation en DOCUMENT (folio du dossier), montré à l'étape de
    * dépannage quand le TP n'a pas de folio de commande dessiné.
    */
-  schemaImage?: { src: string; legende: string };
+  schemaImage?: {
+    src: string;
+    legende: string;
+    /** Titre court de l'onglet du premier document (« Folio 01 »), quand il y en a plusieurs. */
+    titre?: string;
+    /** Autres documents du dossier montrés au dépannage (folio de commande corrigé…). */
+    suite?: { src: string; legende: string; titre: string }[];
+  };
   station: boolean;
   /**
    * Composition du coffret de porte, de haut en bas. Absent = pupitre historique
@@ -956,6 +1111,12 @@ export interface TpDefinition {
    * s'applique — aucun TP existant n'est touché.
    */
   uContinu?: number;
+  /**
+   * La commande (réseaux `C` / `C0`) est en courant CONTINU : 24 V⎓ d'une alimentation
+   * à découpage, et non le secondaire d'un transformateur. Elle se mesure alors en V⎓, et
+   * le multimètre affiche le signe (pointe rouge sur le 0 V : −24 V).
+   */
+  commandeContinue?: boolean;
   /**
    * L'arrivée réseau n'amène PAS de conducteur de protection.
    *
@@ -1114,6 +1275,28 @@ export interface AttemptState {
    * déconsignation. `applique` : réglages validés et conformes.
    */
   imeon?: { priorite?: string; injection?: boolean; batterie?: string; applique?: boolean };
+  /**
+   * Mise en service de l'automate (écran du logiciel), pendant la déconsignation :
+   * adresses et temporisations saisies, et le programme TRANSFÉRÉ (instantané des
+   * réglages au moment du transfert, conforme ou non).
+   */
+  automate?: {
+    adresses?: Record<string, string>;
+    tempos?: Record<string, number>;
+    transfere?: { adresses: Record<string, string>; tempos: Record<string, number> };
+  };
+  /**
+   * TP réseau : armoire composée (élément → U de départ), connecteur T568B (broche →
+   * couleur), câble de paramétrage choisi, réglages IP appliqués à l'automate, ping réussi.
+   */
+  reseau?: {
+    rack?: Record<string, number>;
+    t568?: Record<string, string>;
+    cableParam?: 'croise' | 'droit';
+    cableService?: 'croise' | 'droit';
+    ip?: ReseauIp;
+    pingOk?: boolean;
+  };
   placed: Record<string, boolean>;
   wires: { a: string; b: string; net: NetKind }[];
   wireErrors: number;

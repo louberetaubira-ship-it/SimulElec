@@ -285,13 +285,6 @@ export const TP_ECOBIKE_PORTAIL: TpDefinition = {
   title: 'Écobike · Portail coulissant piloté par M221 (TP 2)',
   level: 'Tle Bac Pro MELEC',
   family: 'ind',
-  classement: {
-    domaine: 'IND',
-    domainesSecondaires: ['INF'],
-    sousDomaine: 'IND.api',
-    activites: [], // déduites par classementDe()
-    motsCles: ['M221', 'portail', 'CGM 2023', 'Écobike'],
-  },
   scene: 'ind',
   annex: 'door',
   playable: true,

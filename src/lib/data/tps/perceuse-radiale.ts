@@ -49,13 +49,6 @@ export const TP_PERCEUSE_RADIALE: TpDefinition = {
   title: 'Perceuse radiale · démarrage direct',
   level: '1re Bac Pro MELEC',
   family: 'ind',
-  classement: {
-    domaine: 'IND',
-    domainesSecondaires: [],
-    sousDomaine: 'IND.demarrage',
-    activites: [], // déduites par classementDe()
-    motsCles: ['contacteur', 'relais thermique', 'démarrage direct'],
-  },
   scene: 'ind',
   annex: 'door',
   playable: true,

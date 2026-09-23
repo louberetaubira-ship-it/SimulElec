@@ -45,13 +45,6 @@ export const TP_VARIATEUR: TpDefinition = {
   title: 'Variateur de vitesse · câblage et mise en service',
   level: 'Tle Bac Pro MELEC',
   family: 'ind',
-  classement: {
-    domaine: 'IND',
-    domainesSecondaires: [],
-    sousDomaine: 'IND.variation',
-    activites: [], // déduites par classementDe()
-    motsCles: ['ATV320', 'paramétrage'],
-  },
   scene: 'ind',
   annex: 'door',
   playable: true,
