@@ -19,6 +19,9 @@ import {
   aImeonMiseEnService, imeonConforme, imeonReglagesFaux, LIBELLE_REGLAGE, type ImeonReglage,
 } from '@/lib/sim/imeonMiseEnService';
 import {
+  aAutomateMiseEnService, automateBlocsFaux, automateState, LIBELLE_BLOC,
+} from '@/lib/sim/automateMiseEnService';
+import {
   conclusionOuverte, departage, previsionTenue, verdictImpose, type Verification,
 } from '@/lib/sim/diagnostic';
 import { listeMiseSousTension, repereLiaison, repereSlot, schemaDeLOrgane } from '@/lib/sim/reperes';
@@ -38,6 +41,19 @@ import {
   addMeasurement, finishAttempt, getOrCreateAttempt, measurementOf, saveAttemptState,
 } from '@/lib/db/attempts';
 import type { PanelWire } from '@/components/panel/Panel';
+import {
+  aReseau, departageReseau, etatReseau, ipErreurs, LIBELLE_IP, observations, observer, ping as pingReseau, placerRack,
+  verdictReseau, conforme as obsConforme,
+} from '@/lib/sim/reseau';
+import type { ReseauIp } from '@/lib/types';
+
+/**
+ * TP réseau : l'installation est-elle en service (PDU refermé) ? Pendant la mise en service,
+ * c'est l'état réel du PDU ; aux étapes suivantes, l'installation est en service — la
+ * simulation n'est pas persistée, l'état de la tentative si.
+ */
+export const reseauEnService = (st: AttemptState, sim: SimState): boolean =>
+  st.stage > ETAPE.MISE_EN_SERVICE || (st.stage === ETAPE.MISE_EN_SERVICE && sim.q1 && st.decons.unlock);
 
 export interface BotTurn { role: 'user' | 'assistant'; content: string }
 
@@ -239,6 +255,10 @@ interface ParcoursState {
   imeonSet: (reglage: ImeonReglage, value: string | boolean) => void;
   /** Onduleur hybride : applique les réglages — refusés s'ils ne sont pas conformes. */
   imeonAppliquer: () => void;
+  /** Automate : une adresse de variable ou une temporisation saisie à l'écran du logiciel. */
+  automateSet: (kind: 'adresse' | 'tempo', id: string, value: string | number) => void;
+  /** Automate : transfère le programme (jamais refusé : l'essai montre ce qui ne va pas). */
+  automateTransferer: () => void;
   record: () => void;
   currentRead: () => ReadOut;
 
@@ -269,6 +289,22 @@ interface ParcoursState {
   finish: () => Promise<void>;
 
   pushTurn: (t: BotTurn) => void;
+
+  // ---- TP réseau (scène courant faible)
+  /** Pose un élément de l'armoire à partir du U `debut` (refus compté comme erreur de pose). */
+  reseauRack: (id: string, debut: number) => void;
+  /** Raccorde un conducteur de couleur sur une broche du connecteur T568B. */
+  reseauT568: (broche: number, couleur: string) => void;
+  /** Câble choisi pour le paramétrage direct ou pour le raccordement en service. */
+  reseauCable: (quel: 'cableParam' | 'cableService', v: 'croise' | 'droit') => void;
+  /** Envoie des réglages IP à l'automate. */
+  reseauIp: (ip: ReseauIp) => void;
+  /** `ping` depuis la loge : rend la sortie du terminal (et valide l'essai de mise en service). */
+  reseauPing: (ip: string) => string;
+  /** Relevé d'une mesure du TP réseau (testeur, V⎓ PoE, LED, ping). */
+  reseauReleve: (r: { instrument: InstrumentKind; dial: string; a?: string; b?: string; value: number; display: string }) => void;
+  /** Test d'hypothèse du dépannage réseau : une observation, une prévision, un verdict. */
+  reseauNoterTest: (obs: string, prevision: 'ok' | 'ko', verdict: 'out' | 'keep') => void;
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -413,8 +449,16 @@ export const useParcours = create<ParcoursState>((set, get) => {
       }
     }
 
-    // ---- déconsignation (étape 8)
-    if (stage === ETAPE.MISE_EN_SERVICE) {
+    // ---- déconsignation, TP réseau : PDU refermé, puis ping de l'automate depuis la loge
+    if (stage === ETAPE.MISE_EN_SERVICE && aReseau(tp)) {
+      const d = st.decons;
+      const close = d.unlock && sim.q1;
+      const essai = close && st.reseau?.pingOk === true;
+      if (close !== d.close || essai !== d.essai) {
+        if (close && !d.close) mlog(`${repereSlot(tp, 'q1')} refermé : switch, NAS et convertisseur de l'armoire sous tension.`);
+        patch(s => ({ ...s, decons: { ...s.decons, close, essai } }));
+      }
+    } else if (stage === ETAPE.MISE_EN_SERVICE) {
       const d = st.decons;
       const close = d.unlock && sim.q1 && sim.f2 && sim.f3 && sectionneursFermes(tp, sim);
       // Sans ordre de marche (tableau KNX) : l'installation est en service dès la remise sous
@@ -835,7 +879,9 @@ export const useParcours = create<ParcoursState>((set, get) => {
         if (get().st.wireErrors >= 3) autoAide('cablage');
         const na = netOfTerminal(tp, selTerminal);
         const nb = netOfTerminal(tp, id);
-        const court = na && nb && na !== nb && na !== 'C' && nb !== 'C' && na !== 'PE' && nb !== 'PE';
+        const faible = (n: string | null) => n === 'ETH' || n === 'FO';
+        const court = na && nb && na !== nb && na !== 'C' && nb !== 'C' && na !== 'PE' && nb !== 'PE'
+          && !faible(na) && !faible(nb);
         say(court
           ? `Refusé : court-circuit ${na} / ${nb} !`
           : 'Refusé : cette liaison n\'est pas au tableau de câblage.');
@@ -991,7 +1037,8 @@ export const useParcours = create<ParcoursState>((set, get) => {
       // à l'arrivée sur la consignation, l'installation est en service : c'est l'élève qui sépare
       if (stage === ETAPE.EPI && !st.cons.lock && !st.cons.vatRef2 && !st.decons.unlock && !sim.q1) {
         const aux = Object.fromEntries((get().tp.sectionneurs ?? []).map(id => [id, true]));
-        set({ sim: { ...sim, q1: true, f2: true, f3: true, aux: { ...(sim.aux ?? {}), ...aux } } });
+        // TP réseau : un seul organe, le PDU
+        set({ sim: aReseau(get().tp) ? { ...sim, q1: true } : { ...sim, q1: true, f2: true, f3: true, aux: { ...(sim.aux ?? {}), ...aux } } });
         say('L\'installation est en service : c\'est à toi de la consigner.');
       }
       evaluate();
@@ -1126,6 +1173,51 @@ export const useParcours = create<ParcoursState>((set, get) => {
       patch(x => ({ ...x, imeon: { ...(x.imeon ?? {}), applique: true } }));
       mlog(`${def.appareil} · réglages appliqués : ${def.priorite}, injection ${def.injection ? 'oui' : 'non'}, batterie ${def.batterie}.`);
       say(`Réglages conformes : ${repereSlot(tp, 'km1')} peut être mis en service.`);
+      evaluate();
+    },
+
+    automateSet(kind, id, value) {
+      const { tp, st } = get();
+      const def = tp.automateMiseEnService;
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !def || !aAutomateMiseEnService(tp)) return;
+      if (!st.decons.close) {
+        say(`${repereSlot(tp, 'plc')} est hors tension : referme d'abord ${listeMiseSousTension(tp, 'et')}.`);
+        return;
+      }
+      if (kind === 'adresse') {
+        const v = def.variables.find(x => x.mnemo === id);
+        if (!v || typeof value !== 'string' || ![...def.entrees, ...def.sorties].includes(value)) return;
+        patch(x => ({ ...x, automate: { ...(x.automate ?? {}), adresses: { ...(x.automate?.adresses ?? {}), [id]: value } } }));
+        mlog(`${def.appareil} · ${id} affecté à ${value}.`);
+      } else {
+        const t = def.tempos.find(x => x.id === id);
+        if (!t || typeof value !== 'number' || !def.valeurs.includes(value)) return;
+        patch(x => ({ ...x, automate: { ...(x.automate ?? {}), tempos: { ...(x.automate?.tempos ?? {}), [id]: value } } }));
+        mlog(`${def.appareil} · ${t.label.split(' ')[0]} réglé à ${String(value).replace('.', ',')} s.`);
+      }
+      evaluate();
+    },
+
+    automateTransferer() {
+      const { tp, st } = get();
+      const def = tp.automateMiseEnService;
+      if (st.stage !== ETAPE.MISE_EN_SERVICE || !def || !st.decons.close) return;
+      const m = automateState(def, st);
+      const faux = automateBlocsFaux(def, m);
+      // Le transfert passe toujours : un automate exécute ce qu'on lui donne. Un programme
+      // non conforme compte une erreur par bloc faux, et l'essai en montrera les effets.
+      patch(x => ({
+        ...x,
+        paramErrors: (x.paramErrors ?? 0) + faux.length,
+        automate: { ...(x.automate ?? {}), transfere: { adresses: m.adresses, tempos: m.tempos } },
+      }));
+      if (faux.length) {
+        mlog(`${def.appareil} · programme transféré, NON conforme : ${faux.map(f => LIBELLE_BLOC[f]).join(', ')}.`);
+        say(`Programme transféré, mais non conforme (${faux.map(f => LIBELLE_BLOC[f]).join(', ')}) : l'essai va le montrer.`);
+      } else {
+        mlog(`${def.appareil} · programme transféré, conforme au DTR 8 — automate en RUN.`);
+        say(`${repereSlot(tp, 'plc')} en RUN : programme conforme.`);
+      }
       evaluate();
     },
 
@@ -1477,5 +1569,133 @@ export const useParcours = create<ParcoursState>((set, get) => {
     },
 
     pushTurn(t) { set(s => ({ turns: [...s.turns, t] })); },
+
+    // ------------------------------------------------------------ TP réseau
+
+    reseauRack(id, debut) {
+      const { tp, st } = get();
+      if (!tp.reseau || st.stage !== ETAPE.POSE) return;
+      const r = placerRack(tp.reseau, st.reseau?.rack ?? {}, id, debut);
+      if (!r.ok) {
+        patch(x => ({ ...x, poseErrors: x.poseErrors + 1 }));
+        say(`Refusé : ${r.raison}`);
+        return;
+      }
+      patch(x => ({
+        ...x,
+        reseau: { ...(x.reseau ?? {}), rack: { ...(x.reseau?.rack ?? {}), [id]: debut } },
+        // le PDU est l'organe de consignation du TP (slot `q1`)
+        placed: id === 'pdu' ? { ...x.placed, q1: true } : x.placed,
+      }));
+      say(r.raison);
+    },
+
+    reseauT568(broche, couleur) {
+      const { tp, st } = get();
+      if (!tp.reseau || st.stage !== ETAPE.CABLAGE) return;
+      const attendu = tp.reseau.t568b[broche - 1];
+      if (couleur !== attendu) {
+        patch(x => ({ ...x, wireErrors: x.wireErrors + 1 }));
+        if (get().st.wireErrors >= 3) autoAide('cablage');
+        say(`Refusé : ${couleur} ne va pas sur la broche ${broche} en T568B — relis le tableau du DTR 22.`);
+        return;
+      }
+      patch(x => ({ ...x, reseau: { ...(x.reseau ?? {}), t568: { ...(x.reseau?.t568 ?? {}), [String(broche)]: couleur } } }));
+      say(`Broche ${broche} : ${couleur} ✓`);
+    },
+
+    reseauCable(quel, v) {
+      const { st } = get();
+      if (st.stage !== ETAPE.MISE_EN_SERVICE) return;
+      const juste = quel === 'cableParam' ? v === 'croise' : v === 'droit';
+      patch(x => ({
+        ...x,
+        paramErrors: juste ? x.paramErrors : (x.paramErrors ?? 0) + 1,
+        reseau: { ...(x.reseau ?? {}), [quel]: v },
+      }));
+      if (!juste) {
+        say(quel === 'cableParam'
+          ? 'Sans switch entre le PC et l’automate, l’émission de l’un doit arriver sur la réception de l’autre : quel câble ?'
+          : 'L’automate passe maintenant par le switch, comme tous les équipements : quel câble ?');
+      }
+      evaluate();
+    },
+
+    reseauIp(ip) {
+      const { tp, st } = get();
+      if (!tp.reseau || st.stage !== ETAPE.MISE_EN_SERVICE) return;
+      const propre = { ip: ip.ip.trim(), masque: ip.masque.trim(), passerelle: ip.passerelle.trim(), dns: ip.dns.trim() };
+      const faux = ipErreurs(tp.reseau, propre);
+      patch(x => ({
+        ...x,
+        paramErrors: (x.paramErrors ?? 0) + faux.length,
+        reseau: { ...(x.reseau ?? {}), ip: propre, pingOk: false },
+      }));
+      mlog(`${tp.reseau.automate.ref} · réglages envoyés : ${propre.ip} / ${propre.masque} / ${propre.passerelle || '—'} / ${propre.dns || '—'}.`);
+      say(faux.length
+        ? `Réglages envoyés à l’automate. À vérifier : ${faux.map(k => LIBELLE_IP[k]).join(', ')}.`
+        : 'Réglages envoyés à l’automate : conformes au synoptique. Vérifie au ping depuis la loge.');
+      evaluate();
+    },
+
+    reseauPing(ip) {
+      const { tp, st, sim } = get();
+      if (!tp.reseau) return '';
+      const e = etatReseau(tp, st, reseauEnService(st, sim));
+      const r = pingReseau(tp.reseau, e, ip);
+      const cible = tp.reseau.automate.attendu.ip;
+      if (st.stage === ETAPE.MISE_EN_SERVICE && ip.trim() === cible && r.r === 'ok' && !st.reseau?.pingOk) {
+        patch(x => ({ ...x, reseau: { ...(x.reseau ?? {}), pingOk: true } }));
+        mlog(`ping ${cible} depuis la loge : envoyés 4, reçus 4, perdus 0.`);
+        say('L’automate répond depuis la loge : la mise en service est validée.');
+      }
+      evaluate();
+      return r.texte;
+    },
+
+    reseauReleve(r) {
+      const { tp, st, attemptId, offline } = get();
+      const stage = st.stage === ETAPE.HORS ? 'horsTension' : st.stage === ETAPE.SOUS ? 'sousTension' : null;
+      const m = stage ? tp.mesures.find(x => x.stage === stage && x.instrument === r.instrument && x.dial === r.dial
+        && (x.a == null || (x.a === r.a && (x.b == null || x.b === r.b)) || (x.a === r.b && x.b === r.a))) : undefined;
+      const valide = m && r.value >= m.min && r.value <= m.max && !st.readings.some(x => x.expectedId === m.id);
+      const entry: ReadingRecord = {
+        instrument: r.instrument, dial: r.dial, a: r.a, b: r.b, value: r.value, display: r.display,
+        stage: st.stage, at: new Date().toISOString(), expectedId: valide ? m!.id : undefined,
+      };
+      patch(x => ({ ...x, readings: [...x.readings, entry] }));
+      if (valide) { mlog(`✔ ${m!.title} : ${r.display}`); say(`Mesure validée : ${m!.title}`); }
+      else mlog(`Relevé : ${r.dial} ${r.a ?? ''} ${r.b ?? ''} = ${r.display}`.replace(/\s+/g, ' '));
+      if (attemptId && !offline) void addMeasurement(attemptId, measurementOf(entry)).catch(() => set({ offline: true }));
+    },
+
+    reseauNoterTest(obs, prevision, verdict) {
+      const { tp, st } = get();
+      if (!tp.reseau || !st.fault) return;
+      const vise = get().mes.vise;
+      if (!vise) { say('Vise d’abord une hypothèse.'); return; }
+      const e = etatReseau(tp, st, true);
+      const lu = observer(tp, e, obs);
+      const impose = verdictReseau(tp, st.fault, vise, obs);
+      const entry: HypTest = {
+        id: vise,
+        instrument: 'net',
+        // le libellé de la vérification, lisible dans le bilan et le rapport
+        dial: observations(tp).find(o => o.id === obs)?.label ?? obs,
+        attendu: prevision,
+        lu: lu.court,
+        value: null,
+        verdict: impose,
+        prevu: (prevision === 'ok') === obsConforme(tp, obs, lu),
+        departage: departageReseau(tp, st.fault, st.hypotheses, obs),
+        at: new Date().toISOString(),
+      };
+      patch(x => ({ ...x, hypTests: [...x.hypTests, entry] }));
+      const titre = tp.faults.find(f => f.id === vise)?.title ?? vise;
+      say(impose !== verdict
+        ? `L’observation ne permet pas de conclure ça : « ${titre} » ${impose === 'out' ? 'est au contraire écartée' : 'reste possible'}.`
+        : `${titre} ${impose === 'out' ? 'éliminée' : 'retenue'} — verdict cohérent avec l’observation.`);
+      set(s => ({ mes: { ...s.mes, vise: '', prevision: '' } }));
+    },
   };
 });
