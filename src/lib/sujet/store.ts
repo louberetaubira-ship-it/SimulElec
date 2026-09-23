@@ -32,16 +32,23 @@ export function isSujetState(s: unknown): s is SujetAttemptState {
   return !!s && typeof s === 'object' && (s as { kind?: unknown }).kind === 'sujet';
 }
 
-export function etatInitial(sujetId: string, mode: SujetMode = 'entrainement'): SujetAttemptState {
+export function etatInitial(sujetId: string, mode: SujetMode = 'entrainement', courante = 1): SujetAttemptState {
   return {
-    kind: 'sujet', sujetId, mode, courante: 1, reponses: {}, marquees: [],
+    kind: 'sujet', sujetId, mode, courante, reponses: {}, marquees: [],
     debut: null, secondesEcoulees: 0, remise: false, remiseAt: null, corrections: {}, annotations: {},
   };
 }
 
+/**
+ * État vierge d'une copie : question courante = première question du sujet (un sujet
+ * thématique commence à Q14, pas à Q1 : la numérotation du papier est conservée).
+ */
+export const etatVierge = (sujet: SujetNumerique): SujetAttemptState =>
+  etatInitial(sujet.id, 'entrainement', sujet.questions[0]?.num ?? 1);
+
 /** Complète un état lu en base ou dans le stockage local (champs manquants, question courante valide). */
 export function normaliserEtat(s: Partial<SujetAttemptState>, sujet: SujetNumerique): SujetAttemptState {
-  const base = etatInitial(sujet.id);
+  const base = etatVierge(sujet);
   const nums = new Set(sujet.questions.map(q => q.num));
   const courante = typeof s.courante === 'number' && nums.has(s.courante) ? s.courante : (sujet.questions[0]?.num ?? 1);
   return {
@@ -234,12 +241,12 @@ export const useSujet = create<SujetStore>((set, get) => {
     async init(sujet) {
       if (saveTimer) clearTimeout(saveTimer);
       set({
-        sujet, st: etatInitial(sujet.id), ecoule: 0, attemptId: null, chargement: true, horsLigne: false, local: DEMO,
+        sujet, st: etatVierge(sujet), ecoule: 0, attemptId: null, chargement: true, horsLigne: false, local: DEMO,
         verrou: null, modeImpose: null, alerte: null, vue: 'questions', revelees: [], dtrOuvert: false,
         page: pageDe(sujet, sujet.questions[0]?.num ?? 1),
       });
 
-      let st = etatInitial(sujet.id);
+      let st = etatVierge(sujet);
       let verrou: SujetStore['verrou'] = null;
       let attemptId: string | null = null;
       let modeImpose: SujetMode | null = null;

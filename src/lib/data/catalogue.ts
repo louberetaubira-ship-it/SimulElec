@@ -620,7 +620,7 @@ export const CATALOGUE: CatalogueItem[] = [
       { id: 'L2', fx: 0.3, fy: 0.93 }, { id: 'N2', fx: 0.7, fy: 0.93 },
     ],
   }),
-  // ---- CGM 2021 · EIP du lycée Mireille Grenet (TP platine des questions Q13, Q58, Q67) ----
+  // ---- Sujet numérique EIP (TP platine des questions Q13, Q58, Q67) ----
   //
   // Sprites dessinés d'après les documents du sujet (DTR 5, DTR 6, DTR 20, schémas corrigés) :
   // la face et le repérage des bornes sont ceux du dossier, la photo constructeur n'étant pas

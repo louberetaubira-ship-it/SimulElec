@@ -24,9 +24,9 @@ import { TP_ECOBIKE_PORTAIL } from './ecobike-portail';
 import { TP_ECOBIKE_KNX } from './ecobike-knx';
 import { TP_ECOBIKE_PV } from './ecobike-pv';
 import { TP_ECOBIKE_RESEAU } from './ecobike-reseau';
-import { TP_CGM2021_Q13_CUMULUS } from './cgm2021-q13-cumulus';
-import { TP_CGM2021_Q58_MYHOME } from './cgm2021-q58-myhome';
-import { TP_CGM2021_Q67_VIGIK } from './cgm2021-q67-vigik';
+import { TP_EIP_Q13_CUMULUS } from './eip-q13-cumulus';
+import { TP_EIP_Q58_MYHOME } from './eip-q58-myhome';
+import { TP_EIP_Q67_VIGIK } from './eip-q67-vigik';
 
 export const TPS: TpDefinition[] = [
   TP_PERCEUSE_RADIALE,
@@ -40,11 +40,11 @@ export const TPS: TpDefinition[] = [
   TP_ECOBIKE_KNX,
   TP_ECOBIKE_PV,
   TP_ECOBIKE_RESEAU,
-  // TP de service du sujet numérique CGM 2021 (mode « câblage réel » des questions Q13, Q58
-  // et Q67) : `hidden`, absents du catalogue, joués depuis `/sujet/cgm2021-eip`.
-  TP_CGM2021_Q13_CUMULUS,
-  TP_CGM2021_Q58_MYHOME,
-  TP_CGM2021_Q67_VIGIK,
+  // TP de service du sujet numérique EIP (mode « câblage réel » des questions Q13, Q58
+  // et Q67) : `hidden`, absents du catalogue, joués depuis `/sujet/eip` et ses sujets thématiques.
+  TP_EIP_Q13_CUMULUS,
+  TP_EIP_Q58_MYHOME,
+  TP_EIP_Q67_VIGIK,
 ];
 
 /**
@@ -66,5 +66,5 @@ export const estTpCache = (id: string): boolean => TP_BY_ID[id]?.hidden === true
 export {
   TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_PORTAIL, TP_SOLAIRE_AUTONOME, TP_KNX_TERTIAIRE,
   TP_STATION_RELEVAGE, TP_ECOBIKE_PORTAIL, TP_ECOBIKE_KNX, TP_ECOBIKE_PV, TP_ECOBIKE_RESEAU,
-  TP_CGM2021_Q13_CUMULUS, TP_CGM2021_Q58_MYHOME, TP_CGM2021_Q67_VIGIK,
+  TP_EIP_Q13_CUMULUS, TP_EIP_Q58_MYHOME, TP_EIP_Q67_VIGIK,
 };

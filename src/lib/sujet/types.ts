@@ -1,6 +1,6 @@
 /**
  * « Sujet numérique » : copie conforme, jouable dans l'application, d'un sujet
- * d'examen papier (Concours Général des Métiers, Bac Pro, BTS…).
+ * d'examen papier (Bac Pro, BTS…).
  *
  * Principe : tout ce que le sujet demande sur la feuille se fait à l'écran, avec le
  * même énoncé, les mêmes documents (DTR), le même ordre de questions. Chaque question
@@ -17,11 +17,11 @@ import type { DiplomaId } from '@/lib/data/competences';
 /* ───────────────────────────── Sujet ───────────────────────────── */
 
 export interface SujetNumerique {
-  /** Identifiant d'URL : `/sujet/<id>` et `attempts.tp_id`. Ex. `cgm2021-eip`. */
+  /** Identifiant d'URL : `/sujet/<id>` et `attempts.tp_id`. Ex. `eip`, `eip-eclairage`. */
   id: string;
-  /** « CGM Bac Pro MELEC 2021 — EIP du lycée Mireille Grenet ». */
+  /** Titre neutre, nommé par le contexte technique : « Espace d’innovation partagé (EIP) — rénovation électrique ». */
   titre: string;
-  /** Sous-titre court (session, établissement). */
+  /** Sous-titre court (nature de l'épreuve, diplôme, parties, durée) — jamais l'origine du sujet. */
   sousTitre: string;
   /** Diplôme de référence du barème par compétence. */
   diploma: DiplomaId;
@@ -37,12 +37,42 @@ export interface SujetNumerique {
   pagesSujet: DtrPage[];
   parties: SujetPartie[];
   questions: SujetQuestion[];
+  /** Nom court du dossier (« EIP ») : préfixe des sujets thématiques, regroupement au catalogue. */
+  nomCourt?: string;
+  /** Thèmes couverts (filtre du catalogue). Un sujet peut en porter plusieurs. */
+  themes?: ThemeSujet[];
+  /**
+   * Sujets thématiques tirés de ce dossier (une ou plusieurs parties jouées seules).
+   * Les questions ne sont pas dupliquées : `src/lib/sujet/declinaisons.ts` fabrique les
+   * sujets dérivés à partir de cette liste.
+   */
+  declinaisons?: DeclinaisonSujet[];
+  /** Sujet dérivé : identifiant du sujet complet dont il est tiré. */
+  parent?: string;
+}
+
+/** Thèmes normalisés des sujets (libellés, icônes et couleurs : `src/lib/sujet/themes.ts`). */
+export type ThemeSujet =
+  | 'securite' | 'eclairage' | 'domotique' | 'acces' | 'reseau' | 'pv' | 'automatisme' | 'moteur' | 'distribution';
+
+/** Déclinaison thématique d'un sujet : un sous-ensemble de ses parties, jouable seul. */
+export interface DeclinaisonSujet {
+  /** Identifiant complet du sujet dérivé (`/sujet/<id>`, `attempts.tp_id`) : `eip-eclairage`. */
+  id: string;
+  theme: ThemeSujet;
+  /** Titre du thème (« Éclairage LED de l’atelier ») ; le sujet dérivé le préfixe du nom court. */
+  titre: string;
+  sousTitre?: string;
+  /** Numéros des parties retenues (numérotation du sujet complet conservée). */
+  parties: number[];
+  /** Durée de l'épreuve thématique, en minutes. */
+  dureeMin: number;
 }
 
 export interface DtrPage {
   /** Numéro tel qu'imprimé (DTR 1 … 52). */
   num: number;
-  /** Chemin public de l'image (`/tp/cgm2021/dtr-07.jpg`). */
+  /** Chemin public de l'image (`/tp/eip/dtr-07.jpg`). */
   src: string;
   /** Titre court pour l'onglet / la table des matières. */
   titre: string;

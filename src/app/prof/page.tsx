@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import VisuTp from '@/components/prof/VisuTp';
 import VisuMes from '@/components/prof/VisuMes';
-import CouvertureDomaines from '@/components/prof/CouvertureDomaines';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { getMyProfile } from '@/lib/db/profiles';
@@ -18,9 +17,7 @@ import {
   type StudentBrief,
 } from '@/lib/db/classes';
 import { addMessage, closeAttempt, reopenAttempt, resetAttempt } from '@/lib/db/attempts';
-import { listMyTps, listTps, resolveDefinition, type TpRow, type TpSummary } from '@/lib/db/tps';
-import { couvertureClasse, resolveurClassement } from '@/lib/prof/couverture';
-import { CODES_DOMAINES } from '@/lib/taxonomy/domaines';
+import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import type { ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
 import {
@@ -31,6 +28,8 @@ import { STAGE_COUNT, modeOf } from '@/lib/sim/progress';
 import { liveBilan, liveEvaluation, liveNotes, type LiveBilan, type LiveNotes } from '@/lib/sim/live';
 import { noteSur20 } from '@/lib/eleve-stats';
 import { ONLINE_MS, presenceStats, formatDuree, type PresenceStat } from '@/lib/db/presence';
+import { TOUS_SUJETS, sujetById } from '@/lib/data/sujets';
+import { dureeLisible } from '@/lib/sujet/declinaisons';
 
 /** Nombre d'étapes du parcours. */
 // Nombre TOTAL d'étapes du parcours (12). On affiche « étapes validées / total » :
@@ -150,8 +149,6 @@ export default function ProfPage() {
   const [students, setStudents] = useState<StudentBrief[]>([]);
   const [attempts, setAttempts] = useState<AttemptWithStudent[]>([]);
   const [tps, setTps] = useState<TpSummary[]>([]);
-  // Lignes `tps` du professeur : classement par domaine des TP qu'il a rédigés.
-  const [myTps, setMyTps] = useState<TpRow[]>([]);
   const [newClass, setNewClass] = useState('');
   const [newLevel, setNewLevel] = useState('');
   const [assignChoice, setAssignChoice] = useState('');
@@ -182,7 +179,11 @@ export default function ProfPage() {
   }, [lastSeenOf, nowTs, clockOffset]);
 
   const current = useMemo(() => classes.find((c) => c.id === currentId) ?? null, [classes, currentId]);
-  const tpTitle = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
+  // Titres des TP et des sujets numériques (complets et thématiques), imposables de la même façon.
+  const tpTitle = useMemo(
+    () => new Map([...TOUS_SUJETS.map((s) => [s.id, s.titre] as const), ...tps.map((t) => [t.id, t.title] as const)]),
+    [tps],
+  );
 
   // Une tentative en cours n'a pas encore de `diploma` (rempli à la fin) : on retombe alors
   // sur le diplôme de la CLASSE, sinon le filtre « Bac Pro MELEC » cache une classe de Bac Pro.
@@ -245,18 +246,6 @@ export default function ProfPage() {
     return top ? top[0] : null;
   }, [visibleAttempts]);
 
-  // Couverture des domaines de la classe : élèves ayant terminé ≥ 1 TP de chaque domaine.
-  const resoudreClassement = useMemo(() => resolveurClassement(myTps), [myTps]);
-  const lignesDomaines = useMemo(() => {
-    const parDomaine = couvertureClasse(attempts, students.map((s) => s.id), resoudreClassement);
-    return CODES_DOMAINES.map((code) => ({
-      code,
-      valeur: parDomaine[code],
-      max: students.length,
-      detail: `${parDomaine[code]}/${students.length}`,
-    }));
-  }, [attempts, students, resoudreClassement]);
-
   const openedAttempt = useMemo(() => attempts.find((a) => a.id === openId) ?? null, [attempts, openId]);
   /** Tentative rejouée en lecture seule, et la définition de son TP. */
   const visuAttempt = useMemo(() => attempts.find((a) => a.id === visuId) ?? null, [attempts, visuId]);
@@ -267,14 +256,9 @@ export default function ProfPage() {
         const p = await getMyProfile();
         setProfile(p);
         if (p && (p.role === 'professeur' || p.role === 'admin')) {
-          const [cs, ts, mine] = await Promise.all([
-            listMyClasses(),
-            listTps(),
-            listMyTps().catch(() => [] as TpRow[]),
-          ]);
+          const [cs, ts] = await Promise.all([listMyClasses(), listTps()]);
           setClasses(cs);
           setTps(ts);
-          setMyTps(mine);
           setAssignChoice(ts[0]?.id ?? '');
           setCurrentId(cs[0]?.id ?? null);
         }
@@ -422,12 +406,20 @@ export default function ProfPage() {
   async function onAssign() {
     if (!currentId || !assignChoice) return;
     setErr(null); setMsg(null);
+    const sujet = sujetById(assignChoice);
+    const quoi = sujet ? 'Sujet imposé' : 'TP attribué';
     try {
       await assignTp(currentId, assignChoice, null, assignMode === 'libre' ? null : assignMode);
       setMsg(assignMode === 'libre'
-        ? 'TP attribué (chaque élève choisit son mode).'
-        : `TP attribué en mode ${assignMode === 'evaluation' ? 'évaluation' : 'entraînement'}.`);
-    } catch (e) { setErr(e instanceof Error ? e.message : 'Erreur'); }
+        ? `${quoi} (chaque élève choisit son mode).`
+        : `${quoi} en mode ${assignMode === 'evaluation' ? (sujet ? 'examen' : 'évaluation') : 'entraînement'}.`);
+    } catch (e) {
+      const m = e instanceof Error ? e.message : 'Erreur';
+      // Base sans la migration 0015 : `assignments.tp_id` n'accepte encore que les TP de la table `tps`.
+      setErr(sujet && /foreign key|violates/i.test(m)
+        ? 'Imposition impossible : la migration 0015 (sujets numériques imposables) n’est pas appliquée sur la base.'
+        : m);
+    }
   }
 
   async function sendRemediation(a: AttemptWithStudent, bilan: LiveBilan) {
@@ -533,13 +525,20 @@ export default function ProfPage() {
             <div className="flex flex-wrap gap-2 border-t border-[#D3D9E1] pt-3">
               <select value={assignChoice} onChange={(e) => setAssignChoice(e.target.value)}
                 className="min-h-[44px] flex-1 rounded-lg border border-[#D3D9E1] px-3 text-sm">
-                {tps.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                <optgroup label="Travaux pratiques">
+                  {tps.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                </optgroup>
+                <optgroup label="Sujets d'examen numériques (complets et thématiques)">
+                  {TOUS_SUJETS.map((s) => (
+                    <option key={s.id} value={s.id}>{s.parent ? '— ' : ''}{s.titre} ({dureeLisible(s.dureeMin)})</option>
+                  ))}
+                </optgroup>
               </select>
               <select value={assignMode} onChange={(e) => setAssignMode(e.target.value as 'libre' | 'entrainement' | 'evaluation')}
                 aria-label="Mode imposé" className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-3 text-sm">
                 <option value="libre">Mode au choix de l&apos;élève</option>
                 <option value="entrainement">Entraînement imposé</option>
-                <option value="evaluation">Évaluation imposée</option>
+                <option value="evaluation">Évaluation imposée (sujet : mode examen)</option>
               </select>
               <button onClick={onAssign} className="min-h-[44px] rounded-lg border border-[#D3D9E1] px-4 text-sm font-semibold">
                 Attribuer à {current.name}
@@ -647,13 +646,23 @@ export default function ProfPage() {
                           </div>
                         </td>
                         <td className="px-4 py-3.5">
-                          <div className="text-[13px] text-[#66717F]">{a.tp_id}</div>
-                          <div className="font-[var(--font-mono)] text-[13.5px] font-bold">
-                            {termine ? ETAPES : a.stage}<span className="text-[#94A3B8]">/{ETAPES}</span>
-                          </div>
-                          <div className="mt-1.5 h-[5px] w-[72px] overflow-hidden rounded-full bg-[#E7EAEF]">
-                            <div className="h-full rounded-full bg-[#E39A00]" style={{ width: `${Math.min(100, ((termine ? ETAPES : a.stage) / ETAPES) * 100)}%` }} />
-                          </div>
+                          <div className="text-[13px] text-[#66717F]">{tpTitle.get(a.tp_id) ?? a.tp_id}</div>
+                          {(() => {
+                            // Sujet numérique : `stage` = questions répondues (sur le nombre de questions du sujet).
+                            const sj = sujetById(a.tp_id);
+                            const total = sj ? sj.questions.length : ETAPES;
+                            const fait = sj ? a.stage : termine ? ETAPES : a.stage;
+                            return (
+                              <>
+                                <div className="font-[var(--font-mono)] text-[13.5px] font-bold">
+                                  {fait}<span className="text-[#94A3B8]">/{total}{sj ? ' rép.' : ''}</span>
+                                </div>
+                                <div className="mt-1.5 h-[5px] w-[72px] overflow-hidden rounded-full bg-[#E7EAEF]">
+                                  <div className="h-full rounded-full bg-[#E39A00]" style={{ width: `${Math.min(100, (fait / total) * 100)}%` }} />
+                                </div>
+                              </>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2.5">
@@ -728,11 +737,19 @@ export default function ProfPage() {
                                 Réinitialiser
                               </button>
                             )}
+                            {sujetById(a.tp_id) ? (
+                              <Link href={`/prof/sujet/${a.tp_id}?copie=${a.id}`}
+                                title="Ouvrir la copie du sujet numérique (validation, bilan)"
+                                className="rounded-lg border border-[#1f6feb] bg-[#1f6feb0f] px-3 py-2 text-[12.5px] font-bold text-[#1f6feb]">
+                                📝 Copie
+                              </Link>
+                            ) : (
                             <button onClick={() => setVisuId(a.id)}
                               title="Rejouer le TP de l'élève en lecture seule"
                               className="rounded-lg border border-[#1f6feb] bg-[#1f6feb0f] px-3 py-2 text-[12.5px] font-bold text-[#1f6feb]">
                               🔧 Visualiser
                             </button>
+                            )}
                             <button onClick={() => setOpenId(a.id)}
                               className="rounded-lg border border-[#D3D9E1] bg-white px-3 py-2 text-[12.5px] font-bold hover:border-[#E39A00] hover:text-[#B45309]">
                               Détail
@@ -762,20 +779,6 @@ export default function ProfPage() {
             ))}
             <span className="ml-auto"><b>prov.</b> = étapes faites · <b>projetée</b> = si arrêt maintenant</span>
           </div>
-
-          {/* Couverture des domaines professionnels par la classe */}
-          <section className="mt-4 rounded-2xl border border-[#E7EAEF] bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,.05)]">
-            <div className="mb-3 flex flex-wrap items-baseline gap-2">
-              <h2 className="text-[11px] font-bold uppercase tracking-[.06em] text-[#94A3B8]">
-                Domaines couverts — {current.name}
-              </h2>
-              <span className="ml-auto text-[12px] text-[#66717F]">élèves ayant terminé au moins un TP du domaine</span>
-            </div>
-            <CouvertureDomaines
-              lignes={students.length > 0 ? lignesDomaines : []}
-              vide="Aucun élève dans cette classe."
-            />
-          </section>
         </>
       )}
 

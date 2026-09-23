@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { SUJETS, sujetById } from '@/lib/data/sujets';
+import { TOUS_SUJETS, sujetById } from '@/lib/data/sujets';
 import SujetClient from './SujetClient';
 
-/** Les sujets numériques sont des fichiers de données : pages pré-rendues, id inconnu → 404. */
+/**
+ * Les sujets numériques sont des fichiers de données : pages pré-rendues pour les sujets
+ * complets et leurs sujets thématiques, id inconnu → 404.
+ */
 export function generateStaticParams() {
-  return SUJETS.map(s => ({ id: s.id }));
+  return TOUS_SUJETS.map(s => ({ id: s.id }));
 }
 
 export function generateMetadata({ params }: { params: { id: string } }): Metadata {

@@ -98,7 +98,7 @@ export default function DtrViewer({ onFermer }: { onFermer?: () => void }) {
         <button type="button" onClick={() => decaler(-1)} disabled={idx <= 0} className="grid h-8 w-8 place-items-center rounded-md bg-[#3C4654] disabled:opacity-40" aria-label="Page précédente">◂</button>
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold text-white" data-dtr-titre>
-            {nom(page)}{page.kind === 'dtr' ? ` / ${sujet.dtr.length}` : ''} · {cur?.titre ?? ''}
+            {nom(page)} · {cur?.titre ?? ''}
           </div>
         </div>
         <button type="button" onClick={() => decaler(1)} disabled={idx >= liste.length - 1} className="grid h-8 w-8 place-items-center rounded-md bg-[#3C4654] disabled:opacity-40" aria-label="Page suivante">▸</button>

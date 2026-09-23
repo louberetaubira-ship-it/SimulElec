@@ -1,5 +1,5 @@
 /**
- * Modèles de fonctionnement des TP platine du sujet numérique CGM 2021 (mode « câblage réel »).
+ * Modèles de fonctionnement des TP platine du sujet numérique EIP (mode « câblage réel »).
  *
  * Le moteur du parcours (`src/lib/sim/`) sait ce que valent les mesures ; il ne sait pas
  * dire si l'horloge enclenche le contacteur, si l'actionneur allume la lampe ou si le relais
@@ -147,7 +147,7 @@ const base = (tp: TpDefinition, st: AttemptState, sim: SimState, organes: string
 /* ------------------------------------------------------------ Q13 · cumulus */
 
 const Q13: ModelePlatine = {
-  tpId: 'cgm2021-q13-cumulus',
+  tpId: 'eip-q13-cumulus',
   organes: () => [
     { id: 'q1', label: 'Q7 · protection du contacteur et du chauffe-eau' },
     { id: 'f2', label: 'Q6 · protection de l’horloge' },
@@ -203,7 +203,7 @@ const ACT = ['ka1', 'ka4', 'ka5', 'ka2', 'ka3', 'cad'];
 const VOLETS = ['v1', 'v2', 'v3', 'v4', 'v5'];
 
 const Q58: ModelePlatine = {
-  tpId: 'cgm2021-q58-myhome',
+  tpId: 'eip-q58-myhome',
   organes: () => [
     { id: 'q1', label: 'Q1 · tête du tableau (40 A 30 mA)' },
     { id: 'f2', label: 'Q2 · alimentation du bus AL1' },
@@ -288,7 +288,7 @@ const Q58: ModelePlatine = {
 /* ------------------------------------------------------------ Q67 · VIGIK */
 
 const Q67: ModelePlatine = {
-  tpId: 'cgm2021-q67-vigik',
+  tpId: 'eip-q67-vigik',
   organes: () => [
     { id: 'q1', label: 'Q100 · départ du tableau' },
     { id: 'f2', label: 'Q10 · alimentation de la centrale (AL2)' },

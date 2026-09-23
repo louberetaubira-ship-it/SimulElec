@@ -8,6 +8,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { estRepondue } from '@/lib/sujet/correction';
 import { fmtDuree, useSujet } from '@/lib/sujet/store';
+import { THEMES } from '@/lib/sujet/themes';
 import type { SujetMode } from '@/lib/sujet/types';
 import Texte from './Texte';
 import { BOUTON_FORT } from './outils';
@@ -27,6 +28,9 @@ export default function Accueil({ onEntrer, lienProf }: { onEntrer: () => void; 
   };
 
   const lancer = () => { if (!enCours) demarrer(mode); onEntrer(); };
+  const theme = sujet.parent && sujet.themes?.[0] ? THEMES[sujet.themes[0]] : null;
+  const nums = sujet.questions.map(q => q.num);
+  const points = sujet.questions.reduce((a, q) => a + q.points, 0);
 
   return (
     <div className="mx-auto max-w-[1100px] px-4 py-6" data-accueil>
@@ -34,14 +38,29 @@ export default function Accueil({ onEntrer, lienProf }: { onEntrer: () => void; 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <div className="space-y-4">
           <header>
-            <div className="font-title text-[12px] font-semibold uppercase tracking-[.14em] text-accent">Sujet d’examen numérique · {sujet.sousTitre}</div>
+            {theme ? (
+              <div className="font-title text-[12px] font-semibold uppercase tracking-[.14em]" style={{ color: theme.couleur }} data-theme-sujet={sujet.themes?.[0]}>
+                {theme.icone} Sujet thématique · {theme.label}
+              </div>
+            ) : (
+              <div className="font-title text-[12px] font-semibold uppercase tracking-[.14em] text-accent">{sujet.sousTitre}</div>
+            )}
             <h1 className="font-title text-[34px] font-bold leading-tight">{sujet.titre}</h1>
+            {theme && <p className="text-[14px] text-muted">{sujet.sousTitre}</p>}
             <div className="mt-2 flex flex-wrap gap-1.5 text-[12px]">
               <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">⏱ {fmtDuree(sujet.dureeMin * 60)}</span>
-              <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">{sujet.questions.length} questions</span>
-              <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">{sujet.parties.length} parties</span>
+              <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">
+                {sujet.questions.length} questions{nums.length ? ` · Q${Math.min(...nums)} → Q${Math.max(...nums)}` : ''}
+              </span>
+              <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">{points} points</span>
+              <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">{sujet.parties.length} partie{sujet.parties.length > 1 ? 's' : ''}</span>
               <span className="rounded-full bg-surface2 px-2.5 py-0.5 font-semibold">DTR {sujet.dtr.length} pages</span>
             </div>
+            {sujet.parent && (
+              <p className="mt-2 text-[12.5px] text-muted">
+                Tiré du sujet complet — <Link href={`/sujet/${sujet.parent}`} className="font-semibold underline">ouvrir le sujet complet</Link>. Copie, chrono et bilan propres à ce thème.
+              </p>
+            )}
           </header>
 
           {sujet.consignes.length > 0 && (

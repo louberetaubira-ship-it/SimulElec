@@ -18,7 +18,11 @@ import { isSujetState, lireLocal, ecrireLocal } from './store';
 
 export interface CopieSujet {
   id: string;
+  /** Sujet de la copie (sujet complet ou thématique). */
+  sujetId: string;
   status: AttemptRow['status'];
+  /** Nombre de questions répondues (`attempts.stage`, tenu à jour par le store élève). */
+  repondues: number;
   score: number | null;
   updated_at: string;
   state: SujetAttemptState | null;
@@ -33,30 +37,39 @@ export async function listCopiesSujet(sujetId: string, demo: boolean): Promise<C
     const c = lireLocal(sujetId);
     if (!c) return [];
     return [{
-      id: ID_LOCAL, status: c.status, score: c.score, updated_at: c.updated_at, state: c.state,
+      id: ID_LOCAL, sujetId, status: c.status, score: c.score, updated_at: c.updated_at, state: c.state,
+      repondues: Object.keys(c.state.reponses).length,
       eleve: { id: ID_LOCAL, nom: 'Élève (copie de démonstration de ce navigateur)', class_id: null },
     }];
   }
   const supabase = createClient();
   const { data, error } = await supabase
     .from('attempts')
-    .select('id, status, score, updated_at, state, student:profiles!inner(id, full_name, email, class_id)')
+    .select('id, status, score, stage, updated_at, state, student:profiles!inner(id, full_name, email, class_id)')
     .eq('tp_id', sujetId)
     .neq('status', 'abandonne')
     .order('updated_at', { ascending: false });
   if (error) throw new Error(error.message);
   type Ligne = {
-    id: string; status: AttemptRow['status']; score: number | null; updated_at: string; state: unknown;
+    id: string; status: AttemptRow['status']; score: number | null; stage: number | null; updated_at: string; state: unknown;
     student: { id: string; full_name: string | null; email: string | null; class_id: string | null } | null;
   };
   return ((data ?? []) as unknown as Ligne[]).map(l => ({
     id: l.id,
+    sujetId,
     status: l.status,
+    repondues: l.stage ?? 0,
     score: l.score,
     updated_at: l.updated_at,
     state: isSujetState(l.state) ? l.state : null,
     eleve: { id: l.student?.id ?? '', nom: l.student?.full_name ?? l.student?.email ?? 'Élève', class_id: l.student?.class_id ?? null },
   }));
+}
+
+/** Copies de plusieurs sujets à la fois : le sujet complet d'un dossier et ses sujets thématiques. */
+export async function listCopiesSujets(sujetIds: string[], demo: boolean): Promise<CopieSujet[]> {
+  const listes = await Promise.all(sujetIds.map(id => listCopiesSujet(id, demo)));
+  return listes.flat();
 }
 
 /** Enregistre la validation du professeur (corrections, annotations, note /100, grille). */

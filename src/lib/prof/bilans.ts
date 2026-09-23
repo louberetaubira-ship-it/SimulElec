@@ -10,6 +10,7 @@
 import type { AttemptRow } from '../db/types';
 import type { CompetenceEval, DiplomaId } from '../data/competences';
 import { tpById } from '../data/tps';
+import { sujetById } from '../data/sujets';
 import { buildEvaluation, normalizeState } from '../sim/progress';
 import { buildMesEvaluation, normalizeMesState, type MesState } from '../mes/miseEnService';
 
@@ -42,6 +43,9 @@ export function resolveEvaluation(a: AttemptRow, diploma?: DiplomaId): Competenc
   const stored = a.evaluation ?? [];
   if (!diploma) return stored;
   if (stored.some((c) => c.mastery !== 'nonEvalue') && a.diploma === diploma) return stored;
+  // Sujet numérique (complet ou thématique) : la grille est celle écrite à la remise / validation
+  // (compétences des seules questions du sujet), dans le référentiel du sujet.
+  if (sujetById(a.tp_id)) return stored;
   const tp = tpById(a.tp_id);
   if (!tp || !tp.playable || tp.kind === 'dimensionnement' || !a.state) return stored;
   // mise en service : état propre au parcours, grille recalculée dans le référentiel demandé
