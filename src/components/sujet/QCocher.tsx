@@ -1,11 +1,11 @@
 'use client';
 /** Outil « cocher » : QCM simple (bouton radio) ou choix multiple (cases). */
-import type { OutilProps } from './outils';
+import { verdict, type OutilProps } from './outils';
 import Texte from './Texte';
 
-export default function QCocher({ q, r, onChange, readOnly, montrer }: OutilProps<'cocher'>) {
+export default function QCocher({ q, r, onChange, readOnly, correction }: OutilProps<'cocher'>) {
   const choix = r?.choix ?? [];
-  const multiple = !!q.multiple || q.bonnes.length > 1;
+  const multiple = !!q.multiple;
   const basculer = (i: number) => {
     if (readOnly) return;
     const next = multiple
@@ -20,8 +20,9 @@ export default function QCocher({ q, r, onChange, readOnly, montrer }: OutilProp
       </legend>
       {q.options.map((o, i) => {
         const coche = choix.includes(i);
-        const juste = q.bonnes.includes(i);
-        const etat = montrer && coche ? (juste ? 'border-good bg-good/10' : 'border-crit bg-crit/10') : coche ? 'border-accent bg-accent/10' : 'border-line bg-surface';
+        // Verdict des seules cases cochées (correction serveur) : les bonnes cases non cochées restent secrètes.
+        const juste = coche ? verdict(correction, String(i)) : null;
+        const etat = juste != null ? (juste ? 'border-good bg-good/10' : 'border-crit bg-crit/10') : coche ? 'border-accent bg-accent/10' : 'border-line bg-surface';
         return (
           <label
             key={i}

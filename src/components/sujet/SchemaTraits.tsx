@@ -9,11 +9,14 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import type { SchemaTraitsDef, TraitPose } from '@/lib/sujet/types';
-import { cleLiaison, type EtatTraits } from '@/lib/sujet/correction';
+import type { SchemaTraitsPublic } from '@/lib/sujet/public';
+import { cleLiaison } from '@/lib/sujet/correction-base';
+import type { EtatTraits } from '@/lib/sujet/correction';
 import { BOUTON } from './outils';
 
 interface Props {
-  def: SchemaTraitsDef;
+  /** Définition publique (sans liaisons attendues) ; les attendues ne servent qu'à la vue professeur. */
+  def: SchemaTraitsPublic & Partial<Pick<SchemaTraitsDef, 'attendues' | 'reseaux'>>;
   traits: TraitPose[];
   onChange?: (t: TraitPose[]) => void;
   readOnly: boolean;
@@ -78,7 +81,7 @@ export default function SchemaTraits({ def, traits, onChange, readOnly, verif, c
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={def.image.src} alt={def.image.alt} className="absolute inset-0 h-full w-full" draggable={false} />
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden>
-          {verif && def.attendues.filter(l => verif.manquantes.has(cleLiaison(l.a, l.b))).map((l, i) => {
+          {verif && (def.attendues ?? []).filter(l => verif.manquantes.has(cleLiaison(l.a, l.b))).map((l, i) => {
             const a = px(l.a); const b = px(l.b);
             if (!a || !b) return null;
             return <line key={`m${i}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={l.couleur ? css.get(l.couleur) ?? '#66717F' : '#66717F'}
@@ -177,7 +180,7 @@ export default function SchemaTraits({ def, traits, onChange, readOnly, verif, c
           {verif.mauvaiseCouleur.size > 0 && <span><b className="text-accent-ink">{verif.mauvaiseCouleur.size}</b> de mauvaise couleur (½)</span>}
           {verif.fausses.size > 0 && <span><b className="text-crit">{verif.fausses.size}</b> fausse{verif.fausses.size > 1 ? 's' : ''} (en pointillé rouge)</span>}
           {verif.manquantes.size > 0 && <span><b>{verif.manquantes.size}</b> manquante{verif.manquantes.size > 1 ? 's' : ''} (en pointillé)</span>}
-          <span className="text-muted">sur {verif.total} liaisons attendues</span>
+          {verif.total > 0 && <span className="text-muted">sur {verif.total} liaisons attendues</span>}
         </div>
       )}
       {traits.length > 0 && (

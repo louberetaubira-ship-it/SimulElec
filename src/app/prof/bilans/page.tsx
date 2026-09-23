@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { listClassAttempts, listClassStudents, listMyClasses, type AttemptWithStudent, type StudentBrief } from '@/lib/db/classes';
 import type { ClassRow } from '@/lib/db/types';
 import { TPS, tpById } from '@/lib/data/tps';
-import { sujetById } from '@/lib/data/sujets';
+import { metaSujet as sujetById } from '@/lib/sujet/meta';
 import { noteSur20 } from '@/lib/eleve-stats';
 import { diplomaShort } from '@/lib/student';
 import { COMPETENCES, niveauOf, NIVEAU_BILAN, NIVEAU_COLOR, NIVEAU_ON, type DiplomaId } from '@/lib/data/competences';
@@ -24,7 +24,7 @@ import {
 import { competenceAverages, competenceScoreMap, counted, resolveEvaluation, retainedNote, type NoteMode } from '@/lib/prof/bilans';
 
 const tpOrder = (id: string) => { const i = TPS.findIndex((t) => t.id === id); return i < 0 ? 999 : i; };
-// Un sujet numérique (complet ou thématique) n'est pas un TP : son titre vient de `TOUS_SUJETS`.
+// Un sujet numérique (complet ou thématique) n'est pas un TP : son titre vient de `META_SUJETS`.
 const tpName = (id: string) => tpById(id)?.title ?? sujetById(id)?.titre ?? id;
 const noteColor = (n: number) => (n >= 14 ? 'var(--good)' : n >= 10 ? 'var(--warn)' : 'var(--crit)');
 const fmt1 = (v: number) => (Math.round(v * 10) / 10).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });

@@ -1,11 +1,21 @@
 /**
  * Mise en forme lisible des réponses et des attendus (copie corrigée, vue professeur).
- * Module pur.
+ * Module pur et léger (importable côté client : pas de Compute Engine). Les saisies de l'éditeur
+ * de maths (LaTeX) sont transcrites en texte (`latexVersTexte`) ; les formules attendues
+ * s'affichent par leur `affichage`. Pour un rendu mathématique à l'écran : `Formule.tsx`.
  */
 
-import type { ChampValeur, QuestionBase, ReponseSujet, SujetQuestion, SujetQuestionType } from './types';
+import type { CelluleSaisie, ChampValeur, QuestionBase, ReponseSujet, SujetQuestion, SujetQuestionType } from './types';
 import { fmtNombre } from './normalize';
-import { cleCavalier, etatPlacement, nomReperes, resumePlacement } from './correction';
+import { cleCavalier, etatPlacement, nomReperes, resumePlacement } from './correction-base';
+import { latexVersTexte } from './formules-texte';
+
+/** Saisie d'un champ / d'une cellule en texte lisible (LaTeX transcrit pour l'éditeur de maths). */
+export function texteSaisie(v: string | undefined, c?: { formule?: unknown; saisie?: string; estFormule?: boolean }): string {
+  const t = (v ?? '').trim();
+  if (!t) return '';
+  return c && (c.formule != null || c.saisie === 'maths' || c.estFormule) ? latexVersTexte(t) : t;
+}
 
 /** Repère affiché d'une question : repère imprimé (« A.2.1.1 ») ou « Q12 ». */
 export const repere = (q: Pick<QuestionBase, 'num' | 'label'>): string => q.label ?? `Q${q.num}`;
@@ -32,7 +42,7 @@ export function sousSection(q: Pick<QuestionBase, 'label'>): string | null {
 
 /** Champs complémentaires (valeur, placement) : « Rendement : 97 % ». */
 const lignesChamps = (champs: ChampValeur[], v: Record<string, string>) =>
-  champs.map(c => `${c.label} : ${v[c.id]?.trim() || '—'}${c.unite && v[c.id]?.trim() ? ` ${c.unite}` : ''}`);
+  champs.map(c => `${c.label} : ${texteSaisie(v[c.id], c) || '—'}${c.unite && v[c.id]?.trim() ? ` ${c.unite}` : ''}`);
 
 /** Libellé de l'outil de réponse (badge de la question). */
 export const LIBELLE_OUTIL: Record<SujetQuestionType, string> = {
@@ -72,14 +82,14 @@ export function texteReponse(q: SujetQuestion, r: ReponseSujet | undefined): str
     case 'calcul': {
       const c = r as Extract<ReponseSujet, { type: 'calcul' }>;
       return [
-        `Formule : ${c.formule.trim() || '—'}`,
-        `Application : ${c.application.trim() || '—'}`,
+        `Formule : ${latexVersTexte(c.formule.trim()) || '—'}`,
+        `Application : ${latexVersTexte(c.application.trim()) || '—'}`,
         `Résultat : ${q.grandeur} = ${c.resultat.trim() || '—'}${q.unite ? ` ${q.unite}` : ''}`,
       ];
     }
     case 'tableau': {
       const cel = (r as Extract<ReponseSujet, { type: 'tableau' }>).cellules;
-      return q.lignes.map(l => l.cellules.map(c => (typeof c === 'string' ? c : cel[c.id]?.trim() || '—')).join(' | '));
+      return q.lignes.map(l => l.cellules.map(c => (typeof c === 'string' ? c : texteSaisie(cel[c.id], c) || '—')).join(' | '));
     }
     case 'redige':
       return (r as Extract<ReponseSujet, { type: 'redige' }>).texte.split('\n');
@@ -112,7 +122,8 @@ export function texteReponse(q: SujetQuestion, r: ReponseSujet | undefined): str
   }
 }
 
-const nombreOuTexte = (c: { attendu?: number; acceptes?: string[] }, unite?: string) => {
+const nombreOuTexte = (c: Pick<CelluleSaisie, 'attendu' | 'acceptes' | 'formule'>, unite?: string) => {
+  if (c.formule) return c.formule.affichage || c.acceptes?.[0] || latexVersTexte(c.formule.attendues[0] ?? '');
   if (c.acceptes && c.acceptes.length) return c.acceptes[0];
   if (c.attendu != null) return `${fmtNombre(c.attendu)}${unite ? ` ${unite}` : ''}`;
   return '(non noté)';
@@ -126,7 +137,7 @@ export function texteAttendu(q: SujetQuestion): string[] {
     case 'ordonner': return q.items.map((it, i) => `${q.rangs[i]} · ${it}`);
     case 'valeur': return q.champs.map(c => `${c.label} : ${nombreOuTexte(c, c.unite)}`);
     case 'calcul': return [
-      `Formule : ${q.formule}`,
+      `Formule : ${q.formuleSpec?.affichage || q.formule}`,
       `Résultat : ${q.grandeur} = ${fmtNombre(q.attendu)}${q.unite ? ` ${q.unite}` : ''}${q.arrondi ? ` (${q.arrondi})` : ''}`,
     ];
     case 'tableau': return q.lignes.map(l => l.cellules.map(c => (typeof c === 'string' ? c : nombreOuTexte(c))).join(' | '));

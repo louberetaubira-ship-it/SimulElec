@@ -22,7 +22,8 @@
  * Sujets thématiques : `declinaisons` (parties A à E ; la partie F n'est que dans le sujet complet).
  */
 import type {
-  CelluleSaisie, DeclinaisonSujet, DtrPage, QPlacement, QSchema, SujetNumerique, SujetPartie, SujetQuestion,
+  CelluleSaisie, DeclinaisonSujet, DtrPage, FormuleSpec, QPlacement, QSchema, SujetNumerique, SujetPartie,
+  SujetQuestion,
 } from '@/lib/sujet/types';
 
 const IMG = '/tp/scierie';
@@ -40,6 +41,11 @@ const txt = (id: string, acceptes: string[], placeholder?: string): CelluleSaisi
 const choix = (id: string, liste: string[], bonne: string): CelluleSaisie => ({ id, choix: liste, acceptes: [bonne] });
 /** Cellule libre non notée (formule, application, justification : lue par le professeur). */
 const libre = (id: string, placeholder = 'Justifier votre réponse…'): CelluleSaisie => ({ id, placeholder });
+/** Cellule « formule » : éditeur de maths, corrigée par équivalence mathématique. */
+const formule = (id: string, spec: FormuleSpec, placeholder?: string): CelluleSaisie =>
+  ({ id, formule: spec, ...(placeholder ? { placeholder } : {}) });
+/** Cellule « application numérique / calcul » : éditeur de maths, lue par le professeur (non notée). */
+const appli = (id: string, placeholder = 'Application numérique…'): CelluleSaisie => ({ id, placeholder, saisie: 'maths' });
 
 /** Plages de tension écrites de plusieurs façons (« 320 - 800 V », « 320 à 800 V »…). */
 const plage = (a: number, b: number, u = 'V') => [
@@ -435,6 +441,193 @@ const E343_TRAITS: QSchema['traits'] = {
   ],
 };
 
+/* ───────────────────────────── Formules (correction par équivalence) ───────────────────────────── */
+
+/*
+ * Formules attendues, en LaTeX (celui de l'éditeur de maths). Le moteur tire des valeurs dans les
+ * plages des `variables`, calcule les `derivees` (grandeurs liées ou simples alias de notation :
+ * `L` = `a`…), puis compare numériquement la formule de l'élève à chaque écriture de `attendues`.
+ * Les erreurs typiques de type « formule » sont exprimées avec les mêmes symboles.
+ */
+
+/** Angle φ d'un récepteur industriel (cos φ ≈ 0,36 à 0,98), en radians. */
+const PHI = { min: 0.2, max: 1.2 };
+
+/** A.2.1.1 : Q = P tan φ. φ′ n'intervient que pour reconnaître la formule de Qc (erreur typique). */
+const F_Q: FormuleSpec = {
+  attendues: ['P\\tan\\varphi', 'S\\sin\\varphi', '\\sqrt{3}UI\\sin\\varphi', '\\sqrt{S^2-P^2}'],
+  membreGauche: ['Q'],
+  variables: { P: { min: 1000, max: 500000 }, '\\varphi': PHI, "\\varphi'": { min: 0.05, max: 0.19 }, U: { min: 380, max: 420 } },
+  derivees: { S: '\\frac{P}{\\cos\\varphi}', I: '\\frac{S}{\\sqrt{3}U}' },
+  affichage: 'Q = P × tan φ',
+};
+
+/** A.2.1.2 : puissance active en triphasé. */
+const F_P3: FormuleSpec = {
+  attendues: ['\\sqrt{3}UI\\cos\\varphi', 'S\\cos\\varphi', '\\sqrt{S^2-Q^2}'],
+  membreGauche: ['P'],
+  variables: { U: { min: 380, max: 420 }, I: { min: 5, max: 200 }, '\\varphi': PHI },
+  derivees: { S: '\\sqrt{3}UI', Q: 'S\\sin\\varphi' },
+  affichage: 'P = √3 × U × I × cos φ',
+};
+
+/** A.2.2 : puissance apparente. */
+const F_S: FormuleSpec = {
+  attendues: ['\\sqrt{P^2+Q^2}', '\\frac{P}{\\cos\\varphi}', '\\frac{Q}{\\sin\\varphi}'],
+  membreGauche: ['S'],
+  variables: { P: { min: 10, max: 1000 }, '\\varphi': PHI },
+  derivees: { Q: 'P\\tan\\varphi' },
+  affichage: 'S = √(P² + Q²)',
+};
+
+/** A.2.2 : facteur de puissance. */
+const F_COS: FormuleSpec = {
+  attendues: ['\\frac{P}{S}', '\\frac{P}{\\sqrt{P^2+Q^2}}'],
+  membreGauche: ['\\cos\\varphi', '\\cos(\\varphi)', '\\cos\\left(\\varphi\\right)'],
+  variables: { P: { min: 10, max: 1000 }, '\\varphi': PHI },
+  derivees: { Q: 'P\\tan\\varphi', S: '\\frac{P}{\\cos\\varphi}' },
+  affichage: 'cos φ = P / S',
+};
+
+/** A.2.3 : puissance réactive à compenser (DTR 3). */
+const F_QC: FormuleSpec = {
+  attendues: ["P\\left(\\tan\\varphi-\\tan\\varphi'\\right)", "P\\tan\\varphi-P\\tan\\varphi'", "Q-P\\tan\\varphi'"],
+  membreGauche: ['Q_{c}'],
+  variables: { P: { min: 10, max: 1000 }, '\\varphi': { min: 0.5, max: 1.2 }, "\\varphi'": { min: 0.1, max: 0.45 } },
+  derivees: { Q: 'P\\tan\\varphi' },
+  affichage: 'Qc = P × (tan φ − tan φ′)',
+};
+
+/** A.2.4 : puissance réactive finale après compensation. */
+const F_QF: FormuleSpec = {
+  attendues: ['Q-Q_{c}'],
+  membreGauche: ['Q_{f}'],
+  variables: { Q: { min: 100, max: 1000 }, 'Q_{c}': { min: 10, max: 90 } },
+  affichage: 'Qf = Q − Qc',
+};
+
+/** A.2.4 : puissance apparente finale après compensation. */
+const F_SF: FormuleSpec = {
+  attendues: ['\\sqrt{P^2+Q_{f}^2}', '\\sqrt{P^2+\\left(Q-Q_{c}\\right)^2}'],
+  membreGauche: ['S_{f}'],
+  variables: { P: { min: 100, max: 1000 }, Q: { min: 100, max: 1000 }, 'Q_{c}': { min: 10, max: 90 } },
+  derivees: { 'Q_{f}': 'Q-Q_{c}' },
+  affichage: 'Sf = √(P² + Qf²)',
+};
+
+/** A.2.5, A.4.2 : intensité en triphasé. */
+const F_I3: FormuleSpec = {
+  attendues: ['\\frac{S}{\\sqrt{3}U}'],
+  membreGauche: ['I', 'I_{n}', 'I_{1}', 'I_{1n}', 'I_{p}', 'I_{a}'],
+  variables: { S: { min: 10000, max: 1000000 }, U: { min: 380, max: 20000 } },
+  affichage: 'I = S / (√3 × U)',
+};
+
+/** B.1.8 : indice du local (a, b : longueur, largeur ; h = ht − hu). `L`, `l` : alias de notation. */
+const F_K: FormuleSpec = {
+  attendues: ['\\frac{ab}{h\\left(a+b\\right)}', '\\frac{ab}{\\left(h_{t}-h_{u}\\right)\\left(a+b\\right)}'],
+  membreGauche: ['K', 'k'],
+  variables: { a: { min: 10, max: 60 }, b: { min: 5, max: 30 }, 'h_{t}': { min: 4, max: 12 }, 'h_{u}': { min: 0.5, max: 1.5 } },
+  derivees: { h: 'h_{t}-h_{u}', L: 'a', l: 'b' },
+  affichage: 'K = (a × b) / [h × (a + b)]',
+};
+
+/** B.1.11 : facteur d'utilisation (U : utilance en fraction). */
+const F_UTIL: FormuleSpec = {
+  attendues: ['\\eta U'],
+  membreGauche: ['u'],
+  variables: { '\\eta': { min: 0.5, max: 1 }, U: { min: 0.5, max: 1.3 } },
+  affichage: 'u = η × U',
+};
+
+/** B.1.12 : flux lumineux total (DTR 16). S = a × b ; `L`, `l` : alias de notation. */
+const F_FLUX: FormuleSpec = {
+  attendues: ['\\frac{ESd}{\\eta U}', '\\frac{ESd}{u}', '\\frac{Eabd}{\\eta U}'],
+  membreGauche: ['F', '\\Phi', 'F_{T}', '\\Phi_{T}'],
+  variables: {
+    E: { min: 100, max: 1000 }, a: { min: 10, max: 60 }, b: { min: 5, max: 30 }, d: { min: 1.1, max: 2 },
+    '\\eta': { min: 0.5, max: 1 }, U: { min: 0.5, max: 1.3 },
+  },
+  derivees: { S: 'ab', L: 'a', l: 'b', u: '\\eta U' },
+  affichage: 'F = (E × S × d) / (η × U)',
+};
+
+/** B.1.13 : flux d'un luminaire (k : efficacité lumineuse en lm/W ; η accepté comme notation). */
+const F_FLUX1: FormuleSpec = {
+  attendues: ['Pk'],
+  membreGauche: ['\\varphi', '\\Phi', 'F'],
+  variables: { P: { min: 10, max: 500 }, k: { min: 50, max: 200 } },
+  derivees: { '\\eta': 'k' },
+  affichage: 'φ = P × k',
+};
+
+/** B.1.14 : nombre de luminaires. */
+const F_N: FormuleSpec = {
+  attendues: ['\\frac{F}{\\varphi}'],
+  membreGauche: ['N'],
+  variables: { F: { min: 10000, max: 1000000 }, '\\varphi': { min: 1000, max: 50000 } },
+  derivees: { '\\Phi': '\\varphi' },
+  affichage: 'N = F / φ',
+};
+
+/** B.2.2 : coût de l'énergie (E en kWh, p : prix du kWh). */
+const F_COUT: FormuleSpec = {
+  attendues: ['Ep'],
+  variables: { E: { min: 1000, max: 20000 }, p: { min: 0.1, max: 0.3 } },
+  derivees: { W: 'E' },
+  affichage: 'Coût = E × p',
+};
+
+/** D.1.3 : débit total (Q₁ : centre d'usinage, Q₂ : corroyeuse). */
+const F_DEBIT: FormuleSpec = {
+  attendues: ['Q_{1}+Q_{2}'],
+  variables: { 'Q_{1}': { min: 50, max: 300 }, 'Q_{2}': { min: 50, max: 300 } },
+  affichage: 'Q = Q₁ + Q₂',
+};
+
+/** D.4.1 : énergie (t : durée annuelle = t_s heures par semaine × n semaines). */
+const F_E1: FormuleSpec = {
+  attendues: ['Pt', 'Pt_{s}n'],
+  membreGauche: ['E', 'W'],
+  variables: { P: { min: 1, max: 100 }, 't_{s}': { min: 5, max: 40 }, n: { min: 20, max: 52 } },
+  derivees: { t: 't_{s}n' },
+  affichage: 'E = P × t',
+};
+
+/** D.4.2 : énergie en petite et grande vitesse (durées annuelles ; P_PV = P_GV × f_PV / f_GV). */
+const F_E2: FormuleSpec = {
+  attendues: ['P_{PV}t_{PV}+P_{GV}t_{GV}', '\\frac{P_{GV}f_{PV}}{f_{GV}}t_{PV}+P_{GV}t_{GV}'],
+  membreGauche: ['E', 'W'],
+  variables: {
+    'P_{GV}': { min: 5, max: 100 }, 'f_{PV}': { min: 10, max: 45 }, 'f_{GV}': { min: 46, max: 60 },
+    't_{PV}': { min: 100, max: 1500 }, 't_{GV}': { min: 50, max: 500 },
+  },
+  derivees: { 'P_{PV}': '\\frac{P_{GV}f_{PV}}{f_{GV}}' },
+  affichage: 'E = P_PV × t_PV + P_GV × t_GV',
+};
+
+/** D.4.3 : gain énergétique (E₁ sans variateur, E₂ avec). */
+const F_GAIN: FormuleSpec = {
+  attendues: ['E_{1}-E_{2}'],
+  variables: { 'E_{1}': { min: 20000, max: 60000 }, 'E_{2}': { min: 5000, max: 19000 } },
+  affichage: 'Gain = E₁ − E₂',
+};
+
+/** D.4.4 : durée d'amortissement (C : coût, G : gain en kWh/an, p : prix du kWh). */
+const F_DUREE: FormuleSpec = {
+  attendues: ['\\frac{C}{Gp}'],
+  variables: { C: { min: 1000, max: 20000 }, G: { min: 1000, max: 20000 }, p: { min: 0.1, max: 0.3 } },
+  affichage: 'Durée = C / (G × p)',
+};
+
+/** E.3.3.2 : puissance « côté réseau » d'un panneau. */
+const F_PFIN: FormuleSpec = {
+  attendues: ['P_{NOCT}\\eta'],
+  variables: { 'P_{NOCT}': { min: 100, max: 600 }, '\\eta': { min: 0.9, max: 1 } },
+  derivees: { '\\eta_{max}': '\\eta', P: 'P_{NOCT}' },
+  affichage: 'P finale = P NOCT × ηMax',
+};
+
 /* ───────────────────────────── Questions ───────────────────────────── */
 
 /** A.2.1.2 : ligne du bilan des puissances (valeurs imprimées ou cellules à compléter). */
@@ -462,6 +655,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Ucc 4 %', choix('a1-ucc', PLAQUE, 'Tension de court-circuit en %')] },
     ],
     indice: 'Couplage « Dyn 11 » : D pour le primaire (majuscule, HTA), y pour le secondaire (minuscule, BT), n pour le neutre, 11 pour l’indice horaire.',
+    aides: [
+      'Regarde la plaque signalétique du transformateur (DTR 1, en bas de la page) : chaque inscription est une grandeur électrique ou un élément du couplage.',
+      'Laisse-toi guider par les unités : kVA, V, A et % ne désignent pas les mêmes grandeurs. Pour le couplage, la lettre majuscule concerne l’enroulement haute tension, la minuscule l’enroulement basse tension, « n » le neutre et le nombre l’indice horaire (déphasage par pas de 30°).',
+      'Forme de la réponse : pour chaque inscription, choisis dans la liste « Puissance … », « Tension … », « … couplé en … (HTA ou BT) », « Neutre … », « Indice horaire … », « Intensité … » ou « Tension de court-circuit … ».',
+    ],
+    erreursTypiques: [
+      { id: 'puissance-active', champ: 'a1-400', valeurs: ['Puissance active'], message: 'Une puissance exprimée en kVA n’est pas une puissance active (en kW) : regarde bien l’unité.' },
+      { id: 'primaire-secondaire', champ: 'a1-410', valeurs: ['Tension primaire'], message: 'Dans un transformateur abaisseur HTA/BT, le primaire est le côté haute tension : compare 20 000 V et 410 V.' },
+      { id: 'couplage-d', champ: 'a1-d', valeurs: ['Primaire couplé en étoile (HTA)', 'Secondaire couplé en triangle (BT)'], message: 'Revois la signification des lettres du couplage : D et Y ne désignent pas le même couplage, et la majuscule indique l’enroulement haute tension.' },
+    ],
     explication: '400 kVA : puissance apparente ; 20 000 V : tension primaire ; 410 V : tension secondaire ; D : primaire couplé en triangle (HTA) ; Y : secondaire couplé en étoile (BT) ; N : neutre sorti ; 11 : indice horaire 11 (11 × 30° = 330°) ; 563,3 A : intensité secondaire nominale ; Ucc 4 % : tension de court-circuit en %.',
   },
   {
@@ -469,7 +672,7 @@ const QUESTIONS: SujetQuestion[] = [
     enonce: 'Étude énergétique. À partir des documents ressources, **compléter** le bilan des puissances installées (on néglige l’éclairage des ateliers et l’équipement des bureaux). Arrondir les résultats à 3 chiffres significatifs.\n**Donner** la formule du calcul de la puissance réactive.',
     competence: 'C3', points: 1, dtr: [5], pageSujet: 7,
     champs: [{
-      id: 'q', label: 'Formule de la puissance réactive', placeholder: 'Q = …',
+      id: 'q', label: 'Formule de la puissance réactive', placeholder: 'Q = …', formule: F_Q,
       acceptes: [
         'Q = P x tan φ', 'Q = P × tan φ', 'Q = P tan φ', 'Q = P*tan φ', 'Q = P.tan φ', 'Q = P x tan(φ)', 'Q = P × tan(φ)',
         'P x tan φ', 'P × tan φ', 'P tan φ', 'Q = P x tg φ', 'Q = P x tan phi', 'Q = P tan phi', 'Q = P*tan(phi)',
@@ -478,6 +681,16 @@ const QUESTIONS: SujetQuestion[] = [
       ],
     }],
     indice: 'Relation entre puissance active, puissance réactive et tangente de φ (DTR 3).',
+    aides: [
+      'Relis le DTR 3 (compensation de l’énergie réactive) et ton cours sur les puissances en alternatif : le triangle des puissances P, Q, S.',
+      'Dans le triangle des puissances, P est le côté adjacent à l’angle φ, Q le côté opposé et S l’hypoténuse. Cherche la relation trigonométrique qui relie directement Q à P.',
+      'Forme de la réponse : Q = P × … (une fonction trigonométrique de φ). Q s’exprime en var quand P est en W.',
+    ],
+    erreursTypiques: [
+      { id: 'formule-qc', formule: 'P\\left(\\tan\\varphi-\\tan\\varphi\'\\right)', message: 'Ta formule calcule la puissance réactive à compenser Qc (question A.2.3). Ici, on demande la puissance réactive Q d’un récepteur.' },
+      { id: 'cos-au-lieu-de-tan', formule: 'P\\cos\\varphi', message: 'P × cos φ n’est pas une puissance réactive : revois quel côté du triangle des puissances est opposé à φ.' },
+      { id: 'monophase', formule: 'UI\\sin\\varphi', message: 'Q = U × I × sin φ n’est valable qu’en monophasé : les récepteurs de la scierie sont alimentés en triphasé.' },
+    ],
     explication: 'Q = P × tan φ.',
   },
   {
@@ -487,8 +700,8 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C3', points: 2, dtr: [4, 3], pageSujet: 8,
     colonnes: ['', 'Tailleuse', 'Centre d’usinage'],
     lignes: [
-      { cellules: ['Formule', libre('a212-f-tailleuse', 'P = …'), libre('a212-f-centre', 'P = …')] },
-      { cellules: ['Application', libre('a212-a-tailleuse', 'Application numérique…'), libre('a212-a-centre', 'Application numérique…')] },
+      { cellules: ['Formule', formule('a212-f-tailleuse', F_P3, 'P = …'), formule('a212-f-centre', F_P3, 'P = …')] },
+      { cellules: ['Application', appli('a212-a-tailleuse'), appli('a212-a-centre')] },
       { cellules: ['Résultat (kW)', num('a212-p-tailleuse', 38, 0.5, ['38 000 W', '38000 W']), num('a212-p-centre', 38, 0.5, ['38 000 W', '38000 W'])] },
       { cellules: ['**Récepteur**', '**Puissance active (kW)**', '**Puissance réactive (kvar)**'] },
       { cellules: ['**Bâtiment principal existant**', '', ''] },
@@ -518,6 +731,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: bilan('**Total de l’ensemble**', num('a212-tot-p', 454, 1), num('a212-tot-q', 275, 1.5)) },
     ],
     indice: 'P = U × I × cos φ × √3 pour la tailleuse et le centre d’usinage ; Q = P × tan φ pour chaque récepteur (cos φ au DTR 2). Une seule pompe hydraulique est comptée (l’autre est en secours).',
+    aides: [
+      'Ouvre le DTR 2 (composition des installations) : pour la tailleuse et le centre d’usinage, on te donne le courant, le facteur de puissance et la tension ; pour les autres récepteurs, la puissance P et le cos φ.',
+      'Réseau triphasé : la puissance active s’écrit avec U, I, cos φ et un coefficient propre au triphasé. Pour chaque récepteur, calcule Q avec la formule de la question précédente (A.2.1.1) : trouve φ à partir de cos φ (touche cos⁻¹ de la calculatrice). Une seule des deux pompes hydrauliques fonctionne (l’autre est en secours). Additionne enfin les colonnes P et Q.',
+      'Forme de la réponse : P = … × … × … × … ; application : P = 410 × … ; résultat en kW (3 chiffres significatifs). Ligne « Total » : somme des P en kW, somme des Q en kvar.',
+    ],
+    erreursTypiques: [
+      { id: 'oubli-racine3-formule', champ: 'a212-f-tailleuse', formule: 'UI\\cos\\varphi', message: 'Il manque le coefficient propre au triphasé : la tailleuse est alimentée en triphasé 410 V.' },
+      { id: 'oubli-racine3', champ: 'a212-p-tailleuse', nombre: { valeur: 21.96, tolerance: 0.3 }, message: 'Ton résultat correspond à une puissance calculée sans le coefficient du triphasé : reprends ta formule.' },
+      { id: 'deux-pompes', champ: 'a212-tot-p', nombre: { valeur: 459, tolerance: 1 }, message: 'Tu as compté les deux pompes hydrauliques : l’une est en secours et ne fonctionne pas en même temps que l’autre (DTR 2).' },
+    ],
     explication: 'Tailleuse et centre d’usinage : P = U × I × cos φ × √3 = 410 × 63 × 0,85 × √3 = 38 kW. Bilan : scie 1 37 kW / 19 kvar ; scie 2 75 kW / 44,5 kvar ; moteur banc 11 kW / 7,68 kvar ; aspiration principale 35 kW / 21,7 kvar ; raboteuse 9 kW / 5,34 kvar ; tailleuse 38 kW / 23,6 kvar ; aspiration 30 kW / 18,6 kvar ; moulurière 10 kW / 6,46 kvar ; extracteur 30 kW / 17,8 kvar ; centre d’usinage 38 kW / 23,6 kvar ; Profimat 22N 12 kW / 8,38 kvar ; écorceuse 30 kW / 16,2 kvar. Total : 454 kW et 275 kvar.',
   },
   {
@@ -526,15 +749,25 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C3', points: 2, dtr: [4], pageSujet: 9,
     colonnes: ['Grandeur', 'Réponse'],
     lignes: [
-      { cellules: ['Formule de la puissance apparente S (VA)', libre('a22-f-s', 'S = …')] },
-      { cellules: ['Calcul de la puissance apparente (kVA)', libre('a22-a-s', 'Application numérique…')] },
+      { cellules: ['Formule de la puissance apparente S (VA)', formule('a22-f-s', F_S, 'S = …')] },
+      { cellules: ['Calcul de la puissance apparente (kVA)', appli('a22-a-s')] },
       { cellules: ['Résultat (kVA)', num('a22-s', 530, 3, ['530 kVA'])] },
-      { cellules: ['Formule du facteur de puissance cos φ', libre('a22-f-cos', 'cos φ = …')] },
-      { cellules: ['Calcul du facteur de puissance cos φ', libre('a22-a-cos', 'Application numérique…')] },
+      { cellules: ['Formule du facteur de puissance cos φ', formule('a22-f-cos', F_COS, 'cos φ = …')] },
+      { cellules: ['Calcul du facteur de puissance cos φ', appli('a22-a-cos')] },
       { cellules: ['Résultat', num('a22-cos', 0.857, 0.006)] },
       { cellules: ['Calcul de la tangente φ', num('a22-tan', 0.601, 0.008)] },
     ],
     indice: 'Totaux du bilan A.2.1.2 : P = 454 kW et Q = 275 kvar ; S = √(P² + Q²) et cos φ = P / S.',
+    aides: [
+      'Reprends les totaux P et Q du bilan des puissances (A.2.1.2).',
+      'P, Q et S forment un triangle rectangle (triangle des puissances) : S en est l’hypoténuse (théorème de Pythagore). Le facteur de puissance cos φ se lit dans ce même triangle (côté adjacent / hypoténuse). Pour tan φ, calcule φ puis sa tangente.',
+      'Forme de la réponse : S = √(…² + …²) = … kVA ; cos φ = … / … = 0,… (sans unité, 3 décimales) ; tan φ = 0,… .',
+    ],
+    erreursTypiques: [
+      { id: 'somme-p-q', champ: 'a22-f-s', formule: 'P+Q', message: 'Les puissances P et Q ne s’additionnent pas directement : ce sont les deux côtés de l’angle droit du triangle des puissances.' },
+      { id: 'somme-p-q-valeur', champ: 'a22-s', nombre: { valeur: 729, tolerance: 2 }, message: 'Ton résultat est la somme P + Q : pour S, utilise le triangle des puissances (Pythagore).' },
+      { id: 'cos-inverse', champ: 'a22-f-cos', formule: '\\frac{S}{P}', message: 'Ton rapport est inversé : un facteur de puissance est toujours inférieur ou égal à 1.' },
+    ],
     explication: 'S = √(P² + Q²) = √(454² + 275²) = 530 kVA ; cos φ = P / S = 454 / 530 = 0,857 ; tan φ = 0,601.',
   },
   {
@@ -546,6 +779,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['tan', '-'],
     attendu: 91.3, tolerance: 1.3, arrondi: '3 chiffres significatifs',
     indice: 'Formule de la puissance réactive à installer au DTR 3 ; tan φ = 0,601 (A.2.2).',
+    formuleSpec: F_QC,
+    aides: [
+      'Ouvre le DTR 3, paragraphe « Puissance réactive à installer ». Reprends la puissance active totale (A.2.1.2) et tan φ de l’installation (A.2.2).',
+      'La batterie de condensateurs doit faire passer tan φ de sa valeur actuelle à la valeur imposée tan φ’ = 0,4 : la puissance réactive à compenser est proportionnelle à P et à l’écart entre les deux tangentes.',
+      'Forme de la réponse : Qc = P × (… − …) ; application : Qc = … × (… − 0,4) ; résultat en kvar, 3 chiffres significatifs.',
+    ],
+    erreursTypiques: [
+      { id: 'formule-q', formule: 'P\\tan\\varphi', message: 'Ta formule donne la puissance réactive Q de l’installation, pas la puissance réactive à compenser Qc : relis le DTR 3.' },
+      { id: 'q-au-lieu-de-qc', nombre: { valeur: 272.9, tolerance: 2 }, message: 'Ce résultat est la puissance réactive totale de l’installation : on demande seulement la part à compenser pour atteindre tan φ’.' },
+      { id: 'tangentes-inversees', nombre: { valeur: -91.3, tolerance: 1.3 }, message: 'Ton résultat est négatif : tu as inversé tan φ et tan φ’ dans la parenthèse.' },
+    ],
     explication: 'Qc = P × (tan φ − tan φ’) = 454 × (0,601 − 0,4) = 91,3 kvar.',
   },
   {
@@ -555,10 +799,20 @@ const QUESTIONS: SujetQuestion[] = [
     colonnes: ['Grandeur', 'Formule', 'Valeur'],
     lignes: [
       { cellules: ['Puissance active totale', '', '454 kW'] },
-      { cellules: ['Puissance réactive finale après compensation Qf (kvar)', libre('a24-f-qf', 'Qf = …'), num('a24-qf', 184, 2)] },
-      { cellules: ['Puissance apparente finale Sf (kVA)', libre('a24-f-sf', 'Sf = …'), num('a24-sf', 490, 4)] },
+      { cellules: ['Puissance réactive finale après compensation Qf (kvar)', formule('a24-f-qf', F_QF, 'Qf = …'), num('a24-qf', 184, 2)] },
+      { cellules: ['Puissance apparente finale Sf (kVA)', formule('a24-f-sf', F_SF, 'Sf = …'), num('a24-sf', 490, 4)] },
     ],
     indice: 'La compensation retranche Qc à la puissance réactive ; la puissance active ne change pas.',
+    aides: [
+      'Reprends Q totale (A.2.1.2), Qc (A.2.3) et la puissance active totale, rappelée dans le tableau : la compensation ne modifie pas la puissance active.',
+      'Les condensateurs fournissent eux-mêmes de l’énergie réactive : la puissance réactive appelée au réseau diminue de Qc. Recalcule ensuite S avec le triangle des puissances, avec cette nouvelle puissance réactive.',
+      'Forme de la réponse : Qf = … − … (kvar) ; Sf = √(…² + …²) (kVA).',
+    ],
+    erreursTypiques: [
+      { id: 'qc-ajoute', champ: 'a24-f-qf', formule: 'Q+Q_{c}', message: 'La compensation diminue la puissance réactive appelée : Qc ne s’ajoute pas à Q.' },
+      { id: 'qc-ajoute-valeur', champ: 'a24-qf', nombre: { valeur: 366.3, tolerance: 2 }, message: 'Ton résultat augmente la puissance réactive : la compensation doit la diminuer.' },
+      { id: 's-avant-compensation', champ: 'a24-sf', nombre: { valeur: 530, tolerance: 3 }, message: 'Tu retrouves la puissance apparente d’avant compensation (A.2.2) : utilise Qf, pas Q.' },
+    ],
     explication: 'Qf = Q − Qc = 275 − 91,3 = 184 kvar ; Sf = √(P² + Qf²) = √(454² + 184²) = 490 kVA.',
   },
   {
@@ -571,6 +825,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['/', 'u'],
     attendu: 690, tolerance: 5,
     indice: 'Réseau triphasé 410 V au secondaire du transformateur (DTR 1).',
+    formuleSpec: F_I3,
+    aides: [
+      'Utilise la puissance apparente imposée juste avant la question et la tension du secondaire du transformateur (DTR 1).',
+      'En triphasé, S = √3 × U × I (U : tension entre phases) : isole I. Convertis S en VA avant de calculer.',
+      'Forme de la réponse : I = S / (… × …) ; application : I = … / (410 × …) ; résultat en A.',
+    ],
+    erreursTypiques: [
+      { id: 'oubli-racine3-formule', formule: '\\frac{S}{U}', message: 'Il manque le coefficient du triphasé dans ta formule.' },
+      { id: 'oubli-racine3', nombre: { valeur: 1195, tolerance: 10 }, message: 'Ton résultat correspond à un calcul sans le coefficient du triphasé.' },
+      { id: 'kva-non-converti', nombre: { valeur: 0.69, tolerance: 0.01 }, message: 'Ton résultat est 1 000 fois trop petit : S doit être en VA (et non en kVA) pour obtenir des ampères.' },
+    ],
     explication: 'I = S / (U × √3) = 490 000 / (410 × √3) = 690 A.',
   },
   {
@@ -580,6 +845,14 @@ const QUESTIONS: SujetQuestion[] = [
     motsCles: ['non', '400', '490', 'inferieur', 'insuffisant', 'depasse', 'surcharge', '563', '690'], minMotsCles: 2, lignes: 3,
     corrige: 'Non : le transformateur actuel (400 kVA, 563 A au secondaire) n’est pas adapté, sa puissance est inférieure à la puissance utilisée (490 kVA, 690 A).',
     indice: 'Comparer la puissance de la plaque (A.1) à la puissance apparente calculée en A.2.4.',
+    aides: [
+      'Relis la plaque signalétique du transformateur actuel (A.1, DTR 1) et tes résultats A.2.4 et A.2.5.',
+      'Un transformateur est adapté si sa puissance apparente nominale (et son courant secondaire nominal) est au moins égale à ce que l’installation appelle. Compare les deux valeurs.',
+      'Forme de la réponse : « Oui / Non, car la puissance du transformateur (… kVA) est … à la puissance appelée (… kVA). »',
+    ],
+    erreursTypiques: [
+      { id: 'oui', valeurs: ['oui,', 'oui car', 'oui il', 'oui le transformateur', 'oui, le transformateur', 'oui adapté', 'oui est adapté', 'est adapté car'], message: 'Compare la puissance nominale du transformateur actuel (plaque, A.1) à la puissance apparente appelée après compensation (A.2.4).' },
+    ],
     explication: 'Non : la puissance du transformateur (400 kVA) est inférieure à la puissance utilisée (490 kVA).',
   },
   {
@@ -592,6 +865,16 @@ const QUESTIONS: SujetQuestion[] = [
       choix('a31-type', ['Fixe', 'Automatique'], 'Automatique'),
     ] }],
     indice: 'Critère Qc / Sn du DTR 3 : au-delà de 15 %, compensation automatique.',
+    aides: [
+      'Ouvre le DTR 3, paragraphe « Compensation fixe ou automatique ». Utilise les valeurs imposées pour la suite : Qc = 92 kvar et Sn = 490 kVA.',
+      'Calcule le rapport Qc / Sn en pourcentage, puis situe-le par rapport au seuil indiqué dans le DTR 3.',
+      'Forme de la réponse : Qc / Sn = … / … = … % ; type de compensation : « fixe » ou « automatique » selon la position par rapport au seuil.',
+    ],
+    erreursTypiques: [
+      { id: 'fixe', champ: 'a31-type', valeurs: ['Fixe'], message: 'Relis la règle du DTR 3 : quel type de compensation est conseillé quand Qc / Sn dépasse le seuil de 15 % ?' },
+      { id: 'sn-transfo-actuel', champ: 'a31-ratio', nombre: { valeur: 23, tolerance: 0.3 }, message: 'Tu as divisé par la puissance du transformateur actuel : utilise la puissance Sn imposée pour la suite.' },
+      { id: 's-avant-compensation', champ: 'a31-ratio', nombre: { valeur: 17.4, tolerance: 0.3 }, message: 'Utilise les valeurs imposées pour la suite (Qc et Sn), pas la puissance apparente d’avant compensation.' },
+    ],
     explication: 'Qc / Sn = 92 / 490 = 0,188 soit 18,8 % > 15 % : compensation automatique.',
   },
   {
@@ -607,6 +890,15 @@ const QUESTIONS: SujetQuestion[] = [
     indice: 'Tableau « VarSet Easy pour réseaux non pollués » (DTR 4) : première puissance supérieure ou égale à Qc = 92 kvar.',
     // Le sujet demande une compensation « fixe » alors que A.3.1 conclut « automatique » : le
     // corrigé choisit dans le tableau VarSet Easy (non pollué), suivi ici.
+    aides: [
+      'Ouvre le DTR 4, tableau « VarSet Easy pour réseaux non pollués ».',
+      'Choisis la première puissance de batterie supérieure ou égale à la puissance à compenser imposée (Qc = 92 kvar), jamais une puissance inférieure. Lis ensuite, sur la même ligne, le disjoncteur et la référence.',
+      'Forme de la réponse : puissance en kvar (valeur du tableau) ; disjoncteur « CVS… F … A » ; référence « VLVAW… ».',
+    ],
+    erreursTypiques: [
+      { id: 'puissance-inferieure', champ: 'a32-q', nombre: { valeur: 90, tolerance: 0 }, message: 'Cette batterie est inférieure à Qc : la compensation serait insuffisante. Prends la puissance juste au-dessus.' },
+      { id: 'reference-inferieure', champ: 'a32-varset', valeurs: ['VLVAW1L090A40A'], message: 'Cette référence correspond à une batterie de puissance inférieure à Qc.' },
+    ],
     explication: '100 kvar (≥ 92 kvar) : disjoncteur CVS250F 200A, VarSet VLVAW1L100A40A.',
   },
   {
@@ -616,6 +908,16 @@ const QUESTIONS: SujetQuestion[] = [
     colonnes: ['Puissance apparente du transformateur (kVA)', 'Référence'],
     lignes: [{ cellules: [num('a41-s', 630, 0), txt('a41-ref', ['TRI063020003004'])] }],
     indice: 'Tableau des transformateurs Trihal 20 kV / 410 V (DTR 6) : première puissance supérieure à 490 kVA, ligne « transformateurs IP 00 ».',
+    aides: [
+      'Ouvre le DTR 6 (transformateurs Trihal 20 kV / 410 V), lignes « puissance » et « références ».',
+      'La puissance du nouveau transformateur doit être supérieure à la puissance apparente appelée (A.2.4) : prends la première puissance normalisée au-dessus. Il y a trois lignes de références : on t’impose l’IP 00.',
+      'Forme de la réponse : puissance en kVA (valeur du tableau) ; référence « TRI0… » lue sur la ligne « transformateurs IP 00 ».',
+    ],
+    erreursTypiques: [
+      { id: 'ip31-monte', champ: 'a41-ref', valeurs: ['TRI063020003024'], message: 'Cette référence est celle du transformateur avec habillage IP 31 monté : on t’impose l’IP 00.' },
+      { id: 'ip31-kit', champ: 'a41-ref', valeurs: ['TRIOPT000003043'], message: 'Cette référence est celle de l’habillage IP 31 livré en kit, pas celle du transformateur.' },
+      { id: 'transfo-actuel', champ: 'a41-s', nombre: { valeur: 400, tolerance: 0 }, message: 'C’est la puissance du transformateur actuel, qui est insuffisante (A.2.6).' },
+    ],
     explication: '630 kVA, référence TRI063020003004 (IP 00).',
   },
   {
@@ -627,6 +929,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['/', 'u'],
     attendu: 18.2, tolerance: 0.2,
     indice: 'Tension primaire du nouveau transformateur : 20 kV.',
+    formuleSpec: F_I3,
+    aides: [
+      'Utilise la puissance du transformateur choisi en A.4.1 et sa tension primaire (DTR 6).',
+      'Le primaire est alimenté en triphasé HTA : S = √3 × U × I, avec U la tension primaire en volts. Isole I.',
+      'Forme de la réponse : I = S / (… × …) ; application : I = … / (… × √3) ; résultat en A (1 décimale).',
+    ],
+    erreursTypiques: [
+      { id: 'oubli-racine3-formule', formule: '\\frac{S}{U}', message: 'Il manque le coefficient du triphasé dans ta formule.' },
+      { id: 'tension-secondaire', nombre: { valeur: 887.2, tolerance: 5 }, message: 'Tu as utilisé la tension secondaire : l’intensité primaire se calcule avec la tension du primaire.' },
+      { id: 'oubli-racine3', nombre: { valeur: 31.5, tolerance: 0.3 }, message: 'Ton résultat correspond à un calcul sans le coefficient du triphasé.' },
+    ],
     explication: 'I = S / (U × √3) = 630 000 / (20 000 × √3) = 18,2 A.',
   },
   {
@@ -636,6 +949,15 @@ const QUESTIONS: SujetQuestion[] = [
     champs: [{ id: 'ref', label: 'Référence', acceptes: ['51108818M0', '5108818M0'] }],
     indice: 'Tension assignée 24 kV (réseau 20 kV), courant assigné juste supérieur à 18,2 A, courant maximal de coupure 31,5 kA (DTR 8).',
     // Corrigé officiel : « 5108818M0 » (chiffre manquant) ; la référence du DTR 8 est 51108818M0.
+    aides: [
+      'Ouvre les DTR 7 et 8 (fusibles Fusarc CF) : tableau des références avec tension assignée, courant assigné et courant maximal de coupure.',
+      'Trois critères à respecter ensemble : une tension assignée adaptée au réseau 20 kV, le courant maximal de coupure imposé (31,5 kA), et un courant assigné supérieur au courant nominal primaire calculé en A.4.2 (le premier calibre au-dessus).',
+      'Forme de la réponse : une référence de 10 caractères « 5………M0 », lue sur la ligne qui respecte les trois critères.',
+    ],
+    erreursTypiques: [
+      { id: 'calibre-trop-faible', valeurs: ['51108817M0', '51108816M0', '51108815M0'], message: 'Ce fusible a un courant assigné inférieur au courant nominal primaire : il fondrait en service normal.' },
+      { id: 'pouvoir-coupure', valeurs: ['51108813M0', '51006541M0'], message: 'Ce fusible a le bon calibre, mais son courant maximal de coupure n’est pas celui imposé (31,5 kA).' },
+    ],
     explication: 'Fusible Fusarc CF 24 kV, 20 A, 31,5 kA : référence 51108818M0.',
   },
 
@@ -647,6 +969,11 @@ const QUESTIONS: SujetQuestion[] = [
     motsCles: ['fatigue', 'posture', 'chute', 'accident', 'musculo', 'tms', 'eblouissement', 'mal de tete', 'inconfort'], minMotsCles: 3, lignes: 4,
     corrige: 'La fatigue oculaire, des postures contraignantes (troubles musculo-squelettiques), des chutes et des accidents.',
     indice: 'Rubrique « Les impacts sur la santé » du DTR 9.',
+    aides: [
+      'Lis le DTR 9 (l’éclairage, un élément essentiel pour de bonnes conditions de travail), rubrique sur les impacts sur la santé.',
+      'Pense à ce qui arrive aux yeux, au corps (position de travail) et à la sécurité quand on voit mal son poste de travail.',
+      'Forme de la réponse : une liste de quatre impacts courts, par exemple un sur la vue, un sur le corps et deux sur la sécurité.',
+    ],
     explication: 'Fatigue oculaire ; postures contraignantes (TMS) ; chutes ; accidents.',
   },
   {
@@ -660,6 +987,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Hauteur totale (ht)', num('b12-ht', 7.5, 0)] },
     ],
     indice: 'Plan de masse de l’extension (DTR 29, cotes en cm) et mise en situation (plafond à 7,50 m).',
+    aides: [
+      'Ouvre le DTR 29 (plans de l’extension) : les cotes sont en centimètres. La hauteur sous plafond est donnée dans la mise en situation de la partie B.',
+      'Convertis les cotes en mètres (÷ 100). La longueur est la plus grande dimension du rectangle ; ht est la hauteur du plafond par rapport au sol.',
+      'Forme de la réponse : longueur = … m ; largeur = …,… m ; hauteur totale ht = …,… m.',
+    ],
+    erreursTypiques: [
+      { id: 'cm-non-converti', champ: 'b12-lg', nombre: { valeur: 1520, tolerance: 1 }, message: 'Les cotes du plan sont en centimètres : convertis-les en mètres.' },
+      { id: 'longueur-largeur', champ: 'b12-l', nombre: { valeur: 15.2, tolerance: 0.05 }, message: 'Tu as inversé longueur et largeur : la longueur est la plus grande dimension.' },
+      { id: 'h-au-lieu-de-ht', champ: 'b12-ht', nombre: { valeur: 6.4, tolerance: 0.05 }, message: 'On demande la hauteur totale ht (du sol au plafond), pas la hauteur au-dessus du plan utile.' },
+    ],
     explication: 'Longueur 35 m ; largeur 15,20 m ; hauteur totale ht = 7,50 m.',
   },
   {
@@ -675,6 +1012,14 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Plan utile', num('b13-plan', 3, 0)] },
     ],
     indice: 'Tableau des facteurs de réflexion (DTR 10) : plafond, murs et plans de travail de couleur claire.',
+    aides: [
+      'Ouvre le DTR 10 (facteurs de réflexion) et relis la mise en situation de la partie B : couleur du plafond, des murs et des plans de travail.',
+      'Choisis la colonne qui correspond à la couleur de chaque surface, puis lis la ligne Plafond, Murs ou Plan utile. Ces trois chiffres, dans l’ordre plafond – murs – plan utile, forment le « facteur de réflexion » des tableaux d’utilance.',
+      'Forme de la réponse : un chiffre par surface (plafond = … ; murs = … ; plan utile = …).',
+    ],
+    erreursTypiques: [
+      { id: 'tres-clair', champ: 'b13-plafond', nombre: { valeur: 8, tolerance: 0 }, message: 'La valeur 8 correspond à un plafond « très clair » : relis la couleur donnée dans la mise en situation.' },
+    ],
     explication: 'Plafond = 7 ; murs = 7 ; plan utile = 3 (facteur de réflexion 773, repris en B.1.10).',
   },
   {
@@ -688,6 +1033,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Mode d’éclairage (entourer)', choix('b14-mode', ['direct', 'indirect'], 'direct')] },
     ],
     indice: 'Éclairements recommandés (DTR 12) : travail du bois sur machines.',
+    aides: [
+      'Relis la mise en situation de la partie B (hauteur des plans de travail, luminaires convenus avec le client) et ouvre le DTR 12 (éclairement recommandé).',
+      'Convertis la hauteur du plan utile en mètres. Pour E, cherche dans le DTR 12 la ligne qui correspond à l’activité de l’atelier (usinage du bois). Le mode d’éclairage figure dans les caractéristiques des luminaires.',
+      'Forme de la réponse : hu = …,… m ; E = … lux ; mode : direct ou indirect.',
+    ],
+    erreursTypiques: [
+      { id: 'hu-en-cm', champ: 'b14-hu', nombre: { valeur: 110, tolerance: 0 }, message: 'La hauteur est demandée en mètres : convertis les centimètres.' },
+      { id: 'mauvaise-ligne', champ: 'b14-e', nombre: { valeur: 300, tolerance: 0 }, message: 'Cette valeur correspond à une autre activité du DTR 12 : cherche la ligne qui décrit le travail réalisé dans l’atelier.' },
+      { id: 'indirect', champ: 'b14-mode', valeurs: ['indirect'], message: 'Relis les caractéristiques des luminaires convenues avec le client (mise en situation de la partie B).' },
+    ],
     explication: 'hu = 1,10 m ; E = 500 lux (travail du bois sur machines) ; éclairage direct.',
   },
   {
@@ -699,6 +1054,14 @@ const QUESTIONS: SujetQuestion[] = [
       { id: 'tmax', label: 'Température de couleur maximale', unite: 'K', attendu: 5100, tolerance: 200 },
     ],
     indice: 'Courbe du DTR 13 : lire les deux courbes à 500 lux ; le confort est dans la zone ombrée.',
+    aides: [
+      'Ouvre le DTR 13 (température de couleur en fonction de l’éclairement).',
+      'Place-toi sur l’axe des éclairements à la valeur de E trouvée en B.1.4, puis monte verticalement : la zone de confort est la zone ombrée entre les deux courbes. Lis la température de couleur sur chacune des deux courbes.',
+      'Forme de la réponse : température minimale = … K ; température maximale = … K.',
+    ],
+    erreursTypiques: [
+      { id: 'min-max-inverses', champ: 'tmin', nombre: { valeur: 5100, tolerance: 200 }, message: 'Tu as inversé les deux limites : la température minimale est la plus petite des deux.' },
+    ],
     explication: 'Pour E = 500 lx, il faut une température de couleur entre 3 100 K et 5 100 K.',
   },
   {
@@ -712,6 +1075,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Température de couleur (K)', num('b16-t', 4000, 0)] },
     ],
     indice: 'Parmi les luminaires du DTR 14 : dimmable 1-10 V (non DALI) et 4000 K.',
+    aides: [
+      'Ouvre le DTR 14 (caractéristiques des luminaires) et relis les critères convenus avec le client (mise en situation de la partie B).',
+      'Élimine les luminaires qui ne conviennent pas : variation 1-10 V (non DALI) exigée et température de couleur imposée de 4000 K. Il n’en reste qu’un.',
+      'Forme de la réponse : référence complète telle qu’imprimée (lettres, chiffres, tiret) ; puissance en W ; température de couleur en K.',
+    ],
+    erreursTypiques: [
+      { id: '5000k', champ: 'b16-ref', valeurs: ['B8138-150', 'B8138150'], message: 'Ce luminaire est en blanc froid 5000 K : la température de couleur imposée est différente.' },
+      { id: 'dali', champ: 'b16-ref', valeurs: ['LHBEX36D'], message: 'Ce luminaire est dimmable DALI : le client veut une variation 1-10 V non DALI.' },
+      { id: 'luminaire-impose', champ: 'b16-p', nombre: { valeur: 200, tolerance: 0 }, message: '200 W est la puissance du luminaire imposé pour la SUITE des questions : ici, donne celle du luminaire que tu as choisi dans le DTR 14.' },
+    ],
     explication: 'Cloche LED industrielle 150 W, 135 lm/W, dimmable 1-10 V, IP65, 4000 K : référence LHBE25B20R40-01.',
   },
   {
@@ -721,6 +1094,15 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C3', points: 1, dtr: [13], pageSujet: 12,
     champs: [{ id: 'd', label: 'Facteur compensateur de dépréciation (d) =', attendu: 1.65, tolerance: 0 }],
     indice: 'Facteurs de dépréciation (DTR 11) : empoussièrement « élevé ».',
+    aides: [
+      'Ouvre le DTR 11 (facteurs de dépréciation) et relis le niveau d’empoussièrement donné dans la mise en situation.',
+      'Choisis la ligne du niveau d’empoussièrement, puis la colonne « facteur compensateur de dépréciation » (supérieur à 1), et non celle du facteur de maintenance.',
+      'Forme de la réponse : d = …,… (sans unité, supérieur à 1).',
+    ],
+    erreursTypiques: [
+      { id: 'facteur-maintenance', champ: 'd', nombre: { valeur: 0.6, tolerance: 0 }, message: 'C’est le facteur de maintenance : on demande le facteur compensateur de dépréciation.' },
+      { id: 'empoussierement-moyen', champ: 'd', nombre: { valeur: 1.4, tolerance: 0 }, message: 'Cette valeur correspond à un empoussièrement « moyen » : relis la mise en situation.' },
+    ],
     explication: 'Empoussièrement élevé (menuiseries) : d = 1,65.',
   },
   {
@@ -732,6 +1114,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['/', '+'],
     attendu: 1.66, tolerance: 0.02, arrondi: '2 décimales',
     indice: 'h = hauteur du luminaire au-dessus du plan utile : ht − hu = 7,50 − 1,10 (luminaire au plafond).',
+    formuleSpec: F_K,
+    aides: [
+      'Utilise les dimensions du bâtiment (B.1.2) et la hauteur du plan utile (B.1.4) ; le DTR 15 définit les hauteurs ht, hu et h.',
+      'h est la hauteur du luminaire au-dessus du plan utile : le luminaire est fixé au plafond, donc h = ht − hu. Remplace ensuite chaque grandeur dans la formule de l’indice du local donnée dans l’énoncé.',
+      'Forme de la réponse : K = (… × …) / (… × (… + …)) ; résultat arrondi à 2 décimales (la valeur normalisée du tableau ne sert qu’à la question suivante).',
+    ],
+    erreursTypiques: [
+      { id: 'ht-au-lieu-de-h-formule', formule: '\\frac{ab}{h_{t}\\left(a+b\\right)}', message: 'Tu as utilisé la hauteur totale ht : h est la hauteur entre le luminaire et le plan utile.' },
+      { id: 'ht-au-lieu-de-h', nombre: { valeur: 1.41, tolerance: 0.02 }, message: 'Tu as utilisé la hauteur totale ht : h est la hauteur entre le luminaire et le plan utile.' },
+      { id: 'valeur-normalisee', nombre: { valeur: 2, tolerance: 0.02 }, message: 'Tu as donné la valeur normalisée du tableau : on demande d’abord le résultat du calcul, arrondi à 2 décimales.' },
+    ],
     explication: 'K = (35 × 15,20) / [6,40 × (35 + 15,20)] = 532 / 321,28 = 1,66, arrondi à la valeur normalisée 2 (DTR 15).',
   },
   {
@@ -740,6 +1133,14 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C3', points: 1, dtr: [16], pageSujet: 12,
     champs: [{ id: 'j', label: 'J =', attendu: 0, tolerance: 0 }],
     indice: 'Rapport de suspension (DTR 15) : deux valeurs seulement.',
+    aides: [
+      'Ouvre le DTR 15 (calculs d’éclairement), rapport de suspension J, et relis la mise en situation (fixation des luminaires).',
+      'J compare la hauteur de suspension h’ à la hauteur totale du luminaire au-dessus du plan utile : un luminaire plaqué contre le plafond n’est pas suspendu.',
+      'Forme de la réponse : J = … (l’une des deux valeurs possibles du DTR 15).',
+    ],
+    erreursTypiques: [
+      { id: 'un-tiers', champ: 'j', nombre: { valeur: 0.333, tolerance: 0.01 }, message: 'La valeur 1/3 correspond à un luminaire suspendu : relis comment les luminaires sont fixés.' },
+    ],
     explication: 'J = 0 (luminaire contre le plafond).',
   },
   {
@@ -751,6 +1152,16 @@ const QUESTIONS: SujetQuestion[] = [
     champs: [{ id: 'u', label: 'L’utilance U =', unite: '%', attendu: 105, tolerance: 0, acceptes: ['1,05'] }],
     indice: 'Tableau « Luminaire classe C, J = 0 », ligne 2,00, colonne 773.',
     // Le sujet impose K = 2 alors que B.1.8 donne 1,66 (valeur normalisée : 2) : donnée du sujet.
+    aides: [
+      'Ouvre le DTR 16 : quatre tableaux d’utilance (classes B et C, J = 0 et J = 1/3). Utilise les données imposées juste au-dessus de la question.',
+      'Choisis le bon tableau (classe du luminaire et valeur de J), puis la ligne de l’indice du local et la colonne du facteur de réflexion : l’utilance est à l’intersection.',
+      'Forme de la réponse : U = … % (nombre lu dans le tableau ; il peut dépasser 100).',
+    ],
+    erreursTypiques: [
+      { id: 'classe-b', champ: 'u', nombre: { valeur: 109, tolerance: 0 }, message: 'Tu as lu un tableau de la classe B : le luminaire est de classe C.' },
+      { id: 'j-un-tiers', champ: 'u', nombre: { valeur: 103, tolerance: 0 }, message: 'Tu as lu le tableau J = 1/3 : utilise la valeur de J imposée.' },
+      { id: 'ligne-indice', champ: 'u', nombre: { valeur: 99, tolerance: 0 }, message: 'Tu as lu une autre ligne : utilise l’indice du local imposé (valeur normalisée).' },
+    ],
     explication: 'Classe C, J = 0, K = 2, facteur 773 : U = 105 %.',
   },
   {
@@ -762,6 +1173,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['0.9', '1.05'],
     attendu: 0.945, tolerance: 0.005,
     indice: 'η = 0,9 (mise en situation) et U = 105 / 100.',
+    formuleSpec: F_UTIL,
+    aides: [
+      'Utilise le rendement du luminaire (mise en situation de la partie B) et l’utilance trouvée en B.1.10.',
+      'Les tableaux d’utilance donnent un pourcentage : divise-le par 100 avant de le multiplier par le rendement.',
+      'Forme de la réponse : u = η × U = 0,… × … ; résultat sans unité, 3 décimales.',
+    ],
+    erreursTypiques: [
+      { id: 'division-formule', formule: '\\frac{\\eta}{U}', message: 'Le facteur d’utilisation est un produit : relis la formule donnée dans l’énoncé.' },
+      { id: 'pourcentage', nombre: { valeur: 94.5, tolerance: 0.5 }, message: 'L’utilance doit être convertie (U en % divisé par 100) : le facteur d’utilisation est un nombre sans unité.' },
+      { id: 'division', nombre: { valeur: 0.857, tolerance: 0.005 }, message: 'Tu as divisé au lieu de multiplier : relis la formule donnée dans l’énoncé.' },
+    ],
     explication: 'u = rendement du luminaire × utilance = 0,9 × (105 / 100) = 0,945.',
   },
   {
@@ -773,6 +1195,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['500', '1.65'],
     attendu: 464443, tolerance: 4700,
     indice: 'Formule du flux lumineux total (DTR 16) : S = longueur × largeur du local.',
+    formuleSpec: F_FLUX,
+    aides: [
+      'Ouvre le DTR 16, encadré « Calcul du flux lumineux total nécessaire » : la formule y est donnée avec la signification de chaque lettre.',
+      'E : éclairement (B.1.4) ; S : surface du plan utile = longueur × largeur (B.1.2) ; d : facteur de dépréciation (B.1.7) ; η : rendement du luminaire ; U : utilance (B.1.10) divisée par 100.',
+      'Forme de la réponse : F = (… × … × …) / (… × …) ; application numérique puis résultat en lumens.',
+    ],
+    erreursTypiques: [
+      { id: 'd-au-denominateur', formule: '\\frac{ES}{d\\eta U}', message: 'Le facteur de dépréciation d est au numérateur : il augmente le flux à installer.' },
+      { id: 'd-au-denominateur-valeur', nombre: { valeur: 170594, tolerance: 1700 }, message: 'Le facteur de dépréciation d est au numérateur : il augmente le flux à installer.' },
+      { id: 'utilance-en-pourcent', nombre: { valeur: 4644, tolerance: 50 }, message: 'L’utilance est en % dans les tableaux : divise-la par 100.' },
+    ],
     explication: 'F = (500 × 35 × 15,20 × 1,65) / ((105 / 100) × 0,9) = 464 443 lm.',
   },
   {
@@ -784,6 +1217,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['200', '150'],
     attendu: 30000, tolerance: 0,
     indice: 'Luminaire imposé : 200 W et 150 lm/W.',
+    formuleSpec: F_FLUX1,
+    aides: [
+      'Relis les caractéristiques du luminaire imposé pour la suite (texte juste avant B.1.7) : puissance et efficacité lumineuse.',
+      'L’efficacité lumineuse k (en lm/W) indique combien de lumens produit chaque watt : le flux d’un luminaire s’obtient à partir de sa puissance et de k.',
+      'Forme de la réponse : φ = P × k = … W × … lm/W = … lm.',
+    ],
+    erreursTypiques: [
+      { id: 'division-formule', formule: '\\frac{P}{k}', message: 'Une efficacité en lm/W se multiplie par des watts pour donner des lumens.' },
+      { id: 'luminaire-b16', nombre: { valeur: 22500, tolerance: 1 }, message: 'Tu as utilisé le luminaire de B.1.6 : pour la suite, le luminaire imposé est différent.' },
+      { id: 'division', nombre: { valeur: 1.33, tolerance: 0.01 }, message: 'Tu as divisé : une efficacité en lm/W se multiplie par des watts pour donner des lumens.' },
+    ],
     explication: 'φ = P × k = 200 W × 150 lm/W = 30 000 lm.',
   },
   {
@@ -795,6 +1239,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['/'],
     attendu: 15, tolerance: 0, arrondi: 'nombre entier, arrondi par défaut',
     indice: 'N = F / φ, puis arrondir au nombre entier inférieur (consigne du sujet).',
+    formuleSpec: F_N,
+    aides: [
+      'Reprends le flux total F (B.1.12) et le flux d’un luminaire (B.1.13).',
+      'Le nombre de luminaires est le rapport du flux total au flux d’un luminaire. L’énoncé impose d’arrondir par défaut (au nombre entier inférieur).',
+      'Forme de la réponse : N = … / … = …,… ; nombre de luminaires = … (entier).',
+    ],
+    erreursTypiques: [
+      { id: 'rapport-inverse', formule: '\\frac{\\varphi}{F}', message: 'Ton rapport est inversé : on cherche combien de fois le flux d’un luminaire est contenu dans le flux total.' },
+      { id: 'arrondi-exces', nombre: { valeur: 16, tolerance: 0 }, message: 'Tu as arrondi par excès : l’énoncé demande un arrondi par défaut.' },
+      { id: 'non-arrondi', nombre: { valeur: 15.48, tolerance: 0.02 }, message: 'Donne un nombre entier de luminaires, arrondi par défaut.' },
+    ],
     explication: 'N = 464 443 lm / 30 000 lm = 15,48, soit 15 luminaires.',
   },
   {
@@ -809,6 +1264,15 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['', '', 'Prix total TTC', num('b115-ttc', 2519.82, 0.03)] },
     ],
     indice: 'Luminaire imposé (Highbay LED Concord G3) à 139,99 € HT ; quantité : B.1.14.',
+    aides: [
+      'Relis la désignation et le prix unitaire du luminaire imposé (texte avant B.1.7) et le nombre de luminaires trouvé en B.1.14.',
+      'Prix total HT = PU HT × quantité ; TVA = 20 % du prix total HT ; prix TTC = prix HT + TVA.',
+      'Forme de la réponse : désignation du luminaire ; PU = …,… € ; quantité = … ; total HT = … € ; TVA = … € ; TTC = … € (2 décimales).',
+    ],
+    erreursTypiques: [
+      { id: 'quantite', champ: 'b115-qte', nombre: { valeur: 16, tolerance: 0 }, message: 'Reprends le nombre de luminaires arrondi par défaut (B.1.14).' },
+      { id: 'tva-ttc', champ: 'b115-tva', nombre: { valeur: 2519.82, tolerance: 0.03 }, message: 'La TVA n’est que 20 % du prix HT : ce que tu as calculé est le prix TTC.' },
+    ],
     explication: 'Highbay LED Concord G3 : 15 × 139,99 = 2 099,85 € HT ; TVA 20 % = 419,97 € ; total TTC = 2 519,82 €.',
   },
   {
@@ -829,6 +1293,11 @@ const QUESTIONS: SujetQuestion[] = [
     },
     max: 20,
     indice: 'Entraxe d = dimension / nombre de luminaires, et d/2 entre le dernier luminaire et le mur.',
+    aides: [
+      'Utilise les dimensions du bâtiment (B.1.2) et la consigne de l’énoncé (nombre de luminaires dans la longueur et dans la largeur).',
+      'Répartition régulière : l’entraxe entre deux luminaires vaut d = dimension / nombre de luminaires, et la distance entre le dernier luminaire et le mur vaut d / 2. Fais le calcul dans chaque direction.',
+      'Forme de la réponse : une grille régulière de luminaires ; chacun au centre de sa « case », à d / 2 des murs et à d de ses voisins.',
+    ],
     explication: 'Dans la longueur : 35 m / 5 = 7 m d’entraxe, 3,5 m aux murs ; dans la largeur : 15,2 m / 3 = 5,07 m d’entraxe, 2,53 m aux murs. Implantation de 5 rangées de 3 luminaires (tolérance ± 1 m).',
   },
   {
@@ -847,6 +1316,16 @@ const QUESTIONS: SujetQuestion[] = [
       num('b21-e', 10500, 0, ['10 500 000 Wh', '10500000 Wh', '10,5 MWh']),
     ] }],
     indice: 'Utilisation annuelle : 2 250 h de jour + 1 250 h de nuit (mise en situation de la partie B) ; 15 luminaires de 200 W.',
+    aides: [
+      'Relis la mise en situation de la partie B (utilisations annuelles de jour et de nuit) et la liste du matériel (nombre et puissance des luminaires, B.2).',
+      'Durée annuelle = heures de jour + heures de nuit. Puissance totale = nombre de luminaires × puissance d’un luminaire. Énergie = puissance × durée, à convertir en kWh (÷ 1 000).',
+      'Forme de la réponse : durée = … h ; puissance = … W ; énergie = … × … = … Wh, soit … kWh.',
+    ],
+    erreursTypiques: [
+      { id: 'jour-seulement', champ: 'b21-h', nombre: { valeur: 2250, tolerance: 0 }, message: 'Tu n’as compté que l’utilisation de jour : ajoute l’utilisation de nuit.' },
+      { id: 'un-luminaire', champ: 'b21-p', nombre: { valeur: 200, tolerance: 0 }, message: 'C’est la puissance d’un seul luminaire : on demande la puissance totale.' },
+      { id: 'wh', champ: 'b21-e', nombre: { valeur: 10500000, tolerance: 1000 }, message: 'Ton résultat est en Wh : le tableau demande des kWh.' },
+    ],
     explication: '3 500 h ; 200 W × 15 = 3 000 W ; énergie : 3 000 × 3 500 = 10 500 000 Wh soit 10 500 kWh.',
   },
   {
@@ -857,6 +1336,15 @@ const QUESTIONS: SujetQuestion[] = [
     formule: 'Coût = énergie consommée × prix du kWh',
     formuleMotsCles: ['0.23'],
     attendu: 2415, tolerance: 1,
+    formuleSpec: F_COUT,
+    aides: [
+      'Reprends l’énergie annuelle calculée en B.2.1 (en kWh) et le prix du kWh donné dans l’énoncé.',
+      'Le coût est proportionnel à l’énergie consommée : coût (€) = énergie (kWh) × prix d’un kWh (€/kWh). Note E l’énergie et p le prix du kWh.',
+      'Forme de la réponse : Coût = E × p = … × … = … €.',
+    ],
+    erreursTypiques: [
+      { id: 'wh', nombre: { valeur: 2415000, tolerance: 1000 }, message: 'Tu as utilisé l’énergie en Wh : le prix est donné par kWh.' },
+    ],
     explication: '10 500 × 0,23 € = 2 415 €.',
   },
   {
@@ -870,6 +1358,16 @@ const QUESTIONS: SujetQuestion[] = [
       num('b23-p', 3000, 0, ['3 kW']),
       num('b23-e', 6000, 0, ['6 000 000 Wh', '6000000 Wh', '6 MWh']),
     ] }],
+    aides: [
+      'Relis le texte juste avant la question (heures d’éclairage compensées par la lumière naturelle) et reprends la durée et la puissance de B.2.1.',
+      'Pendant les heures compensées par la lumière naturelle, les luminaires restent éteints : retire-les de la durée annuelle. La puissance installée ne change pas.',
+      'Forme de la réponse : durée = … − … = … h ; puissance = … W ; énergie = … Wh, soit … kWh.',
+    ],
+    erreursTypiques: [
+      { id: 'heures-compensees', champ: 'b23-h', nombre: { valeur: 1500, tolerance: 0 }, message: 'C’est le nombre d’heures compensées par la lumière naturelle : on demande les heures d’utilisation qui restent.' },
+      { id: 'energie-economisee', champ: 'b23-e', nombre: { valeur: 4500, tolerance: 5 }, message: 'Tu as calculé l’énergie économisée : on demande l’énergie encore consommée.' },
+      { id: 'wh', champ: 'b23-e', nombre: { valeur: 6000000, tolerance: 1000 }, message: 'Ton résultat est en Wh : le tableau demande des kWh.' },
+    ],
     explication: '3 500 − 1 500 = 2 000 h ; 200 W × 15 = 3 000 W ; énergie : 6 000 000 Wh soit 6 000 kWh.',
   },
   {
@@ -878,6 +1376,15 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C3', points: 1, dtr: [], pageSujet: 16,
     colonnes: ['Coût annuel en euros', 'Économie annuelle réalisée (€)'],
     lignes: [{ cellules: [num('b24-cout', 1380, 1), num('b24-eco', 1035, 1)] }],
+    aides: [
+      'Reprends l’énergie de B.2.3 (kWh), le prix du kWh et le coût sans gestion KNX (B.2.2).',
+      'Nouveau coût = énergie × prix du kWh ; économie annuelle = ancien coût − nouveau coût.',
+      'Forme de la réponse : coût = … × … = … € ; économie = … − … = … €.',
+    ],
+    erreursTypiques: [
+      { id: 'economie-somme', champ: 'b24-eco', nombre: { valeur: 3795, tolerance: 1 }, message: 'Tu as additionné les deux coûts : l’économie est une différence.' },
+      { id: 'economie-cout', champ: 'b24-eco', nombre: { valeur: 1380, tolerance: 1 }, message: 'L’économie est la différence entre deux coûts annuels : reprends aussi le coût sans gestion KNX (B.2.2).' },
+    ],
     explication: '6 000 × 0,23 € = 1 380 € ; économie annuelle : 2 415 − 1 380 = 1 035 €.',
   },
   {
@@ -893,6 +1400,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Coupleur / répéteur de bus KNX', 'MTN6500-0101', 'Permet de se connecter au bus KNX pour le paramétrage et le diagnostic avec le logiciel ETS', '1'] },
     ],
     indice: 'Actionneur pour interfaces 1-10 V à 3 sorties (DTR 18) ; bouton-poussoir 6 touches anthracite (DTR 20) ; détecteur en saillie pour grande hauteur (DTR 21) ; alimentation 320 mA (DTR 19).',
+    aides: [
+      'Ouvre les DTR 18 (actionneurs, interfaces 1-10 V), 19 (alimentations de bus), 20 (boutons-poussoirs) et 21 (détecteurs de présence), et relis la liste du matériel de la mise en situation B.2.',
+      'Pour chaque matériel, applique les critères imposés : actionneur 1-10 V à 3 sorties ; commande 6 touches de finition anthracite ; détecteurs posés en saillie au plafond ; alimentation de 320 mA. Les quantités sont dans la mise en situation. Pour la fonction, dis en quelques mots à quoi sert l’appareil.',
+      'Forme de la réponse : références « MTN… » complètes (avec le tiret quand il y en a un) ; une fonction courte par appareil (un verbe à l’infinitif) ; quantité en nombre entier.',
+    ],
+    erreursTypiques: [
+      { id: 'alim-640', champ: 'b25-alim', valeurs: ['MTN684064'], message: 'Cette alimentation délivre 640 mA : le matériel prévu est une alimentation de 320 mA.' },
+      { id: 'detecteur-encastre', champ: 'b25-det', valeurs: ['MTN6304-0019', 'MTN63040019'], message: 'Ce détecteur s’installe encastré : les détecteurs doivent être posés en saillie au plafond.' },
+      { id: 'commande-blanche', champ: 'b25-cde', valeurs: ['MTN6193-6035', 'MTN61936035', 'MTN6193-6036', 'MTN6193-6050', 'MTN6193-6052'], message: 'Cette référence correspond à une autre finition : la commande demandée est anthracite.' },
+    ],
     explication: 'Actionneur MTN646991 (commander l’éclairage) × 1 ; commande MTN6193-6034 (commande les participants / modules) × 3 ; détecteur MTN6354-0019 (détecte la présence des personnes et régule l’éclairage en fonction de la lumière naturelle) × 3 ; alimentation MTN684032 (alimente le bus) × 1.',
   },
   {
@@ -900,6 +1417,14 @@ const QUESTIONS: SujetQuestion[] = [
     enonce: '**Donner** la tension d’alimentation fournie par « l’alimentation bus KNX ».',
     competence: 'C1', points: 1, dtr: [21], pageSujet: 18,
     champs: [{ id: 'u', label: 'U =', unite: 'V', attendu: 30, tolerance: 0, acceptes: ['30 Vcc', '30 V DC', '30 VDC', '30 V continu'] }],
+    aides: [
+      'Ouvre le DTR 19 (alimentations de bus KNX), ligne « caractéristiques ».',
+      'Ne confonds pas la tension du réseau qui alimente le module (entrée) et la tension qu’il fournit au bus (sortie).',
+      'Forme de la réponse : U = … V, en précisant continu ou alternatif.',
+    ],
+    erreursTypiques: [
+      { id: 'tension-reseau', champ: 'u', nombre: { valeur: 230, tolerance: 0 }, message: 'C’est la tension du réseau qui alimente le module (entrée) : on demande la tension fournie au bus.' },
+    ],
     explication: 'U = 30 V continu (30 Vcc).',
   },
   {
@@ -908,6 +1433,15 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C1', points: 1, dtr: [23, 24], pageSujet: 18,
     champs: [{ id: 'l', label: 'L =', unite: 'm', attendu: 350, tolerance: 0, acceptes: ['< 350 m', '350 m maximum', 'max. 350 m'] }],
     indice: 'Tableau « Distances maximales » du DTR 22.',
+    aides: [
+      'Ouvre le DTR 22, tableau « Distances maximales » (le DTR 23 parle aussi des longueurs de ligne).',
+      'Plusieurs distances sont données : choisis la ligne qui concerne une alimentation et un participant (abonné).',
+      'Forme de la réponse : L < … m (valeur maximale).',
+    ],
+    erreursTypiques: [
+      { id: 'segment', champ: 'l', nombre: { valeur: 1000, tolerance: 0 }, message: 'C’est la longueur maximale d’un segment de ligne, pas la distance entre l’alimentation et un participant.' },
+      { id: 'deux-participants', champ: 'l', nombre: { valeur: 700, tolerance: 0 }, message: 'C’est la distance maximale entre deux participants.' },
+    ],
     explication: 'L < 350 m (distance entre une alimentation et un participant).',
   },
   {
@@ -920,6 +1454,16 @@ const QUESTIONS: SujetQuestion[] = [
       txt('b28-ref', ['0 492 91', '049291', '49291']),
       num('b28-s', 0.5, 0, ['0,5 mm²']),
     ] }],
+    aides: [
+      'Ouvre le DTR 22 (caractéristiques techniques des câbles bus KNX).',
+      'La mise en situation impose un câble simple paire torsadée : deux références existent (simple ou double paire). La section se lit dans les caractéristiques techniques, en mm² (ne la confonds pas avec un diamètre).',
+      'Forme de la réponse : référence « 0 492 … » ; section = …,… mm².',
+    ],
+    erreursTypiques: [
+      { id: 'double-paire', champ: 'b28-ref', valeurs: ['0 492 92', '049292', '49292'], message: 'Cette référence est le câble double paire : le câble prévu est simple paire.' },
+      { id: 'diametre', champ: 'b28-s', nombre: { valeur: 0.8, tolerance: 0 }, message: '0,8 mm est le diamètre du conducteur, pas sa section.' },
+      { id: 'drain', champ: 'b28-s', nombre: { valeur: 0.4, tolerance: 0 }, message: 'C’est la section du fil de drain, pas celle des conducteurs de la paire.' },
+    ],
     explication: 'Référence 0 492 91 (simple paire) ; section 0,5 mm².',
   },
   {
@@ -939,6 +1483,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Détecteur de présence 3', txt('b29-d3', ['1.1.7'])] },
     ],
     indice: 'Adressage physique Z.L.P (DTR 23) : le coupleur de ligne porte le numéro de participant 0.',
+    aides: [
+      'Ouvre le DTR 23 (système d’adressage KNX) : adresse physique Z.L.P.',
+      'Zone et ligne sont celles du tableau (1.1). Le coupleur de ligne porte un numéro de participant particulier (relis le DTR 23) ; les autres appareils prennent ensuite les premiers numéros libres, dans l’ordre du tableau. L’alimentation n’a pas d’adresse.',
+      'Forme de la réponse : trois nombres séparés par des points, « 1.1.… », pour chaque appareil.',
+    ],
+    erreursTypiques: [
+      { id: 'coupleur-zone', champ: 'b29-coupleur', valeurs: ['1.0.0'], message: '1.0.0 est l’adresse d’un coupleur de zone : ici, c’est un coupleur de ligne (relis le DTR 23).' },
+      { id: 'coupleur-numero', champ: 'b29-coupleur', valeurs: ['1.1.1'], message: 'Le coupleur de ligne porte un numéro de participant réservé (DTR 23).' },
+      { id: 'alim-adressee', champ: 'b29-act', valeurs: ['1.1.2'], message: 'L’alimentation n’a pas d’adresse physique : l’actionneur prend le premier numéro libre.' },
+    ],
     explication: 'Coupleur 1.1.0 ; actionneur 1.1.1 ; commandes 1.1.2, 1.1.3, 1.1.4 ; détecteurs 1.1.5, 1.1.6, 1.1.7 (l’alimentation n’a pas d’adresse).',
   },
 
@@ -954,6 +1508,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Personne pouvant être chargé de travaux', choix('c1-b2v-titre', TITRES, 'B2V'), choix('c1-b2v-nom', AGENTS, 'Agent B')] },
     ],
     indice: 'Consignation : lettre C ; chargé de travaux : indice 2. Vérifier aussi la disponibilité sur le planning.',
+    aides: [
+      'Relis le planning des équipes (semaines 17 et 18) : titre d’habilitation et disponibilité de chaque agent.',
+      'Le symbole d’habilitation indique le rôle (norme NF C 18-510) : la lettre C autorise la consignation ; l’indice 2 désigne un chargé de travaux et l’indice 1 un exécutant. Vérifie aussi que la personne est libre pendant les travaux.',
+      'Forme de la réponse : pour chaque ligne, un titre d’habilitation « B… » et le nom d’un agent disponible.',
+    ],
+    erreursTypiques: [
+      { id: 'agent-occupe', champ: 'c1-b2v-nom', valeurs: ['Agent C'], message: 'Cet agent a le bon titre, mais il est pris sur un autre chantier pendant toute la période : regarde le planning.' },
+      { id: 'br-consignation', champ: 'c1-bc-titre', valeurs: ['BR', 'B1V - BR'], message: 'Un BR ne consigne que pour ses propres interventions : ici, la consignation est faite pour d’autres intervenants.' },
+      { id: 'executant', champ: 'c1-b2v-titre', valeurs: ['B1V'], message: 'L’indice 1 désigne un exécutant : le chargé de travaux porte un autre indice.' },
+    ],
     explication: 'Chargé de consignation : BC, Agent A. Chargé de travaux : B2V, Agent B (Agent C, également B2V, est pris par le chantier 3 pendant toute la période).',
   },
   {
@@ -969,6 +1533,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: [choix('c2-3-nom', AGENTS, 'Agent G'), choix('c2-3-hab', TITRES, 'B1V'), choix('c2-3-dates', CRENEAUX, 'S18 : mardi, mercredi et jeudi')] },
     ],
     indice: 'Chercher 3 jours consécutifs (1 jour par rangée) où le plus grand nombre de personnes habilitées sont libres (ni chantier, ni RTT, ni CL, ni congés).',
+    aides: [
+      'Relis le planning des semaines 17 et 18 et la mise en situation : 3 jours consécutifs (une rangée par jour), au moins deux électriciens.',
+      'Cherche une période de 3 jours consécutifs où le plus grand nombre de personnes habilitées sont libres (case vide : ni chantier, ni RTT, ni CL, ni congés). Garde le chargé de consignation et le chargé de travaux de C.1, puis ajoute les exécutants disponibles.',
+      'Forme de la réponse : une ligne par personne, dans l’ordre du planning : nom – habilitation – créneau de 3 jours.',
+    ],
+    erreursTypiques: [
+      { id: 'vendredi-s18', champ: 'c2-1-dates', valeurs: ['S18 : mercredi, jeudi et vendredi'], message: 'Vérifie le vendredi de la semaine 18 : toute l’équipe n’est pas disponible ce jour-là.' },
+      { id: 'semaine-17', champ: 'c2-2-dates', valeurs: ['S17 : lundi, mardi et mercredi', 'S17 : mardi, mercredi et jeudi', 'S17 : mercredi, jeudi et vendredi'], message: 'En semaine 17, cet agent est occupé : cherche un créneau où toute l’équipe est libre.' },
+      { id: 'agent-conges', champ: 'c2-3-nom', valeurs: ['Agent H'], message: 'Regarde la semaine 18 de cet agent : il n’est pas disponible.' },
+    ],
     explication: 'Agent A (BC), Agent B (B2V) et Agent G (B1V) : S18, mardi, mercredi et jeudi.',
   },
   {
@@ -977,6 +1551,11 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C1', points: 1, dtr: [], pageSujet: 21,
     motsCles: ['attestation', 'consignation', 'bc', 'charge de consignation', 'b2v', 'charge de travaux'], minMotsCles: 2, lignes: 3,
     corrige: 'Lorsque le chargé de consignation (BC) délivre l’attestation de consignation au chargé de travaux (B2V).',
+    aides: [
+      'Relis tes réponses de C.1 (qui consigne, qui dirige les travaux) et ton cours de prévention des risques électriques (NF C 18-510).',
+      'Le chargé de travaux ne peut faire commencer le travail qu’après une opération précise qui atteste, par écrit, que l’ouvrage est consigné. Qui réalise cette opération, et à qui la remet-il ?',
+      'Forme de la réponse : « Lorsque le chargé de … remet l’… de … au chargé de … ».',
+    ],
     explication: 'Lorsque le BC délivre l’attestation de consignation au B2V.',
   },
   {
@@ -990,6 +1569,15 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['3 — rangée 3', choix('c4-3', APPAREILS, 'Q207')] },
     ],
     indice: 'Schéma unifilaire (DTR 37, folio 2) : départs « Rampe 1, 2, 3 — éclairage atelier existant ».',
+    aides: [
+      'Ouvre le DTR 37 (schéma unifilaire), folio 2 : cherche les départs de l’éclairage de l’atelier existant.',
+      'Ne consigne que le départ de la rangée en travaux (les deux autres rangées doivent rester allumées) : ni le disjoncteur de tête, ni un départ d’un autre bâtiment. Respecte l’ordre rangée 1, puis 2, puis 3.',
+      'Forme de la réponse : un repère d’appareil « Q… » par rangée, dans l’ordre.',
+    ],
+    erreursTypiques: [
+      { id: 'q20', champ: 'c4-1', valeurs: ['Q20'], message: 'Cet appareil est en tête de toute l’installation existante : il couperait aussi les machines et les autres rangées.' },
+      { id: 'q212', champ: 'c4-1', valeurs: ['Q212'], message: 'Cet appareil protège l’éclairage du nouveau bâtiment : les travaux concernent l’atelier existant (folio 2).' },
+    ],
     explication: 'Les disjoncteurs Q205 puis Q206 puis Q207.',
   },
   {
@@ -1004,6 +1592,15 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: [choix('c5-e4', ETAPES, 'Vérification d’absence de tension (VAT)'), choix('c5-o4', OBJECTIFS, OBJECTIFS[3])] },
     ],
     indice: 'Quatre étapes, dans l’ordre : on sépare, on condamne, on identifie, on vérifie.',
+    aides: [
+      'Revois ton cours de prévention des risques électriques (NF C 18-510) : les étapes de la consignation en basse tension.',
+      'Pense à l’ordre logique : isoler l’ouvrage de ses sources, empêcher sa remise sous tension, reconnaître l’ouvrage sur lequel on va travailler, puis contrôler qu’il est hors tension. Associe à chaque étape l’objectif qui la décrit.',
+      'Forme de la réponse : 4 lignes « nom de l’étape – objectif », dans l’ordre chronologique. Deux étapes de la liste ne font pas partie des quatre demandées.',
+    ],
+    erreursTypiques: [
+      { id: 'vat-trop-tot', champ: 'c5-e3', valeurs: ['Vérification d’absence de tension (VAT)'], message: 'La vérification d’absence de tension se fait une fois l’ouvrage reconnu : revois l’ordre des étapes.' },
+      { id: 'identification-trop-tot', champ: 'c5-e1', valeurs: ['Identification'], message: 'On ne peut pas identifier l’ouvrage consigné avant de l’avoir séparé et condamné : revois l’ordre des étapes.' },
+    ],
     explication: 'Séparation : séparer l’ouvrage des sources de tension. Condamnation : interdire la manœuvre de l’organe de séparation. Identification : être certain que les travaux seront effectués sur l’ouvrage séparé et dont les organes de séparation sont condamnés en position ouverte. V.A.T. : vérifier, au plus près du lieu de travail, l’absence de tension sur chacun des conducteurs actifs (y compris le neutre).',
   },
 
@@ -1016,6 +1613,15 @@ const QUESTIONS: SujetQuestion[] = [
       { id: 'qh', label: 'Débit du centre d’usinage', unite: 'm³/h', attendu: 10000, tolerance: 0 },
       { id: 'qmin', label: 'soit', unite: 'm³/min', attendu: 166.7, tolerance: 1 },
     ],
+    aides: [
+      'Ouvre le DTR 25 (plan du centre d’usinage) : cherche le débit d’aspiration préconisé.',
+      'Le débit est donné en m³/h ; une heure compte 60 minutes : divise par 60 pour l’avoir en m³/min.',
+      'Forme de la réponse : Q = … m³/h, soit … m³/min.',
+    ],
+    erreursTypiques: [
+      { id: 'm3-par-seconde', champ: 'qmin', nombre: { valeur: 2.78, tolerance: 0.05 }, message: 'Tu as divisé par 3 600 (m³/s) : une heure compte 60 minutes.' },
+      { id: 'multiplie-60', champ: 'qmin', nombre: { valeur: 600000, tolerance: 100 }, message: 'Tu as multiplié par 60 : un débit par minute est plus petit qu’un débit par heure.' },
+    ],
     explication: 'Débit du centre d’usinage : 10 000 m³/h soit 166 m³/min.',
   },
   {
@@ -1025,6 +1631,15 @@ const QUESTIONS: SujetQuestion[] = [
     champs: [
       { id: 'qh', label: 'Débit de la corroyeuse', unite: 'm³/h', attendu: 9000, tolerance: 0 },
       { id: 'qmin', label: 'soit', unite: 'm³/min', attendu: 150, tolerance: 1 },
+    ],
+    aides: [
+      'Ouvre le DTR 26 (documentation technique de la corroyeuse) : cherche le débit d’aspiration nécessaire.',
+      'Le débit est donné en m³/h ; une heure compte 60 minutes : divise par 60 pour l’avoir en m³/min.',
+      'Forme de la réponse : Q = … m³/h, soit … m³/min.',
+    ],
+    erreursTypiques: [
+      { id: 'm3-par-seconde', champ: 'qmin', nombre: { valeur: 2.5, tolerance: 0.05 }, message: 'Tu as divisé par 3 600 (m³/s) : une heure compte 60 minutes.' },
+      { id: 'multiplie-60', champ: 'qmin', nombre: { valeur: 540000, tolerance: 100 }, message: 'Tu as multiplié par 60 : un débit par minute est plus petit qu’un débit par heure.' },
     ],
     explication: 'Débit de la corroyeuse : 9 000 m³/h soit 150 m³/min.',
   },
@@ -1036,6 +1651,15 @@ const QUESTIONS: SujetQuestion[] = [
     formule: 'Q = Q centre d’usinage + Q corroyeuse',
     formuleMotsCles: ['+'],
     attendu: 316, tolerance: 1.5,
+    formuleSpec: F_DEBIT,
+    aides: [
+      'Reprends les deux débits en m³/min trouvés en D.1.1 et D.1.2.',
+      'Pertes de charge nulles : le débit de l’installation est la somme des débits des deux machines, dans la même unité. Note Q₁ le débit du centre d’usinage et Q₂ celui de la corroyeuse.',
+      'Forme de la réponse : Q = … + … = … m³/min.',
+    ],
+    erreursTypiques: [
+      { id: 'm3-par-heure', nombre: { valeur: 19000, tolerance: 10 }, message: 'Tu as additionné les débits en m³/h : le résultat est demandé en m³/min.' },
+    ],
     explication: 'Total : 150 + 166 = 316 m³/min.',
   },
   {
@@ -1050,6 +1674,16 @@ const QUESTIONS: SujetQuestion[] = [
     ] }],
     indice: 'Convertir 3 800 Pa en kgf/m², puis chercher dans le tableau GBV (DTR 27) la turbine qui donne au moins cette pression à un débit supérieur à 316 m³/min.',
     // Corrigé officiel : « 4000 Pa = 387,75 kgf/m² » (coquille : c'est 3 800 Pa).
+    aides: [
+      'Ouvre le DTR 27 (groupes d’aspiration GBV) : colonnes de débit V (m³/min) et pressions Pt (kgf/m²) dans le tableau.',
+      'Convertis d’abord la dépression en kgf/m² (1 kgf/m² = 9,8 Pa : on divise les pascals par 9,8). Dans la colonne du débit juste supérieur ou égal au débit de l’installation (D.1.3), cherche la première turbine dont la pression Pt dépasse cette dépression minimale.',
+      'Forme de la réponse : dépression = … / 9,8 = … kgf/m² ; turbine « GBV 0…… » ; justification : « à … m³/min, elle fournit … kgf/m² > … kgf/m² ».',
+    ],
+    erreursTypiques: [
+      { id: 'multiplie-9-8', champ: 'd14-pt', nombre: { valeur: 37240, tolerance: 50 }, message: 'Tu as multiplié par 9,8 : pour passer des pascals aux kgf/m², il faut diviser.' },
+      { id: 'pression-insuffisante', champ: 'd14-ref', valeurs: ['GBV 010020', 'GBV010020', '010020', 'GBV 009040', 'GBV009040'], message: 'À ce débit, cette turbine ne fournit pas une pression suffisante : compare Pt à la dépression minimale.' },
+      { id: 'surdimensionnee', champ: 'd14-ref', valeurs: ['GBV 011220', 'GBV011220', 'GBV 011240', 'GBV011240'], message: 'Cette turbine convient mais elle est surdimensionnée : choisis la première qui satisfait les deux critères.' },
+    ],
     explication: '3 800 Pa / 9,8 = 387,75 kgf/m² : turbine GBV 010040 (37 kW), 394 kgf/m² pour un débit de 355 m³/min.',
   },
   {
@@ -1063,6 +1697,15 @@ const QUESTIONS: SujetQuestion[] = [
       txt('d21-ref', ['ATV340D37N4E']),
     ] }],
     indice: 'Moteur de la turbine GBV 010040 : 37 kW (DTR 27) ; forte surcharge = « Heavy duty » (DTR 28).',
+    aides: [
+      'Ouvre le DTR 27 (puissance du moteur de la turbine choisie en D.1.4) et le DTR 28 (tableau des variateurs ATV340).',
+      'Une forte surcharge au démarrage correspond au type de service « Heavy duty » (HD). Dans le DTR 28, cherche la ligne HD dont la puissance moteur correspond à celle de la turbine, puis lis la référence du variateur de ce bloc.',
+      'Forme de la réponse : puissance = … kW ; service HD ou ND ; référence « ATV340……N4E ».',
+    ],
+    erreursTypiques: [
+      { id: 'ligne-nd', champ: 'd21-ref', valeurs: ['ATV340D30N4E'], message: 'Tu as lu la puissance sur une ligne ND (faible surcharge) : pour une forte surcharge, lis une ligne HD.' },
+      { id: 'service-nd', champ: 'd21-service', valeurs: ['ND (Normal duty, faible surcharge)'], message: 'La turbine occasionne une forte surcharge au démarrage : relis la définition des deux types de service (DTR 28).' },
+    ],
     explication: 'Puissance moteur 37 kW ; HD (heavy duty) acceptant les fortes surcharges : ATV340D37N4E.',
   },
   {
@@ -1072,6 +1715,14 @@ const QUESTIONS: SujetQuestion[] = [
     motsCles: ['triangle', '400', '690'], minMotsCles: 2, lignes: 3,
     corrige: 'Alimentation 400 V ; moteur 400/690 V : couplage triangle.',
     indice: 'Comparer la tension du réseau à la plus petite tension de la plaque du moteur (DTR 27).',
+    aides: [
+      'Relis la plaque du moteur (DTR 27 : tensions 400 V / 690 V) et la tension entre phases du réseau qui alimente le variateur.',
+      'Un enroulement supporte la plus petite tension de la plaque. En étoile, chaque enroulement reçoit U / √3 ; en triangle, il reçoit U (U : tension entre phases). Choisis le couplage qui donne à chaque enroulement la tension qu’il doit recevoir.',
+      'Forme de la réponse : « Couplage … car le réseau est en … V et chaque enroulement supporte … V. »',
+    ],
+    erreursTypiques: [
+      { id: 'etoile', valeurs: ['couplage étoile', 'couplage en étoile', 'couplage : étoile', 'étoile car', 'coupler en étoile'], message: 'En étoile, chaque enroulement ne recevrait que U / √3 : compare avec la tension qu’il doit recevoir (plus petite tension de la plaque).' },
+    ],
     explication: 'Réseau 400 V, moteur 400/690 V : chaque enroulement supporte 400 V, couplage triangle.',
   },
   {
@@ -1082,8 +1733,13 @@ const QUESTIONS: SujetQuestion[] = [
     image: { src: `${IMG}/q-d31-sujet.jpg`, alt: 'Bornier de commande ATV340 et commutateurs S1, S2 à raccorder' },
     traits: D31_TRAITS,
     platineTpId: 'scierie-d31-atv340',
-    corrigeImage: { src: `${IMG}/q-d31-corrige.jpg`, alt: 'Schéma de commande de l’ATV340 — corrigé' },
+    corrigeImage: { src: `corriges/scierie/q-d31-corrige.jpg`, alt: 'Schéma de commande de l’ATV340 — corrigé' },
     indice: 'Les entrées logiques DI sont actives lorsqu’elles reçoivent le +24 V : la sortie 24V du bornier alimente les communs de S1 et de S2.',
+    aides: [
+      'Ouvre le DTR 28, page du schéma du bloc de commande de l’ATV340 (bornier P24, 0V, DI1…DI8, 24V, 10V, AI1, COM).',
+      'Les entrées logiques DI sont activées lorsqu’elles reçoivent le +24 V : la sortie 24 V du variateur alimente le commun de chaque commutateur, et chaque contact renvoie ce +24 V vers l’entrée qui correspond à sa fonction (marche avant, PV, GV : voir l’énoncé).',
+      'Forme de la réponse : un trait de la sortie 24 V vers le commun de S1 et vers le commun de S2 ; un trait de la sortie de S1 vers l’entrée de marche avant ; un trait de chaque position de S2 vers l’entrée de la vitesse correspondante.',
+    ],
     explication: 'Corrigé p. 23 : 24V du variateur → commun de S1 et commun de S2 ; S1 → DI1 (marche avant) ; S2 position 1 → DI3 (PV) ; S2 position 2 → DI4 (GV).',
   },
   {
@@ -1095,6 +1751,16 @@ const QUESTIONS: SujetQuestion[] = [
       { id: 'fgv', label: 'f GV =', unite: 'Hz', attendu: 50, tolerance: 0.5 },
     ],
     indice: 'n = f / p (n en tr/s, p nombre de paires de pôles) : un moteur 4 pôles a p = 2.',
+    aides: [
+      'Relis l’énoncé : vitesses demandées en PV et en GV, et nombre de pôles du moteur.',
+      'Relation vitesse – fréquence : n = f / p, avec n en tours par seconde et p le nombre de PAIRES de pôles (4 pôles = 2 paires). Convertis les tr/min en tr/s (÷ 60), puis isole f.',
+      'Forme de la réponse : f = n × p = (… / 60) × … = … Hz, pour chacune des deux vitesses.',
+    ],
+    erreursTypiques: [
+      { id: 'poles-au-lieu-de-paires', champ: 'fpv', nombre: { valeur: 66.7, tolerance: 0.5 }, message: 'Tu as pris 4 pour p : p est le nombre de PAIRES de pôles.' },
+      { id: 'tr-min', champ: 'fpv', nombre: { valeur: 2000, tolerance: 1 }, message: 'La vitesse doit être en tours par seconde : divise d’abord les tr/min par 60.' },
+      { id: 'division-par-p', champ: 'fpv', nombre: { valeur: 8.33, tolerance: 0.1 }, message: 'Tu as divisé par p : isole f dans n = f / p.' },
+    ],
     explication: 'f = n × p : f PV = (1000 / 60) × 2 = 33 Hz ; f GV = (1500 / 60) × 2 = 50 Hz.',
   },
   {
@@ -1109,6 +1775,14 @@ const QUESTIONS: SujetQuestion[] = [
     indice: 'Menu [Vitesses présélect.] du DTR 28 ; fréquences calculées en D.3.2.',
     // Remarque : d'après le tableau d'association du DTR 28, DI4 seule sélectionne SP3 ; le
     // corrigé règle « vitesse présélectionnée 4 » : suivi ici.
+    aides: [
+      'Ouvre le DTR 28, page des vitesses présélectionnées (menu [Vitesses présél.]), et reprends tes fréquences de D.3.2.',
+      'L’énoncé de D.3.1 associe la vitesse présélectionnée 2 à la petite vitesse et la vitesse présélectionnée 4 à la grande vitesse : règle chacune à la fréquence correspondante. Justifie par le menu du variateur et par ton calcul.',
+      'Forme de la réponse : vitesse présél. 2 = … Hz ; vitesse présél. 4 = … Hz ; justification : « menu …, fréquence de la PV / de la GV calculée en D.3.2 ».',
+    ],
+    erreursTypiques: [
+      { id: 'pv-gv-inversees', champ: 'd33-sp2', nombre: { valeur: 50, tolerance: 0.5 }, message: 'Tu as inversé les deux vitesses : relis quelle vitesse présélectionnée correspond à la petite vitesse (énoncé de D.3.1).' },
+    ],
     explication: 'Menu [Vitesses présélect.] : vitesse présél. 2 = 33 Hz (PV) ; vitesse présél. 4 = 50 Hz (GV).',
   },
   {
@@ -1121,6 +1795,17 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['37', '45'],
     attendu: 39960, tolerance: 50,
     indice: 'Sans variateur, la turbine tourne à pleine puissance (37 kW) dès qu’une machine fonctionne : 80 % de 30 h par semaine ; 225 jours = 45 semaines.',
+    formuleSpec: F_E1,
+    aides: [
+      'Relis le texte du bilan économique (temps de service, taux d’utilisation des machines, jours travaillés) et la puissance du moteur de la turbine (D.2.1).',
+      'Sans variateur, la turbine tourne à pleine puissance dès qu’une machine fonctionne, c’est-à-dire pendant tout le temps d’utilisation du centre d’usinage (la corroyeuse tourne toujours en même temps que lui). Calcule la durée annuelle t : heures par semaine × nombre de semaines travaillées (5 jours ouvrés par semaine). Puis E = P × t.',
+      'Forme de la réponse : t = … % × 30 h × … semaines = … h ; E = P × t = … kW × … h = … kWh/an.',
+    ],
+    erreursTypiques: [
+      { id: 'temps-service-complet', nombre: { valeur: 49950, tolerance: 50 }, message: 'La turbine ne tourne que lorsqu’une machine fonctionne : prends le temps d’utilisation du centre d’usinage, pas tout le temps de service.' },
+      { id: '52-semaines', nombre: { valeur: 46176, tolerance: 50 }, message: 'L’entreprise ne travaille pas 52 semaines : convertis les 225 jours travaillés en semaines de 5 jours.' },
+      { id: 'jours-semaines', nombre: { valeur: 199800, tolerance: 100 }, message: 'Tu as multiplié des heures par semaine par un nombre de jours : convertis d’abord les jours travaillés en semaines.' },
+    ],
     explication: '80 % de 30 h = 24 h ; E = 37 kW × 24 h = 888 kWh par semaine ; 225 jours soit 45 semaines : 888 × 45 = 39 960 kWh/an.',
   },
   {
@@ -1132,6 +1817,16 @@ const QUESTIONS: SujetQuestion[] = [
     formuleMotsCles: ['18', '6'],
     attendu: 29770, tolerance: 200,
     indice: 'PV seule : 60 % de 30 h ; GV (les deux machines) : 20 % de 30 h. Puissance en PV : 37 × 33 / 50.',
+    formuleSpec: F_E2,
+    aides: [
+      'Reprends les durées de D.4.1, la puissance du moteur et les fréquences PV / GV (D.3.2). L’énoncé admet que la consommation du moteur est proportionnelle à sa vitesse.',
+      'Avec variateur : grande vitesse quand les deux machines tournent (temps de la corroyeuse), petite vitesse quand le centre d’usinage tourne seul (le reste de son temps). Puissance en PV = puissance en GV × (fréquence PV / fréquence GV). Énergie = énergie en PV + énergie en GV, avec des durées annuelles.',
+      'Forme de la réponse : E = P_PV × t_PV + P_GV × t_GV (t : durées annuelles) = … × … + … × … = … kWh/an.',
+    ],
+    erreursTypiques: [
+      { id: 'pv-tout-le-temps', nombre: { valeur: 26374, tolerance: 150 }, message: 'La grande vitesse sert quand les deux machines tournent : sépare le temps en PV et le temps en GV.' },
+      { id: 'temps-pv-80', nombre: { valeur: 36364, tolerance: 150 }, message: 'Le centre d’usinage ne tourne seul que pendant une partie de son temps : retire le temps où la corroyeuse tourne aussi.' },
+    ],
     explication: 'PV : 18 h à 37 × 33 / 50 = 24,42 kW ; GV : 6 h à 37 kW ; E = 18 × 24,42 + 6 × 37 = 661,56 kWh par semaine ; 661,56 × 45 = 29 770 kWh/an.',
   },
   {
@@ -1142,6 +1837,15 @@ const QUESTIONS: SujetQuestion[] = [
     formule: 'Gain = E sans variateur − E avec variateur',
     formuleMotsCles: ['-'],
     attendu: 10190, tolerance: 200,
+    formuleSpec: F_GAIN,
+    aides: [
+      'Reprends tes deux consommations annuelles (D.4.1 et D.4.2).',
+      'Le gain est l’énergie économisée grâce au variateur : consommation sans variateur moins consommation avec variateur. Note E₁ (sans) et E₂ (avec).',
+      'Forme de la réponse : Gain = … − … = … kWh/an.',
+    ],
+    erreursTypiques: [
+      { id: 'inverse', nombre: { valeur: -10190, tolerance: 200 }, message: 'Ton gain est négatif : tu as inversé les deux consommations.' },
+    ],
     explication: '39 960 − 29 770 = 10 190 kWh/an.',
   },
   {
@@ -1153,6 +1857,16 @@ const QUESTIONS: SujetQuestion[] = [
     formule: 'Durée = coût du variateur / gain annuel en euros',
     formuleMotsCles: ['/'],
     attendu: 3, tolerance: 0.1,
+    formuleSpec: F_DUREE,
+    aides: [
+      'Reprends le gain annuel en kWh (D.4.3), le prix du kWh et le coût de l’installation du variateur (texte juste avant la question).',
+      'Convertis d’abord le gain en euros par an (kWh × prix du kWh). La durée d’amortissement est le nombre d’années nécessaires pour que les économies remboursent l’investissement. Note C le coût, G le gain en kWh/an et p le prix du kWh.',
+      'Forme de la réponse : gain annuel = … kWh × … €/kWh = … € ; durée = … € / … €/an = … ans.',
+    ],
+    erreursTypiques: [
+      { id: 'gain-en-kwh', nombre: { valeur: 0.75, tolerance: 0.02 }, message: 'Tu as divisé un coût en euros par un gain en kWh : convertis d’abord le gain en euros.' },
+      { id: 'rapport-inverse', nombre: { valeur: 0.333, tolerance: 0.01 }, message: 'Ton rapport est inversé : combien d’années faut-il pour rembourser le coût du variateur ?' },
+    ],
     explication: 'Gain annuel : 10 190 × 0,25 = 2 547,5 €/an ; amortissement : 7 642,5 / 2 547,5 = 3 ans.',
   },
   {
@@ -1161,6 +1875,14 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C3', points: 1, dtr: [], pageSujet: 25,
     motsCles: ['oui', '4 ans', '3 ans', 'inferieur', 'moins de'], minMotsCles: 2, lignes: 3,
     corrige: 'Oui, car la scierie souhaite amortir l’aspiration en 4 ans au maximum et l’option est amortie en 3 ans.',
+    aides: [
+      'Relis la mise en situation de la partie D : critère d’amortissement souhaité par la scierie.',
+      'Compare la durée d’amortissement calculée en D.4.4 à la durée maximale acceptée par la scierie.',
+      'Forme de la réponse : « Oui / Non, car l’option est amortie en … ans, ce qui est … aux … ans demandés. »',
+    ],
+    erreursTypiques: [
+      { id: 'non', valeurs: ['non,', 'non car', 'non elle', 'non l’option', 'non, l’option', 'pas en accord', 'n’est pas en accord'], message: 'Compare ta durée d’amortissement (D.4.4) à la durée maximale fixée par la scierie dans la mise en situation.' },
+    ],
     explication: 'Oui : amortissement en 3 ans, inférieur aux 4 ans souhaités par la scierie.',
   },
 
@@ -1172,6 +1894,14 @@ const QUESTIONS: SujetQuestion[] = [
     colonnes: ['Orientation optimale', 'Inclinaison optimale (°)'],
     lignes: [{ cellules: [txt('e11-orient', ['Sud', 'S', 'plein sud', 'sud (0°)', 'orientation sud']), num('e11-incl', 30, 0, ['30°'])] }],
     indice: 'Tableau de synthèse des rendements du DTR 30 : chercher 100 %.',
+    aides: [
+      'Ouvre le DTR 30 : disque solaire et tableau de synthèse des rendements PV selon l’inclinaison et l’orientation.',
+      'Cherche dans le tableau (ou au centre de la zone la plus claire du disque) la case où le rendement est maximal, puis lis son orientation et son inclinaison.',
+      'Forme de la réponse : orientation = un point cardinal ; inclinaison = … °.',
+    ],
+    erreursTypiques: [
+      { id: 'inclinaison-toit', champ: 'e11-incl', nombre: { valeur: 15, tolerance: 0 }, message: 'C’est l’inclinaison du toit de l’extension : on demande l’inclinaison optimale d’après le DTR 30.' },
+    ],
     explication: 'Orientation optimale : Sud ; inclinaison optimale : 30°.',
   },
   {
@@ -1184,6 +1914,15 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Inclinaison (°)', num('e12-incl', 15, 0, ['15°']), choix('e12-incl-v', ['Optimale', 'Non optimale'], 'Non optimale')] },
     ],
     indice: 'Plans de l’extension (DTR 29) : pan de toiture orienté au sud, angle α.',
+    aides: [
+      'Ouvre le DTR 29 (plans de l’extension) : orientation du pan de toiture et angle d’inclinaison. Compare avec E.1.1.',
+      'Relève l’orientation et l’inclinaison RÉELLES du toit, puis compare chacune à la valeur optimale trouvée en E.1.1 : identique = optimale, sinon non optimale.',
+      'Forme de la réponse : orientation = … (optimale / non optimale) ; inclinaison = … ° (optimale / non optimale).',
+    ],
+    erreursTypiques: [
+      { id: 'inclinaison-optimale', champ: 'e12-incl', nombre: { valeur: 30, tolerance: 0 }, message: 'C’est l’inclinaison optimale (E.1.1) : on demande l’inclinaison réelle du toit, lue sur le plan.' },
+      { id: 'validation-inclinaison', champ: 'e12-incl-v', valeurs: ['Optimale'], message: 'Compare l’inclinaison du toit à l’inclinaison optimale trouvée en E.1.1 : sont-elles égales ?' },
+    ],
     explication: 'Orientation Sud : optimale ; inclinaison 15° : non optimale (30° optimal).',
   },
   {
@@ -1204,6 +1943,14 @@ const QUESTIONS: SujetQuestion[] = [
       { id: 'viabilite', label: 'Viabilité du projet (oui/non)', acceptes: ['oui'] },
     ],
     indice: 'Le centre du disque correspond à une inclinaison nulle ; l’inclinaison augmente de 10° par anneau en s’éloignant du centre, dans la direction de l’orientation (Sud vers le bas).',
+    aides: [
+      'Utilise le disque solaire (DTR 30) reproduit dans la question, et l’orientation et l’inclinaison du toit relevées en E.1.2.',
+      'Le centre du disque correspond à une inclinaison nulle ; chaque cercle ajoute 10° d’inclinaison. Pars du centre dans la direction de l’orientation du toit et arrête-toi à son inclinaison. La teinte de la zone où tombe la croix donne le rendement (échelle à droite du disque).',
+      'Forme de la réponse : une seule croix ; rendement = plage « … à … % » lue sur l’échelle ; viabilité : oui ou non.',
+    ],
+    erreursTypiques: [
+      { id: 'non-viable', champ: 'viabilite', valeurs: ['non'], message: 'Regarde le rendement que tu as lu sur le disque : est-il proche du maximum possible ?' },
+    ],
     explication: 'Croix au Sud, inclinaison 15° (entre les anneaux 10° et 20°, sur le méridien Sud) ; rendement théorique approximatif 95 à 100 % : projet viable (oui).',
   },
   {
@@ -1219,6 +1966,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Surface du pan sud de l’extension (m²)', num('e21-s', 280, 1)] },
     ],
     indice: 'Plan de masse de l’extension (DTR 29, cotes en cm).',
+    aides: [
+      'Ouvre le DTR 29 (plans de l’extension, cotes en cm). La formule de Ls est donnée dans l’énoncé.',
+      'Longueur et largeur du toit = dimensions de l’extension, en mètres. Dans Ls = √(2,3² + (L/2)²), on prend L/2 car le pan sud ne couvre que la moitié de la largeur. Arrondis Ls à l’unité AVANT de calculer la surface (longueur × Ls).',
+      'Forme de la réponse : longueur = … m ; L = …,… m ; Ls = √(2,3² + (… / 2)²) ≈ … m ; surface = … × … = … m².',
+    ],
+    erreursTypiques: [
+      { id: 'l-entier', champ: 'e21-ls', nombre: { valeur: 15, tolerance: 0.4 }, message: 'Tu as pris L au lieu de L / 2 dans la formule de Ls.' },
+      { id: 'toute-la-toiture', champ: 'e21-s', nombre: { valeur: 532, tolerance: 1 }, message: 'Tu as calculé la surface au sol de toute l’extension : on demande seulement le pan sud (longueur × Ls).' },
+      { id: 'ls-non-arrondi', champ: 'e21-s', nombre: { valeur: 277.9, tolerance: 0.6 }, message: 'Arrondis Ls à l’unité avant de calculer la surface (consigne de l’énoncé).' },
+    ],
     explication: 'Longueur 35 m ; largeur L = 15,2 m ; Ls = √(2,3² + 7,6²) = 7,94 soit 8 m ; surface 35 × 8 = 280 m².',
   },
   {
@@ -1238,6 +1995,15 @@ const QUESTIONS: SujetQuestion[] = [
     ],
     indice: 'Caractéristiques mécaniques du module BBO 510 (DTR 33, page 2).',
     // Corrigé officiel : Scellule = 0,0165 m² (0,182 × 0,091 = 0,01656, soit 0,0166) : les deux sont acceptés.
+    aides: [
+      'Ouvre le DTR 33, deuxième page (caractéristiques mécaniques du module BBO 510).',
+      'Relève les dimensions du module et celles d’une cellule. Surface d’une cellule = longueur × largeur (en m) ; surface efficace d’un panneau = surface d’une cellule × nombre de demi-cellules. Respecte les arrondis demandés.',
+      'Forme de la réponse : dimensions en mm ; cellule « 0,… × 0,… » m ; Scellule = 0,0… m² (4 chiffres après la virgule) ; S = … × 132 = …,… m² (3 chiffres après la virgule).',
+    ],
+    erreursTypiques: [
+      { id: 'mm2', champ: 'e221-sc', nombre: { valeur: 16562, tolerance: 5 }, message: 'Ta surface est en mm² : convertis les dimensions en mètres avant de multiplier.' },
+      { id: 'surface-hors-tout', champ: 'e221-s', nombre: { valeur: 2.375, tolerance: 0.005 }, message: 'Tu as calculé la surface hors tout du module : la surface efficace est celle des cellules.' },
+    ],
     explication: '2 094 × 1 134 × 35 mm ; 132 demi-cellules de 0,182 × 0,091 m ; Scellule = 0,0166 m² ; S = Scellule × 132 = 2,186 m².',
   },
   {
@@ -1250,6 +2016,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Nombre calculé de panneaux par ligne', num('e222-n', 30.32, 0.02)] },
       { cellules: ['Nombre arrondi de panneaux par ligne', num('e222-arrondi', 30, 0)] },
       { cellules: ['Nombre total de panneaux de l’installation', num('e222-total', 90, 0)] },
+    ],
+    aides: [
+      'Utilise la longueur du toit (E.2.1), la largeur d’un panneau (E.2.2.1) et l’espacement de fixation donné dans le texte ; la formule est dans l’énoncé.',
+      'En position portrait, c’est la largeur du panneau qui s’aligne le long de la ligne. Convertis tout en mètres (2 cm = 0,02 m). Arrondis ensuite à l’entier inférieur (on ne pose pas un morceau de panneau), puis multiplie par le nombre de lignes.',
+      'Forme de la réponse : N = … / (… + …) = …,… ; arrondi = … panneaux par ligne ; total = … × … = … panneaux.',
+    ],
+    erreursTypiques: [
+      { id: 'paysage', champ: 'e222-n', nombre: { valeur: 16.56, tolerance: 0.05 }, message: 'En portrait, c’est la largeur du panneau (et non sa longueur) qui s’aligne le long du toit.' },
+      { id: 'cm-non-converti', champ: 'e222-n', nombre: { valeur: 11.17, tolerance: 0.05 }, message: 'L’espacement doit être converti en mètres (2 cm = 0,02 m).' },
+      { id: 'arrondi-exces', champ: 'e222-arrondi', nombre: { valeur: 31, tolerance: 0 }, message: 'On ne peut pas poser un panneau incomplet : arrondis à l’entier inférieur.' },
     ],
     explication: 'N = 35 / (1,134 + 0,02) = 30,32 ; 30 panneaux par ligne ; Ntotal = 30 × 3 = 90 panneaux.',
   },
@@ -1267,6 +2043,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Production annuelle théorique attendue (kWh), sans les chiffres après la virgule', num('e23-prod', 51070, 300)] },
     ],
     indice: 'Irradiation globale annuelle sur le plan incliné (IGP, DTR 31) ; surface efficace totale = 90 × S (E.2.2.1).',
+    aides: [
+      'Ouvre le DTR 31 (évaluation du potentiel solaire local, CalSol) : irradiation annuelle sur le plan incliné. Reprends la surface efficace d’un panneau (E.2.2.1) et le nombre de panneaux (E.2.2.2).',
+      'Prends l’irradiation GLOBALE sur le plan INCLINÉ (IGP), colonne « année ». Surface totale = nombre de panneaux × surface efficace d’un panneau. Les rendements s’écrivent en nombre décimal (%, divisé par 100). Production = produit des quatre grandeurs.',
+      'Forme de la réponse : IGP = … kWh/m²/an ; S = … × … = …,… m² ; rendements en décimal (0,…) ; production = … × … × … × … = … kWh.',
+    ],
+    erreursTypiques: [
+      { id: 'igh', champ: 'e23-igp', nombre: { valeur: 1153, tolerance: 0 }, message: 'Tu as pris l’irradiation sur un plan horizontal (IGH) : les panneaux sont inclinés.' },
+      { id: 'pourcentage', champ: 'e23-ro', nombre: { valeur: 98, tolerance: 0 }, message: 'Convertis le pourcentage en nombre décimal.' },
+      { id: 'production-igh', champ: 'e23-prod', nombre: { valeur: 47795, tolerance: 300 }, message: 'Ta production est calculée avec l’irradiation sur un plan horizontal : utilise celle du plan incliné.' },
+    ],
     explication: 'IGP = 1 232 kWh/m²/an ; surface 90 × 2,186 = 196,74 m² ; 0,98 ; 0,215 ; production 1 232 × 196,74 × 0,98 × 0,215 = 51 070 kWh.',
   },
   {
@@ -1282,6 +2068,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Le projet est-il envisageable ? (oui / non)', choix('e24-ok', OUI_NON, 'oui')] },
     ],
     indice: 'Total annuel de la facture (DTR 32), puis comparer avec la production calculée en E.2.3.',
+    aides: [
+      'Ouvre le DTR 32 (facture 2022 de la scierie) : ligne TOTAL. Reprends la production calculée en E.2.3.',
+      '18 % de la consommation = consommation × 0,18. Compare ensuite la production PV à cette valeur : le projet est envisageable si la production atteint au moins 18 % de la consommation.',
+      'Forme de la réponse : consommation = … kWh ; 18 % = … kWh ; position : inférieure / égale / supérieure ; conclusion : oui ou non.',
+    ],
+    erreursTypiques: [
+      { id: 'fois-18', champ: 'e24-18', nombre: { valeur: 5018652, tolerance: 100 }, message: 'Tu as multiplié par 18 au lieu de prendre 18 % (× 0,18).' },
+      { id: 'euros', champ: 'e24-conso', nombre: { valeur: 44273.74, tolerance: 1 }, message: 'C’est le coût total en euros : on demande la consommation en kWh.' },
+      { id: 'position', champ: 'e24-pos', valeurs: ['Inférieure à 18 %'], message: 'Compare de nouveau ta production (E.2.3) et les 18 % de la consommation : laquelle est la plus grande ?' },
+    ],
     explication: 'Consommation 278 814 kWh ; 18 % = 50 186,52 kWh ; production (51 070 kWh) supérieure à 18 % : projet envisageable (oui).',
   },
   {
@@ -1297,6 +2093,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Tension en circuit ouvert (V)', num('e31-uco', 43.6, 0)] },
       { cellules: ['Tension au point de puissance max (V)', num('e31-umpp', 35.8, 0)] },
     ],
+    aides: [
+      'Ouvre le DTR 33, tableau « Caractéristiques électriques sous NOCT ».',
+      'Lis la colonne du module BBO 510 (pas 500), dans le tableau NOCT (pas dans les conditions STC). Ne confonds pas courant de court-circuit et courant au point de puissance maximale, ni tension en circuit ouvert et tension au point de puissance maximale.',
+      'Forme de la réponse : puissance en W ; courants en A (2 décimales) ; tensions en V (1 décimale).',
+    ],
+    erreursTypiques: [
+      { id: 'stc', champ: 'e31-p', nombre: { valeur: 510, tolerance: 0 }, message: '510 W est la puissance en conditions STC : on demande les valeurs NOCT.' },
+      { id: 'bbo-500', champ: 'e31-p', nombre: { valeur: 378, tolerance: 0 }, message: 'Tu as lu la colonne du module BBO 500.' },
+      { id: 'icc-impp', champ: 'e31-icc', nombre: { valeur: 10.78, tolerance: 0 }, message: 'Tu as confondu le courant de court-circuit et le courant au point de puissance maximale.' },
+    ],
     explication: 'NOCT, BBO 510 : 386 W ; Icc = 11,27 A ; Impp = 10,78 A ; Uco = 43,6 V ; Umpp = 35,8 V.',
   },
   {
@@ -1307,12 +2113,22 @@ const QUESTIONS: SujetQuestion[] = [
     colonnes: ['Grandeur', 'Valeur'],
     lignes: [
       { cellules: ['Tension MPPT NOCT à 43 °C (V)', num('e32-u43', 35.8, 0)] },
-      { cellules: ['Calcul de −Δv', libre('e32-calc', '−Δv = …')] },
+      { cellules: ['Calcul de −Δv', appli('e32-calc', '−Δv = …')] },
       { cellules: ['Δv (V)', num('e32-dv', 2.98, 0.02, ['-2,98', '-2,98 V'])] },
       { cellules: ['U MPPT « 75 °C » = U MPPT « NOCT » − Δv (V)', num('e32-u75', 32.82, 0.02)] },
       { cellules: ['P « 75 °C » (W)', num('e32-p75', 353.8, 0.5)] },
     ],
     indice: 'β = −0,26 %/°C (caractéristiques thermiques, DTR 33) ; T1 = 43 °C (NOCT), T2 = 75 °C.',
+    aides: [
+      'Ouvre le DTR 33 (caractéristiques thermiques : coefficient β de la tension) et reprends U MPPT NOCT (E.3.1).',
+      'β est en %/°C : divise-le par 100. T1 = température NOCT, T2 = température du panneau. La tension baisse quand la température monte : U MPPT à 75 °C = U MPPT NOCT − Δv. Avec I MPPT constant, P = U × I.',
+      'Forme de la réponse : −Δv = β × U MPPT × (T2 − T1) = −0,00… × … × (… − …) = … V ; U MPPT 75 °C = … − … = …,… V ; P = … × … = …,… W.',
+    ],
+    erreursTypiques: [
+      { id: 'beta-pourcent', champ: 'e32-dv', nombre: { valeur: 297.9, tolerance: 1 }, message: 'Le coefficient β est en % par °C : divise-le par 100.' },
+      { id: 't1-stc', champ: 'e32-dv', nombre: { valeur: 4.65, tolerance: 0.02 }, message: 'T1 est la température NOCT indiquée dans le tableau, pas 25 °C (conditions STC).' },
+      { id: 'delta-ajoute', champ: 'e32-u75', nombre: { valeur: 38.78, tolerance: 0.02 }, message: 'La tension diminue quand la température augmente : retranche Δv.' },
+    ],
     explication: '−Δv = −0,0026 × 35,8 × (75 − 43) = −2,98 V ; U MPPT 75 °C = 35,8 − 2,98 = 32,82 V ; P 75 °C = 32,82 × 10,78 = 353,8 W.',
   },
   {
@@ -1321,6 +2137,14 @@ const QUESTIONS: SujetQuestion[] = [
     contexte: 'Pour notre installation on choisira un onduleur de la marque Fronius. Il sera sélectionné dans la gamme des modèles SYMO 10 à SYMO 15.',
     competence: 'C1', points: 1, dtr: [41], pageSujet: 31,
     champs: [{ id: 'eta', label: 'ηMax :', unite: '%', attendu: 98, tolerance: 0.1, acceptes: ['0,98'] }],
+    aides: [
+      'Ouvre le DTR 34, deuxième page (rendements des onduleurs SYMO).',
+      'Plusieurs rendements sont donnés (maximal, européen, à charge partielle) : on demande le rendement MAXIMAL de la gamme SYMO 10 à 15 (attention, il n’est pas le même pour toutes les colonnes).',
+      'Forme de la réponse : ηMax = …,… %.',
+    ],
+    erreursTypiques: [
+      { id: 'rendement-europeen', champ: 'eta', nombre: { valeur: 97.6, tolerance: 0.05 }, message: 'C’est le rendement européen : on demande le rendement maximal.' },
+    ],
     explication: 'ηMax = 98 %.',
   },
   {
@@ -1331,6 +2155,16 @@ const QUESTIONS: SujetQuestion[] = [
     formule: 'P finale = P NOCT × ηMax',
     formuleMotsCles: ['386'],
     attendu: 378.28, tolerance: 0.5,
+    formuleSpec: F_PFIN,
+    aides: [
+      'Reprends la puissance NOCT du panneau (énoncé) et le rendement maximal de l’onduleur (E.3.3.1).',
+      'L’onduleur transmet au réseau la puissance qu’il reçoit diminuée de ses pertes : puissance de sortie = puissance d’entrée × rendement (en décimal). Note P_NOCT la puissance du panneau et η le rendement.',
+      'Forme de la réponse : P finale = … × 0,… = …,… W.',
+    ],
+    erreursTypiques: [
+      { id: 'division', nombre: { valeur: 393.88, tolerance: 0.5 }, message: 'Tu as divisé par le rendement : les pertes de l’onduleur diminuent la puissance.' },
+      { id: 'rendement-pourcent', nombre: { valeur: 37828, tolerance: 10 }, message: 'Le rendement doit être écrit en décimal (et non en %).' },
+    ],
     explication: 'P finale = 386 × 0,98 = 378,28 W.',
   },
   {
@@ -1340,9 +2174,19 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C3', points: 2, dtr: [38], pageSujet: 31,
     colonnes: ['Grandeur à calculer', 'Calculs', 'Résultats'],
     lignes: [
-      { cellules: ['Puissance injectée (kW)', libre('e3411-p-calc', 'Calcul…'), num('e3411-p', 11.348, 0.03, ['11 348 W', '11348 W'])] },
-      { cellules: ['Tension MPPT « NOCT » côté DC (V)', libre('e3411-u-calc', 'Calcul…'), num('e3411-u', 1074, 1)] },
-      { cellules: ['Tension minimum « NOCT » à 75 °C côté DC (V)', libre('e3411-umin-calc', 'Calcul…'), num('e3411-umin', 984.6, 1)] },
+      { cellules: ['Puissance injectée (kW)', appli('e3411-p-calc', 'Calcul…'), num('e3411-p', 11.348, 0.03, ['11 348 W', '11348 W'])] },
+      { cellules: ['Tension MPPT « NOCT » côté DC (V)', appli('e3411-u-calc', 'Calcul…'), num('e3411-u', 1074, 1)] },
+      { cellules: ['Tension minimum « NOCT » à 75 °C côté DC (V)', appli('e3411-umin-calc', 'Calcul…'), num('e3411-umin', 984.6, 1)] },
+    ],
+    aides: [
+      'Reprends la puissance finale d’un panneau (E.3.3.2), U MPPT NOCT (E.3.1) et U MPPT à 75 °C (E.3.2).',
+      'En série, les puissances s’additionnent et les tensions aussi : multiplie la valeur d’un panneau par le nombre de panneaux du string. La tension minimum correspond à la température la plus haute (75 °C).',
+      'Forme de la réponse : P = … × … = … kW ; U MPPT = … × … = … V ; U min = … × … = …,… V.',
+    ],
+    erreursTypiques: [
+      { id: 'p-noct', champ: 'e3411-p', nombre: { valeur: 11.58, tolerance: 0.03 }, message: 'Tu as pris la puissance NOCT du panneau : la puissance injectée tient compte du rendement de l’onduleur (E.3.3.2).' },
+      { id: 'p-stc', champ: 'e3411-p', nombre: { valeur: 15.3, tolerance: 0.03 }, message: 'Tu as pris la puissance crête STC du panneau : utilise la puissance finale « côté réseau ».' },
+      { id: 'uco', champ: 'e3411-u', nombre: { valeur: 1308, tolerance: 1 }, message: 'Tu as utilisé la tension en circuit ouvert : on demande la tension au point de puissance maximale.' },
     ],
     explication: 'Puissance injectée : 30 × 0,37828 = 11,348 kW ; tension MPPT NOCT : 30 × 35,8 = 1 074 V ; tension minimum à 75 °C : 30 × 32,82 = 984,6 V.',
   },
@@ -1362,6 +2206,16 @@ const QUESTIONS: SujetQuestion[] = [
       { cellules: ['Nombre de trackers MPPT', num('e3412-mppt', 2, 0)] },
     ],
     indice: 'Caractéristiques techniques Fronius SYMO (DTR 34) : puissance de sortie juste supérieure à la puissance injectée par un string.',
+    aides: [
+      'Ouvre le DTR 34 (caractéristiques techniques Fronius SYMO) et reprends la puissance injectée par un string (E.3.4.1.1).',
+      'Choisis l’onduleur dont la puissance de sortie nominale est juste supérieure à la puissance injectée par un string. Relève ensuite dans SA colonne : puissance crête max du générateur, puissance de sortie, plage de tension MPP, courant d’entrée max utilisable, tensions d’entrée min et max, nombre de trackers.',
+      'Forme de la réponse : référence « SYMO …-3-M » ; puissances en kWc / kW ; plage « … – … V » ; courant en A ; tensions en V ; nombre de trackers.',
+    ],
+    erreursTypiques: [
+      { id: 'symo-10', champ: 'e3412-ref', valeurs: ['SYMO 10.0-3-M', 'SYMO 10-3-M', 'SYMO 10,0-3-M', 'Fronius SYMO 10.0-3-M'], message: 'La puissance de sortie de cet onduleur est inférieure à la puissance injectée par un string.' },
+      { id: 'plage-autre-modele', champ: 'e3412-mpp', valeurs: plage(270, 800), message: 'Cette plage de tension MPP est celle d’un autre modèle : lis la colonne de l’onduleur choisi.' },
+      { id: 'courant-un-tracker', champ: 'e3412-i', nombre: { valeur: 27, tolerance: 0 }, message: 'C’est le courant d’entrée max d’un seul tracker : on demande le courant d’entrée max utilisable (total).' },
+    ],
     explication: 'SYMO 12.5-3-M : 18,8 kWc en entrée ; 12,5 kW en sortie ; plage MPP 320 – 800 V ; courant d’entrée max 43,5 A ; tension d’entrée 200 V minimum, 1 000 V maximum ; 2 trackers MPPT.',
   },
   {
@@ -1372,11 +2226,21 @@ const QUESTIONS: SujetQuestion[] = [
     colonnes: ['Grandeurs électriques', 'Calculs', 'Résultats'],
     lignes: [
       { cellules: ['Type de câblage des panneaux pour 1 string (parallèle ou série)', '', choix('e342-type', ['Série', 'Parallèle'], 'Série')] },
-      { cellules: ['Tension aux bornes du string (conditions NOCT) (V)', libre('e342-u-calc', 'Calcul…'), num('e342-u', 537, 1)] },
+      { cellules: ['Tension aux bornes du string (conditions NOCT) (V)', appli('e342-u-calc', 'Calcul…'), num('e342-u', 537, 1)] },
       { cellules: ['Plage de tension de fonctionnement en mode MPPT', '', txt('e342-mpp', plage(320, 800))] },
       { cellules: ['Courant maximum de l’onduleur (A)', '', num('e342-imax', 43.5, 0)] },
-      { cellules: ['Courant total des strings (A)', libre('e342-i-calc', 'Calcul…'), num('e342-i', 21.56, 0.05)] },
+      { cellules: ['Courant total des strings (A)', appli('e342-i-calc', 'Calcul…'), num('e342-i', 21.56, 0.05)] },
       { cellules: ['Compatibilité avec les entrées DC de l’onduleur (oui/non)', '', choix('e342-ok', OUI_NON, 'oui')] },
+    ],
+    aides: [
+      'Relis le texte : deux strings de 15 panneaux connectés en parallèle en entrée d’onduleur. Reprends U MPP et I MPP d’un panneau (E.3.1) et les caractéristiques de l’onduleur (E.3.4.1.2).',
+      'Pour un string, demande-toi si ses panneaux partagent le même courant ou la même tension, et déduis-en la tension du string. Les deux strings raccordés en parallèle additionnent leurs courants. Vérifie enfin que la tension est dans la plage MPPT et que le courant total ne dépasse pas le courant maximal de l’onduleur.',
+      'Forme de la réponse : type de câblage ; U = … × … = … V ; plage MPPT « … – … V » ; courant maximal = … A ; courant total = … × … = …,… A ; compatibilité : oui ou non.',
+    ],
+    erreursTypiques: [
+      { id: 'parallele', champ: 'e342-type', valeurs: ['Parallèle'], message: 'Si les panneaux d’un string étaient en parallèle, la tension du string resterait celle d’un seul panneau : relis ton calcul de tension.' },
+      { id: 'trente-panneaux', champ: 'e342-u', nombre: { valeur: 1074, tolerance: 1 }, message: 'Tu as compté tous les panneaux de la ligne : un string en compte 15.' },
+      { id: 'un-string', champ: 'e342-i', nombre: { valeur: 10.78, tolerance: 0.05 }, message: 'Tu n’as compté qu’un seul string : les deux strings en parallèle additionnent leurs courants.' },
     ],
     explication: 'Câblage série ; tension du string : 15 × 35,8 = 537 V ; plage MPPT 320 V – 800 V ; courant maximum 43,5 A ; courant total : 2 × 10,78 = 21,56 A ; compatible : oui.',
   },
@@ -1387,8 +2251,13 @@ const QUESTIONS: SujetQuestion[] = [
     image: { src: `${IMG}/q-e343-sujet.jpg`, alt: 'Demi-strings photovoltaïques et bornier DC de l’onduleur à raccorder' },
     traits: E343_TRAITS,
     platineTpId: 'scierie-e343-dc',
-    corrigeImage: { src: `${IMG}/q-e343-corrige.jpg`, alt: 'Schéma de câblage côté DC — corrigé proposé' },
+    corrigeImage: { src: `corriges/scierie/q-e343-corrige.jpg`, alt: 'Schéma de câblage côté DC — corrigé proposé' },
     indice: 'DTR 35, onduleur Multi MPP Tracker : une chaîne par entrée DC+ (DC+1, DC+2) ; les bornes DC− sont reliées en interne. Dans une chaîne, le − d’un panneau va au + du suivant.',
+    aides: [
+      'Ouvre le DTR 35 (câblage des strings PV) : raccordement d’un onduleur à plusieurs MPP trackers.',
+      'Dans chaque demi-string, relie les panneaux en série : le − d’un panneau va au + du suivant. Chaque demi-string arrive sur sa propre entrée DC+ (un tracker par demi-string) ; les bornes DC− sont communes.',
+      'Forme de la réponse : dans chaque demi-string, deux liaisons entre panneaux ; le + libre du premier panneau vers une entrée DC+ ; le − libre du dernier panneau vers le DC−.',
+    ],
     explication: 'Corrigé proposé (page du corrigé vierge) d’après le DTR 35 : chaque demi-string en série (− d’un panneau vers + du suivant) ; demi-string 1 : + → DC+1, − → DC− ; demi-string 2 : + → DC+2, − → DC− (bornes DC− indifférentes). MPP Tracker 2 sur ON (E.4.1).',
   },
   {
@@ -1398,6 +2267,14 @@ const QUESTIONS: SujetQuestion[] = [
     competence: 'C6', points: 1, dtr: [42], pageSujet: 34,
     options: ['ON', 'OFF'], bonnes: [0],
     indice: 'DTR 35 : raccordement de deux champs de modules sur les deux entrées MPP Tracker (DC+1 / DC+2).',
+    aides: [
+      'Ouvre le DTR 35 (raccordement de deux champs de modules sur les entrées MPP tracker) et reprends ton schéma E.3.4.3.',
+      'Le tracker 2 doit être activé lorsque la seconde entrée DC+ reçoit son propre champ de modules (fonctionnement multi-tracker) ; il reste désactivé si tous les modules arrivent sur la même entrée.',
+      'Forme de la réponse : une seule case cochée (ON ou OFF).',
+    ],
+    erreursTypiques: [
+      { id: 'tracker-off', valeurs: ['OFF'], message: 'Relis ton schéma E.3.4.3 : combien d’entrées DC+ différentes reçoivent un demi-string ?' },
+    ],
     explication: 'ON : les deux demi-strings sont raccordés sur deux entrées indépendantes (DC+1 et DC+2), fonctionnement Multi MPP Tracker.',
   },
   {
@@ -1420,6 +2297,16 @@ const QUESTIONS: SujetQuestion[] = [
       { id: 'pv', x: 83.57, y: 75.0, attendu: '51070', acceptes: ['51 070', '15300', '15 300'] },
     ],
     indice: 'Onglet 1 : taux de rémunération de la vente du surplus (installation de 9 à 36 kWc) et coût d’achat du kWh (client vert A5, type « moyen ») au DTR 32 ; fuseau horaire continent / ville. Onglet 2 : onduleur choisi en E.3.4.1.2 (DTR 36).',
+    aides: [
+      'Ouvre le DTR 36 (paramétrage du data manager) et le DTR 32 (tarifs d’achat de la production et prix de référence de l’électricité).',
+      'Onglet 1 : nom = nom de l’entreprise suivi du rang de l’onduleur dans la chaîne ; taux de rémunération = vente du SURPLUS pour la tranche de puissance de l’installation ; coût d’achat = prix de référence du client vert A5 de type « moyen », converti de €/MWh en €/kWh (÷ 1 000) ; fuseau horaire = continent / ville. Onglet 2 : type et nom de l’onduleur choisi en E.3.4.1.2.',
+      'Forme de la réponse : nom « SYLVA-n » ; taux en €/kWh (4 décimales) ; coût en €/kWh (3 décimales) ; continent / ville ; type « SYM …-3-M » ; nom « SYM …-3-M (n) » ; PV[Wp] : un nombre.',
+    ],
+    erreursTypiques: [
+      { id: 'vente-totale', champ: 'taux', valeurs: ['0,1458', '0,1458 €/kWh', '0,1458 €'], message: 'C’est le tarif de vente TOTALE : la scierie ne vend que son surplus.' },
+      { id: 'mwh', champ: 'achat', valeurs: ['135', '135 €', '135 €/MWh'], message: 'Le prix de référence est donné en €/MWh : convertis-le en €/kWh.' },
+      { id: 'saisonnalise', champ: 'achat', valeurs: ['0,152', '0,152 €/kWh', '0,152 €'], message: 'Tu as lu la colonne du client « saisonnalisé » : la scierie est un client type « moyen ».' },
+    ],
     explication: 'Onglet 1 : nom de l’installation SYLVA-2 ; taux de rémunération 0,0803 €/kWh ; coût d’achat 0,135 €/kWh ; fuseau horaire Europe / Paris. Onglet 2 : type d’appareil SYM 12.5-3-M ; nom de l’appareil SYM 12.5-3-M (2) ; PV[Wp] 51070 (corrigé).',
   },
 
@@ -1432,6 +2319,11 @@ const QUESTIONS: SujetQuestion[] = [
     minMotsCles: 3, lignes: 8,
     corrige: 'Exemples : détection de présence et variation de l’éclairage selon la lumière naturelle ; éclairage LED ; récupération de chaleur (air de l’aspiration, compresseur) ; variateurs de vitesse sur les autres moteurs ; autoconsommation de la production photovoltaïque ; isolation du bâtiment ; supervision et suivi des consommations ; compensation de l’énergie réactive.',
     indice: 'Reprendre chaque partie du sujet (éclairage, aspiration, photovoltaïque, alimentation) et chercher ce qui peut encore être optimisé.',
+    aides: [
+      'Relis l’ensemble du sujet : alimentation (A), éclairage (B), aspiration (D), photovoltaïque (E). Pour chaque partie, repère ce qui consomme de l’énergie.',
+      'Pour chaque poste, demande-toi comment consommer moins (commande, régulation, technologie plus efficace), comment récupérer l’énergie perdue et comment mieux utiliser l’énergie produite sur place. Pense aussi au bâtiment lui-même et au suivi des consommations.',
+      'Forme de la réponse : une liste de propositions courtes, une par ligne, chacune avec l’équipement concerné et le gain attendu (« Sur …, installer … pour … »).',
+    ],
     explication: 'Réponse ouverte, notée par le professeur (le corrigé ne propose pas de réponse) : détection de présence, variation, LED, récupération de chaleur, variateurs, autoconsommation, isolation, supervision, compensation…',
   },
 ];

@@ -6,10 +6,19 @@
 import { COMPETENCES, masteryOf, type CompetenceEval } from '@/lib/data/competences';
 import type { BilanSujet, CorrectionQuestion, SujetAttemptState, SujetNumerique } from './types';
 
+/**
+ * Ce que le bilan lit d'un sujet : barème, parties, compétences, diplôme. Un sujet complet
+ * (`SujetNumerique`) comme un sujet public (`SujetPublic`, côté élève) conviennent.
+ */
+export type SujetBareme = Pick<SujetNumerique, 'diploma'> & {
+  parties: Pick<SujetNumerique['parties'][number], 'num' | 'titre'>[];
+  questions: { num: number; points: number; partie: number; competence: string }[];
+};
+
 const r2 = (x: number) => Math.round(x * 100) / 100;
 
 /** Bilan à partir des corrections (questions sans correction = 0 point, sans réponse). */
-export function calculerBilan(sujet: SujetNumerique, corrections: Record<number, CorrectionQuestion>): BilanSujet {
+export function calculerBilan(sujet: SujetBareme, corrections: Record<number, CorrectionQuestion>): BilanSujet {
   let points = 0;
   let total = 0;
   const parParties = new Map<number, { points: number; total: number }>();
@@ -57,7 +66,7 @@ export function calculerBilan(sujet: SujetNumerique, corrections: Record<number,
 }
 
 /** Grille de compétences à écrire dans `attempts.evaluation` (référentiel du sujet). */
-export function evaluationSujet(sujet: SujetNumerique, bilan: BilanSujet): CompetenceEval[] {
+export function evaluationSujet(sujet: Pick<SujetNumerique, 'diploma'>, bilan: BilanSujet): CompetenceEval[] {
   const labels = new Map((COMPETENCES[sujet.diploma] ?? []).map(c => [c.code, c.label]));
   return bilan.competences.map(c => {
     const score = c.total > 0 ? Math.round((c.points / c.total) * 1000) / 1000 : 0;

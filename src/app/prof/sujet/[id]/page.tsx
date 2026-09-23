@@ -1,21 +1,29 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import { TOUS_SUJETS, dossierDe, sujetById } from '@/lib/data/sujets';
+import { notFound, redirect } from 'next/navigation';
+import { dossierDe, sujetComplet } from '@/lib/sujet/server/sujets';
+import { DEMO_SERVEUR, estProf, lireSession } from '@/lib/sujet/server/acces';
 import ProfSujetClient, { type SujetOnglet } from './ProfSujetClient';
 
-/** Vue professeur pré-rendue pour chaque sujet (complet et thématiques) ; id inconnu → 404. */
-export function generateStaticParams() {
-  return TOUS_SUJETS.map(s => ({ id: s.id }));
-}
+/**
+ * Vue professeur d'un sujet (complet ou thématique). Rendue à la demande : le sujet COMPLET
+ * (corrigé compris) n'est envoyé qu'après vérification serveur du rôle (professeur ou
+ * administrateur ; mode démonstration : ouvert). Id inconnu → 404.
+ */
+export const dynamic = 'force-dynamic';
 
 export function generateMetadata({ params }: { params: { id: string } }): Metadata {
-  const s = sujetById(params.id);
+  const s = sujetComplet(params.id);
   return { title: s ? `Copies · ${s.titre}` : 'Sujet introuvable' };
 }
 
-export default function ProfSujetPage({ params }: { params: { id: string } }) {
-  const sujet = sujetById(params.id);
+export default async function ProfSujetPage({ params }: { params: { id: string } }) {
+  const sujet = sujetComplet(params.id);
   if (!sujet) notFound();
+  if (!DEMO_SERVEUR()) {
+    const session = await lireSession();
+    if (!session) redirect(`/login?next=${encodeURIComponent(`/prof/sujet/${params.id}`)}`);
+    if (!estProf(session)) redirect(`/sujet/${params.id}`);
+  }
   // Sujet complet et sujets thématiques du même dossier : sélecteur et suivi de classe.
   const dossier = dossierDe(sujet.id);
   const freres = dossier ? [dossier.base, ...dossier.derives] : [sujet];

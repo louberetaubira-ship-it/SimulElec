@@ -7,13 +7,14 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { corriger, estRepondue } from '@/lib/sujet/correction';
 import { calculerBilan } from '@/lib/sujet/bilan';
 import { nomPageDtr } from '@/lib/sujet/dtr';
-import { LIBELLE_OUTIL, repere, texteAttendu } from '@/lib/sujet/format';
+import { LIBELLE_OUTIL, repere } from '@/lib/sujet/format';
 import { fmtNombre } from '@/lib/sujet/normalize';
+import { estReponduePublique as estRepondue, type QuestionPublique } from '@/lib/sujet/public';
 import { fmtDuree, questionDe, reprendreChrono, restantes, useSujet } from '@/lib/sujet/store';
-import type { QuestionBase, SujetQuestion } from '@/lib/sujet/types';
+import type { CorrectionQuestion, QuestionBase } from '@/lib/sujet/types';
+import Aides, { CorrigeVerrouille } from './Aides';
 import Bilan from './Bilan';
 import Calculatrice from './Calculatrice';
 import Correction from './Correction';
@@ -35,7 +36,11 @@ export default function SujetShell() {
   const horsLigne = useSujet(s => s.horsLigne);
   const local = useSujet(s => s.local);
   const enregistrement = useSujet(s => s.enregistrement);
-  const { tick, sauver, setMode, remettre, setVue, setDtrOuvert, setCalc, fermerAlerte, aller } = useSujet.getState();
+  const remiseEnCours = useSujet(s => s.remiseEnCours);
+  const erreurRemise = useSujet(s => s.erreurs[0]);
+  const corrige = useSujet(s => s.corrige);
+  const corrigeEtat = useSujet(s => s.corrigeEtat);
+  const { tick, sauver, setMode, remettre, setVue, setDtrOuvert, setCalc, fermerAlerte, aller, chargerCorrige } = useSujet.getState();
   const [navOuverte, setNavOuverte] = useState(false);
   const [confirmer, setConfirmer] = useState<null | 'remise' | 'entrainement'>(null);
 
@@ -64,6 +69,9 @@ export default function SujetShell() {
   const examen = st.mode === 'examen';
 
   const revoir = (num: number) => { aller(num); setVue('questions'); };
+  // Copie remise : le corrigé (réponses attendues) n'est servi que s'il est publié.
+  useEffect(() => { if (st.remise) void chargerCorrige(); }, [st.remise, chargerCorrige]);
+  const aides = (num: number, total: number) => <Aides num={num} total={total} actif />;
 
   return (
     <div className="flex h-[calc(100dvh-56px)] flex-col bg-app" data-sujet-shell>
@@ -77,6 +85,7 @@ export default function SujetShell() {
         <Chrono />
         <span className="rounded-full bg-[#2B3A4A] px-2.5 py-0.5 text-[12px] font-semibold" data-progression>{nbRep} / {sujet.questions.length} répondues</span>
         {!local && (enregistrement ? <span className="text-[11px] text-[#9AA3AE]">enregistrement…</span> : null)}
+        {remiseEnCours && <span className="text-[11px] text-[#9AA3AE]" data-remise-en-cours>correction de la copie…</span>}
         <span className="flex-1" />
         {st.remise ? (
           <div role="tablist" className="flex gap-1">
@@ -111,8 +120,9 @@ export default function SujetShell() {
           {horsLigne
             ? 'Hors ligne : ta copie n’est pas enregistrée sur le serveur pour l’instant. Garde cet onglet ouvert, elle le sera au retour du réseau.'
             : 'Mode démonstration : ta copie est enregistrée dans ce navigateur.'}
+          {erreurRemise && <span className="ml-1">{erreurRemise}</span>}
           {horsLigne && st.remise && !verrou && (
-            <button type="button" className="ml-2 font-semibold underline" onClick={() => void remettre()}>Renvoyer la copie</button>
+            <button type="button" className="ml-2 font-semibold underline" onClick={() => void remettre()} disabled={remiseEnCours}>Renvoyer la copie</button>
           )}
         </div>
       )}
@@ -150,10 +160,10 @@ export default function SujetShell() {
                   <button type="button" className={BOUTON_FORT} onClick={() => setVue('correction')}>Voir la copie corrigée</button>
                   <Link href="/moi" className={BOUTON}>Mon espace</Link>
                 </div>
-                <div className="hidden print:mt-6 print:block"><Correction sujet={sujet} st={st} /></div>
+                <div className="hidden print:mt-6 print:block"><Correction sujet={sujet} st={st} corrige={corrige} corrigeEtat={corrigeEtat} /></div>
               </>
             )}
-            {vue === 'correction' && <Correction sujet={sujet} st={st} onRevoir={revoir} />}
+            {vue === 'correction' && <Correction sujet={sujet} st={st} onRevoir={revoir} corrige={corrige} corrigeEtat={corrigeEtat} aides={aides} />}
           </div>
         </div>
       )}
@@ -171,7 +181,7 @@ export default function SujetShell() {
                   {sujet.questions.length - nbRep > 0 && <> {sujet.questions.length - nbRep} restent sans réponse.</>}
                   {st.marquees.length > 0 && <> {st.marquees.length} question{st.marquees.length > 1 ? 's sont marquées' : ' est marquée'} « à revoir ».</>}
                 </p>
-                <p className="mt-2 text-[13px]">Une fois remise, ta copie ne peut plus être modifiée : tu verras ta note, la copie corrigée et ton bilan.</p>
+                <p className="mt-2 text-[13px]">Une fois remise, ta copie ne peut plus être modifiée : tu verras ta note, juste / faux par question, les aides et ton bilan. Les réponses attendues s’afficheront quand ton professeur publiera le corrigé.</p>
                 <div className="mt-4 flex justify-end gap-2">
                   <button type="button" className={BOUTON} onClick={() => setConfirmer(null)}>Continuer l’épreuve</button>
                   <button type="button" className={BOUTON_FORT} data-confirmer-remise onClick={() => { setConfirmer(null); void remettre(); }}>Remettre définitivement</button>
@@ -180,7 +190,7 @@ export default function SujetShell() {
             ) : (
               <>
                 <h2 className="font-title text-[22px] font-bold">Repasser en entraînement ?</h2>
-                <p className="mt-1 text-[14px] text-muted">Le chrono de l’examen s’arrête d’être un compte à rebours ; tu retrouves « Vérifier » et les indices. Tes réponses sont conservées.</p>
+                <p className="mt-1 text-[14px] text-muted">Le chrono de l’examen s’arrête d’être un compte à rebours ; tu retrouves « Vérifier » et les aides graduées. Tes réponses sont conservées.</p>
                 <div className="mt-4 flex justify-end gap-2">
                   <button type="button" className={BOUTON} onClick={() => setConfirmer(null)}>Rester en examen</button>
                   <button type="button" className={BOUTON_FORT} onClick={() => { setConfirmer(null); setMode('entrainement'); }}>Passer en entraînement</button>
@@ -217,9 +227,10 @@ function Chrono() {
 function ZoneQuestion() {
   const sujet = useSujet(s => s.sujet)!;
   const st = useSujet(s => s.st);
-  const revelees = useSujet(s => s.revelees);
-  const { repondre, verifier, reveler, basculerMarque, suivante, voirPage, setDtrOuvert } = useSujet.getState();
-  const q = questionDe(sujet, st.courante) as SujetQuestion;
+  const verification = useSujet(s => s.verification);
+  const erreur = useSujet(s => s.erreurs[s.st.courante]);
+  const { repondre, verifier, basculerMarque, suivante, voirPage, setDtrOuvert } = useSujet.getState();
+  const q = questionDe(sujet, st.courante) as QuestionPublique;
   const partie = sujet.parties.find(p => p.num === q.partie);
   const premiereDePartie = sujet.questions.find(x => x.partie === q.partie)?.num === q.num;
   const [situation, setSituation] = useState(premiereDePartie);
@@ -230,12 +241,11 @@ function ZoneQuestion() {
   const readOnly = st.remise;
   const entrainement = st.mode === 'entrainement' && !st.remise;
   const verifiee = entrainement && !!c;
-  const montrer = st.remise || verifiee;
   const marque = st.marquees.includes(q.num);
   const idx = sujet.questions.findIndex(x => x.num === q.num);
   const derniere = idx === sujet.questions.length - 1;
-  const revelee = revelees.includes(q.num);
   const juste = !!c && c.score >= 0.999 && c.statut !== 'aValider';
+  const enVerification = verification === q.num;
 
   const ouvrirPage = (kind: 'dtr' | 'sujet', num: number) => { voirPage({ kind, num }); setDtrOuvert(true); };
 
@@ -289,14 +299,19 @@ function ZoneQuestion() {
       )}
 
       <div className="mt-2">
-        <Question q={q} r={r} readOnly={readOnly} montrer={montrer} onChange={rep => repondre(q.num, rep)} />
+        {/* Le corrigé n'est pas dans le navigateur : la coloration juste / faux vient des verdicts par
+            élément de la correction SERVEUR (après « Vérifier », ou copie remise). */}
+        <Question q={q} r={r} readOnly={readOnly} montrer={false} correction={verifiee || st.remise ? c ?? null : null}
+          onChange={rep => repondre(q.num, rep)} />
       </div>
 
       {/* Actions */}
       <div className="mt-4 flex flex-wrap items-center gap-2 print:hidden">
         <button type="button" className={BOUTON} onClick={() => suivante(-1)} disabled={idx === 0}>◂ Précédente</button>
         {entrainement && (
-          <button type="button" className={BOUTON_FORT} onClick={() => verifier(q.num)} disabled={!estRepondue(q, r)} data-verifier>Vérifier</button>
+          <button type="button" className={BOUTON_FORT} onClick={() => void verifier(q.num)} disabled={!estRepondue(q, r) || verification != null} data-verifier aria-busy={enVerification}>
+            {enVerification ? 'Vérification…' : 'Vérifier'}
+          </button>
         )}
         {!st.remise && (
           <button type="button" className={`${BOUTON} ${marque ? '!border-crit text-crit' : ''}`} onClick={() => basculerMarque(q.num)} aria-pressed={marque} data-marquer>
@@ -306,30 +321,19 @@ function ZoneQuestion() {
         <span className="flex-1" />
         <button type="button" className={BOUTON} onClick={() => suivante(1)} disabled={derniere} data-suivante>Suivante ▸</button>
       </div>
+      {entrainement && erreur && !enVerification && (
+        <p className="mt-2 rounded-lg bg-[#FEF3E2] px-3 py-1.5 text-[12.5px] text-[#8A5A00]" role="alert" data-erreur-verification>{erreur}</p>
+      )}
 
-      {/* Retour de correction (entraînement) */}
+      {/* Retour de correction (entraînement) : verdict, erreur typique, aides — jamais la réponse. */}
       {verifiee && c && (
         <div className="mt-3 space-y-2" data-retour={juste ? 'juste' : 'faux'}>
-          <div className={`rounded-lg px-3 py-2 text-[13.5px] font-semibold ${c.statut === 'aValider' ? 'bg-accent/15 text-accent-ink' : juste ? 'bg-good/15 text-good' : 'bg-crit/10 text-crit'}`}>
-            {c.statut === 'aValider'
-              ? `Réponse enregistrée — pré-note ${Math.round(c.score * 100)} % par mots-clés, validation par le professeur.`
-              : juste ? 'Juste ✓' : c.score > 0 ? `Partiellement juste (${Math.round(c.score * 100)} %) — corrige ce qui est en rouge.` : 'À revoir — relis la page DTR liée.'}
-            {c.detail && <span className="block text-[12px] font-normal opacity-80">{c.detail}</span>}
-          </div>
-          {(juste || revelee) && q.explication ? (
-            <ProfBulle><b>Corrigé.</b> <Texte>{q.explication}</Texte></ProfBulle>
-          ) : !juste && q.indice ? (
-            <ProfBulle><b>Indice.</b> <Texte>{q.indice}</Texte></ProfBulle>
-          ) : null}
-          {!juste && (
-            revelee ? (
-              <div className="rounded-lg border border-good/30 bg-good/[.06] p-2 text-[12.5px]">
-                <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[.06em] text-good">Réponse attendue</div>
-                {texteAttendu(q).map((l, i) => <div key={i}>{l}</div>)}
-              </div>
-            ) : (
-              <button type="button" className="text-[12.5px] font-semibold text-muted underline" onClick={() => reveler(q.num)} data-reveler>Afficher la réponse attendue</button>
-            )
+          <Verdict c={c} juste={juste} />
+          {!juste && c.statut !== 'aValider' && (
+            <>
+              <Aides num={q.num} total={q.nbAides} actif />
+              <CorrigeVerrouille texte="La réponse attendue n’est pas affichée : utilise les aides, corrige ta réponse et vérifie de nouveau." />
+            </>
           )}
         </div>
       )}
@@ -345,8 +349,27 @@ function ZoneQuestion() {
   );
 }
 
+/** Verdict d'une correction : juste / partiel / à revoir / à valider, détail et message d'erreur typique. */
+function Verdict({ c, juste }: { c: CorrectionQuestion; juste: boolean }) {
+  return (
+    <>
+      <div className={`rounded-lg px-3 py-2 text-[13.5px] font-semibold ${c.statut === 'aValider' ? 'bg-accent/15 text-accent-ink' : juste ? 'bg-good/15 text-good' : 'bg-crit/10 text-crit'}`} data-verdict>
+        {c.statut === 'aValider'
+          ? `Réponse enregistrée — pré-note ${Math.round(c.score * 100)} % par mots-clés, validation par le professeur.`
+          : juste ? 'Juste ✓' : c.statut === 'sansReponse' ? 'Sans réponse.' : c.score > 0 ? `Partiellement juste (${Math.round(c.score * 100)} %) — revois ta réponse.` : 'À revoir.'}
+        {c.detail && <span className="block text-[12px] font-normal opacity-80">{c.detail}</span>}
+      </div>
+      {!juste && c.message && (
+        <div className="rounded-lg bg-[#FDE8E6] px-3 py-2 text-[13px] text-[#8F231C]" data-message-erreur>
+          <b>Erreur repérée :</b> <Texte>{c.message}</Texte>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** L'image d'appui est déjà celle de l'outil (schéma à compléter, plan à bulles) : ne pas la doubler. */
-function imageDansOutil(q: SujetQuestion): boolean {
+function imageDansOutil(q: QuestionPublique): boolean {
   if (!q.image) return false;
   if (q.type === 'schema') return q.image.src === q.traits.image.src;
   if (q.type === 'bulles' || q.type === 'placement') return q.image.src === q.plan.src;
@@ -386,18 +409,28 @@ function TableauContexte({ t }: { t: NonNullable<QuestionBase['tableauContexte']
   );
 }
 
-function CorrectionLocale({ q }: { q: SujetQuestion }) {
-  const st = useSujet(s => s.st);
-  const c = st.corrections[q.num] ?? corriger(q, st.reponses[q.num]);
+function CorrectionLocale({ q }: { q: QuestionPublique }) {
+  const c = useSujet(s => s.st.corrections[q.num]);
+  const corrige = useSujet(s => s.corrige);
+  const corrigeEtat = useSujet(s => s.corrigeEtat);
+  const cq = corrige?.questions[q.num];
+  const score = c?.score ?? 0;
+  const juste = !!c && score >= 0.999 && c.statut !== 'aValider';
   return (
-    <div className="rounded-lg border border-line bg-surface p-3 text-[13px]">
-      <div className="mb-1 flex flex-wrap items-baseline gap-2">
+    <div className="space-y-2 rounded-lg border border-line bg-surface p-3 text-[13px]" data-correction-locale>
+      <div className="flex flex-wrap items-baseline gap-2">
         <b>Correction</b>
-        <span className="font-mono font-bold">{fmtNombre(Math.round(c.score * q.points * 100) / 100, 2)} / {fmtNombre(q.points)} pt{q.points > 1 ? 's' : ''}</span>
-        {c.detail && <span className="text-[12px] text-muted">{c.detail}</span>}
+        <span className="font-mono font-bold">{fmtNombre(Math.round(score * q.points * 100) / 100, 2)} / {fmtNombre(q.points)} pt{q.points > 1 ? 's' : ''}</span>
       </div>
-      <div className="text-[12.5px]"><span className="font-semibold text-good">Attendu : </span>{texteAttendu(q).join(' · ')}</div>
-      {q.explication && <p className="mt-1 text-[12.5px] text-muted"><Texte>{q.explication}</Texte></p>}
+      {c ? <Verdict c={c} juste={juste} /> : <p className="text-[12.5px] text-muted">Correction en attente.</p>}
+      {!juste && <Aides num={q.num} total={q.nbAides} actif />}
+      {cq ? (
+        <div className="rounded-lg border border-good/30 bg-good/[.06] p-2 text-[12.5px]" data-attendu>
+          <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[.06em] text-good">Réponse attendue (corrigé publié)</div>
+          {cq.attendu.map((l, i) => <div key={i} className="whitespace-pre-wrap">{l}</div>)}
+          {cq.explication && <p className="mt-1 text-muted"><Texte>{cq.explication}</Texte></p>}
+        </div>
+      ) : corrigeEtat === 'chargement' ? null : <CorrigeVerrouille />}
     </div>
   );
 }

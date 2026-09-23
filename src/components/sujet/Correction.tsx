@@ -1,21 +1,35 @@
 'use client';
 /**
- * Copie corrigée : question par question, réponse de l'élève en regard du corrigé,
- * score, détail, explication et pages DTR. En vue professeur, les réponses rédigées
- * (et toute question) peuvent recevoir une note 0..1 et une annotation.
+ * Copie corrigée : question par question, réponse de l'élève, score, juste / faux / partiel,
+ * détail, message d'erreur typique et pages DTR.
+ *  - Élève : la réponse attendue et l'explication ne s'affichent que si le corrigé est PUBLIÉ
+ *    (`corrige`, servi par `GET /api/sujet/solution`) ; sinon l'encart « 🔒 Corrigé non publié ».
+ *    Les aides graduées restent disponibles (`aides`).
+ *  - Professeur : corrigé toujours visible, erreurs typiques reconnues, note 0..1 et annotation.
+ * Le sujet reçu est PUBLIC (sans corrigé) : le corrigé arrive à part.
  */
-import { useState } from 'react';
-import type { CorrectionQuestion, SujetAttemptState, SujetNumerique, SujetQuestion } from '@/lib/sujet/types';
+import { useState, type ReactNode } from 'react';
+import type { CorrectionQuestion, SujetAttemptState } from '@/lib/sujet/types';
+import type { CorrigeSujet, QuestionPublique, SujetPublic } from '@/lib/sujet/public';
+import { texteReponsePublique } from '@/lib/sujet/public';
+import type { EtatCorrige } from '@/lib/sujet/store';
 import { nomsPagesDtr } from '@/lib/sujet/dtr';
-import { LIBELLE_OUTIL, repere, texteAttendu, texteReponse } from '@/lib/sujet/format';
+import { LIBELLE_OUTIL, repere } from '@/lib/sujet/format';
 import { fmtNombre } from '@/lib/sujet/normalize';
+import { CorrigeVerrouille } from './Aides';
 import Texte from './Texte';
 
 type Filtre = 'toutes' | 'aValider' | 'fausses' | 'sansReponse';
 
 interface Props {
-  sujet: SujetNumerique;
+  sujet: SujetPublic;
   st: SujetAttemptState;
+  /** Corrigé (réponses attendues + explications) : publié (élève) ou toujours (professeur). */
+  corrige: CorrigeSujet | null;
+  /** Élève : état du chargement du corrigé. */
+  corrigeEtat?: EtatCorrige;
+  /** Élève : aides graduées d'une question (débloquées une par une). */
+  aides?: (num: number, total: number) => ReactNode;
   /** Vue professeur : notation des réponses rédigées et annotations. */
   prof?: {
     onNote: (num: number, score: number) => void;
@@ -34,16 +48,16 @@ const STATUT: Record<CorrectionQuestion['statut'], { t: string; cls: string }> =
 
 const couleurScore = (s: number) => (s >= 0.999 ? 'text-good' : s > 0 ? 'text-warn' : 'text-crit');
 
-export default function Correction({ sujet, st, prof, onRevoir }: Props) {
+export default function Correction({ sujet, st, prof, onRevoir, corrige, corrigeEtat, aides }: Props) {
   const [filtre, setFiltre] = useState<Filtre>(prof ? 'aValider' : 'toutes');
-  const passe = (f: Filtre, q: SujetQuestion) => {
+  const passe = (f: Filtre, q: QuestionPublique) => {
     const c = st.corrections[q.num];
     if (f === 'aValider') return c?.statut === 'aValider' || c?.statut === 'prof' || q.type === 'redige';
     if (f === 'fausses') return !!c && c.statut !== 'sansReponse' && c.score < 0.999;
     if (f === 'sansReponse') return !c || c.statut === 'sansReponse';
     return true;
   };
-  const garder = (q: SujetQuestion) => passe(filtre, q);
+  const garder = (q: QuestionPublique) => passe(filtre, q);
   const compte = (f: Filtre) => sujet.questions.filter(q => passe(f, q)).length;
   const FILTRES: { id: Filtre; t: string }[] = [
     { id: 'toutes', t: 'Toutes' },
@@ -74,7 +88,9 @@ export default function Correction({ sujet, st, prof, onRevoir }: Props) {
                 const c = st.corrections[q.num];
                 const score = c?.score ?? 0;
                 const statut = STATUT[c?.statut ?? 'sansReponse'];
-                const rep = texteReponse(q, st.reponses[q.num]);
+                const rep = texteReponsePublique(q, st.reponses[q.num]);
+                const cq = corrige?.questions[q.num];
+                const juste = !!c && score >= 0.999 && c.statut !== 'aValider';
                 return (
                   <article key={q.num} className="break-inside-avoid rounded-xl border border-line bg-surface p-3" data-copie-question={q.num}>
                     <header className="mb-1.5 flex flex-wrap items-center gap-2">
@@ -93,13 +109,28 @@ export default function Correction({ sujet, st, prof, onRevoir }: Props) {
                         <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[.06em] text-muted">Réponse de l’élève</div>
                         {rep.length ? rep.map((l, i) => <div key={i} className="whitespace-pre-wrap text-[12.5px]">{l}</div>) : <div className="text-[12.5px] italic text-muted">—</div>}
                       </div>
-                      <div className="rounded-lg border border-good/30 bg-good/[.06] p-2">
-                        <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[.06em] text-good">Corrigé</div>
-                        {texteAttendu(q).map((l, i) => <div key={i} className="whitespace-pre-wrap text-[12.5px]">{l}</div>)}
-                      </div>
+                      {cq ? (
+                        <div className="rounded-lg border border-good/30 bg-good/[.06] p-2" data-attendu>
+                          <div className="mb-0.5 text-[10.5px] font-bold uppercase tracking-[.06em] text-good">{prof ? 'Réponse attendue' : 'Corrigé'}</div>
+                          {cq.attendu.map((l, i) => <div key={i} className="whitespace-pre-wrap text-[12.5px]">{l}</div>)}
+                          {cq.corrigeImage && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={cq.corrigeImage.src} alt={cq.corrigeImage.alt} className="mt-1 max-h-[260px] rounded border border-line bg-white" />
+                          )}
+                        </div>
+                      ) : corrigeEtat === 'chargement' ? (
+                        <div className="rounded-lg border border-dashed border-line p-2 text-[12.5px] text-muted">Corrigé…</div>
+                      ) : <CorrigeVerrouille />}
                     </div>
                     {c?.detail && <p className="mt-1.5 text-[12px] text-muted">{c.detail}</p>}
-                    {q.explication && <p className="mt-1 text-[12.5px]"><b>Explication :</b> <Texte>{q.explication}</Texte></p>}
+                    {c?.message && !juste && (
+                      <p className="mt-1 rounded-lg bg-[#FDE8E6] px-2 py-1 text-[12.5px] text-[#8F231C]" data-message-erreur><b>Erreur repérée :</b> <Texte>{c.message}</Texte></p>
+                    )}
+                    {prof && c?.erreurs?.length ? (
+                      <p className="mt-1 text-[12px] text-muted" data-erreurs-typiques>Erreur{c.erreurs.length > 1 ? 's' : ''} typique{c.erreurs.length > 1 ? 's' : ''} reconnue{c.erreurs.length > 1 ? 's' : ''} : <b>{c.erreurs.join(', ')}</b></p>
+                    ) : null}
+                    {cq?.explication && <p className="mt-1 text-[12.5px]"><b>Explication :</b> <Texte>{cq.explication}</Texte></p>}
+                    {!prof && aides && !juste && <div className="mt-1.5 print:hidden">{aides(q.num, q.nbAides)}</div>}
                     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-muted">
                       <span>{q.dtr.length ? `${sujet.dtr.some(p => p.doc != null) ? nomsPagesDtr(sujet, q.dtr) : `DTR ${q.dtr.join(', ')}`} · ` : ''}sujet p. {q.pageSujet}</span>
                       {onRevoir && (
@@ -124,7 +155,7 @@ export default function Correction({ sujet, st, prof, onRevoir }: Props) {
 }
 
 function NoteProf({ q, c, annotation, onNote, onAnnotation }: {
-  q: SujetQuestion; c: CorrectionQuestion | undefined; annotation: string;
+  q: QuestionPublique; c: CorrectionQuestion | undefined; annotation: string;
   onNote: (num: number, score: number) => void; onAnnotation: (num: number, t: string) => void;
 }) {
   const score = c?.score ?? 0;

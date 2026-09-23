@@ -28,7 +28,7 @@ import { STAGE_COUNT, modeOf } from '@/lib/sim/progress';
 import { liveBilan, liveEvaluation, liveNotes, type LiveBilan, type LiveNotes } from '@/lib/sim/live';
 import { noteSur20 } from '@/lib/eleve-stats';
 import { ONLINE_MS, presenceStats, formatDuree, type PresenceStat } from '@/lib/db/presence';
-import { TOUS_SUJETS, sujetById } from '@/lib/data/sujets';
+import { META_SUJETS as TOUS_SUJETS, metaSujet as sujetById } from '@/lib/sujet/meta';
 import { dureeLisible } from '@/lib/sujet/declinaisons';
 
 /** Nombre d'étapes du parcours. */
@@ -650,7 +650,7 @@ export default function ProfPage() {
                           {(() => {
                             // Sujet numérique : `stage` = questions répondues (sur le nombre de questions du sujet).
                             const sj = sujetById(a.tp_id);
-                            const total = sj ? sj.questions.length : ETAPES;
+                            const total = sj ? sj.questions : ETAPES;
                             const fait = sj ? a.stage : termine ? ETAPES : a.stage;
                             return (
                               <>

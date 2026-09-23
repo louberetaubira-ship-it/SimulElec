@@ -4,14 +4,14 @@
  * page de garde puis l'interface d'épreuve.
  */
 import { useEffect, useState } from 'react';
-import type { SujetNumerique } from '@/lib/sujet/types';
+import type { SujetPublic } from '@/lib/sujet/public';
 import { useSujet } from '@/lib/sujet/store';
 import { DEMO } from '@/lib/student';
 import { getMyProfile } from '@/lib/db/profiles';
 import Accueil from '@/components/sujet/Accueil';
 import SujetShell from '@/components/sujet/SujetShell';
 
-export default function SujetClient({ sujet }: { sujet: SujetNumerique }) {
+export default function SujetClient({ sujet }: { sujet: SujetPublic }) {
   const init = useSujet(s => s.init);
   const chargement = useSujet(s => s.chargement);
   const courant = useSujet(s => s.sujet);

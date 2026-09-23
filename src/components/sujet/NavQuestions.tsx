@@ -4,10 +4,10 @@
  * répondue (vert pâle), juste (vert), à revoir (rouge : fausse ou partielle après
  * correction), marquée par l'élève (drapeau).
  */
-import { estRepondue } from '@/lib/sujet/correction';
+import { estReponduePublique as estRepondue } from '@/lib/sujet/public';
 import { repere, sousSection } from '@/lib/sujet/format';
 import { useSujet } from '@/lib/sujet/store';
-import type { SujetQuestion } from '@/lib/sujet/types';
+import type { QuestionPublique } from '@/lib/sujet/public';
 
 export type EtatNav = 'courante' | 'juste' | 'aRevoir' | 'repondue' | 'vide';
 
@@ -35,7 +35,7 @@ export default function NavQuestions({ onChoisir }: { onChoisir?: () => void }) 
     vide: 'border-line bg-surface text-ink',
   };
 
-  const pastille = (q: SujetQuestion) => {
+  const pastille = (q: QuestionPublique) => {
     const e = etat(q.num);
     const cour = q.num === st.courante;
     const marque = st.marquees.includes(q.num);
@@ -64,7 +64,7 @@ export default function NavQuestions({ onChoisir }: { onChoisir?: () => void }) 
         const qs = sujet.questions.filter(q => q.partie === p.num);
         if (!qs.length) return null;
         // Sous-sections (A.1, A.2…) : un séparateur discret quand la partie en compte plusieurs.
-        const groupes: { cle: string | null; qs: SujetQuestion[] }[] = [];
+        const groupes: { cle: string | null; qs: QuestionPublique[] }[] = [];
         for (const q of qs) {
           const k = sousSection(q);
           const g = groupes[groupes.length - 1];

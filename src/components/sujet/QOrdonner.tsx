@@ -1,9 +1,9 @@
 'use client';
 /** Outil « ordonner » : numéroter les étapes (rang 1..n) dans l'ordre d'impression du sujet. */
-import { CHAMP, etatChamp, type OutilProps } from './outils';
+import { CHAMP, etatChamp, verdict, type OutilProps } from './outils';
 import Texte from './Texte';
 
-export default function QOrdonner({ q, r, onChange, readOnly, montrer }: OutilProps<'ordonner'>) {
+export default function QOrdonner({ q, r, onChange, readOnly, correction }: OutilProps<'ordonner'>) {
   const n = q.items.length;
   const rangs = r?.rangs ?? q.items.map(() => null);
   const fixer = (i: number, v: string) => {
@@ -20,7 +20,7 @@ export default function QOrdonner({ q, r, onChange, readOnly, montrer }: OutilPr
           <div key={i} className="flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2">
             <select
               aria-label={`Rang de l'étape ${i + 1}`}
-              className={`${CHAMP} w-[64px] text-center${etatChamp(montrer, v == null ? null : v === q.rangs[i])}${doublons.has(v) ? ' !border-warn' : ''}`}
+              className={`${CHAMP} w-[64px] text-center${etatChamp(true, v == null ? null : verdict(correction, String(i)))}${doublons.has(v) ? ' !border-warn' : ''}`}
               value={v ?? ''}
               disabled={readOnly}
               onChange={e => fixer(i, e.target.value)}

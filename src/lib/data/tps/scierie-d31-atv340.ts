@@ -124,8 +124,8 @@ export const TP_SCIERIE_D31_ATV340: TpDefinition = {
     rangees: ['goulotte haute · arrivée', 'goulotte Q1 → Q2', 'goulotte Q2 → variateur', 'goulotte sous le variateur · commande et moteur'],
   },
   schemaImage: {
-    src: '/tp/scierie/q-d31-corrige.jpg',
-    legende: 'D.3.1 · schéma de câblage du bornier de commande (corrigé)',
+    src: '/tp/scierie/q-d31-sujet.jpg',
+    legende: 'D.3.1 · schéma de câblage du bornier de commande (à compléter, page du sujet)',
     titre: 'D.3.1',
     suite: [
       { src: '/tp/scierie/dtr-29.jpg', legende: 'DTR 28 · variateur Altivar ATV340 (page 1)', titre: 'DTR 28' },

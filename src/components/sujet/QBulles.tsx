@@ -5,10 +5,9 @@
  * assez large pour une référence complète (« SYM 12.5-3-M (2) ») ; Entrée ou Échap le referme.
  */
 import { useState } from 'react';
-import { texteAccepte } from '@/lib/sujet/normalize';
-import { CHAMP, type OutilProps } from './outils';
+import { CHAMP, verdict, type OutilProps } from './outils';
 
-export default function QBulles({ q, r, onChange, readOnly, montrer }: OutilProps<'bulles'>) {
+export default function QBulles({ q, r, onChange, readOnly, correction }: OutilProps<'bulles'>) {
   const valeurs = r?.valeurs ?? {};
   const [ouverte, setOuverte] = useState<string | null>(null);
   const fixer = (id: string, v: string) => onChange({ type: 'bulles', valeurs: { ...valeurs, [id]: v } });
@@ -26,8 +25,8 @@ export default function QBulles({ q, r, onChange, readOnly, montrer }: OutilProp
         <img src={q.plan.src} alt={q.plan.alt} className="block max-w-full rounded-lg border border-line bg-white" draggable={false} />
         {q.bulles.map((b, i) => {
           const v = (valeurs[b.id] ?? '').trim();
-          const juste = v ? texteAccepte(v, [b.attendu, ...(b.acceptes ?? [])]) : null;
-          const etat = montrer && juste != null
+          const juste = v ? verdict(correction, b.id) : null;
+          const etat = juste != null
             ? (juste ? 'border-good bg-[#D7F5E3]' : 'border-crit bg-[#FDE8E6]')
             : v ? 'border-[#1B222C] bg-[#FFF3DB]' : 'border-[#1B222C] bg-white';
           return (

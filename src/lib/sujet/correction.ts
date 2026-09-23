@@ -6,21 +6,37 @@
  *  - cocher : QCM simple exact = 1 ; choix multiple = (cases justes − cases fausses) / cases attendues, min 0 ;
  *  - relier / ordonner / bulles / cavaliers : proportion d'éléments justes ;
  *  - valeur / tableau : proportion de champs justes (numérique avec tolérance, ou texte normalisé parmi `acceptes`) ;
- *  - calcul : résultat dans la tolérance = 1 ; sinon ½ si la formule contient tous les mots-clés ; sinon 0 ;
+ *  - calcul : résultat dans la tolérance = 1 ; sinon ½ si la formule est juste (par ÉQUIVALENCE quand
+ *    `formuleSpec` est présent, sinon si elle contient tous les mots-clés) ; sinon 0. Une application
+ *    numérique dont la valeur tombe sur le résultat attendu est signalée au professeur (`detail`) ;
  *  - redige : pré-note par mots-clés (≥ min → 1 ; ≥ 1 → ½ ; sinon 0), statut `aValider` (professeur) ;
  *  - schema : ½ « traits » + ½ « câblage réel » (voir `corrigerSchema`) ;
  *  - placement : appariement glouton au plus proche dans l'ellipse de tolérance ;
  *    points = max(0, bien placés − repères en trop) / attendus (voir `etatPlacement`) ;
  *    avec des champs notés : ½ placement + ½ champs.
  * Sans réponse → statut `sansReponse`, score 0.
+ *
+ * Formules : un champ / une cellule avec `formule` (FormuleSpec) est jugé par équivalence
+ * mathématique (`formules.ts`), en plus des `acceptes` éventuels. Une saisie `maths` (LaTeX) est
+ * lue numériquement (`0{,}85`, `\frac{3}{4}`) et transcrite en texte pour les `acceptes`.
+ * Erreurs typiques (`QuestionBase.erreursTypiques`) : reconnues sur les champs FAUX → ids dans
+ * `erreurs`, premier message dans `message`. Verdict par élément dans `champs` (coloration côté
+ * élève sans corrigé) : id de champ / cellule / bulle, `composant.position`, index d'option,
+ * de ligne ou d'étape, `formule` / `resultat` (calcul), `p<i>` (repère posé), `t:<a>|<b>` (trait
+ * juste / faux), `tc:<a>|<b>` (trait juste de mauvaise couleur).
  */
 
 import type {
-  CelluleSaisie, ChampValeur, CorrectionQuestion, QBulles, QCalcul, QCavaliers, QCocher, QOrdonner,
-  QPlacement, QRedige, QRelier, QSchema, QTableau, QValeur, ReponseSujet, SujetAttemptState, SujetNumerique,
+  CelluleSaisie, ChampValeur, CorrectionQuestion, ErreurTypique, FormuleSpec, QBulles, QCalcul, QCavaliers, QCocher,
+  QOrdonner, QPlacement, QRedige, QRelier, QSchema, QTableau, QValeur, ReponseSujet, SujetAttemptState, SujetNumerique,
   SujetQuestion, TraitPose,
 } from './types';
-import { contientMotCle, estVide, nombreJuste, normTexte, texteAccepte } from './normalize';
+import { contientMotCle, estVide, nombreJuste, parseNombre, texteAccepte, toleranceParDefaut } from './normalize';
+import { correspondA, equivalentes, latexVersTexte, valeurNumerique, valeursNumeriques } from './formules';
+import { cavalierJuste, cleCavalier, cleLiaison, etatPlacement, resumePlacement } from './correction-base';
+
+export { cavalierJuste, cleCavalier, cleLiaison, correctionProf, etatPlacement, nomReperes, resumePlacement } from './correction-base';
+export type { EtatPlacement } from './correction-base';
 
 /* ───────────────────────────── utilitaires ───────────────────────────── */
 
@@ -32,27 +48,115 @@ const sansReponse = (num: number): CorrectionQuestion => ({ num, score: 0, statu
 const auto = (num: number, score: number, detail?: string): CorrectionQuestion =>
   ({ num, score: r4(borne(score)), statut: 'auto', detail });
 
-/** Clé non orientée d'une liaison entre deux bornes. */
-export const cleLiaison = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
-
-/** Clé d'une position de cavalier dans `ReponseSujet.valeurs`. */
-export const cleCavalier = (composant: string, position: string) => `${composant}.${position}`;
-
-/** Une cellule / un champ est-il noté (porte une réponse attendue) ? */
-function estNote(c: { attendu?: number; acceptes?: string[] }): boolean {
-  return c.attendu != null || (c.acceptes != null && c.acceptes.length > 0);
+/** Une cellule / un champ est-il noté (porte une réponse attendue ou une formule) ? */
+function estNote(c: { attendu?: number; acceptes?: string[]; formule?: FormuleSpec }): boolean {
+  return c.attendu != null || (c.acceptes != null && c.acceptes.length > 0) || c.formule != null;
 }
 
-/** Juste / faux d'une saisie de champ ou de cellule (numérique et/ou texte). */
-export function saisieJuste(v: string | undefined, c: ChampValeur | CelluleSaisie): boolean {
+type Saisie = ChampValeur | CelluleSaisie;
+
+/** La saisie est-elle du LaTeX (éditeur de maths) ? */
+const estMaths = (c: Pick<Saisie, 'saisie' | 'formule'>) => c.saisie === 'maths' || c.formule != null;
+
+/** Nombre lu dans une saisie : LaTeX évalué (`0{,}85`, `\frac{3}{4}`) pour une saisie maths, sinon écriture française. */
+function nombreSaisi(v: string | undefined, maths: boolean): number | null {
+  if (estVide(v)) return null;
+  if (maths) {
+    const n = valeurNumerique(v as string);
+    if (n != null) return n;
+  }
+  return parseNombre(v);
+}
+
+/** Juste / faux d'une saisie de champ ou de cellule (formule par équivalence, numérique et/ou texte). */
+export function saisieJuste(v: string | undefined, c: Saisie): boolean {
   if (estVide(v)) return false;
+  const maths = estMaths(c);
+  if (c.formule && equivalentes(v as string, c.formule).ok) return true;
   if (texteAccepte(v, c.acceptes)) return true;
+  if (maths && texteAccepte(latexVersTexte(v as string), c.acceptes)) return true;
   if (c.attendu != null) {
     // Une cellule à choix (« oui » / « non ») n'a pas de valeur numérique : texte seul.
+    if (maths) {
+      const n = nombreSaisi(v, true);
+      return n != null && nombreJuste(n, c.attendu, c.tolerance);
+    }
     return nombreJuste(v, c.attendu, c.tolerance);
   }
   return false;
 }
+
+/* ───────────────────────────── erreurs typiques ───────────────────────────── */
+
+/** Saisie confrontée aux erreurs typiques : id du champ (absent = réponse principale), texte, formule ? */
+interface Cible {
+  champ?: string;
+  valeur: string | undefined;
+  /** Saisie LaTeX. */
+  maths?: boolean;
+  /** Spec de tirage des formules (celle du champ, ou de la question). */
+  spec?: FormuleSpec;
+  /** Critères examinés pour cette cible (défaut : tous). */
+  criteres?: ('valeurs' | 'nombre' | 'formule')[];
+}
+
+const SPEC_VIDE: FormuleSpec = { attendues: [], variables: {}, affichage: '' };
+
+/** L'erreur typique `e` correspond-elle à la cible ? */
+function erreurCorrespond(e: ErreurTypique, c: Cible): boolean {
+  if (estVide(c.valeur)) return false;
+  const v = c.valeur as string;
+  const ok = (k: 'valeurs' | 'nombre' | 'formule') => !c.criteres || c.criteres.includes(k);
+  if (e.valeurs?.length && ok('valeurs')) {
+    if (texteAccepte(v, e.valeurs) || (c.maths && texteAccepte(latexVersTexte(v), e.valeurs))) return true;
+  }
+  if (e.nombre && ok('nombre')) {
+    const n = nombreSaisi(v, !!c.maths);
+    if (n != null && Math.abs(n - e.nombre.valeur) <= Math.max(0, e.nombre.tolerance) + 1e-9 * Math.max(1, Math.abs(e.nombre.valeur))) return true;
+  }
+  if (e.formule && ok('formule')) {
+    if (correspondA(v, e.formule, c.spec ?? SPEC_VIDE)) return true;
+  }
+  return false;
+}
+
+/**
+ * Erreurs typiques reconnues sur les cibles FAUSSES d'une question. Une erreur avec `champ` ne
+ * vise que ce champ ; sans `champ`, elle vise la réponse principale (toutes les cibles).
+ */
+function erreursDe(q: SujetQuestion, cibles: Cible[]): Pick<CorrectionQuestion, 'erreurs' | 'message'> {
+  const liste = q.erreursTypiques ?? [];
+  if (!liste.length || !cibles.length) return {};
+  const trouvees = liste.filter(e => cibles.some(c => (e.champ == null || e.champ === c.champ) && erreurCorrespond(e, c)));
+  if (!trouvees.length) return {};
+  return { erreurs: trouvees.map(e => e.id), message: trouvees[0].message };
+}
+
+/** Ajoute erreurs typiques et verdicts par élément à une correction. */
+function completer(c: CorrectionQuestion, extra: Pick<CorrectionQuestion, 'erreurs' | 'message'>, champs?: Record<string, boolean>): CorrectionQuestion {
+  const out = { ...c };
+  if (extra.erreurs?.length) { out.erreurs = extra.erreurs; out.message = extra.message; }
+  if (champs && Object.keys(champs).length) out.champs = champs;
+  return out;
+}
+
+/**
+ * Applications numériques (saisies `maths` non notées) dont la valeur tombe sur la valeur
+ * attendue d'un champ numérique noté du même groupe (même ligne de tableau, même question).
+ */
+function applicationsCoherentes(groupe: Saisie[], valeurs: Record<string, string>): number {
+  const cibles = groupe.filter(c => c.attendu != null && !('choix' in c && c.choix?.length));
+  if (!cibles.length) return 0;
+  let n = 0;
+  for (const c of groupe) {
+    if (c.saisie !== 'maths' || estNote(c) || estVide(valeurs[c.id])) continue;
+    const vs = valeursNumeriques(valeurs[c.id]);
+    if (cibles.some(t => vs.some(x => nombreJuste(x, t.attendu as number, t.tolerance)))) n += 1;
+  }
+  return n;
+}
+
+const mentionApplication = (n: number) => (n ? ` · application${n > 1 ? 's' : ''} cohérente${n > 1 ? 's' : ''}` : '');
 
 /* ───────────────────────────── réponse donnée ? ───────────────────────────── */
 
@@ -80,36 +184,65 @@ function corrigerCocher(q: QCocher, choix: number[]): CorrectionQuestion {
   const coches = Array.from(new Set(choix));
   if (coches.length === 0) return sansReponse(q.num);
   const bonnes = new Set(q.bonnes);
+  // Verdict des seules cases cochées (ne révèle pas les bonnes cases non cochées).
+  const champs = Object.fromEntries(coches.map(i => [String(i), bonnes.has(i)]));
+  const fautes = coches.filter(i => !bonnes.has(i)).map(i => ({ valeur: q.options[i], criteres: ['valeurs' as const] }));
+  const err = erreursDe(q, fautes);
   if (!q.multiple && q.bonnes.length === 1) {
     const ok = coches.length === 1 && coches[0] === q.bonnes[0];
-    return auto(q.num, ok ? 1 : 0, ok ? 'Case juste' : 'Case fausse');
+    return completer(auto(q.num, ok ? 1 : 0, ok ? 'Case juste' : 'Case fausse'), err, champs);
   }
   const justes = coches.filter(i => bonnes.has(i)).length;
   const fausses = coches.length - justes;
   const score = bonnes.size ? (justes - fausses) / bonnes.size : 0;
-  return auto(q.num, score, `${justes}/${bonnes.size} case${bonnes.size > 1 ? 's' : ''} juste${justes > 1 ? 's' : ''}${fausses ? `, ${fausses} en trop` : ''}`);
+  return completer(auto(q.num, score, `${justes}/${bonnes.size} case${bonnes.size > 1 ? 's' : ''} juste${justes > 1 ? 's' : ''}${fausses ? `, ${fausses} en trop` : ''}`), err, champs);
 }
 
 function corrigerRelier(q: QRelier, liens: (number | null)[]): CorrectionQuestion {
   if (!liens.some(l => l != null)) return sansReponse(q.num);
   const n = q.liens.length;
   const justes = q.liens.filter((att, i) => liens[i] === att).length;
-  return auto(q.num, n ? justes / n : 0, `${justes}/${n} liaisons justes`);
+  const champs: Record<string, boolean> = {};
+  liens.forEach((l, i) => { if (l != null && i < n) champs[String(i)] = q.liens[i] === l; });
+  return completer(auto(q.num, n ? justes / n : 0, `${justes}/${n} liaisons justes`), {}, champs);
 }
 
 function corrigerOrdonner(q: QOrdonner, rangs: (number | null)[]): CorrectionQuestion {
   if (!rangs.some(x => x != null)) return sansReponse(q.num);
   const n = q.rangs.length;
   const justes = q.rangs.filter((att, i) => rangs[i] === att).length;
-  return auto(q.num, n ? justes / n : 0, `${justes}/${n} rangs justes`);
+  const champs: Record<string, boolean> = {};
+  rangs.forEach((x, i) => { if (x != null && i < n) champs[String(i)] = q.rangs[i] === x; });
+  return completer(auto(q.num, n ? justes / n : 0, `${justes}/${n} rangs justes`), {}, champs);
+}
+
+/** Verdicts, erreurs typiques et applications cohérentes d'une liste de champs / cellules. */
+function corrigerSaisies(q: SujetQuestion, saisies: Saisie[], valeurs: Record<string, string>, groupes: Saisie[][]) {
+  const notes = saisies.filter(estNote);
+  const champs: Record<string, boolean> = {};
+  const fautes: Cible[] = [];
+  let justes = 0;
+  for (const c of notes) {
+    const v = valeurs[c.id];
+    const ok = saisieJuste(v, c);
+    if (!estVide(v)) champs[c.id] = ok;
+    if (ok) justes += 1;
+    else if (!estVide(v)) fautes.push({ champ: c.id, valeur: v, maths: estMaths(c), spec: c.formule });
+  }
+  // Saisies non notées (applications…) : cibles possibles d'une erreur typique visant leur champ.
+  for (const c of saisies) {
+    if (!estNote(c) && !estVide(valeurs[c.id])) fautes.push({ champ: c.id, valeur: valeurs[c.id], maths: estMaths(c) });
+  }
+  const err = erreursDe(q, fautes.filter(f => f.champ != null && (champs[f.champ] === false || !notes.some(n => n.id === f.champ))));
+  const coherentes = groupes.reduce((a, g) => a + applicationsCoherentes(g, valeurs), 0);
+  return { n: notes.length, justes, champs, err, coherentes };
 }
 
 function corrigerValeur(q: QValeur, valeurs: Record<string, string>): CorrectionQuestion {
   if (!Object.values(valeurs).some(v => !estVide(v))) return sansReponse(q.num);
-  const notes = q.champs.filter(estNote);
-  const justes = notes.filter(c => saisieJuste(valeurs[c.id], c)).length;
-  const n = notes.length;
-  return auto(q.num, n ? justes / n : 0, n > 1 ? `${justes}/${n} valeurs justes` : justes ? 'Valeur juste' : 'Valeur fausse');
+  const { n, justes, champs, err, coherentes } = corrigerSaisies(q, q.champs, valeurs, [q.champs]);
+  const detail = (n > 1 ? `${justes}/${n} valeurs justes` : justes ? 'Valeur juste' : 'Valeur fausse') + mentionApplication(coherentes);
+  return completer(auto(q.num, n ? justes / n : 0, detail), err, champs);
 }
 
 function cellulesSaisie(q: QTableau): CelluleSaisie[] {
@@ -120,19 +253,46 @@ function cellulesSaisie(q: QTableau): CelluleSaisie[] {
 
 function corrigerTableau(q: QTableau, cellules: Record<string, string>): CorrectionQuestion {
   if (!Object.values(cellules).some(v => !estVide(v))) return sansReponse(q.num);
-  const notes = cellulesSaisie(q).filter(estNote);
-  const justes = notes.filter(c => saisieJuste(cellules[c.id], c)).length;
-  const n = notes.length;
-  return auto(q.num, n ? justes / n : 0, `${justes}/${n} cases justes`);
+  const lignes = q.lignes.map(l => l.cellules.filter((c): c is CelluleSaisie => typeof c !== 'string'));
+  const { n, justes, champs, err, coherentes } = corrigerSaisies(q, cellulesSaisie(q), cellules, lignes);
+  return completer(auto(q.num, n ? justes / n : 0, `${justes}/${n} cases justes${mentionApplication(coherentes)}`), err, champs);
+}
+
+/** La formule d'un calcul est-elle juste ? (équivalence si `formuleSpec`, sinon mots-clés ; `null` : non jugeable). */
+function formuleCalculJuste(q: QCalcul, formule: string): boolean | null {
+  if (estVide(formule)) return null;
+  if (q.formuleSpec) return equivalentes(formule, q.formuleSpec).ok;
+  const mots = q.formuleMotsCles ?? [];
+  if (!mots.length) return null;
+  return mots.every(k => contientMotCle(formule, k));
 }
 
 function corrigerCalcul(q: QCalcul, r: { formule: string; application: string; resultat: string }): CorrectionQuestion {
   if (estVide(r.resultat) && estVide(r.formule) && estVide(r.application)) return sansReponse(q.num);
-  if (nombreJuste(r.resultat, q.attendu, q.tolerance)) return auto(q.num, 1, 'Résultat juste');
-  const mots = q.formuleMotsCles ?? [];
-  const presents = mots.filter(k => contientMotCle(r.formule, k)).length;
-  if (mots.length > 0 && presents === mots.length) return auto(q.num, 0.5, 'Formule juste, résultat faux');
-  return auto(q.num, 0, estVide(r.resultat) ? 'Résultat absent' : 'Résultat faux');
+  const resultatJuste = nombreJuste(r.resultat, q.attendu, q.tolerance);
+  const formuleJuste = formuleCalculJuste(q, r.formule);
+  const champs: Record<string, boolean> = {};
+  if (formuleJuste != null) champs.formule = formuleJuste;
+  if (!estVide(r.resultat)) champs.resultat = resultatJuste;
+
+  // Application numérique (LaTeX ou texte) : sa valeur tombe-t-elle sur le résultat attendu ?
+  const tol = q.tolerance != null && q.tolerance >= 0 ? q.tolerance : toleranceParDefaut(q.attendu);
+  const appli = !estVide(r.application) && valeursNumeriques(r.application).some(x => nombreJuste(x, q.attendu, tol));
+  const mention = appli ? ' · application cohérente' : '';
+
+  // Erreurs typiques : formule (champ « formule »), nombre (résultat), textes (formule).
+  const cibles: Cible[] = [];
+  if (formuleJuste !== true && !estVide(r.formule)) cibles.push({ champ: 'formule', valeur: r.formule, maths: true, spec: q.formuleSpec, criteres: ['formule', 'valeurs'] });
+  if (!resultatJuste && !estVide(r.resultat)) cibles.push({ champ: 'resultat', valeur: r.resultat, criteres: ['nombre', 'valeurs'] });
+  if (!resultatJuste && !estVide(r.application)) cibles.push({ champ: 'application', valeur: r.application, maths: true, criteres: ['nombre'] });
+  const err = erreursDe(q, cibles);
+
+  if (resultatJuste) return completer(auto(q.num, 1, `Résultat juste${formuleJuste === false ? ' (formule à revoir)' : ''}${mention}`), err, champs);
+  if (formuleJuste) {
+    const eq = q.formuleSpec ? ' (équivalente)' : '';
+    return completer(auto(q.num, 0.5, `Formule juste${eq}, résultat ${estVide(r.resultat) ? 'absent' : 'faux'}${mention}${appli && !estVide(r.resultat) ? ' (erreur de report ou d’arrondi ?)' : ''}`), err, champs);
+  }
+  return completer(auto(q.num, 0, `${estVide(r.resultat) ? 'Résultat absent' : 'Résultat faux'}${mention}`), err, champs);
 }
 
 function corrigerRedige(q: QRedige, texte: string): CorrectionQuestion {
@@ -140,120 +300,68 @@ function corrigerRedige(q: QRedige, texte: string): CorrectionQuestion {
   const trouves = q.motsCles.filter(k => contientMotCle(texte, k));
   const min = Math.max(1, q.minMotsCles);
   const score = trouves.length >= min ? 1 : trouves.length >= 1 ? 0.5 : 0;
-  return {
+  // Erreur typique d'un rédigé : un des textes fautifs figure dans la réponse.
+  const liste = (q.erreursTypiques ?? []).filter(e => e.valeurs?.some(v => contientMotCle(texte, v)));
+  return completer({
     num: q.num,
     score,
     statut: 'aValider',
     detail: `Mots-clés : ${trouves.length}/${min}${trouves.length ? ` (${trouves.join(', ')})` : ''} — pré-note à valider par le professeur`,
-  };
+  }, liste.length ? { erreurs: liste.map(e => e.id), message: liste[0].message } : {});
 }
 
 function corrigerBulles(q: QBulles, valeurs: Record<string, string>): CorrectionQuestion {
   if (!Object.values(valeurs).some(v => !estVide(v))) return sansReponse(q.num);
   const n = q.bulles.length;
-  const justes = q.bulles.filter(b => texteAccepte(valeurs[b.id], [b.attendu, ...(b.acceptes ?? [])])).length;
-  return auto(q.num, n ? justes / n : 0, `${justes}/${n} bulles justes`);
+  const champs: Record<string, boolean> = {};
+  const fautes: Cible[] = [];
+  let justes = 0;
+  for (const b of q.bulles) {
+    const v = valeurs[b.id];
+    if (estVide(v)) continue;
+    const ok = texteAccepte(v, [b.attendu, ...(b.acceptes ?? [])]);
+    champs[b.id] = ok;
+    if (ok) justes += 1; else fautes.push({ champ: b.id, valeur: v, criteres: ['valeurs'] });
+  }
+  return completer(auto(q.num, n ? justes / n : 0, `${justes}/${n} bulles justes`), erreursDe(q, fautes), champs);
 }
 
 /* ───────────────────────────── placement ───────────────────────────── */
-
-/** Détail de la correction d'un placement (aussi utilisé pour colorer les repères). */
-export interface EtatPlacement {
-  /** Pour chaque repère posé (même ordre que la réponse), l'index de l'attendu apparié, ou null. */
-  apparies: (number | null)[];
-  /** Index des attendus sans repère apparié. */
-  manquants: number[];
-  /** Repères bien placés (appariés). */
-  bien: number;
-  /** Repères posés non appariés, dans la limite du nombre d'attendus (mal placés). */
-  malPlaces: number;
-  /** Repères posés au-delà du nombre d'attendus (pénalisés). */
-  enTrop: number;
-  total: number;
-  /** Score 0..1 de la partie « placement ». */
-  score: number;
-}
-
-/**
- * Appariement glouton au plus proche : toutes les paires (repère posé, attendu) dont la distance
- * normalisée par l'ellipse de tolérance est ≤ 1 sont triées de la plus proche à la plus
- * lointaine, et retenues tant que ni le repère ni l'attendu ne sont déjà pris.
- * Score = max(0, bien placés − repères en trop) / attendus, où « en trop » = repères posés au-delà
- * du nombre d'attendus (un repère mal placé ne rapporte rien mais n'est pas pénalisé deux fois).
- */
-export function etatPlacement(q: QPlacement, points: { x: number; y: number }[]): EtatPlacement {
-  const tx = q.tolerance.x > 0 ? q.tolerance.x : 1e-9;
-  const ty = q.tolerance.y > 0 ? q.tolerance.y : 1e-9;
-  const paires: { i: number; j: number; d: number }[] = [];
-  points.forEach((p, i) => q.attendus.forEach((a, j) => {
-    const d = Math.hypot((p.x - a.x) / tx, (p.y - a.y) / ty);
-    if (d <= 1 + 1e-9) paires.push({ i, j, d });
-  }));
-  paires.sort((a, b) => a.d - b.d || a.i - b.i || a.j - b.j);
-  const apparies: (number | null)[] = points.map(() => null);
-  const pris = new Set<number>();
-  for (const { i, j } of paires) {
-    if (apparies[i] != null || pris.has(j)) continue;
-    apparies[i] = j;
-    pris.add(j);
-  }
-  const total = q.attendus.length;
-  const bien = pris.size;
-  const enTrop = Math.max(0, points.length - total);
-  const malPlaces = points.length - bien - enTrop;
-  const manquants = q.attendus.map((_, j) => j).filter(j => !pris.has(j));
-  return { apparies, manquants, bien, malPlaces, enTrop, total, score: total ? borne((bien - enTrop) / total) : 0 };
-}
-
-/** Nom des repères d'un placement, accordé : « luminaires », « croix », « repères ». */
-export function nomReperes(q: Pick<QPlacement, 'symbole'>, n: number): { nom: string; place: string } {
-  const pl = n > 1;
-  if (q.symbole === 'croix') return { nom: 'croix', place: `placée${pl ? 's' : ''}` };
-  if (q.symbole === 'luminaire') return { nom: `luminaire${pl ? 's' : ''}`, place: `placé${pl ? 's' : ''}` };
-  return { nom: `repère${pl ? 's' : ''}`, place: `placé${pl ? 's' : ''}` };
-}
-
-/** Résumé lisible : « 13/15 luminaires bien placés, 1 mal placé, 1 en trop ». */
-export function resumePlacement(q: QPlacement, e: EtatPlacement): string {
-  const { nom, place } = nomReperes(q, e.total);
-  const accord = (n: number) => (q.symbole === 'croix' ? `placée${n > 1 ? 's' : ''}` : `placé${n > 1 ? 's' : ''}`);
-  return `${e.bien}/${e.total} ${nom} bien ${place}`
-    + (e.malPlaces ? `, ${e.malPlaces} mal ${accord(e.malPlaces)}` : '')
-    + (e.enTrop ? `, ${e.enTrop} en trop` : '');
-}
 
 function corrigerPlacement(q: QPlacement, r: Extract<ReponseSujet, { type: 'placement' }>): CorrectionQuestion {
   const valeurs = r.valeurs ?? {};
   if (r.points.length === 0 && !Object.values(valeurs).some(v => !estVide(v))) return sansReponse(q.num);
   const e = etatPlacement(q, r.points);
+  const reperes: Record<string, boolean> = Object.fromEntries(e.apparies.map((j, i) => [`p${i}`, j != null]));
   const notes = (q.champs ?? []).filter(estNote);
-  if (!notes.length) return auto(q.num, e.score, resumePlacement(q, e));
-  const justes = notes.filter(c => saisieJuste(valeurs[c.id], c)).length;
-  const sc = justes / notes.length;
-  return auto(q.num, 0.5 * e.score + 0.5 * sc, `${resumePlacement(q, e)} · ${justes}/${notes.length} valeur${notes.length > 1 ? 's' : ''} juste${justes > 1 ? 's' : ''}`);
+  if (!notes.length) return completer(auto(q.num, e.score, resumePlacement(q, e)), {}, reperes);
+  const s = corrigerSaisies(q, q.champs ?? [], valeurs, []);
+  const sc = s.justes / s.n;
+  return completer(
+    auto(q.num, 0.5 * e.score + 0.5 * sc, `${resumePlacement(q, e)} · ${s.justes}/${s.n} valeur${s.n > 1 ? 's' : ''} juste${s.justes > 1 ? 's' : ''}`),
+    s.err, { ...reperes, ...s.champs },
+  );
 }
-
-/** Valeur « aucun cavalier » : tiret, vide ou 0 écrit « — ». */
-const AUCUN = new Set(['', '-', 'aucun', 'sans']);
-const normCavalier = (v: string | undefined) => {
-  const n = normTexte(v);
-  return AUCUN.has(n) ? '-' : n;
-};
-
-/** Valeur de cavalier juste (« — », « - » et vide = aucun cavalier) ? */
-export const cavalierJuste = (v: string | undefined, attendu: string) => normCavalier(v) === normCavalier(attendu);
 
 function corrigerCavaliers(q: QCavaliers, valeurs: Record<string, string>): CorrectionQuestion {
   if (!Object.values(valeurs).some(v => !estVide(v))) return sansReponse(q.num);
   let n = 0;
   let justes = 0;
+  const champs: Record<string, boolean> = {};
+  const fautes: Cible[] = [];
   for (const c of q.composants) {
     for (const p of c.positions) {
       n += 1;
-      if (cavalierJuste(valeurs[cleCavalier(c.id, p.id)], p.attendu)) justes += 1;
+      const k = cleCavalier(c.id, p.id);
+      const ok = cavalierJuste(valeurs[k], p.attendu);
+      if (ok) justes += 1;
+      if (!estVide(valeurs[k])) {
+        champs[k] = ok;
+        if (!ok) fautes.push({ champ: k, valeur: valeurs[k], criteres: ['valeurs'] });
+      }
     }
   }
-  return auto(q.num, n ? justes / n : 0, `${justes}/${n} cavaliers justes`);
+  return completer(auto(q.num, n ? justes / n : 0, `${justes}/${n} cavaliers justes`), erreursDe(q, fautes), champs);
 }
 
 /** Détail de la correction des traits d'un schéma (aussi utilisé pour colorer les traits). */
@@ -414,7 +522,11 @@ function corrigerSchema(q: QSchema, r: Extract<ReponseSujet, { type: 'schema' }>
   const detailPlatine = r.platine
     ? `câblage réel : ${r.platine.conformes}/${r.platine.total} liaisons, ${r.platine.sousTension ? 'sous tension ✓' : 'mise sous tension ✗'}, ${r.platine.essai ? 'essai ✓' : 'essai ✗'}`
     : 'câblage réel : non fait';
-  return auto(q.num, 0.5 * t.score + 0.5 * p, `${detailTraits} · ${detailPlatine}`);
+  const champs: Record<string, boolean> = {};
+  t.justes.forEach(k => { champs[`t:${k}`] = true; });
+  t.mauvaiseCouleur.forEach(k => { champs[`tc:${k}`] = false; });
+  t.fausses.forEach(k => { champs[`t:${k}`] = false; });
+  return completer(auto(q.num, 0.5 * t.score + 0.5 * p, `${detailTraits} · ${detailPlatine}`), {}, champs);
 }
 
 /* ───────────────────────────── point d'entrée ───────────────────────────── */
@@ -448,9 +560,4 @@ export function corrigerCopie(sujet: SujetNumerique, st: SujetAttemptState): Rec
     out[q.num] = prev && prev.statut === 'prof' ? prev : corriger(q, st.reponses[q.num]);
   }
   return out;
-}
-
-/** Note posée par le professeur sur une question (0..1), qui remplace la pré-correction. */
-export function correctionProf(num: number, score: number, detail?: string): CorrectionQuestion {
-  return { num, score: r4(borne(score)), statut: 'prof', detail: detail ?? 'Note du professeur' };
 }

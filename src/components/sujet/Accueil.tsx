@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import Link from 'next/link';
-import { estRepondue } from '@/lib/sujet/correction';
+import { estReponduePublique as estRepondue } from '@/lib/sujet/public';
 import { resumeDtr } from '@/lib/sujet/dtr';
 import { intervalleReperes, repere } from '@/lib/sujet/format';
 import { fmtDuree, useSujet } from '@/lib/sujet/store';
@@ -119,8 +119,8 @@ export default function Accueil({ onEntrer, lienProf }: { onEntrer: () => void; 
             ) : (
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Mode">
                 {([
-                  ['entrainement', 'Entraînement', '« Vérifier » après chaque question, indice après une erreur, tu peux corriger. Pas de limite de temps.'],
-                  ['examen', 'Examen', `Conditions réelles : chrono ${fmtDuree(sujet.dureeMin * 60)}, aucune correction avant la remise, remise automatique à la fin du temps.`],
+                  ['entrainement', 'Entraînement', '« Vérifier » après chaque question, 3 aides graduées après une erreur (jamais la réponse), tu peux corriger. Pas de limite de temps.'],
+                  ['examen', 'Examen', `Conditions réelles : chrono ${fmtDuree(sujet.dureeMin * 60)}, ni correction ni aide avant la remise, remise automatique à la fin du temps.`],
                 ] as const).map(([id, t, d]) => (
                   <button key={id} type="button" role="radio" aria-checked={mode === id} onClick={() => setMode(id)} data-choisir-mode={id}
                     className={`rounded-xl border-2 p-3 text-left transition ${mode === id ? 'border-accent bg-accent/10' : 'border-line bg-surface hover:border-accent/50'}`}>

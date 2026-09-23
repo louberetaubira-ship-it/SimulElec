@@ -145,8 +145,8 @@ export const TP_SCIERIE_E343_DC: TpDefinition = {
     rangees: ['terre · sectionneur DC · Q1 départ onduleur · Q2 différentiel', 'onduleur Fronius SYMO 12.5-3-M · zone de raccordement DC / AC'],
   },
   schemaImage: {
-    src: '/tp/scierie/q-e343-corrige.jpg',
-    legende: 'E.3.4.3 · schéma de câblage côté DC (correction d’après le DTR 35)',
+    src: '/tp/scierie/q-e343-sujet.jpg',
+    legende: 'E.3.4.3 · schéma de câblage côté DC (à compléter, page du sujet)',
     titre: 'E.3.4.3',
     suite: [
       { src: '/tp/scierie/dtr-42.jpg', legende: 'DTR 35 · câblage des strings PV', titre: 'DTR 35' },

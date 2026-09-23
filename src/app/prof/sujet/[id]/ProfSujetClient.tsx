@@ -5,6 +5,11 @@
  * recalcul du bilan et écriture de `attempts.score` + `attempts.evaluation`,
  * réactivation d'une copie remise.
  *
+ * Corrigé : réponse attendue toujours visible ici ; « Publier le corrigé » / « Retirer » par classe
+ * (table `sujet_corriges`, migration 0016) ouvre les réponses attendues aux élèves de la classe
+ * (un sujet thématique est aussi ouvert par la publication du sujet complet). Statistiques par
+ * question : taux de réussite et nombre d'élèves par erreur typique reconnue.
+ *
  * Un dossier = un sujet complet + ses sujets thématiques : sélecteur « Sujet complet · T1 · T2… »
  * en tête, et suivi de la classe avec une colonne par sujet du dossier (note /20, « n/N » en
  * cours, « à valider », « — ») ; un clic ouvre la copie (`?copie=<id>` pour un autre sujet).
@@ -12,11 +17,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { SujetAttemptState, SujetNumerique } from '@/lib/sujet/types';
-import { corrigerCopie, correctionProf, estRepondue } from '@/lib/sujet/correction';
+import { correctionProf } from '@/lib/sujet/correction-base';
 import { calculerBilan, evaluationSujet, scoreStocke } from '@/lib/sujet/bilan';
-import { listCopiesSujets, reactiverCopie, validerCopie, type CopieSujet } from '@/lib/sujet/copies';
+import {
+  CLASSE_DEMO, listCopiesSujets, listPublications, publierCorrige, reactiverCopie, retirerCorrige, statsQuestions, validerCopie,
+  type CopieSujet, type PublicationCorrige,
+} from '@/lib/sujet/copies';
+import { corrigeSujet } from '@/lib/sujet/solution';
+import { repere } from '@/lib/sujet/format';
+import { estReponduePublique as estRepondue, sujetPublic } from '@/lib/sujet/public';
 import { fmtNombre } from '@/lib/sujet/normalize';
-import { fmtDuree } from '@/lib/sujet/store';
+import { apiRemettre, fmtDuree } from '@/lib/sujet/store';
 import { listMyClasses } from '@/lib/db/classes';
 import type { ClassRow } from '@/lib/db/types';
 import { DEMO } from '@/lib/student';
@@ -55,15 +66,19 @@ export default function ProfSujetClient({ sujet, onglets: dossier }: { onglets: 
   const [edit, setEdit] = useState<SujetAttemptState | null>(null);
   const [modifie, setModifie] = useState(false);
   const [envoi, setEnvoi] = useState(false);
+  const [publications, setPublications] = useState<PublicationCorrige[]>([]);
+  const publique = useMemo(() => sujetPublic(sujet), [sujet]);
+  const corrige = useMemo(() => corrigeSujet(sujet, DEMO), [sujet]);
 
   const charger = useCallback(async () => {
     setChargement(true); setErr(null);
     try {
-      const [cs, cl] = await Promise.all([
+      const [cs, cl, pubs] = await Promise.all([
         listCopiesSujets(dossier.map(d => d.id), DEMO),
         DEMO ? Promise.resolve([]) : listMyClasses(),
+        listPublications(dossier.map(d => d.id), DEMO).catch(e => { setErr(e instanceof Error ? e.message : String(e)); return []; }),
       ]);
-      setToutes(cs); setClasses(cl);
+      setToutes(cs); setClasses(cl); setPublications(pubs);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Erreur de chargement.');
     } finally {
@@ -81,8 +96,18 @@ export default function ProfSujetClient({ sujet, onglets: dossier }: { onglets: 
   const ouvrir = (c: CopieSujet) => {
     setOuverte(c.id); setMsg(null); setErr(null); setModifie(false);
     if (!c.state) { setEdit(null); return; }
-    // Copie en cours : correction provisoire calculée à la volée (non enregistrée).
-    setEdit(c.state.remise ? c.state : { ...c.state, corrections: corrigerCopie(sujet, c.state) });
+    if (c.state.remise) { setEdit(c.state); return; }
+    // Copie en cours : correction provisoire calculée par le SERVEUR (la Compute Engine n'est pas
+    // embarquée dans le navigateur), non enregistrée ; les notes du professeur sont conservées.
+    const st = c.state;
+    setEdit({ ...st, corrections: {} });
+    apiRemettre(sujet.id, st.reponses)
+      .then(r => {
+        const corrections = { ...r.corrections };
+        Object.values(st.corrections).forEach(k => { if (k.statut === 'prof') corrections[k.num] = k; });
+        setEdit(e => (e && e.sujetId === st.sujetId && e.reponses === st.reponses ? { ...e, corrections } : e));
+      })
+      .catch(e => setErr(e instanceof Error ? e.message : 'Correction provisoire impossible.'));
   };
 
   // Copie demandée par l'adresse (clic dans le suivi d'un autre sujet du dossier).
@@ -134,6 +159,19 @@ export default function ProfSujetClient({ sujet, onglets: dossier }: { onglets: 
       setEnvoi(false);
     }
   };
+  const basculerPublication = async (classId: string, publier: boolean) => {
+    setEnvoi(true); setErr(null); setMsg(null);
+    try {
+      if (publier) await publierCorrige(classId, sujet.id, DEMO); else await retirerCorrige(classId, sujet.id, DEMO);
+      setPublications(await listPublications(dossier.map(d => d.id), DEMO));
+      setMsg(publier ? 'Corrigé publié : les élèves de la classe voient les réponses attendues.' : 'Publication du corrigé retirée.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Publication impossible.');
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
   const reactiver = async () => {
     if (!copie) return;
     if (!window.confirm('Réactiver cette copie ? Elle repasse « en cours » : l’élève pourra la modifier et devra la remettre à nouveau.')) return;
@@ -181,6 +219,11 @@ export default function ProfSujetClient({ sujet, onglets: dossier }: { onglets: 
       {!copie && dossier.length > 1 && (
         <SuiviDossier dossier={dossier} copies={toutes} courant={sujet.id} classe={classe} chargement={chargement}
           onOuvrir={c => { if (c.sujetId === sujet.id) ouvrir(c); else window.location.href = `/prof/sujet/${c.sujetId}?copie=${encodeURIComponent(c.id)}`; }} />
+      )}
+
+      {!copie && (
+        <PublicationCorrige sujetId={sujet.id} parent={sujet.parent ?? null} classes={DEMO ? [{ id: CLASSE_DEMO, name: 'Démonstration (ce navigateur)' }] : classes}
+          publications={publications} envoi={envoi} onBasculer={(c, p) => void basculerPublication(c, p)} />
       )}
 
       {!copie && (
@@ -236,6 +279,8 @@ export default function ProfSujetClient({ sujet, onglets: dossier }: { onglets: 
         </section>
       )}
 
+      {!copie && !chargement && <StatsErreurs sujet={sujet} copies={copies.filter(c => classe === 'toutes' || c.eleve.class_id === classe)} />}
+
       {copie && (
         <div className="space-y-4">
           <div className="sticky top-[56px] z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface/95 p-3 backdrop-blur">
@@ -258,7 +303,7 @@ export default function ProfSujetClient({ sujet, onglets: dossier }: { onglets: 
             <>
               <Bilan sujet={sujet} bilan={bilan} st={edit} eleve={copie.eleve.nom}
                 onQuestion={n => document.querySelector(`[data-copie-question="${n}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
-              <Correction sujet={sujet} st={edit} prof={remise ? { onNote: noter, onAnnotation: annoter } : undefined} />
+              <Correction sujet={publique} st={edit} corrige={corrige} prof={remise ? { onNote: noter, onAnnotation: annoter } : undefined} />
             </>
           )}
         </div>
@@ -339,6 +384,108 @@ function SuiviDossier({ dossier, copies, courant, classe, chargement, onOuvrir }
                       </td>
                     );
                   })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Publication du corrigé, classe par classe (réponses attendues visibles des élèves). */
+function PublicationCorrige({ sujetId, parent, classes, publications, envoi, onBasculer }: {
+  sujetId: string;
+  parent: string | null;
+  classes: { id: string; name: string }[];
+  publications: PublicationCorrige[];
+  envoi: boolean;
+  onBasculer: (classId: string, publier: boolean) => void;
+}) {
+  const date = (d: string) => (d ? new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+  return (
+    <section className="mb-4 rounded-2xl border border-line bg-surface" data-publication-corrige>
+      <div className="border-b border-line p-3">
+        <h2 className="text-[15px] font-bold">Corrigé des élèves</h2>
+        <p className="text-[12px] text-muted">
+          Tant que le corrigé n’est pas publié, l’élève voit sa note, juste / faux et les aides, mais jamais la réponse attendue.
+          {parent ? ' Ce sujet thématique est aussi ouvert par la publication du sujet complet.' : ' La publication du sujet complet ouvre aussi ses sujets thématiques.'}
+        </p>
+      </div>
+      {classes.length === 0 ? (
+        <p className="p-3 text-[13px] text-muted">Aucune classe.</p>
+      ) : (
+        <ul className="divide-y divide-line">
+          {classes.map(c => {
+            const propre = publications.find(p => p.class_id === c.id && p.sujet_id === sujetId);
+            const parParent = parent ? publications.find(p => p.class_id === c.id && p.sujet_id === parent) : undefined;
+            return (
+              <li key={c.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-[13px]" data-classe-publication={c.id}>
+                <b className="min-w-[140px]">{c.name}</b>
+                <span className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${propre || parParent ? 'bg-good/15 text-good' : 'bg-surface2 text-muted'}`} data-etat-publication={propre || parParent ? 'publie' : 'non'}>
+                  {propre ? `Publié${propre.publie_le ? ` le ${date(propre.publie_le)}` : ''}` : parParent ? 'Publié (via le sujet complet)' : '🔒 Non publié'}
+                </span>
+                <span className="flex-1" />
+                {propre ? (
+                  <button type="button" className={BOUTON} disabled={envoi} onClick={() => onBasculer(c.id, false)} data-retirer-corrige>Retirer la publication</button>
+                ) : (
+                  <button type="button" className={BOUTON_FORT} disabled={envoi} onClick={() => onBasculer(c.id, true)} data-publier-corrige>Publier le corrigé</button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** Statistiques par question : taux de réussite et élèves par erreur typique. */
+function StatsErreurs({ sujet, copies }: { sujet: SujetNumerique; copies: CopieSujet[] }) {
+  const stats = useMemo(() => statsQuestions(sujet, copies), [sujet, copies]);
+  const [tout, setTout] = useState(false);
+  const lignes = stats.filter(s => s.corrigees > 0);
+  const avecErreurs = lignes.filter(s => s.erreurs.length > 0).length;
+  const lab = new Map(sujet.questions.map(q => [q.num, repere(q)]));
+  const visibles = tout ? lignes : lignes.filter(s => s.erreurs.length > 0 || (s.taux ?? 1) < 0.5);
+  return (
+    <section className="mt-4 rounded-2xl border border-line bg-surface" data-stats-erreurs>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
+        <div className="flex-1">
+          <h2 className="text-[15px] font-bold">Erreurs typiques et réussite par question</h2>
+          <p className="text-[12px] text-muted">Une copie par élève (la plus récente) · {lignes.length} question{lignes.length > 1 ? 's' : ''} corrigée{lignes.length > 1 ? 's' : ''} au moins une fois · {avecErreurs} avec une erreur typique reconnue.</p>
+        </div>
+        <button type="button" className={BOUTON} onClick={() => setTout(v => !v)}>{tout ? 'Questions à surveiller' : 'Toutes les questions'}</button>
+      </div>
+      {visibles.length === 0 ? (
+        <p className="p-4 text-[13px] text-muted">{lignes.length ? 'Aucune erreur typique reconnue, aucune question sous 50 % de réussite.' : 'Pas encore de copie corrigée.'}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-[13px]">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-[.05em] text-muted">
+                <th className="px-3 py-2">Question</th><th className="px-3 py-2">Réussite</th><th className="px-3 py-2">Justes</th><th className="px-3 py-2">Erreurs typiques (élèves)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibles.map(s => (
+                <tr key={s.num} className="border-t border-line align-top" data-stat-question={s.num}>
+                  <td className="px-3 py-2 font-mono font-semibold">{lab.get(s.num)}</td>
+                  <td className="px-3 py-2 font-mono">{s.taux == null ? '—' : `${Math.round(s.taux * 100)} %`}</td>
+                  <td className="px-3 py-2 font-mono">{s.justes}/{s.corrigees}</td>
+                  <td className="px-3 py-2">
+                    {s.erreurs.length === 0 ? <span className="text-muted">—</span> : (
+                      <ul className="space-y-0.5">
+                        {s.erreurs.map(e => (
+                          <li key={e.id} data-stat-erreur={e.id}>
+                            <b className="font-mono">{e.eleves}</b> élève{e.eleves > 1 ? 's' : ''} · <span className="font-semibold">{e.id}</span>
+                            {e.message && <span className="text-muted"> — {e.message}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -5,26 +5,42 @@
  *  - « Câblage réel » : le même montage sur la platine du simulateur (`CablageReel`,
  *    TP platine dédié). Le composant n'est monté que dans son onglet : il initialise le
  *    store global du parcours platine.
+ * Après correction (serveur), les traits posés sont colorés d'après `correction.champs`
+ * (`t:<a>|<b>` juste / faux, `tc:<a>|<b>` mauvaise couleur) ; les liaisons attendues et le
+ * schéma corrigé ne sont jamais envoyés au navigateur de l'élève.
  */
 import { useState } from 'react';
-import { etatTraits, scorePlatine } from '@/lib/sujet/correction';
-import type { PlatineResultat } from '@/lib/sujet/types';
+import type { EtatTraits } from '@/lib/sujet/correction';
+import type { CorrectionQuestion, PlatineResultat } from '@/lib/sujet/types';
 import CablageReel from './CablageReel';
 import SchemaTraits from './SchemaTraits';
 import type { OutilProps, RDe } from './outils';
 
-type Onglet = 'traits' | 'platine' | 'corrige';
+type Onglet = 'traits' | 'platine';
 
-export default function QSchema({ q, r, onChange, readOnly, montrer }: OutilProps<'schema'>) {
+/** Verdicts des traits posés, reconstitués depuis la correction serveur. */
+function verifDepuis(c: CorrectionQuestion | null | undefined): EtatTraits | null {
+  const ch = c?.champs;
+  if (!ch) return null;
+  const justes = new Set<string>();
+  const fausses = new Set<string>();
+  const mauvaiseCouleur = new Set<string>();
+  for (const [k, v] of Object.entries(ch)) {
+    if (k.startsWith('tc:')) mauvaiseCouleur.add(k.slice(3));
+    else if (k.startsWith('t:')) (v ? justes : fausses).add(k.slice(2));
+  }
+  if (!justes.size && !fausses.size && !mauvaiseCouleur.size) return null;
+  return { justes, fausses, mauvaiseCouleur, manquantes: new Set(), score: c?.score ?? 0, total: 0 };
+}
+
+export default function QSchema({ q, r, onChange, readOnly, correction }: OutilProps<'schema'>) {
   const [onglet, setOnglet] = useState<Onglet>('traits');
   const rep: RDe<'schema'> = r ?? { type: 'schema', traits: [], platine: null };
-  const verif = montrer ? etatTraits(q, rep.traits) : null;
-  const pPlatine = scorePlatine(rep.platine);
+  const verif = verifDepuis(correction);
 
   const onglets: { id: Onglet; label: string }[] = [
     { id: 'traits', label: `Traits à poser${rep.traits.length ? ` · ${rep.traits.length}` : ''}` },
     { id: 'platine', label: `Câblage réel${rep.platine ? ' · validé' : ''}` },
-    ...(readOnly ? [{ id: 'corrige' as const, label: 'Corrigé' }] : []),
   ];
 
   return (
@@ -39,7 +55,6 @@ export default function QSchema({ q, r, onChange, readOnly, montrer }: OutilProp
       </div>
       <p className="mb-2 text-[12px] text-muted">
         La note de la question se partage : <b>la moitié pour le schéma</b> (traits et couleurs), <b>la moitié pour le câblage réel</b> (liaisons, mise sous tension, essai).
-        {montrer && <> — Traits : <b>{Math.round((verif?.score ?? 0) * 100)} %</b> · Câblage réel : <b>{Math.round(pPlatine * 100)} %</b>.</>}
       </p>
 
       {onglet === 'traits' && (
@@ -48,7 +63,7 @@ export default function QSchema({ q, r, onChange, readOnly, montrer }: OutilProp
           traits={rep.traits}
           readOnly={readOnly}
           verif={verif}
-          corrige={readOnly && montrer ? q.corrigeImage : null}
+          corrige={null}
           onChange={t => onChange({ ...rep, traits: t })}
         />
       )}
@@ -61,10 +76,6 @@ export default function QSchema({ q, r, onChange, readOnly, montrer }: OutilProp
             onResultat={(p: PlatineResultat) => onChange({ ...rep, platine: p })}
           />
         </div>
-      )}
-      {onglet === 'corrige' && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={q.corrigeImage.src} alt={q.corrigeImage.alt} className="w-full rounded-lg border border-line bg-white" />
       )}
     </div>
   );

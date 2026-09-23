@@ -4,14 +4,14 @@
  * feuille (implantation de luminaires, croix sur un disque solaire…).
  *
  * Un clic sur l'image pose le symbole (dans la zone permise, dans la limite `max`) ; un clic sur
- * un repère (ou tout près) le retire. Vérification (entraînement) : repères verts (bien placés)
- * ou rouges, et positions attendues manquantes en pointillés. Copie remise : lecture seule,
- * toutes les positions attendues affichées. Champs complémentaires éventuels sous le plan.
+ * un repère (ou tout près) le retire. Après correction (serveur) : repères verts (bien placés)
+ * ou rouges (`correction.champs['p<i>']`) ; les positions attendues ne sont jamais envoyées au
+ * navigateur de l'élève. Copie remise : lecture seule. Champs complémentaires éventuels sous le plan.
  */
 import { useRef, useState } from 'react';
-import { etatPlacement, nomReperes } from '@/lib/sujet/correction';
+import { nomReperes } from '@/lib/sujet/correction-base';
 import type { QPlacement as QPlacementDef } from '@/lib/sujet/types';
-import { BOUTON, type OutilProps } from './outils';
+import { BOUTON, verdict, type OutilProps } from './outils';
 import { ChampsValeur } from './QValeur';
 
 /** Rayon (px écran) sous lequel un clic retire le repère voisin au lieu d'en poser un. */
@@ -44,10 +44,10 @@ function Symbole({ symbole, etat }: { symbole: QPlacementDef['symbole']; etat: E
   );
 }
 
-export default function QPlacement({ q, r, onChange, readOnly, montrer }: OutilProps<'placement'>) {
+export default function QPlacement({ q, r, onChange, readOnly, correction }: OutilProps<'placement'>) {
   const points = r?.points ?? [];
   const valeurs = r?.valeurs ?? {};
-  const max = q.max ?? q.attendus.length;
+  const max = q.max;
   const zoneRef = useRef<HTMLDivElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const { nom } = nomReperes(q, 2);
@@ -73,9 +73,11 @@ export default function QPlacement({ q, r, onChange, readOnly, montrer }: OutilP
     emettre([...points, { x: Math.round(x * 10000) / 10000, y: Math.round(y * 10000) / 10000 }]);
   };
 
-  const etat = montrer ? etatPlacement(q, points) : null;
-  // Positions attendues en pointillés : toutes après la remise, celles qui manquent après une vérification ratée.
-  const fantomes = !etat ? [] : readOnly ? q.attendus.map((_, j) => j) : etat.score < 0.999 ? etat.manquants : [];
+  const etatDe = (i: number): Etat => {
+    const v = verdict(correction, `p${i}`);
+    return v == null ? 'neutre' : v ? 'juste' : 'faux';
+  };
+  const corrige = points.some((_, i) => verdict(correction, `p${i}`) != null);
 
   return (
     <div className="space-y-2" data-placement>
@@ -99,16 +101,8 @@ export default function QPlacement({ q, r, onChange, readOnly, montrer }: OutilP
             <div className="pointer-events-none absolute rounded-sm border-2 border-dashed border-accent/60"
               style={{ left: `${q.zone.x0 * 100}%`, top: `${q.zone.y0 * 100}%`, width: `${(q.zone.x1 - q.zone.x0) * 100}%`, height: `${(q.zone.y1 - q.zone.y0) * 100}%` }} />
           )}
-          {fantomes.map(j => {
-            const a = q.attendus[j];
-            return (
-              <span key={`a${j}`} data-attendu={j} title={a.label ? `Attendu : ${a.label}` : 'Position attendue'}
-                className="pointer-events-none absolute grid h-[22px] w-[22px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-dashed border-good bg-good/10"
-                style={{ left: `${a.x * 100}%`, top: `${a.y * 100}%` }} />
-            );
-          })}
           {points.map((p, i) => {
-            const e: Etat = !etat ? 'neutre' : etat.apparies[i] != null ? 'juste' : 'faux';
+            const e: Etat = etatDe(i);
             const style = { left: `${p.x * 100}%`, top: `${p.y * 100}%` };
             const cls = 'absolute grid h-[26px] w-[26px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full';
             return readOnly ? (
@@ -130,16 +124,15 @@ export default function QPlacement({ q, r, onChange, readOnly, montrer }: OutilP
           {msg && <span className="text-[12px] font-semibold text-crit" role="status">{msg}</span>}
         </div>
       )}
-      {etat && (
+      {corrige && (
         <p className="flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-muted">
           <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-good bg-[#D7F5E3] align-middle" />bien placé</span>
           <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-crit bg-[#FDE8E6] align-middle" />mal placé ou en trop</span>
-          {fantomes.length > 0 && <span><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-good align-middle" />position attendue</span>}
         </p>
       )}
       {q.champs && q.champs.length > 0 && (
         <div className="pt-1">
-          <ChampsValeur champs={q.champs} valeurs={valeurs} readOnly={readOnly} montrer={montrer}
+          <ChampsValeur champs={q.champs} valeurs={valeurs} readOnly={readOnly} correction={correction}
             onFixer={(id, v) => emettre(points, { ...valeurs, [id]: v })} />
         </div>
       )}

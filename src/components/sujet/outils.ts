@@ -1,9 +1,11 @@
 /**
  * Contrat commun des renderers d'outils de réponse (`Q*.tsx`) et petites classes partagées.
  */
-import type { ReponseSujet, SujetQuestion, SujetQuestionType } from '@/lib/sujet/types';
+import type { CorrectionQuestion, ReponseSujet, SujetQuestionType } from '@/lib/sujet/types';
+import type { QPubliqueDe } from '@/lib/sujet/public';
 
-export type QDe<T extends SujetQuestionType> = Extract<SujetQuestion, { type: T }>;
+/** Question PUBLIQUE d'un outil (sans corrigé : les renderers ne voient jamais la réponse attendue). */
+export type QDe<T extends SujetQuestionType> = QPubliqueDe<T>;
 export type RDe<T extends SujetQuestionType> = Extract<ReponseSujet, { type: T }>;
 
 export interface OutilProps<T extends SujetQuestionType> {
@@ -12,8 +14,23 @@ export interface OutilProps<T extends SujetQuestionType> {
   onChange: (r: RDe<T>) => void;
   /** Copie remise ou vue professeur : aucune modification. */
   readOnly: boolean;
-  /** Colorer juste / faux (après « Vérifier » en entraînement, ou copie corrigée). */
+  /**
+   * Colorer juste / faux. Côté élève le corrigé n'est plus dans le navigateur : toujours `false`
+   * (le verdict vient de `POST /api/sujet/corriger`). Conservé pour compatibilité.
+   */
   montrer: boolean;
+  /**
+   * Correction SERVEUR de la question (facultative) : ses verdicts par élément
+   * (`CorrectionQuestion.champs`) colorent les champs juste / faux sans corrigé dans le navigateur.
+   * À ne passer que lorsqu'elle correspond à la réponse affichée (après « Vérifier », copie remise).
+   */
+  correction?: CorrectionQuestion | null;
+}
+
+/** Verdict d'un élément répondu (`null` : pas de correction, ou élément non jugé). */
+export function verdict(c: CorrectionQuestion | null | undefined, id: string): boolean | null {
+  const v = c?.champs?.[id];
+  return v == null ? null : v;
 }
 
 /** Champ de saisie standard. */

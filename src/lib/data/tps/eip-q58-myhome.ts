@@ -158,8 +158,8 @@ export const TP_EIP_Q58_MYHOME: TpDefinition = {
   ],
   libelles: { recv: 'Éclairages · atelier L11-L14 · sanitaire L1-L6 · atelier électronique L7-L10' },
   schemaImage: {
-    src: '/tp/eip/q58-corrige.jpg',
-    legende: 'Schéma électrique de l’installation MyHOME (corrigé officiel)',
+    src: '/tp/eip/q58-sujet.jpg',
+    legende: 'Schéma électrique de l’installation MyHOME (à compléter, page du sujet)',
   },
   postes: [
     {

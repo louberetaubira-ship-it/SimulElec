@@ -19,6 +19,9 @@
  *
  * Cliquer une liaison attendue allume ses deux bornes sur la platine (`aim()`), ce qui
  * évite à l'élève de chercher « XC:5 int. » à la loupe.
+ *
+ * `masquerAttendues` (mode « câblage réel » d'un sujet d'examen) : ni « fil suivant », ni liste
+ * des liaisons attendues, ni câblage assisté — le schéma à réaliser est la réponse de l'élève.
  */
 import React from 'react';
 import type { AttemptState, Liaison, TpDefinition } from '@/lib/types';
@@ -41,6 +44,8 @@ export interface TableauProps {
   onNext: () => void;
   onAssist?: () => void;
   showAssist?: boolean;
+  /** Sujet d'examen : ne rien montrer des liaisons attendues (ni fil suivant, ni liste, ni assistance). */
+  masquerAttendues?: boolean;
 }
 
 /** Progression + erreurs, en chiffres alignés. */
@@ -64,7 +69,7 @@ function Compteur({ done, total, st }: { done: number; total: number; st: Attemp
 }
 
 export default function TableauCablage({
-  tp, st, wires, variant, toolbar, onNext, onAssist, showAssist = false,
+  tp, st, wires, variant, toolbar, onNext, onAssist, showAssist = false, masquerAttendues = false,
 }: TableauProps) {
   const dock = variant === 'dock';
   const required = requiredLiaisons(tp);
@@ -99,7 +104,7 @@ export default function TableauCablage({
         </>
       )}
 
-      {next ? (
+      {masquerAttendues ? null : next ? (
         <div className="rounded-[10px] border border-accent bg-accent/10 px-2 py-1.5 font-mono-num text-[12px]">
           <span className="block text-[9.5px] font-semibold uppercase tracking-[.12em] text-accent">
             Fil suivant
@@ -115,7 +120,7 @@ export default function TableauCablage({
         </div>
       )}
 
-      <Compteur done={doneCount} total={required.length} st={st} />
+      {!masquerAttendues && <Compteur done={doneCount} total={required.length} st={st} />}
 
       <div className="wt-bar">
         <WireToolButton data-testid={dock ? 'dock-reset-stage' : 'reset-stage'} onClick={() => askReset('stage')}>
@@ -131,7 +136,7 @@ export default function TableauCablage({
         )}
       </div>
 
-      {showAssist && onAssist && (
+      {showAssist && onAssist && !masquerAttendues && (
         <Button size="sm" onClick={onAssist}>Câblage assisté</Button>
       )}
 
@@ -176,6 +181,7 @@ export default function TableauCablage({
         ))}
       </div>
 
+      {!masquerAttendues && <>
       <SideTitle>Liaisons attendues · {required.length - doneCount} restantes</SideTitle>
       {/* dans le dock, c'est le panneau qui défile : pas de second ascenseur imbriqué */}
       <div className={`flex flex-col gap-1 ${dock ? '' : 'max-h-[36vh] overflow-y-auto lg:max-h-[300px]'}`}>
@@ -200,8 +206,9 @@ export default function TableauCablage({
           );
         })}
       </div>
+      </>}
 
-      {complete && (
+      {complete && !masquerAttendues && (
         <Button variant="primary" onClick={onNext}>Câblage terminé, passer aux tests</Button>
       )}
     </>

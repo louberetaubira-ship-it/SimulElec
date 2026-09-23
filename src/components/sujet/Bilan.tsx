@@ -5,13 +5,16 @@
  * questions sans réponse, impression.
  */
 import { COMPETENCES, NIVEAU_BILAN, NIVEAU_COLOR, NIVEAU_ON, niveauOf } from '@/lib/data/competences';
-import type { BilanSujet, SujetAttemptState, SujetNumerique } from '@/lib/sujet/types';
+import type { BilanSujet, QuestionBase, SujetAttemptState, SujetNumerique } from '@/lib/sujet/types';
+
+/** Ce que le bilan affiche d'un sujet (public côté élève, complet côté professeur). */
+type SujetAffiche = Pick<SujetNumerique, 'titre' | 'diploma'> & { questions: Pick<QuestionBase, 'num' | 'label'>[] };
 import { repere } from '@/lib/sujet/format';
 import { fmtNombre } from '@/lib/sujet/normalize';
 import { fmtDuree } from '@/lib/sujet/store';
 
 interface Props {
-  sujet: SujetNumerique;
+  sujet: SujetAffiche;
   bilan: BilanSujet;
   st: SujetAttemptState;
   /** Ouvrir une question (élève : revoir ; professeur : aller à la validation). */
@@ -133,7 +136,7 @@ export default function Bilan({ sujet, bilan, st, onQuestion, eleve }: Props) {
   );
 }
 
-function Pastilles({ sujet, nums, onQuestion, cls }: { sujet: SujetNumerique; nums: number[]; onQuestion?: (n: number) => void; cls: string }) {
+function Pastilles({ sujet, nums, onQuestion, cls }: { sujet: SujetAffiche; nums: number[]; onQuestion?: (n: number) => void; cls: string }) {
   const lab = new Map(sujet.questions.map(q => [q.num, repere(q)]));
   return (
     <div className="flex flex-wrap gap-1">

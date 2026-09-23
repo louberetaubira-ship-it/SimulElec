@@ -109,8 +109,8 @@ export const TP_EIP_Q67_VIGIK: TpDefinition = {
   ],
   libelles: { rangees: ['goulotte 1', 'goulotte 2', 'goulotte 3'], recv: 'Porte de l’EIP : tête de lecture, bouton de sortie et gâche dans la colonne du local' },
   schemaImage: {
-    src: '/tp/eip/q67-corrige.jpg',
-    legende: 'Schéma électrique du contrôle d’accès VIGIK (corrigé officiel)',
+    src: '/tp/eip/q67-sujet.jpg',
+    legende: 'Schéma électrique du contrôle d’accès VIGIK (à compléter, page du sujet)',
   },
   postes: [
     {

@@ -1,18 +1,14 @@
 'use client';
 /** Outil « cavaliers » : configurateurs MyHOME (A, PL, M, S, T, D…) de chaque composant. */
-import { cavalierJuste, cleCavalier } from '@/lib/sujet/correction';
-import { CHAMP, etatChamp, type OutilProps } from './outils';
+import { cleCavalier } from '@/lib/sujet/correction-base';
+import { CHAMP, etatChamp, verdict, type OutilProps } from './outils';
 
 const DEFAUT = ['—', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
 
-export default function QCavaliers({ q, r, onChange, readOnly, montrer }: OutilProps<'cavaliers'>) {
+export default function QCavaliers({ q, r, onChange, readOnly, correction }: OutilProps<'cavaliers'>) {
   const valeurs = r?.valeurs ?? {};
-  // Liste commune à toutes les positions (les valeurs attendues y figurent toujours).
-  const options = (() => {
-    const base = q.valeurs ?? DEFAUT;
-    const extra = q.composants.flatMap(c => c.positions.map(p => p.attendu)).filter(v => !base.includes(v));
-    return [...base, ...Array.from(new Set(extra))];
-  })();
+  // Liste commune à toutes les positions (le sujet public y inclut déjà les valeurs utiles).
+  const options = q.valeurs?.length ? q.valeurs : DEFAUT;
   const fixer = (k: string, v: string) => onChange({ type: 'cavaliers', valeurs: { ...valeurs, [k]: v } });
   return (
     <div>
@@ -28,7 +24,7 @@ export default function QCavaliers({ q, r, onChange, readOnly, montrer }: OutilP
                 return (
                   <label key={p.id} className="flex items-center justify-between gap-2 text-[12.5px]">
                     <span className="font-mono font-semibold">{p.label}</span>
-                    <select aria-label={`${c.label} position ${p.label}`} className={`${CHAMP} min-h-[32px] w-[86px] py-1${etatChamp(montrer, v ? cavalierJuste(v, p.attendu) : null)}`}
+                    <select aria-label={`${c.label} position ${p.label}`} className={`${CHAMP} min-h-[32px] w-[86px] py-1${etatChamp(true, v ? verdict(correction, k) : null)}`}
                       value={v} disabled={readOnly} onChange={e => fixer(k, e.target.value)} data-cavalier={k}>
                       <option value="">·</option>
                       {options.map(o => <option key={o} value={o}>{o}</option>)}

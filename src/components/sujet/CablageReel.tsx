@@ -11,7 +11,8 @@
  *    tentative vit dans le `localStorage` (`simulelec.platine.<id>`) ;
  *  - l'état est préparé pour le câblage : matériel du corrigé choisi, appareils posés, étape
  *    Câblage — pose, EPI, consignation et mesures hors tension ne sont pas demandés ici ;
- *  - le câblage passe par `clickTerminal` / `assist` (liaisons refusées comptées), la mise
+ *  - le câblage passe par `clickTerminal` (liaisons refusées comptées ; ni câblage assisté ni liste
+ *    des liaisons attendues : le schéma est la réponse de l'élève), la mise
  *    sous tension par `deviceClick` (organes `q1`, `f2`, `f3` et organes supplémentaires) ;
  *  - l'essai fonctionnel est évalué sur le câblage réel par `CablageReelModeles.ts`.
  *
@@ -25,7 +26,6 @@ import type { PlatineResultat } from '@/lib/sujet/types';
 import type { AttemptState, TpDefinition } from '@/lib/types';
 import { tpById } from '@/lib/data/tps';
 import { ETAPE, isWired, normalizeState, requiredLiaisons } from '@/lib/sim/progress';
-import { repereLiaison } from '@/lib/sim/reperes';
 import { terminalLabel } from '@/lib/sim/layout';
 import { PANEL_W, sceneOf } from '@/lib/scene/geometry';
 import Panel from '@/components/panel/Panel';
@@ -358,7 +358,7 @@ function CablageReelPlatine({
       indicator={`${conformes} / ${required.length} liaisons`}
       actions={cabler ? toolbar : undefined}
       dock={cabler && tp ? (
-        <TableauCablage tp={tp} st={st} wires={wires} variant="dock" onNext={() => setOnglet('tension')} onAssist={s.assist} showAssist />
+        <TableauCablage tp={tp} st={st} wires={wires} variant="dock" onNext={() => setOnglet('tension')} masquerAttendues />
       ) : undefined}
       dockTitle="Tableau de câblage"
     >
@@ -408,11 +408,11 @@ function CablageReelPlatine({
       return (
         <div className="flex flex-col gap-2">
           <p className="m-0 text-[12px] text-muted">
-            Clique une borne puis l&apos;autre, comme au tableau de câblage. Une liaison hors schéma est refusée
-            et comptée en erreur. L&apos;assistance pose la liaison suivante.
+            Clique une borne puis l&apos;autre, en suivant TON schéma. Une liaison impossible est refusée
+            et comptée en erreur.
           </p>
           {toolbar}
-          <TableauCablage tp={tp} st={st} wires={wires} variant="dock" onNext={() => setOnglet('tension')} onAssist={s.assist} showAssist />
+          <TableauCablage tp={tp} st={st} wires={wires} variant="dock" onNext={() => setOnglet('tension')} masquerAttendues />
         </div>
       );
     }
@@ -555,7 +555,8 @@ function CablageReelPlatine({
       )}
       <Toast message={s.toast} />
       <span className="sr-only" aria-live="polite">
-        {required.find(l => !isWired(st, l)) && tp ? `Fil suivant : ${repereLiaison(tp, required.find(l => !isWired(st, l))!)}` : ''}
+        {/* Sujet d'examen : on n'annonce jamais la liaison attendue suivante. */}
+        {`${conformes} liaison${conformes > 1 ? 's' : ''} posée${conformes > 1 ? 's' : ''}`}
       </span>
     </section>
   );

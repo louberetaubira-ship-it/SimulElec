@@ -125,6 +125,15 @@ export interface QuestionBase {
   image?: { src: string; alt: string };
   /** Indice montré en mode entraînement uniquement (après une réponse fausse). */
   indice?: string;
+  /**
+   * Aides graduées montrées à l'ÉLÈVE, une par une (1 → 3) : 1 = où chercher (page DTR,
+   * document), 2 = méthode / grandeurs en jeu, 3 = forme de la réponse (à trous). Ne contiennent
+   * JAMAIS la réponse ni une valeur du corrigé. Absent : le moteur fabrique des aides par défaut
+   * (page DTR + `indice` + méthode selon l'outil).
+   */
+  aides?: string[];
+  /** Erreurs typiques reconnues à la correction : message d'aide ciblé à l'élève (sans la réponse). */
+  erreursTypiques?: ErreurTypique[];
   /** Explication du corrigé, montrée à la correction. */
   explication?: string;
   /**
@@ -134,6 +143,44 @@ export interface QuestionBase {
   label?: string;
   /** Tableau de données imprimé avant la question (planning, relevé…), rendu en HTML. */
   tableauContexte?: { titre?: string; colonnes: string[]; lignes: string[][] };
+}
+
+/**
+ * Erreur typique : quand la réponse (d'un champ ou de la question) lui correspond, l'élève reçoit
+ * `message` (explication de l'erreur, sans donner la réponse) et le professeur voit `id` dans ses
+ * statistiques. Un seul critère est renseigné.
+ */
+export interface ErreurTypique {
+  id: string;
+  message: string;
+  /** Champ / cellule concerné (id) ; absent = réponse principale de la question. */
+  champ?: string;
+  /** Textes (normalisés comme `acceptes`). */
+  valeurs?: string[];
+  /** Valeur numérique fausse attendue (ex. oubli de √3), avec tolérance absolue. */
+  nombre?: { valeur: number; tolerance: number };
+  /** Formule fausse, en LaTeX (ex. la formule de Qc au lieu de Q) — comparée par équivalence. */
+  formule?: string;
+}
+
+/**
+ * Formule corrigée par ÉQUIVALENCE mathématique (pas par texte). Les expressions sont en LaTeX
+ * (celui produit par l'éditeur de maths). Correction : on tire des valeurs cohérentes des
+ * `variables` (dans leurs plages), on calcule les `derivees`, puis on compare numériquement la
+ * formule de l'élève à chaque formule `attendues` (même valeur sur tous les tirages = juste).
+ * Si l'élève écrit une égalité, le membre de gauche doit être l'un de `membreGauche`.
+ */
+export interface FormuleSpec {
+  /** Formules justes (membre de droite, LaTeX) : « P\tan\varphi », « S\sin\varphi »… */
+  attendues: string[];
+  /** Symboles acceptés à gauche du signe = (« Q », « Q_{c} »…). Absent : égalité non exigée. */
+  membreGauche?: string[];
+  /** Variables libres et plage de tirage (unités cohérentes). Noms = symboles LaTeX (« P », « \varphi », « U_{MPPT} »). */
+  variables: Record<string, { min: number; max: number }>;
+  /** Grandeurs liées, calculées à partir des variables (LaTeX) : { S: '\frac{P}{\cos\varphi}' }. */
+  derivees?: Record<string, string>;
+  /** Affichage lisible de la formule attendue (vue professeur, corrigé publié). */
+  affichage: string;
 }
 
 /** Cocher une case (ou plusieurs). */
@@ -180,6 +227,10 @@ export interface ChampValeur {
   /** Texte : réponses acceptées (comparaison sans casse, sans accent, sans espace). */
   acceptes?: string[];
   placeholder?: string;
+  /** Formule corrigée par équivalence (le champ utilise l'éditeur de maths). */
+  formule?: FormuleSpec;
+  /** `maths` : éditeur de maths (stockage LaTeX), ex. application numérique lue par le professeur. */
+  saisie?: 'texte' | 'maths';
 }
 
 /** Calcul : formule → application numérique → résultat (noté sur le résultat, la formule compte à moitié). */
@@ -195,6 +246,8 @@ export interface QCalcul extends QuestionBase {
   tolerance: number;
   /** Nombre de décimales conseillé / arrondi demandé. */
   arrondi?: string;
+  /** Formule corrigée par équivalence (remplace les mots-clés quand elle est présente). */
+  formuleSpec?: FormuleSpec;
 }
 
 /** Tableau à compléter (cellules libres, cellules pré-remplies). */
@@ -218,6 +271,10 @@ export interface CelluleSaisie {
   /** Choix fermé (liste déroulante) plutôt que saisie libre. */
   choix?: string[];
   placeholder?: string;
+  /** Formule corrigée par équivalence (la cellule utilise l'éditeur de maths). */
+  formule?: FormuleSpec;
+  /** `maths` : éditeur de maths (stockage LaTeX). */
+  saisie?: 'texte' | 'maths';
 }
 
 /** Réponse rédigée : pré-corrigée par mots-clés, validée par le professeur. */
@@ -289,7 +346,11 @@ export interface QSchema extends QuestionBase {
   traits: SchemaTraitsDef;
   /** Identifiant du TP platine (`TPS`, `hidden: true`) joué en mode câblage réel. */
   platineTpId: string;
-  /** Image du corrigé (vue professeur / correction). */
+  /**
+   * Image du corrigé (vue professeur / corrigé publié). `src` est relatif au dossier PRIVÉ
+   * `private/` (« corriges/eip/q13-corrige.jpg ») : l'image n'est pas dans `public/`, elle est
+   * servie par la route gardée `GET /api/sujet/image?sujetId=…&num=…` (`imageCorrigeUrl`).
+   */
   corrigeImage: { src: string; alt: string };
 }
 
@@ -360,6 +421,17 @@ export interface CorrectionQuestion {
   statut: 'auto' | 'aValider' | 'prof' | 'sansReponse';
   /** Détail lisible (« 12/14 liaisons », « mots-clés : 2/3 »). */
   detail?: string;
+  /** Erreurs typiques reconnues (ids) et message d'aide destiné à l'élève (sans la réponse). */
+  erreurs?: string[];
+  message?: string;
+  /**
+   * Verdict par élément répondu (coloration juste / faux côté élève, sans le corrigé) : id de
+   * champ / cellule / bulle, `composant.position` (cavaliers), index d'option cochée, de ligne
+   * (relier) ou d'étape (ordonner), `formule` / `resultat` (calcul), `p<i>` (repère posé),
+   * `t:<a>|<b>` (trait juste / faux), `tc:<a>|<b>` (trait de mauvaise couleur). Seuls les éléments
+   * répondus figurent.
+   */
+  champs?: Record<string, boolean>;
 }
 
 export interface SujetAttemptState {

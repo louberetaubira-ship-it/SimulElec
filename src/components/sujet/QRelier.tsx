@@ -4,7 +4,7 @@
  * stylo sur le papier. Clic (ou Entrée) sur un élément de gauche, puis sur sa correspondance.
  */
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import type { OutilProps } from './outils';
+import { verdict, type OutilProps } from './outils';
 import Texte from './Texte';
 
 const COULEURS = ['#2C7BE5', '#E4312B', '#1E9E63', '#8B4A2B', '#7C3AED', '#E39A00', '#0EA5E9', '#DB2777', '#475569', '#65A30D'];
@@ -12,7 +12,7 @@ const lettre = (i: number) => String.fromCharCode(65 + i);
 
 interface Seg { x1: number; y1: number; x2: number; y2: number; c: string; ok: boolean | null }
 
-export default function QRelier({ q, r, onChange, readOnly, montrer }: OutilProps<'relier'>) {
+export default function QRelier({ q, r, onChange, readOnly, correction }: OutilProps<'relier'>) {
   const liens = r?.liens ?? q.gauche.map(() => null);
   const [sel, setSel] = useState<number | null>(null);
   const boite = useRef<HTMLDivElement>(null);
@@ -36,12 +36,12 @@ export default function QRelier({ q, r, onChange, readOnly, montrer }: OutilProp
         x1: g.right - b.left, y1: g.top + g.height / 2 - b.top,
         x2: d.left - b.left, y2: d.top + d.height / 2 - b.top,
         c: COULEURS[i % COULEURS.length],
-        ok: montrer ? q.liens[i] === j : null,
+        ok: verdict(correction, String(i)),
       });
     });
     setSegs(out);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cle, montrer]);
+  }, [cle, correction]);
 
   useLayoutEffect(() => {
     mesurer();

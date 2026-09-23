@@ -1,6 +1,7 @@
 'use client';
 /** Aiguillage d'une question vers le renderer de son outil de réponse. */
-import type { ReponseSujet, SujetQuestion } from '@/lib/sujet/types';
+import type { CorrectionQuestion, ReponseSujet } from '@/lib/sujet/types';
+import type { QuestionPublique } from '@/lib/sujet/public';
 import QBulles from './QBulles';
 import QCalcul from './QCalcul';
 import QCavaliers from './QCavaliers';
@@ -15,15 +16,18 @@ import QValeur from './QValeur';
 import type { RDe } from './outils';
 
 interface Props {
-  q: SujetQuestion;
+  /** Question PUBLIQUE (sans corrigé). */
+  q: QuestionPublique;
   r: ReponseSujet | undefined;
   onChange: (r: ReponseSujet) => void;
   readOnly: boolean;
   montrer: boolean;
+  /** Correction serveur de la question (coloration juste / faux par élément). */
+  correction?: CorrectionQuestion | null;
 }
 
-export default function Question({ q, r, onChange, readOnly, montrer }: Props) {
-  const p = { onChange, readOnly, montrer };
+export default function Question({ q, r, onChange, readOnly, montrer, correction }: Props) {
+  const p = { onChange, readOnly, montrer, correction };
   switch (q.type) {
     case 'cocher': return <QCocher q={q} r={r as RDe<'cocher'> | undefined} {...p} />;
     case 'relier': return <QRelier q={q} r={r as RDe<'relier'> | undefined} {...p} />;

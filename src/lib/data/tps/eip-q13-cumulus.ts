@@ -113,8 +113,8 @@ export const TP_EIP_Q13_CUMULUS: TpDefinition = {
   ],
   libelles: { recv: 'Sortie des câbles du chauffe-eau · N · PE · L', rangees: ['rangée 1 · protections, horloge, contacteur', 'rangée 2 · bornier X1 (arrivée)'] },
   schemaImage: {
-    src: '/tp/eip/q13-corrige.jpg',
-    legende: 'Schéma multifilaire de l’alimentation du cumulus (corrigé officiel)',
+    src: '/tp/eip/q13-sujet.jpg',
+    legende: 'Schéma multifilaire de l’alimentation du cumulus (à compléter, page du sujet)',
   },
   postes: [
     {

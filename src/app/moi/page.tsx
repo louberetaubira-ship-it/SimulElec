@@ -10,8 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getMyProfile } from '@/lib/db/profiles';
 import { listMyAttempts } from '@/lib/db/attempts';
 import { listAssignments } from '@/lib/db/classes';
-import { listTeacherTps, listTps, resolveDefinition, type TpRow, type TpSummary } from '@/lib/db/tps';
-import { TPS_CATALOGUE } from '@/lib/data/tps';
+import { listTps, resolveDefinition, type TpSummary } from '@/lib/db/tps';
 import { createClient } from '@/lib/supabase/client';
 import { competenceTps, eleveStats } from '@/lib/eleve-stats';
 import { liveBilan, liveEvaluation, liveNotes } from '@/lib/sim/live';
@@ -21,9 +20,8 @@ import {
 } from '@/lib/data/competences';
 import type { AttemptRow, ClassRow, ProfileRow } from '@/lib/db/types';
 import type { TpDefinition } from '@/lib/types';
-import { sujetById } from '@/lib/data/sujets';
+import { metaSujet as sujetById } from '@/lib/sujet/meta';
 import BilanExport from '@/components/parcours/BilanExport';
-import { DomainesEleve } from '@/components/prof/CouvertureDomaines';
 import {
   Barre,
   BilanCompetences,
@@ -79,8 +77,6 @@ export default function MoiPage() {
   const [klass, setKlass] = useState<ClassRow | null>(null);
   const [attempts, setAttempts] = useState<AttemptRow[]>([]);
   const [tps, setTps] = useState<TpSummary[]>([]);
-  // TP publiés par les professeurs : classement des domaines (une seule requête).
-  const [tpsProf, setTpsProf] = useState<TpRow[]>([]);
   const [aFaire, setAFaire] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -94,15 +90,10 @@ export default function MoiPage() {
         const p = await getMyProfile();
         if (!alive) return;
         setProfile(p);
-        const [mine, catalogue, duProf] = await Promise.all([
-          listMyAttempts(),
-          listTps(),
-          listTeacherTps().catch(() => [] as TpRow[]),
-        ]);
+        const [mine, catalogue] = await Promise.all([listMyAttempts(), listTps()]);
         if (!alive) return;
         setAttempts(mine);
         setTps(catalogue);
-        setTpsProf(duProf);
         if (p?.class_id) {
           const supabase = createClient();
           const { data } = await supabase
@@ -145,8 +136,6 @@ export default function MoiPage() {
   }, [attempts, defs]);
 
   const stats = useMemo(() => eleveStats(attempts), [attempts]);
-  // TP publiés visibles de l'élève : ceux fournis avec l'application + ceux des professeurs.
-  const publies = useMemo(() => [...TPS_CATALOGUE.map((t) => t.id), ...tpsProf.map((t) => t.id)], [tpsProf]);
   const titres = useMemo(() => new Map(tps.map((t) => [t.id, t.title])), [tps]);
   const tpsParCode = useMemo(() => {
     const brut = competenceTps(attempts);
@@ -218,7 +207,7 @@ export default function MoiPage() {
                     <div key={a.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-4" data-sujet-en-cours={a.tp_id}>
                       <Link href={lien(a.tp_id)} className="font-[var(--font-title)] text-[18px] font-bold">{sujet.titre}</Link>
                       <span className="rounded-full bg-good/10 px-2.5 py-1 text-[11px] font-bold text-good">
-                        Sujet numérique en cours · {a.stage}/{sujet.questions.length} réponses
+                        Sujet numérique en cours · {a.stage}/{sujet.questions} réponses
                       </span>
                       <span className="ml-auto text-[11px] text-muted">Mis à jour {dateCourte(a.updated_at)}</span>
                       <Link href={lien(a.tp_id)} className="rounded-[10px] bg-[#141A21] px-4 py-2 text-[13px] font-bold text-white">
@@ -426,10 +415,6 @@ export default function MoiPage() {
             ))}
           </ul>
         )}
-      </Panneau>
-
-      <Panneau title="Domaines travaillés">
-        <DomainesEleve attempts={attempts} rows={tpsProf} publies={publies} lienCatalogue />
       </Panneau>
 
       <Panneau title="Mon bilan de compétences" className="bilan-sheet">
