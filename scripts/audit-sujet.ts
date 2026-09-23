@@ -22,13 +22,29 @@
  * numérique (données, moteur, interface, routes, TP platine de chaque dossier) et les NOMS des
  * fichiers de chaque dossier d'images public.
  *
+ * Corrigé côté serveur : le sujet PUBLIC (`sujetPublic`) de chaque sujet ne contient aucune clé
+ * de corrigé ; aucun fichier `'use client'` n'importe, même indirectement, les données
+ * (`src/lib/data/sujets`) ni les modules serveur (`src/lib/sujet/server`) ; les métadonnées
+ * servies aux pages clientes (`src/lib/sujet/meta.ts`, FICHIER GÉNÉRÉ) sont à jour — sinon :
+ *
+ *     npx tsx scripts/audit-sujet.ts --meta     (régénère meta.ts)
+ *
+ * Images de corrigé : dans `private/corriges/<sujet>/` (route gardée `/api/sujet/image`), aucune
+ * dans les dossiers publics des sujets ni dans les documents des TP platine.
+ *
+ * Aides graduées : 3 par question (données ou défaut) ; avertissement si une aide contient une
+ * réponse acceptée de la question.
+ *
  * Les TP platine eux-mêmes (câblage, mesures) sont vérifiés par `audit-tps.ts`.
  */
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { SUJETS, TOUS_SUJETS, sujetById } from '@/lib/data/sujets';
 import { tpById } from '@/lib/data/tps';
 import type { CelluleSaisie, SujetNumerique, SujetQuestion } from '@/lib/sujet/types';
+import { clesCorrigePresentes, sujetPublic } from '@/lib/sujet/public';
+import { aidesQuestion } from '@/lib/sujet/server/aides';
+import { normTexte } from '@/lib/sujet/normalize';
 import { termesInterdits } from './anonymisation/verif';
 
 const RACINE = join(__dirname, '..');
@@ -226,7 +242,9 @@ function auditQuestion(s: SujetNumerique, q: SujetQuestion, dtrNums: Set<number>
       const attendus = PLATINES[baseId];
       if (attendus && !attendus.includes(q.platineTpId)) err(s, `${ou} : platineTpId « ${q.platineTpId} » inattendu (attendus : ${attendus.join(', ')})`);
       if (!attendus && !q.platineTpId.startsWith(`${baseId}-`)) err(s, `${ou} : platineTpId « ${q.platineTpId} » non préfixé par « ${baseId}- »`);
-      imageExiste(s, q.corrigeImage.src, `${ou} corrigé`);
+      // Image du corrigé : dans le dossier PRIVÉ (`private/corriges/<sujet>/`), jamais dans public/.
+      if (!q.corrigeImage.src.startsWith(`corriges/${baseId}/`)) err(s, `${ou} : image du corrigé hors de private/corriges/${baseId}/ « ${q.corrigeImage.src} »`);
+      else if (!existsSync(join(RACINE, 'private', q.corrigeImage.src))) err(s, `${ou} : image du corrigé absente de private/ « ${q.corrigeImage.src} »`);
       const im = q.traits.image;
       if (imageExiste(s, im.src, `${ou} schéma`)) {
         const t = tailleImage(join(PUBLIC, im.src));
@@ -441,6 +459,149 @@ function auditAnonymat() {
   console.log(`• anonymat : ${TOUS_SUJETS.length} sujets, ${platines.size} TP platine, ${nbSources} fichiers sources, ${nbImages} noms d'images${ko ? ` — ${ko} en défaut` : ' — aucun terme d’origine'}`);
 }
 
+/* ───────────────────────────── corrigé côté serveur ───────────────────────────── */
+
+const FICHIER_META = join(RACINE, 'src/lib/sujet/meta.ts');
+
+/** Contenu de `src/lib/sujet/meta.ts` : métadonnées (sans corrigé) de chaque sujet. */
+function contenuMeta(): string {
+  const metas = TOUS_SUJETS.map(s => ({
+    id: s.id, titre: s.titre, parent: s.parent ?? null, dureeMin: s.dureeMin,
+    questions: s.questions.length, points: Math.round(s.questions.reduce((a, q) => a + q.points, 0) * 100) / 100,
+  }));
+  return `/**
+ * Métadonnées des sujets numériques pour les pages CLIENTES (catalogue élève, espace élève,
+ * tableau de bord et bilans professeur) : titre, parent, durée, nombre de questions, barème.
+ * Aucun corrigé : les données complètes (\`src/lib/data/sujets\`) restent côté serveur.
+ *
+ * FICHIER GÉNÉRÉ — ne pas modifier à la main : \`npx tsx scripts/audit-sujet.ts --meta\`
+ * (l'audit vérifie qu'il est à jour).
+ */
+
+export interface SujetMeta {
+  id: string;
+  titre: string;
+  /** Sujet complet dont un sujet thématique est tiré. */
+  parent: string | null;
+  dureeMin: number;
+  questions: number;
+  points: number;
+}
+
+export const META_SUJETS: SujetMeta[] = ${JSON.stringify(metas, null, 2).replace(/"([a-zA-Z]+)":/g, '$1:').replace(/"/g, "'")};
+
+const PAR_ID = new Map(META_SUJETS.map(s => [s.id, s]));
+
+/** Métadonnées d'un sujet numérique (complet ou thématique), ou undefined (TP). */
+export const metaSujet = (id: string): SujetMeta | undefined => PAR_ID.get(id);
+`;
+}
+
+/** Le sujet public ne révèle aucune réponse ; les aides sont complètes et ne recopient pas la réponse. */
+function auditPublic() {
+  let avert = 0;
+  for (const s of TOUS_SUJETS) {
+    const fautes = clesCorrigePresentes(sujetPublic(s));
+    if (fautes.length) err(s, `sujet public : clé(s) de corrigé ${fautes.slice(0, 5).join(', ')}${fautes.length > 5 ? '…' : ''}`);
+    if (s.parent) continue;
+    for (const q of s.questions) {
+      const ou = q.label ? `${q.label} (Q${q.num})` : `Q${q.num}`;
+      if (q.aides && q.aides.length !== 3) err(s, `${ou} : ${q.aides.length} aide(s) au lieu de 3`);
+      const aides = aidesQuestion(s, q);
+      if (aides.length !== 3 || aides.some(a => !a.trim())) err(s, `${ou} : aides incomplètes`);
+      const reponses = new Set<string>();
+      const ajouter = (v?: string[]) => (v ?? []).forEach(x => { const n = normTexte(x); if (n.length >= 4) reponses.add(n); });
+      if (q.type === 'valeur' || q.type === 'placement') (q.champs ?? []).forEach(c => ajouter(c.acceptes));
+      if (q.type === 'tableau') q.lignes.forEach(l => l.cellules.forEach(c => { if (typeof c !== 'string' && !c.choix) ajouter(c.acceptes); }));
+      if (q.type === 'bulles') q.bulles.forEach(b => ajouter([b.attendu, ...(b.acceptes ?? [])]));
+      for (const [i, a] of Array.from((q.aides ?? []).entries())) {
+        const n = normTexte(a);
+        const trouvees = Array.from(reponses).filter(r => n.includes(r));
+        if (trouvees.length) { avert += 1; console.warn(`⚠ [${s.id}] ${ou} : l'aide ${i + 1} contient une réponse acceptée`); }
+      }
+    }
+  }
+  // Images de corrigé : aucune dans les dossiers publics des sujets ; TP platine sans image de corrigé.
+  for (const d of Array.from(new Set(SUJETS.map(dossierImages).filter((x): x is string => !!x)))) {
+    for (const f of fichiers(join(PUBLIC, d))) {
+      if (/corrig/i.test(relative(PUBLIC, f))) { erreurs += 1; console.error(`✗ [corrigé] image de corrigé publique : public/${relative(PUBLIC, f)}`); }
+    }
+  }
+  const platines = new Set(TOUS_SUJETS.flatMap(s => s.questions.flatMap(q => (q.type === 'schema' ? [q.platineTpId] : []))));
+  for (const id of Array.from(platines)) {
+    const tp = tpById(id);
+    const images = chaines([tp?.schemaImage, tp?.preparation]).filter(x => /\.(jpe?g|png|webp)$/i.test(x));
+    for (const im of images) if (/corrig/i.test(im)) { erreurs += 1; console.error(`✗ [corrigé] TP platine ${id} : document montré à l'élève « ${im} »`); }
+  }
+  console.log(`• sujet public : ${TOUS_SUJETS.length} sujets sans clé de corrigé, images de corrigé privées${avert ? ` — ${avert} aide(s) à relire` : ''}`);
+}
+
+/** Imports d'exécution (hors \`import type\`) d'un fichier source. */
+function importsDe(texte: string): string[] {
+  const out: string[] = [];
+  const re = /(?:^|\n)\s*(?:import|export)\s+(?!type\b)(?:[^'";]*?\sfrom\s+)?['"]([^'"]+)['"]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(texte))) out.push(m[1]);
+  const dyn = /import\(\s*['"]([^'"]+)['"]\s*\)/g;
+  while ((m = dyn.exec(texte))) out.push(m[1]);
+  return out;
+}
+
+function resoudre(depuis: string, spec: string): string | null {
+  let base: string;
+  if (spec.startsWith('@/')) base = join(RACINE, 'src', spec.slice(2));
+  else if (spec.startsWith('.')) base = resolve(dirname(depuis), spec);
+  else return null;
+  for (const c of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+    if (existsSync(c) && statSync(c).isFile()) return c;
+  }
+  return null;
+}
+
+/** Aucun fichier \`'use client'\` n'atteint les données des sujets ni les modules serveur. */
+function auditImportsClient() {
+  const interdits = [join(RACINE, 'src/lib/data/sujets'), join(RACINE, 'src/lib/sujet/server')];
+  const sources = fichiers(join(RACINE, 'src')).filter(f => /\.tsx?$/.test(f));
+  const client = sources.filter(f => /^\s*(?:\/\*[\s\S]*?\*\/\s*|\/\/[^\n]*\n\s*)*['"]use client['"]/.test(readFileSync(f, 'utf8')));
+  let ko = 0;
+  for (const f of client) {
+    // Parcours en largeur des imports d'exécution, avec le chemin pour le message.
+    const vus = new Map<string, string | null>([[f, null]]);
+    const file = [f];
+    let fautif: string | null = null;
+    while (file.length && !fautif) {
+      const cur = file.shift()!;
+      for (const spec of importsDe(readFileSync(cur, 'utf8'))) {
+        const cible = resoudre(cur, spec);
+        if (!cible || vus.has(cible)) continue;
+        vus.set(cible, cur);
+        if (interdits.some(d => cible.startsWith(d))) { fautif = cible; break; }
+        file.push(cible);
+      }
+    }
+    if (fautif) {
+      ko += 1; erreurs += 1;
+      const chaine: string[] = [];
+      for (let x: string | null | undefined = fautif; x; x = vus.get(x)) chaine.unshift(relative(RACINE, x));
+      console.error(`✗ [client] ${relative(RACINE, f)} importe le corrigé : ${chaine.join(' → ')}`);
+    }
+  }
+  console.log(`• imports client : ${client.length} fichiers 'use client'${ko ? ` — ${ko} importent le corrigé` : ', aucun n’atteint src/lib/data/sujets ni src/lib/sujet/server'}`);
+}
+
+function auditMeta() {
+  const attendu = contenuMeta();
+  if (process.argv.includes('--meta')) {
+    writeFileSync(FICHIER_META, attendu);
+    console.log('• meta.ts régénéré');
+    return;
+  }
+  if (!existsSync(FICHIER_META) || readFileSync(FICHIER_META, 'utf8') !== attendu) {
+    erreurs += 1;
+    console.error('✗ [meta] src/lib/sujet/meta.ts n’est pas à jour : npx tsx scripts/audit-sujet.ts --meta');
+  } else console.log(`• meta.ts à jour (${TOUS_SUJETS.length} sujets)`);
+}
+
 if (SUJETS.length === 0) { console.error('✗ aucun sujet enregistré dans SUJETS'); process.exit(1); }
 const idsVus = new Set<string>();
 for (const s of TOUS_SUJETS) {
@@ -449,6 +610,9 @@ for (const s of TOUS_SUJETS) {
   auditSujet(s);
 }
 auditAnonymat();
+auditPublic();
+auditImportsClient();
+auditMeta();
 
 if (erreurs) { console.error(`\n${erreurs} erreur(s).`); process.exit(1); }
 console.log('\n✓ Sujets numériques cohérents.');

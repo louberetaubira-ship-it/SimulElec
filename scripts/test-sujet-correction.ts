@@ -446,14 +446,14 @@ function reponseParfaite(q: SujetQuestion): ReponseSujet {
     case 'ordonner': return { type: 'ordonner', rangs: [...q.rangs] };
     case 'valeur': return {
       type: 'valeur',
-      valeurs: Object.fromEntries(q.champs.map(c => [c.id, c.acceptes?.[0] ?? String(c.attendu ?? '')])),
+      valeurs: Object.fromEntries(q.champs.map(c => [c.id, c.formule ? c.formule.attendues[0] : c.acceptes?.[0] ?? String(c.attendu ?? '')])),
     };
-    case 'calcul': return { type: 'calcul', formule: q.formule, application: '', resultat: String(q.attendu) };
+    case 'calcul': return { type: 'calcul', formule: q.formuleSpec ? q.formuleSpec.attendues[0] : q.formule, application: '', resultat: String(q.attendu) };
     case 'tableau': {
       const cellules: Record<string, string> = {};
       for (const l of q.lignes) for (const c of l.cellules) {
         if (typeof c === 'string') continue;
-        const v = c.acceptes?.[0] ?? (c.attendu != null ? String(c.attendu) : 'justification');
+        const v = c.formule ? c.formule.attendues[0] : c.acceptes?.[0] ?? (c.attendu != null ? String(c.attendu) : 'justification');
         cellules[c.id] = v;
       }
       return { type: 'tableau', cellules };
@@ -463,7 +463,7 @@ function reponseParfaite(q: SujetQuestion): ReponseSujet {
     case 'placement': return {
       type: 'placement',
       points: q.attendus.map(a => ({ x: a.x, y: a.y })),
-      ...(q.champs ? { valeurs: Object.fromEntries(q.champs.map(c => [c.id, c.acceptes?.[0] ?? String(c.attendu ?? '')])) } : {}),
+      ...(q.champs ? { valeurs: Object.fromEntries(q.champs.map(c => [c.id, c.formule ? c.formule.attendues[0] : c.acceptes?.[0] ?? String(c.attendu ?? '')])) } : {}),
     };
     case 'cavaliers': return {
       type: 'cavaliers',
@@ -517,7 +517,7 @@ test('sujets thématiques : dérivation sans copie ni renumérotation', () => {
   assert.equal(ecl.dureeMin, 95);
   assert.deepEqual(ecl.themes, ['eclairage']);
   assert.deepEqual(sujetsParDossier().filter(g => g.base.id === 'eip').map(g => [g.base.id, g.derives.length]), [['eip', 4]]);
-  // chaque dossier : sujet complet + ses déclinaisons, toutes enregistrées
+  // chaque dossier : le sujet complet et ses déclinaisons, toutes enregistrées
   for (const g of sujetsParDossier()) assert.equal(g.derives.length, g.base.declinaisons?.length ?? 0, g.base.id);
   // dérivation directe (déclinaison sur deux parties) : DTR = union, numéros conservés
   const deux = sujetDerive(base, { id: 'x', theme: 'domotique', titre: 'X', parties: [3, 4], dureeMin: 145 });
@@ -580,3 +580,333 @@ test('calculatrice', () => {
 });
 
 console.log(`✓ ${n} groupes de tests du moteur de correction : tout est juste.`);
+
+/* ═══════════════ Corrigé côté serveur (agent SERVEUR) : sujet public, routes, aides ═══════════════
+ * Bloc asynchrone séparé : les handlers des routes `/api/sujet/*` sont appelés directement
+ * (mode démonstration, sans session), puis la logique d'accès avec une session simulée. */
+void (async () => {
+  const { sujetPublic, clesCorrigePresentes, estReponduePublique, texteReponsePublique, CLES_CORRIGE } = await import('@/lib/sujet/public');
+  const { aidesQuestion } = await import('@/lib/sujet/server/aides');
+  const { routeCorriger, routeCorrige } = await import('@/lib/sujet/server/routes');
+  const { POST: postCorriger } = await import('@/app/api/sujet/corriger/route');
+  const { POST: postAide } = await import('@/app/api/sujet/aide/route');
+  const { POST: postRemettre } = await import('@/app/api/sujet/remettre/route');
+  const { GET: getSolution } = await import('@/app/api/sujet/solution/route');
+  type Session = NonNullable<Awaited<ReturnType<typeof import('@/lib/sujet/server/acces').lireSession>>>;
+  let m = 0;
+  const cas = async (nom: string, fn: () => void | Promise<void>) => {
+    try { await fn(); m += 1; } catch (e) { console.error(`✗ ${nom}`); throw e; }
+  };
+  const json = (url: string, body: unknown) => new Request(`http://localhost${url}`, { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+  const ancienDemo = process.env.NEXT_PUBLIC_DEMO_MODE;
+  process.env.NEXT_PUBLIC_DEMO_MODE = '1';
+
+  await cas('sujetPublic : aucune clé de corrigé (récursif, 11 sujets)', () => {
+    assert.equal(TOUS_SUJETS.length, 11);
+    for (const s of TOUS_SUJETS) {
+      const p = sujetPublic(s);
+      assert.deepEqual(clesCorrigePresentes(p), [], s.id);
+      // Contrôle du contrôle : le sujet complet, lui, en contient.
+      assert.ok(clesCorrigePresentes(s).length > 0, s.id);
+      assert.deepEqual(p.questions.map(q => [q.num, q.type, q.points, q.partie]), s.questions.map(q => [q.num, q.type, q.points, q.partie]), s.id);
+      const texte = JSON.stringify(p);
+      for (const q of s.questions) {
+        if (q.explication && q.explication.length > 25) assert.ok(!texte.includes(JSON.stringify(q.explication).slice(1, -1)), `${s.id} Q${q.num} explication servie`);
+        if (q.type === 'redige') assert.ok(!texte.includes(JSON.stringify(q.corrige).slice(1, -1)), `${s.id} Q${q.num} corrigé rédigé servi`);
+        if (q.type === 'schema') assert.ok(!texte.includes(q.corrigeImage.src), `${s.id} Q${q.num} image du corrigé servie`);
+        for (const a of q.aides ?? []) assert.ok(!texte.includes(JSON.stringify(a).slice(1, -1)), `${s.id} Q${q.num} aide servie`);
+      }
+    }
+    assert.ok(CLES_CORRIGE.includes('acceptes') && CLES_CORRIGE.includes('bonnes'));
+  });
+
+  await cas('sujetPublic : ce que l’interface garde (formule, saisie, choix, platine, plafond de placement)', () => {
+    for (const s of SUJETS) {
+      const p = sujetPublic(s);
+      s.questions.forEach((q, i) => {
+        const pq = p.questions[i];
+        assert.equal(pq.nbAides, 3);
+        if (q.type === 'schema' && pq.type === 'schema') assert.equal(pq.platineTpId, q.platineTpId);
+        if (q.type === 'placement' && pq.type === 'placement') assert.ok(pq.max >= q.attendus.length);
+        if (q.type === 'cocher' && pq.type === 'cocher') assert.equal(pq.multiple, !!q.multiple || q.bonnes.length > 1);
+        if (q.type === 'valeur' && pq.type === 'valeur') q.champs.forEach((c, j) => {
+          assert.equal(!!pq.champs[j].estFormule, !!c.formule);
+          assert.equal(pq.champs[j].saisie, c.saisie);
+        });
+        if (q.type === 'tableau' && pq.type === 'tableau') q.lignes.forEach((l, j) => l.cellules.forEach((c, k) => {
+          const pc = pq.lignes[j].cellules[k];
+          if (typeof c === 'string') assert.equal(pc, c);
+          else assert.ok(typeof pc !== 'string' && pc.id === c.id && JSON.stringify(pc.choix) === JSON.stringify(c.choix) && !!pc.estFormule === !!c.formule);
+        }));
+        if (q.type === 'calcul' && pq.type === 'calcul') assert.equal(pq.estFormule, !!q.formuleSpec);
+        // Réponse de l'élève : même verdict « répondue » et lignes lisibles sans le corrigé.
+        const r = reponseParfaite(q);
+        assert.equal(estReponduePublique(pq, r), estRepondue(q, r), `${s.id} Q${q.num}`);
+        assert.ok(texteReponsePublique(pq, r).length > 0);
+      });
+    }
+  });
+
+  await cas('aides : 3 par question, sans l’explication du corrigé', () => {
+    for (const s of SUJETS) {
+      for (const q of s.questions) {
+        const a = aidesQuestion(s, q);
+        assert.equal(a.length, 3, `${s.id} Q${q.num}`);
+        assert.ok(a.every(t => t.trim().length > 10), `${s.id} Q${q.num}`);
+        if (q.explication && q.explication.length > 25) assert.ok(!a.some(t => t.includes(q.explication!)), `${s.id} Q${q.num}`);
+      }
+    }
+    // Aides par défaut (question sans aides) : DTR, indice ou méthode, forme.
+    const q = { ...SUJETS[0].questions.find(x => x.dtr.length > 0)!, aides: undefined, indice: undefined };
+    const d = aidesQuestion(SUJETS[0], q);
+    assert.match(d[0], /DTR/);
+    assert.match(d[1], /Méthode/);
+    assert.match(d[2], /Forme de la réponse/);
+  });
+
+  await cas('POST /api/sujet/corriger (handler, démonstration)', async () => {
+    const s = sujetById('eip')!;
+    for (const q of s.questions.filter(x => x.type !== 'redige' && x.type !== 'schema').slice(0, 30)) {
+      const res = await postCorriger(json('/api/sujet/corriger', { sujetId: 'eip', num: q.num, reponse: reponseParfaite(q) }));
+      assert.equal(res.status, 200);
+      const c = await res.json() as { score: number; num: number };
+      assert.equal(c.num, q.num);
+      assert.equal(c.score, corriger(q, reponseParfaite(q)).score, `Q${q.num}`);
+    }
+    const q1 = s.questions.find(x => x.type === 'cocher')!;
+    const faux = await (await postCorriger(json('/api/sujet/corriger', { sujetId: 'eip', num: q1.num, reponse: { type: 'cocher', choix: [99] } }))).json() as { score: number };
+    assert.equal(faux.score, 0);
+    const vide = await (await postCorriger(json('/api/sujet/corriger', { sujetId: 'eip', num: q1.num, reponse: null }))).json() as { statut: string };
+    assert.equal(vide.statut, 'sansReponse');
+    assert.equal((await postCorriger(json('/api/sujet/corriger', { sujetId: 'inconnu', num: 1, reponse: null }))).status, 404);
+    assert.equal((await postCorriger(json('/api/sujet/corriger', { sujetId: 'eip', num: 9999, reponse: null }))).status, 404);
+    assert.equal((await postCorriger(json('/api/sujet/corriger', { num: 1 }))).status, 400);
+    assert.equal((await postCorriger(new Request('http://localhost/api/sujet/corriger', { method: 'POST', body: 'pas du json' }))).status, 400);
+    // Réponse malformée : pas d'exception vers l'appelant.
+    const r = await postCorriger(json('/api/sujet/corriger', { sujetId: 'eip', num: q1.num, reponse: { type: 'cocher', choix: 'x' } }));
+    assert.ok(r.status === 200 || r.status === 400);
+  });
+
+  await cas('POST /api/sujet/aide (handler, démonstration)', async () => {
+    const s = sujetById('scierie')!;
+    const q = s.questions[3];
+    const attendues = aidesQuestion(s, q);
+    for (const niveau of [1, 2, 3]) {
+      const res = await postAide(json('/api/sujet/aide', { sujetId: 'scierie', num: q.num, niveau }));
+      assert.equal(res.status, 200);
+      const a = await res.json() as { niveau: number; total: number; texte: string };
+      assert.deepEqual(a, { niveau, total: 3, texte: attendues[niveau - 1] });
+    }
+    assert.equal((await postAide(json('/api/sujet/aide', { sujetId: 'scierie', num: q.num, niveau: 4 }))).status, 400);
+    assert.equal((await postAide(json('/api/sujet/aide', { sujetId: 'scierie', num: q.num, niveau: 0 }))).status, 400);
+    assert.equal((await postAide(json('/api/sujet/aide', { sujetId: 'scierie', num: -1, niveau: 1 }))).status, 404);
+  });
+
+  await cas('POST /api/sujet/remettre (handler) = corrigerCopie', async () => {
+    for (const id of ['eip-eclairage', 'scierie']) {
+      const s = sujetById(id)!;
+      const st = copieParfaite(s);
+      const res = await postRemettre(json('/api/sujet/remettre', { sujetId: id, reponses: st.reponses }));
+      assert.equal(res.status, 200);
+      const { corrections } = await res.json() as { corrections: Record<number, { score: number }> };
+      const ref = corrigerCopie(s, st);
+      assert.deepEqual(Object.keys(corrections).sort(), Object.keys(ref).sort());
+      proche(calculerBilan(sujetPublic(s), corrections as never).note20, calculerBilan(s, ref).note20);
+    }
+    assert.equal((await postRemettre(json('/api/sujet/remettre', { sujetId: 'eip' }))).status, 400);
+  });
+
+  await cas('GET /api/sujet/solution : 403 sans publication, 200 publié / professeur', async () => {
+    assert.equal((await getSolution(new Request('http://localhost/api/sujet/solution?sujetId=eip'))).status, 403);
+    const ok = await getSolution(new Request('http://localhost/api/sujet/solution?sujetId=eip-vigik&demo=publie'));
+    assert.equal(ok.status, 200);
+    const c = await ok.json() as { sujetId: string; questions: Record<string, { attendu: string[] }> };
+    assert.equal(c.sujetId, 'eip-vigik');
+    assert.equal(Object.keys(c.questions).length, sujetById('eip-vigik')!.questions.length);
+    assert.equal((await getSolution(new Request('http://localhost/api/sujet/solution?sujetId=zzz'))).status, 404);
+    // Hors démonstration : pas de session → 401 ; le paramètre de démo est ignoré.
+    assert.equal((await routeCorrige(new URLSearchParams('sujetId=eip&demo=publie'), { demo: false, session: async () => null })).status, 401);
+    // Session simulée : table `sujet_corriges` lue sous RLS (faux client).
+    const faux = (lignes: unknown[], attempts: unknown = null): Session['supabase'] => {
+      const chaine = (table: string) => {
+        const res = table === 'attempts' ? { data: attempts, error: null } : table === 'assignments' ? { data: null, error: null } : { data: lignes, error: null };
+        const c: Record<string, unknown> = {};
+        for (const k of ['select', 'eq', 'in', 'neq', 'not', 'order', 'limit']) c[k] = () => c;
+        c.maybeSingle = () => Promise.resolve(res);
+        c.then = (ok: (v: unknown) => unknown) => Promise.resolve(res).then(ok);
+        return c;
+      };
+      return { from: chaine } as unknown as Session['supabase'];
+    };
+    const eleve = (lignes: unknown[], attempts: unknown = null): Session => ({ supabase: faux(lignes, attempts), userId: 'u', role: 'eleve', classId: 'c1' });
+    const prof: Session = { supabase: faux([]), userId: 'p', role: 'professeur', classId: null };
+    const url = new URLSearchParams('sujetId=eip-eclairage');
+    assert.equal((await routeCorrige(url, { demo: false, session: async () => eleve([]) })).status, 403);
+    assert.equal((await routeCorrige(url, { demo: false, session: async () => eleve([{ sujet_id: 'eip' }]) })).status, 200);
+    assert.equal((await routeCorrige(url, { demo: false, session: async () => prof })).status, 200);
+    // Épreuve d'examen en cours : pas de vérification.
+    const examen = { status: 'en_cours', state: { kind: 'sujet', mode: 'examen', remise: false } };
+    const q = sujetById('eip')!.questions[0];
+    const corps = { sujetId: 'eip', num: q.num, reponse: reponseParfaite(q) };
+    assert.equal((await routeCorriger(corps, { demo: false, session: async () => eleve([], examen) })).status, 403);
+    assert.equal((await routeCorriger(corps, { demo: false, session: async () => eleve([], { ...examen, state: { ...examen.state, mode: 'entrainement' } }) })).status, 200);
+    assert.equal((await routeCorriger(corps, { demo: false, session: async () => null })).status, 401);
+  });
+
+  await cas('GET /api/sujet/image : image du corrigé privée, mêmes droits que le corrigé', async () => {
+    const { GET: getImage } = await import('@/app/api/sujet/image/route');
+    const { routeImage } = await import('@/lib/sujet/server/routes');
+    const { existsSync } = await import('node:fs');
+    for (const s of SUJETS) for (const q of s.questions) {
+      if (q.type !== 'schema') continue;
+      assert.ok(!q.corrigeImage.src.startsWith('/'), `${s.id} Q${q.num} : image du corrigé publique`);
+      assert.ok(existsSync(`private/${q.corrigeImage.src}`), `${s.id} Q${q.num} : image absente de private/`);
+    }
+    const q = sujetById('eip')!.questions.find(x => x.type === 'schema')!;
+    assert.equal((await getImage(new Request(`http://localhost/api/sujet/image?sujetId=eip&num=${q.num}`))).status, 403);
+    const ok = await getImage(new Request(`http://localhost/api/sujet/image?sujetId=eip-myhome&num=${sujetById('eip-myhome')!.questions.find(x => x.type === 'schema')!.num}&demo=publie`));
+    assert.equal(ok.status, 200);
+    assert.equal(ok.headers.get('content-type'), 'image/jpeg');
+    assert.ok((await ok.arrayBuffer()).byteLength > 1000);
+    assert.equal((await getImage(new Request('http://localhost/api/sujet/image?sujetId=eip&num=1&demo=publie'))).status, 404);
+    // Le corrigé servi pointe vers la route, jamais vers le fichier.
+    const c = await (await getSolution(new Request('http://localhost/api/sujet/solution?sujetId=eip&demo=publie'))).json() as { questions: Record<string, { corrigeImage?: { src: string } }> };
+    assert.match(c.questions[q.num].corrigeImage!.src, /^\/api\/sujet\/image\?sujetId=eip&num=\d+&demo=publie$/);
+    const prof = { supabase: {} as never, userId: 'p', role: 'professeur' as const, classId: null };
+    assert.equal((await routeImage(new URLSearchParams(`sujetId=eip&num=${q.num}`), { demo: false, session: async () => prof })).status, 200);
+    assert.equal((await routeImage(new URLSearchParams(`sujetId=eip&num=${q.num}`), { demo: false, session: async () => null })).status, 401);
+  });
+
+  if (ancienDemo === undefined) delete process.env.NEXT_PUBLIC_DEMO_MODE; else process.env.NEXT_PUBLIC_DEMO_MODE = ancienDemo;
+  console.log(`✓ ${m} groupes de tests du corrigé côté serveur (sujet public, routes, aides, publication).`);
+})().catch(e => { console.error(e); process.exit(1); });
+
+/* ═════════════ Formules (agent MATHS) : équivalence, erreurs typiques, verdicts par champ ═════════════ */
+{
+  let f = 0;
+  const tf = (nom: string, fn: () => void) => {
+    try { fn(); f += 1; } catch (e) { console.error(`✗ ${nom}`); throw e; }
+  };
+  const specQ = {
+    attendues: ['P\\tan\\varphi', 'S\\sin\\varphi'],
+    membreGauche: ['Q'],
+    variables: { P: { min: 1000, max: 50000 }, '\\varphi': { min: 0.2, max: 1.3 }, "\\varphi'": { min: 0.05, max: 0.19 } },
+    derivees: { S: '\\frac{P}{\\cos\\varphi}' },
+    affichage: 'Q = P × tan φ',
+  };
+  const base = { partie: 1, enonce: 'x', competence: 'C3', points: 1, dtr: [1], pageSujet: 1 };
+
+  tf('valeur : champ formule jugé par équivalence + erreur typique formule', () => {
+    const q: QValeur = {
+      ...base, num: 901, type: 'valeur',
+      champs: [{ id: 'f', label: 'Formule', formule: specQ }],
+      erreursTypiques: [
+        { id: 'qc', message: 'Formule de la puissance à compenser.', formule: "P(\\tan\\varphi-\\tan\\varphi')" },
+        { id: 'cos', message: 'Pas le cosinus.', champ: 'f', formule: 'P\\cos\\varphi' },
+      ],
+    };
+    const ok = corriger(q, { type: 'valeur', valeurs: { f: 'Q=\\tan\\varphi\\times P' } });
+    assert.equal(ok.score, 1);
+    assert.equal(ok.detail, 'Valeur juste');
+    assert.deepEqual(ok.champs, { f: true });
+    assert.equal(ok.erreurs, undefined);
+    assert.equal(corriger(q, { type: 'valeur', valeurs: { f: 'Q = S × sin φ' } }).score, 1);
+    const qc = corriger(q, { type: 'valeur', valeurs: { f: "Q_{c}=P\\left(\\tan\\varphi-\\tan\\varphi^{\\prime}\\right)" } });
+    assert.equal(qc.score, 0);
+    assert.deepEqual(qc.erreurs, ['qc']);
+    assert.equal(qc.message, 'Formule de la puissance à compenser.');
+    assert.deepEqual(qc.champs, { f: false });
+    assert.deepEqual(corriger(q, { type: 'valeur', valeurs: { f: 'Q=P\\cos\\varphi' } }).erreurs, ['cos']);
+    // membre de gauche faux : faux, sans erreur typique
+    const mg = corriger(q, { type: 'valeur', valeurs: { f: 'S=P\\tan\\varphi' } });
+    assert.equal(mg.score, 0);
+    assert.equal(mg.erreurs, undefined);
+    // texte transcrit pour la copie
+    assert.deepEqual(texteReponse(q, { type: 'valeur', valeurs: { f: 'Q=P\\tan\\varphi' } }), ['Formule : Q = P tan φ']);
+    assert.deepEqual(texteAttendu(q), ['Formule : Q = P × tan φ']);
+  });
+
+  tf('valeur : saisie maths numérique, erreurs typiques nombre / valeurs, rétrocompatibilité', () => {
+    const q: QValeur = {
+      ...base, num: 902, type: 'valeur',
+      champs: [
+        { id: 'cos', label: 'cos φ', attendu: 0.85, tolerance: 0.005, saisie: 'maths' },
+        { id: 'ref', label: 'Référence', acceptes: ['B2V'] },
+      ],
+      erreursTypiques: [
+        { id: 'b1v', message: 'Titre insuffisant.', champ: 'ref', valeurs: ['B1V'] },
+        { id: 'inv', message: 'Rapport inversé.', champ: 'cos', nombre: { valeur: 1.18, tolerance: 0.01 } },
+      ],
+    };
+    const c = corriger(q, { type: 'valeur', valeurs: { cos: '\\frac{17}{20}', ref: 'b1v' } });
+    assert.equal(c.score, 0.5);
+    assert.deepEqual(c.champs, { cos: true, ref: false });
+    assert.deepEqual(c.erreurs, ['b1v']);
+    assert.equal(c.message, 'Titre insuffisant.');
+    assert.equal(corriger(q, { type: 'valeur', valeurs: { cos: '0{,}85' } }).score, 0.5);
+    assert.deepEqual(corriger(q, { type: 'valeur', valeurs: { cos: '1{,}18' } }).erreurs, ['inv']);
+    // une erreur typique n'est jamais signalée sur un champ juste
+    assert.equal(corriger(q, { type: 'valeur', valeurs: { ref: 'B2V' } }).erreurs, undefined);
+    // sans formule ni erreurs typiques : même score et même détail qu'avant
+    const ancien: QValeur = { ...base, num: 903, type: 'valeur', champs: [{ id: 'u', label: 'U', attendu: 400, tolerance: 1 }] };
+    const r = corriger(ancien, { type: 'valeur', valeurs: { u: '400 V' } });
+    assert.equal(r.score, 1);
+    assert.equal(r.detail, 'Valeur juste');
+    assert.equal(r.erreurs, undefined);
+    assert.equal(r.message, undefined);
+  });
+
+  tf('tableau : cellule formule + application maths cohérente avec le résultat', () => {
+    const q: QTableau = {
+      ...base, num: 904, type: 'tableau', colonnes: ['', 'Formule', 'Application', 'Résultat'],
+      lignes: [{ cellules: ['Q', { id: 'f', formule: specQ }, { id: 'a', saisie: 'maths' }, { id: 'r', attendu: 9000, tolerance: 50 }] }],
+    };
+    const c = corriger(q, { type: 'tableau', cellules: { f: 'Q=P\\tan\\varphi', a: '12\\,000\\times0{,}75', r: '8000' } });
+    assert.equal(c.score, 0.5);
+    assert.deepEqual(c.champs, { f: true, r: false });
+    assert.equal(c.detail, '1/2 cases justes · application cohérente');
+    assert.equal(corriger(q, { type: 'tableau', cellules: { f: 'Q=P', a: '12\\,000\\times0{,}5', r: '9000' } }).detail, '1/2 cases justes');
+  });
+
+  tf('calcul : formule par équivalence (formuleSpec), application cohérente, erreur typique nombre', () => {
+    const q: QCalcul = {
+      ...base, num: 905, type: 'calcul', grandeur: 'Q', unite: 'var', formule: 'Q = P × tan φ', formuleMotsCles: ['tan'],
+      attendu: 9000, tolerance: 50, formuleSpec: specQ,
+      erreursTypiques: [
+        { id: 'cos', message: 'Pas le cosinus.', formule: 'P\\cos\\varphi' },
+        { id: 'kvar', message: 'Unité : en var.', nombre: { valeur: 9, tolerance: 0.1 } },
+      ],
+    };
+    const juste = corriger(q, { type: 'calcul', formule: 'Q=S\\sin\\varphi', application: '12000\\times0{,}75', resultat: '9000' });
+    assert.equal(juste.score, 1);
+    assert.equal(juste.detail, 'Résultat juste · application cohérente');
+    assert.deepEqual(juste.champs, { formule: true, resultat: true });
+    const report = corriger(q, { type: 'calcul', formule: 'Q = tan φ × P', application: '12000\\times0{,}75', resultat: '900' });
+    assert.equal(report.score, 0.5);
+    assert.equal(report.detail, 'Formule juste (équivalente), résultat faux · application cohérente (erreur de report ou d’arrondi ?)');
+    const cos = corriger(q, { type: 'calcul', formule: 'Q=P\\cos\\varphi', application: '', resultat: '9' });
+    assert.equal(cos.score, 0);
+    assert.deepEqual(cos.erreurs, ['cos', 'kvar']);
+    assert.equal(cos.message, 'Pas le cosinus.');
+    assert.deepEqual(cos.champs, { formule: false, resultat: false });
+    // Mots-clés ignorés quand la spec existe : « tan » seul ne suffit plus.
+    assert.equal(corriger(q, { type: 'calcul', formule: 'Q = tan', application: '', resultat: '' }).score, 0);
+    // Sans formuleSpec : mots-clés, comme avant.
+    const { formuleSpec: _, ...sansSpec } = q;
+    void _;
+    assert.equal(corriger(sansSpec as QCalcul, { type: 'calcul', formule: 'Q = P tan φ', application: '', resultat: '1' }).detail, 'Formule juste, résultat faux');
+  });
+
+  tf('cocher : erreur typique sur une case cochée, verdict des seules cases cochées', () => {
+    const q: QCocher = {
+      ...base, num: 906, type: 'cocher', options: ['B1V', 'B2V', 'BR'], bonnes: [1],
+      erreursTypiques: [{ id: 'b1v', message: 'Un exécutant ne suffit pas.', valeurs: ['B1V'] }],
+    };
+    const c = corriger(q, { type: 'cocher', choix: [0] });
+    assert.deepEqual(c.champs, { 0: false });
+    assert.deepEqual(c.erreurs, ['b1v']);
+    assert.deepEqual(corriger(q, { type: 'cocher', choix: [1] }).champs, { 1: true });
+  });
+
+  console.log(`✓ ${f} groupes de tests des formules dans la correction (équivalence, erreurs typiques, verdicts).`);
+}
