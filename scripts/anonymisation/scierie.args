@@ -1,0 +1,125 @@
+# Sujet « scierie » : pages anonymisées servies dans public/tp/scierie/.
+# Usage (depuis SE2/) : python3 scripts/anonymisation/anonymiser-pages.py <sujet.pdf> @scripts/anonymisation/scierie.args
+# PDF : 83 pages = sujet (p.1-36) + dossier technique et ressources (p.37-83, pages DTR 1-47).
+# Noms = numéro de PAGE du dossier ; pages de garde (sujet-01, dtr-01) non produites.
+--sortie
+public/tp/scierie
+--qualite
+78
+--plage
+sujet:1-36:110
+--exclure
+sujet-01,dtr-01
+# DTR : 110 dpi (pages aérées), 150 dpi (catalogues, tableaux et schémas denses)
+--plage
+dtr:37-38:110:1
+--plage
+dtr:39-39:150:3
+--plage
+dtr:40-41:110:4
+--plage
+dtr:42-48:150:6
+--plage
+dtr:49-49:110:13
+--plage
+dtr:50-50:150:14
+--plage
+dtr:51-51:110:15
+--plage
+dtr:52-53:150:16
+--plage
+dtr:54-54:110:18
+--plage
+dtr:55-59:150:19
+--plage
+dtr:60-61:110:24
+--plage
+dtr:62-62:150:26
+--plage
+dtr:63-63:110:27
+--plage
+dtr:64-71:150:28
+--plage
+dtr:72-72:110:36
+--plage
+dtr:73-83:150:37
+# Remplacements par empreinte SHA-256 : entreprise → « SYLVA » ; intitulé du dossier cité dans le corps (p.2) → « sujet »
+--remplacer
+1c568a93dcb2fc58:SYLVA
+--remplacer
+b584f97f75501279:sujet
+# p.4 : phrase de localisation réécrite, logo remplacé
+--masque
+sujet-04:0.105,0.118,0.93,0.176
+--texte
+sujet-04:0.1191,0.1216,0.92,0.1376@12:Le projet se situe dans une commune de moyenne montagne.
+--texte
+sujet-04:0.335,0.208,0.66,0.307@g,c,32:Scierie SYLVA
+# p.6 : vue aérienne remplacée par le plan de masse redessiné
+--image
+sujet-06:0.115,0.115,0.877,0.513:public/tp/scierie/plan-masse.jpg
+# p.19 : planning — noms → Agent A…H (ordre des lignes), lieux → Chantier n (ordre d'apparition)
+--masque
+sujet-19:0.0911,0.5245,0.2394,0.5482
+--texte
+sujet-19:0.0992,0.5245,0.2394,0.5482@11:Agent A
+--masque
+sujet-19:0.0911,0.5507,0.2394,0.5858
+--texte
+sujet-19:0.0992,0.5507,0.2394,0.5858@11:Agent B
+--masque
+sujet-19:0.0911,0.5884,0.2394,0.6112
+--texte
+sujet-19:0.0992,0.5884,0.2394,0.6112@11:Agent C
+--masque
+sujet-19:0.0911,0.6137,0.2394,0.6371
+--texte
+sujet-19:0.0992,0.6137,0.2394,0.6371@11:Agent D
+--masque
+sujet-19:0.0911,0.6397,0.2394,0.6779
+--texte
+sujet-19:0.0992,0.6397,0.2394,0.6779@11:Agent E
+--masque
+sujet-19:0.0911,0.6804,0.2394,0.7198
+--texte
+sujet-19:0.0992,0.6804,0.2394,0.7198@11:Agent F
+--masque
+sujet-19:0.0911,0.7223,0.2394,0.7414
+--texte
+sujet-19:0.0992,0.7223,0.2394,0.7414@11:Agent G
+--masque
+sujet-19:0.0911,0.7440,0.2394,0.7828
+--texte
+sujet-19:0.0992,0.7440,0.2394,0.7828@11:Agent H
+--texte
+sujet-19:0.5312,0.5245,0.6344,0.5482@11,c:Chantier 1
+--texte
+sujet-19:0.3571,0.5507,0.5707,0.5858@11,c:Chantier 2
+--texte
+sujet-19:0.3571,0.5884,0.9085,0.6112@11,c:Chantier 3
+--texte
+sujet-19:0.3571,0.6137,0.6344,0.6371@11,c:Chantier 4
+--texte
+sujet-19:0.6385,0.6137,0.7868,0.6371@11,c:Chantier 5
+--texte
+sujet-19:0.7904,0.6137,0.9085,0.6371@11,c:Chantier 4
+--texte
+sujet-19:0.3571,0.6397,0.4563,0.6779@11,c:Chantier 6
+--texte
+sujet-19:0.4603,0.6397,0.5280,0.6779@11,c:Chantier\n7
+--texte
+sujet-19:0.5312,0.6397,0.6344,0.6779@11,c:Chantier 8
+--texte
+sujet-19:0.7368,0.6397,0.9085,0.6779@11,c:Chantier 9
+--texte
+sujet-19:0.3571,0.6804,0.9085,0.7198@11,c:Chantier 3
+--texte
+sujet-19:0.3571,0.7440,0.6344,0.7828@11,c:Chantier 10
+# DTR 31 (page 35) : ville de la simulation effacée (champ de liste vide)
+--texte
+dtr-35:0.2781,0.2469,0.3225,0.2628@#e9e9e9:
+# DTR 32 (page 36) : nom de l'entreprise dans l'image de la facture
+--texte
+dtr-36:0.3005,0.1140,0.4300,0.1255@g,10.4:SYLVA 2022*
+--texte
+dtr-36:0.1866,0.4000,0.8500,0.4120@10.2:*L'entreprise SYLVA a un abonnement au tarif vert A5. Elle est classé dans les clients types

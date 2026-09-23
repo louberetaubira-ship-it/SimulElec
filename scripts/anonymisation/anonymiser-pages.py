@@ -17,14 +17,30 @@ produite par OCR. AUCUN terme d'origine n'est écrit ici : la détection repose
      - fragment ailleurs (corps) : les mots concernés sont masqués ;
      - numéro de page isolé « n / N » (ligne courte : « Page n / N », « XXX n/N ») dans une bande :
        idem cadre (une référence « … n/N » dans une phrase du corps est du contenu : gardée) ;
-  3. zones manuelles `--masque` (fractions de page) ;
-  4. contrôle OCR (tesseract, `fra` si installée sinon `eng`) : texte → empreintes, et motif
+  3. remplacements `--remplacer EMPREINTE:TEXTE` : un fragment du corps dont l'empreinte
+     SHA-256 (ou un préfixe ≥ 8 caractères hexadécimaux) est EMPREINTE est masqué puis TEXTE
+     (neutre) est écrit à sa place, même taille, même ligne de base, ponctuation voisine gardée ;
+  4. zones manuelles `--masque` (fractions de page) ;
+  5. images `--image NOM:x0,y0,x1,y1:FICHIER` : FICHIER remplace la zone (proportions gardées,
+     centré sur fond blanc) — ex. une photo remplacée par un schéma redessiné ;
+  6. textes `--texte NOM:x0,y0,x1,y1[@OPTIONS]:TEXTE` : la zone est remplie (blanc, ou `#rrggbb`)
+     puis TEXTE est écrit en noir, aligné à gauche au bord gauche de la zone (option `c` : centré),
+     centré verticalement ; OPTIONS séparées par des virgules : taille en points PDF (défaut :
+     ajustée à la hauteur de la zone), `g` gras, `c` centré, `#rrggbb` couleur de fond ; la taille
+     est réduite si le texte déborde en largeur ; `\\n` = saut de ligne ; TEXTE vide = aplat seul ;
+  7. contrôle OCR (tesseract, `fra` si installée sinon `eng`) : texte → empreintes, et motif
      « n/N » isolé (N = nombres de pages des plages) dans les bandes haute/basse. Échec = code 1.
+
+Les arguments peuvent être lus dans un fichier : `@fichier.args` (un argument par ligne,
+lignes vides et lignes commençant par `#` ignorées ; chemins relatifs au répertoire courant).
 
 Exemples :
   python3 scripts/anonymisation/anonymiser-pages.py sujet.pdf --sortie public/tp/xxx \\
      --plage sujet:1-32:110 --plage dtr:33-43:110 --plage dtr:44-84:150:12 \\
      --exclure sujet-01,dtr-01 --masque sujet-04:0.08,0.30,0.30,0.45
+
+  # tous les arguments dans un fichier (sujet « scierie »)
+  python3 scripts/anonymisation/anonymiser-pages.py @scripts/anonymisation/scierie.args
 
   # contrôle OCR seul d'images existantes (recadrages…)
   python3 scripts/anonymisation/anonymiser-pages.py --verifier public/tp/xxx/*.jpg --totaux 32,52
@@ -166,6 +182,71 @@ def mots_masques(page: PagePdf, emp: set[str], totaux: set[int], bande: float):
     return rangee, corps_idx
 
 
+def fragments_remplaces(page: PagePdf, emp: set[str], remplacements: list[tuple[str, str]], bande: float):
+    """Fragments du CORPS (hors bandes) à remplacer : liste de (indices des mots, texte neutre).
+    Un fragment est retenu si son empreinte commence par l'empreinte donnée ; les plus longs d'abord,
+    sans chevauchement."""
+    if not remplacements:
+        return []
+    jetons: list[str] = []
+    proprio: list[int] = []
+    for i, m in enumerate(page.mots):
+        for j in normaliser(m.texte).split():
+            jetons.append(j)
+            proprio.append(i)
+    haut, bas = bande * page.hauteur, (1 - bande) * page.hauteur
+    res, pris = [], set()
+    for deb, n in sorted(fragments_interdits(jetons, emp), key=lambda f: -f[1]):
+        e = empreinte(' '.join(jetons[deb:deb + n]))
+        texte = next((t for p, t in remplacements if e.startswith(p)), None)
+        idx = sorted(set(proprio[deb:deb + n]))
+        if texte is None or pris & set(idx):
+            continue
+        if any(page.mots[i].y1 <= haut or page.mots[i].y0 >= bas for i in idx):
+            continue
+        pris.update(idx)
+        res.append((idx, texte))
+    return res
+
+
+# ─── Écriture de texte ─────────────────────────────────────────────────────────
+
+POLICES = {
+    False: ['/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'],
+    True: ['/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+           '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'],
+}
+
+
+def police(px: float, gras: bool = False):
+    from PIL import ImageFont
+    for chemin in POLICES[gras]:
+        if os.path.exists(chemin):
+            return ImageFont.truetype(chemin, max(4, round(px)))
+    return ImageFont.load_default()
+
+
+def ecrire(dessin, zone, texte: str, px: float | None, gras=False, centre=False):
+    """Écrit `texte` (lignes séparées par \\n) dans zone=(x0, y0, x1, y1) en pixels : aligné à gauche
+    (ou centré), centré verticalement ; taille px (ou ajustée à la zone), réduite si trop large."""
+    x0, y0, x1, y1 = zone
+    lignes = texte.split('\n')
+    if px is None:
+        px = (y1 - y0) / len(lignes) / 1.25
+    while True:
+        f = police(px, gras)
+        larg = max(dessin.textlength(l, font=f) for l in lignes)
+        if larg <= (x1 - x0) or px <= 5:
+            break
+        px *= 0.95
+    pas = px * 1.15
+    ym = (y0 + y1) / 2 - pas * (len(lignes) - 1) / 2
+    for k, l in enumerate(lignes):
+        x = (x0 + x1) / 2 if centre else x0
+        dessin.text((x, ym + k * pas), l, fill='black', font=f, anchor='mm' if centre else 'lm')
+
+
 def etendre_au_cadre(gris, x0: int, y0: int, x1: int, y1: int, marge_max: int):
     """Étend un rectangle de texte jusqu'aux traits du tableau qui l'entoure (s'il y en a)."""
     import numpy as np
@@ -286,8 +367,48 @@ def lire_masque(s: str):
     return m.group(1), tuple(float(m.group(i)) for i in range(2, 6))
 
 
+def lire_remplacement(s: str):
+    m = re.fullmatch(r'([0-9a-f]{8,64}):(.+)', s)
+    if not m:
+        raise argparse.ArgumentTypeError(f'remplacement invalide : {s} (EMPREINTE:TEXTE)')
+    return m.group(1), m.group(2)
+
+
+def lire_image(s: str):
+    m = re.fullmatch(r'([\w-]+):([\d.]+),([\d.]+),([\d.]+),([\d.]+):(.+)', s)
+    if not m:
+        raise argparse.ArgumentTypeError(f'image invalide : {s} (NOM:x0,y0,x1,y1:FICHIER)')
+    return m.group(1), (tuple(float(m.group(i)) for i in range(2, 6)), m.group(6))
+
+
+def lire_texte(s: str):
+    m = re.fullmatch(r'([\w-]+):([\d.]+),([\d.]+),([\d.]+),([\d.]+)(?:@([^:]*))?:(.*)', s, re.S)
+    if not m:
+        raise argparse.ArgumentTypeError(f'texte invalide : {s} (NOM:x0,y0,x1,y1[@OPTIONS]:TEXTE)')
+    opts = {'taille': None, 'gras': False, 'centre': False, 'fond': 'white'}
+    for o in filter(None, (m.group(6) or '').split(',')):
+        if o == 'g':
+            opts['gras'] = True
+        elif o == 'c':
+            opts['centre'] = True
+        elif re.fullmatch(r'#[0-9a-fA-F]{6}', o):
+            opts['fond'] = o
+        elif re.fullmatch(r'[\d.]+', o):
+            opts['taille'] = float(o)
+        else:
+            raise argparse.ArgumentTypeError(f'option de texte inconnue : {o}')
+    return m.group(1), (tuple(float(m.group(i)) for i in range(2, 6)), opts, m.group(7).replace('\\n', '\n'))
+
+
+class Parseur(argparse.ArgumentParser):
+    """Fichiers d'arguments `@fichier` : un argument par ligne, `#` = commentaire."""
+    def convert_arg_line_to_args(self, ligne):
+        ligne = ligne.strip()
+        return [] if not ligne or ligne.startswith('#') else [ligne]
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description='Rend et anonymise les pages d\'un sujet PDF.')
+    ap = Parseur(description='Rend et anonymise les pages d\'un sujet PDF.', fromfile_prefix_chars='@')
     ap.add_argument('pdf', nargs='?')
     ap.add_argument('--sortie', help='dossier des images produites')
     ap.add_argument('--plage', action='append', type=lire_plage, default=[],
@@ -299,6 +420,13 @@ def main() -> int:
     ap.add_argument('--exclure', default='', help='noms de pages à ne pas produire, séparés par des virgules')
     ap.add_argument('--masque', action='append', type=lire_masque, default=[],
                     help='NOM:x0,y0,x1,y1 — zone supplémentaire en fractions de page (NOM = sujet-04 ou n° de page PDF)')
+    ap.add_argument('--remplacer', action='append', type=lire_remplacement, default=[],
+                    help='EMPREINTE:TEXTE — fragment du corps d\'empreinte EMPREINTE (préfixe ≥ 8) remplacé par TEXTE')
+    ap.add_argument('--image', action='append', type=lire_image, default=[],
+                    help='NOM:x0,y0,x1,y1:FICHIER — la zone est remplacée par l\'image FICHIER')
+    ap.add_argument('--texte', action='append', type=lire_texte, default=[],
+                    help='NOM:x0,y0,x1,y1[@OPTIONS]:TEXTE — zone remplie puis TEXTE écrit '
+                         '(OPTIONS : taille en pt, g gras, c centré, #rrggbb fond)')
     ap.add_argument('--empreintes', default=os.path.join(ICI, 'empreintes.json'))
     ap.add_argument('--bande', type=float, default=0.1, help='hauteur des bandes haute/basse (fraction, défaut 0.1)')
     ap.add_argument('--totaux', default='', help='nombres de pages « n/N » à détecter (défaut : tailles des plages par préfixe)')
@@ -326,6 +454,12 @@ def main() -> int:
     masques: dict[str, list] = {}
     for nom, z in a.masque:
         masques.setdefault(nom, []).append(z)
+    images: dict[str, list] = {}
+    for nom, v in a.image:
+        images.setdefault(nom, []).append(v)
+    textes: dict[str, list] = {}
+    for nom, v in a.texte:
+        textes.setdefault(nom, []).append(v)
 
     os.makedirs(a.sortie, exist_ok=True)
     pages_pdf = lire_mots(a.pdf)
@@ -375,11 +509,37 @@ def main() -> int:
                                       int(m.x1 * sx) + pad, int(m.y1 * sy) + pad), fill='white')
                 if corps:
                     journal.append(f'{len(corps)} mot(s) du corps')
+                for idx, texte in fragments_remplaces(page, emp, a.remplacer, a.bande):
+                    ms = [page.mots[i] for i in idx]
+                    # ponctuation collée au fragment (« (X, » → « (Y, ») : gardée
+                    avant = re.match(r'[^\w]*', ms[0].texte).group(0)
+                    apres = re.search(r'[^\w]*$', ms[-1].texte).group(0)
+                    # boîte pdftotext = ascendante + descendante (0,905 + 0,212 em) : même corps, même ligne de base
+                    h = (ms[0].y1 - ms[0].y0) * sy
+                    dessin.text((ms[0].x0 * sx, ms[0].y0 * sy + h * 0.905 / 1.117), avant + texte + apres,
+                                fill='black', font=police(h / 1.117), anchor='ls')
+                    journal.append('texte de remplacement')
                 for cle in (nom, str(n_pdf)):
                     for fx0, fy0, fx1, fy1 in masques.get(cle, []):
                         dessin.rectangle((round(fx0 * im.width), round(fy0 * im.height),
                                           round(fx1 * im.width), round(fy1 * im.height)), fill='white')
                         journal.append('zone manuelle')
+                for cle in (nom, str(n_pdf)):
+                    for (fx0, fy0, fx1, fy1), fichier in images.get(cle, []):
+                        z = (round(fx0 * im.width), round(fy0 * im.height), round(fx1 * im.width), round(fy1 * im.height))
+                        dessin.rectangle(z, fill='white')
+                        src = Image.open(fichier).convert('RGB')
+                        k = min((z[2] - z[0]) / src.width, (z[3] - z[1]) / src.height)
+                        src = src.resize((max(1, round(src.width * k)), max(1, round(src.height * k))), Image.LANCZOS)
+                        im.paste(src, ((z[0] + z[2] - src.width) // 2, (z[1] + z[3] - src.height) // 2))
+                        journal.append('image de remplacement')
+                for cle in (nom, str(n_pdf)):
+                    for (fx0, fy0, fx1, fy1), o, texte in textes.get(cle, []):
+                        z = (fx0 * im.width, fy0 * im.height, fx1 * im.width, fy1 * im.height)
+                        dessin.rectangle(tuple(round(v) for v in z), fill=o['fond'])
+                        if texte:
+                            ecrire(dessin, z, texte, o['taille'] * sx if o['taille'] else None, o['gras'], o['centre'])
+                        journal.append('texte manuel' if texte else 'aplat manuel')
                 if nom in rotations:
                     im = im.rotate(rotations[nom], expand=True)
                 dest = os.path.join(a.sortie, nom + '.jpg')

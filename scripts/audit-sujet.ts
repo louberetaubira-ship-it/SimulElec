@@ -5,17 +5,22 @@
  *     npx tsx scripts/audit-sujet.ts
  *
  * Vérifie, pour chaque sujet (sujets complets ET sujets thématiques dérivés) : numérotation
- * des questions, pages DTR et pages du sujet existantes, images présentes dans `public/` (et
- * dimensions déclarées des schémas conformes au fichier), identifiants de TP platine attendus,
- * réponses attendues présentes pour les outils corrigés automatiquement, liens / rangs /
- * bulles / bornes cohérents ; pour un sujet thématique : questions reprises telles quelles du
- * sujet complet (ni copiées ni renumérotées), barème attendu, DTR réduit aux pages du thème.
+ * des questions, repères hiérarchiques (`label`) uniques, pages DTR et pages du sujet existantes,
+ * documents DTR (`doc`) cohérents (pages d'un même document contiguës), images présentes dans
+ * `public/` sous le dossier d'images DU SUJET (déduit de ses pages : `/tp/<dossier>/`) et
+ * dimensions déclarées des schémas / plans conformes au fichier, identifiants de TP platine
+ * attendus, réponses attendues présentes pour les outils corrigés automatiquement, liens / rangs /
+ * bulles / bornes / placements cohérents (attendus, zone, tolérance dans 0..1, `max` ≥ attendus),
+ * tableaux de contexte réguliers ; pour un sujet thématique : questions reprises telles quelles du
+ * sujet complet (ni copiées ni renumérotées), barème attendu, DTR réduit au thème (documents
+ * entiers pour un DTR numéroté par document).
  *
  * Anonymisation : aucune donnée servie au navigateur ne doit permettre de retrouver l'origine
  * du sujet. Les termes d'origine ne sont écrits nulle part en clair : `termesInterdits`
  * (`scripts/anonymisation/verif.ts`) les reconnaît par empreinte. Sont contrôlés : toutes les
  * chaînes des sujets (récursivement), celles des TP platine, les fichiers sources du sujet
- * numérique (données, moteur, interface, routes) et les NOMS des fichiers d'images publics.
+ * numérique (données, moteur, interface, routes, TP platine de chaque dossier) et les NOMS des
+ * fichiers de chaque dossier d'images public.
  *
  * Les TP platine eux-mêmes (câblage, mesures) sont vérifiés par `audit-tps.ts`.
  */
@@ -29,30 +34,41 @@ import { termesInterdits } from './anonymisation/verif';
 const RACINE = join(__dirname, '..');
 const PUBLIC = join(RACINE, 'public');
 
-/** TP platine attendus par sujet complet (mode « câblage réel » des questions schéma). */
+/**
+ * TP platine attendus par sujet complet (mode « câblage réel » des questions schéma). Un sujet
+ * absent de cette table : ses TP platine doivent au moins être préfixés par son identifiant.
+ */
 const PLATINES: Record<string, string[]> = {
   eip: ['eip-q13-cumulus', 'eip-q58-myhome', 'eip-q67-vigik'],
+  scierie: ['scierie-d31-atv340', 'scierie-e343-dc'],
 };
-/** Dossier public des images de chaque sujet complet (sujets thématiques : celui du parent). */
-const IMAGES: Record<string, string> = { eip: '/tp/eip/' };
 /** Nombre de questions attendu par sujet complet. */
-const NB_QUESTIONS: Record<string, number> = { eip: 72 };
-/** Barème attendu par sujet (complet et thématiques). */
+const NB_QUESTIONS: Record<string, number> = { eip: 72, scierie: 76 };
+/** Barème attendu par sujet (complet et thématiques), quand il est arrêté. */
 const POINTS: Record<string, number> = {
   eip: 98, 'eip-habilitations': 20, 'eip-eclairage': 31, 'eip-myhome': 28, 'eip-vigik': 19,
 };
-/** Sources servies au navigateur pour un sujet numérique (fichiers ou dossiers, depuis la racine). */
-const SOURCES = [
-  'src/lib/data/sujets', 'src/components/sujet', 'src/lib/sujet', 'src/app/sujet', 'src/app/prof/sujet',
-  'src/lib/data/tps/eip-q13-cumulus.ts', 'src/lib/data/tps/eip-q58-myhome.ts', 'src/lib/data/tps/eip-q67-vigik.ts',
-];
+/** Sources servies au navigateur pour un sujet numérique (fichiers ou dossiers, depuis la racine) ; s'y ajoutent les TP platine. */
+const SOURCES = ['src/lib/data/sujets', 'src/components/sujet', 'src/lib/sujet', 'src/app/sujet', 'src/app/prof/sujet'];
+
+/**
+ * Dossier public des images d'un sujet complet, déduit de ses pages : `/tp/<dossier>/` commun à la
+ * première page DTR (ou du sujet). Un sujet thématique utilise celui de son parent.
+ */
+function dossierImages(s: SujetNumerique): string | null {
+  const base = s.parent ? sujetById(s.parent) ?? s : s;
+  const src = base.dtr[0]?.src ?? base.pagesSujet[0]?.src;
+  const m = src?.match(/^(\/tp\/[^/]+\/)/);
+  return m ? m[1] : null;
+}
 
 let erreurs = 0;
 const err = (s: SujetNumerique, msg: string) => { erreurs += 1; console.error(`✗ [${s.id}] ${msg}`); };
 
-/** Dimensions d'un JPEG (lecture du marqueur SOF), ou null. */
-function tailleJpeg(fichier: string): { w: number; h: number } | null {
+/** Dimensions d'une image JPEG (marqueur SOF) ou PNG (en-tête IHDR), ou null. */
+function tailleImage(fichier: string): { w: number; h: number } | null {
   const b = readFileSync(fichier);
+  if (b.length > 24 && b.readUInt32BE(0) === 0x89504e47) return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
   if (b[0] !== 0xff || b[1] !== 0xd8) return null;
   let i = 2;
   while (i < b.length) {
@@ -69,8 +85,9 @@ function tailleJpeg(fichier: string): { w: number; h: number } | null {
 
 function imageExiste(s: SujetNumerique, src: string, ou: string) {
   if (!src.startsWith('/')) { err(s, `${ou} : chemin d'image non absolu « ${src} »`); return false; }
-  const dossier = IMAGES[s.parent ?? s.id];
-  if (dossier && !src.startsWith(dossier)) err(s, `${ou} : image hors du dossier ${dossier} « ${src} »`);
+  const dossier = dossierImages(s);
+  if (!dossier) err(s, `${ou} : dossier d'images du sujet introuvable (pages DTR sous /tp/<dossier>/)`);
+  else if (!src.startsWith(dossier)) err(s, `${ou} : image hors du dossier ${dossier} « ${src} »`);
   if (!existsSync(join(PUBLIC, src))) { err(s, `${ou} : image absente de public/ « ${src} »`); return false; }
   return true;
 }
@@ -79,18 +96,24 @@ const dans = (v: number, min: number, max: number) => Number.isFinite(v) && v >=
 const estNote = (c: { attendu?: number; acceptes?: string[] }) => c.attendu != null || (c.acceptes != null && c.acceptes.length > 0);
 
 function auditQuestion(s: SujetNumerique, q: SujetQuestion, dtrNums: Set<number>) {
-  const ou = `Q${q.num}`;
+  const ou = q.label ? `${q.label} (Q${q.num})` : `Q${q.num}`;
   if (!s.parties.some(p => p.num === q.partie)) err(s, `${ou} : partie ${q.partie} inconnue`);
   const partie = s.parties.find(p => p.num === q.partie);
   if (partie && !partie.competences.includes(q.competence)) err(s, `${ou} : compétence ${q.competence} absente de la partie ${q.partie}`);
   if (!(q.points > 0)) err(s, `${ou} : points invalides (${q.points})`);
   if (!q.enonce.trim()) err(s, `${ou} : énoncé vide`);
   for (const d of q.dtr) {
-    if (!dans(d, 1, 52) || !dtrNums.has(d)) err(s, `${ou} : page DTR ${d} inexistante`);
+    if (!Number.isInteger(d) || d < 1 || !dtrNums.has(d)) err(s, `${ou} : page DTR ${d} inexistante`);
   }
   if (new Set(q.dtr).size !== q.dtr.length) err(s, `${ou} : page DTR en double`);
   if (!s.pagesSujet.some(p => p.num === q.pageSujet)) err(s, `${ou} : page du sujet ${q.pageSujet} inexistante`);
   if (q.image) imageExiste(s, q.image.src, `${ou} image`);
+  if (q.label != null && !/^[A-Z](\.\d+)+$/.test(q.label)) err(s, `${ou} : repère « ${q.label} » mal formé (attendu : « A.2.1.1 »)`);
+  if (q.tableauContexte) {
+    const t = q.tableauContexte;
+    if (!t.colonnes.length || !t.lignes.length) err(s, `${ou} : tableau de contexte vide`);
+    t.lignes.forEach((l, i) => { if (l.length !== t.colonnes.length) err(s, `${ou} : tableau de contexte, ligne ${i + 1} à ${l.length} cellules pour ${t.colonnes.length} colonnes`); });
+  }
 
   switch (q.type) {
     case 'cocher': {
@@ -162,6 +185,33 @@ function auditQuestion(s: SujetNumerique, q: SujetQuestion, dtrNums: Set<number>
       }
       break;
     }
+    case 'placement': {
+      if (!['luminaire', 'croix', 'point'].includes(q.symbole)) err(s, `${ou} : symbole « ${q.symbole} » inconnu`);
+      if (imageExiste(s, q.plan.src, `${ou} plan`)) {
+        const t = tailleImage(join(PUBLIC, q.plan.src));
+        if (t && (t.w !== q.plan.w || t.h !== q.plan.h)) err(s, `${ou} : dimensions du plan déclarées ${q.plan.w}×${q.plan.h} ≠ fichier ${t.w}×${t.h}`);
+      }
+      if (q.attendus.length === 0) err(s, `${ou} : aucun repère attendu`);
+      const z = q.zone;
+      if (z && (![z.x0, z.y0, z.x1, z.y1].every(v => dans(v, 0, 1)) || z.x0 >= z.x1 || z.y0 >= z.y1)) err(s, `${ou} : zone hors de 0..1 ou vide`);
+      q.attendus.forEach((a, i) => {
+        if (!dans(a.x, 0, 1) || !dans(a.y, 0, 1)) err(s, `${ou} : attendu ${i + 1} hors image (${a.x}, ${a.y})`);
+        else if (z && (a.x < z.x0 || a.x > z.x1 || a.y < z.y0 || a.y > z.y1)) err(s, `${ou} : attendu ${i + 1} hors de la zone`);
+      });
+      if (!(q.tolerance.x > 0 && q.tolerance.x <= 1 && q.tolerance.y > 0 && q.tolerance.y <= 1)) err(s, `${ou} : tolérance hors de ]0..1]`);
+      // Deux attendus dans la même ellipse de tolérance rendraient l'appariement ambigu.
+      q.attendus.forEach((a, i) => q.attendus.slice(i + 1).forEach((b, k) => {
+        if (Math.hypot((a.x - b.x) / q.tolerance.x, (a.y - b.y) / q.tolerance.y) <= 1) err(s, `${ou} : attendus ${i + 1} et ${i + k + 2} dans la même tolérance`);
+      }));
+      if (q.max != null && (!Number.isInteger(q.max) || q.max < q.attendus.length)) err(s, `${ou} : max ${q.max} < ${q.attendus.length} attendus`);
+      const ids = new Set<string>();
+      for (const c of q.champs ?? []) {
+        if (ids.has(c.id)) err(s, `${ou} : champ « ${c.id} » en double`);
+        ids.add(c.id);
+        if (!estNote(c)) err(s, `${ou} : champ « ${c.id} » sans attendu ni acceptés`);
+      }
+      break;
+    }
     case 'cavaliers': {
       for (const c of q.composants) {
         for (const p of c.positions) {
@@ -172,12 +222,14 @@ function auditQuestion(s: SujetNumerique, q: SujetQuestion, dtrNums: Set<number>
       break;
     }
     case 'schema': {
-      const attendus = PLATINES[s.parent ?? s.id] ?? [];
-      if (!attendus.includes(q.platineTpId)) err(s, `${ou} : platineTpId « ${q.platineTpId} » inattendu (attendus : ${attendus.join(', ')})`);
+      const baseId = s.parent ?? s.id;
+      const attendus = PLATINES[baseId];
+      if (attendus && !attendus.includes(q.platineTpId)) err(s, `${ou} : platineTpId « ${q.platineTpId} » inattendu (attendus : ${attendus.join(', ')})`);
+      if (!attendus && !q.platineTpId.startsWith(`${baseId}-`)) err(s, `${ou} : platineTpId « ${q.platineTpId} » non préfixé par « ${baseId}- »`);
       imageExiste(s, q.corrigeImage.src, `${ou} corrigé`);
       const im = q.traits.image;
       if (imageExiste(s, im.src, `${ou} schéma`)) {
-        const t = tailleJpeg(join(PUBLIC, im.src));
+        const t = tailleImage(join(PUBLIC, im.src));
         if (t && (t.w !== im.w || t.h !== im.h)) err(s, `${ou} : dimensions déclarées ${im.w}×${im.h} ≠ fichier ${t.w}×${t.h}`);
       }
       const bornes = new Set<string>();
@@ -220,7 +272,7 @@ function auditQuestion(s: SujetNumerique, q: SujetQuestion, dtrNums: Set<number>
             if (l.couleur && rc && l.couleur !== rc) err(s, `${ou} : liaison ${l.a}–${l.b} en « ${l.couleur} » dans un réseau « ${rc} »`);
           }
         }
-        console.log(`  Q${q.num} : ${q.traits.reseaux.length} réseaux, ${q.traits.attendues.length} liaisons attendues`);
+        console.log(`  ${ou} : ${q.traits.reseaux.length} réseaux, ${q.traits.attendues.length} liaisons attendues`);
       }
       break;
     }
@@ -236,12 +288,35 @@ function auditSujet(s: SujetNumerique) {
     if (i > 0 && q.num <= s.questions[i - 1].num) err(s, `Q${q.num} après Q${s.questions[i - 1].num}`);
   });
 
+  // Repères hiérarchiques : uniques ; tous présents ou tous absents (sujet complet).
+  const labels = s.questions.map(q => q.label).filter((l): l is string => l != null);
+  if (labels.length && labels.length !== s.questions.length) err(s, `${s.questions.length - labels.length} question(s) sans repère alors que d'autres en ont`);
+  const doublons = labels.filter((l, i) => labels.indexOf(l) !== i);
+  if (doublons.length) err(s, `repère(s) en double : ${Array.from(new Set(doublons)).join(', ')}`);
+
   // Pages : numérotation du papier conservée (pages de garde retirées), strictement croissante.
   s.dtr.forEach((p, i) => {
-    if (!dans(p.num, 1, 52) || (i > 0 && p.num <= s.dtr[i - 1].num)) err(s, `DTR en position ${i + 1} numérotée ${p.num}`);
+    if (!Number.isInteger(p.num) || p.num < 1 || (i > 0 && p.num <= s.dtr[i - 1].num)) err(s, `DTR en position ${i + 1} numérotée ${p.num}`);
     if (!p.titre.trim()) err(s, `DTR ${p.num} sans titre`);
     imageExiste(s, p.src, `DTR ${p.num}`);
   });
+  // DTR numéroté par document : documents croissants, pages d'un document contiguës ; une page sans
+  // `doc` (sommaire…) est admise comme page hors numérotation (signalée).
+  if (s.dtr.some(p => p.doc != null)) {
+    const sansDoc = s.dtr.filter(p => p.doc == null).map(p => p.num);
+    if (sansDoc.length && !s.parent) console.log(`  pages DTR hors numérotation (sans doc) : ${sansDoc.join(', ')}`);
+    const vus = new Set<number>();
+    s.dtr.forEach((p, i) => {
+      if (p.doc == null) return;
+      if (!Number.isInteger(p.doc) || p.doc < 1) err(s, `DTR page ${p.num} : document ${p.doc} invalide`);
+      const prec = s.dtr[i - 1]?.doc;
+      if (prec !== p.doc) {
+        if (vus.has(p.doc)) err(s, `DTR ${p.doc} : pages non contiguës (reprise à la page ${p.num})`);
+        if (prec != null && p.doc < prec) err(s, `DTR ${p.doc} après DTR ${prec} (page ${p.num})`);
+        vus.add(p.doc);
+      }
+    });
+  }
   s.pagesSujet.forEach((p, i) => {
     if (i > 0 && p.num <= s.pagesSujet[i - 1].num) err(s, `page du sujet en position ${i + 1} numérotée ${p.num}`);
     imageExiste(s, p.src, `page du sujet ${p.num}`);
@@ -291,7 +366,17 @@ function auditDerive(s: SujetNumerique) {
     for (const d of q.dtr) if (!s.dtr.some(p => p.num === d)) err(s, `Q${q.num} : page DTR ${d} absente du DTR du thème`);
   }
   const utiles = new Set([...s.parties.flatMap(p => p.dtrPages), ...s.questions.flatMap(q => q.dtr)]);
-  for (const p of s.dtr) if (!utiles.has(p.num)) err(s, `DTR ${p.num} sans rapport avec le thème`);
+  // DTR par document : un document utile est gardé en entier.
+  const docsUtiles = new Set(s.dtr.filter(p => utiles.has(p.num) && p.doc != null).map(p => p.doc!));
+  for (const p of s.dtr) {
+    if (!(p.doc != null ? docsUtiles.has(p.doc) : utiles.has(p.num))) err(s, `DTR ${p.num} sans rapport avec le thème`);
+  }
+  if (s.dtr.some(p => p.doc != null)) {
+    for (const d of Array.from(docsUtiles)) {
+      const n = parent.dtr.filter(p => p.doc === d).length;
+      if (s.dtr.filter(p => p.doc === d).length !== n) err(s, `DTR ${d} incomplet dans le thème`);
+    }
+  }
   if (s.dureeMin !== decl.dureeMin) err(s, `durée ${s.dureeMin} min au lieu de ${decl.dureeMin}`);
 }
 
@@ -325,7 +410,7 @@ function auditAnonymat() {
     .map((l, i) => (termesInterdits(l).length ? i + 1 : 0)).filter(Boolean);
   // 1. Données des sujets (complets et thématiques).
   for (const s of TOUS_SUJETS) {
-    const ou = s.questions.filter(q => termesInterdits(chaines(q).join('\n')).length).map(q => `Q${q.num}`);
+    const ou = s.questions.filter(q => termesInterdits(chaines(q).join('\n')).length).map(q => q.label ?? `Q${q.num}`);
     signaler(`sujet ${s.id}`, termesInterdits(chaines(s).join('\n')), ou.length ? `questions ${ou.join(', ')}` : 'hors questions');
   }
   // 2. TP platine : textes servis au navigateur.
@@ -336,16 +421,18 @@ function auditAnonymat() {
     const champs = [tp.id, tp.title, tp.level, tp.summary, tp.situation, tp.plaqueTitre, tp.plaque, tp.cahierDesCharges, tp.libelles, tp.schemaImage];
     signaler(`TP ${id}`, termesInterdits(chaines(champs).join('\n')));
   }
-  // 3. Sources du sujet numérique (données, moteur, interface, routes).
+  // 3. Sources du sujet numérique (données, moteur, interface, routes, TP platine de chaque dossier).
   let nbSources = 0;
-  for (const f of SOURCES.flatMap(x => fichiers(join(RACINE, x)))) {
+  const sourcesTp = Array.from(platines).map(id => `src/lib/data/tps/${id}.ts`).filter(f => existsSync(join(RACINE, f)));
+  for (const f of [...SOURCES, ...sourcesTp].flatMap(x => fichiers(join(RACINE, x)))) {
     nbSources += 1;
     const texte = readFileSync(f, 'utf8');
     signaler(relative(RACINE, f), termesInterdits(texte), `ligne(s) ${lignesFautives(texte).join(', ')}`);
   }
-  // 4. Noms des fichiers d'images publics.
+  // 4. Noms des fichiers de chaque dossier d'images public (un par sujet complet).
   let nbImages = 0;
-  for (const d of Object.values(IMAGES)) {
+  const dossiers = Array.from(new Set(SUJETS.map(dossierImages).filter((d): d is string => !!d)));
+  for (const d of dossiers) {
     for (const f of fichiers(join(PUBLIC, d))) {
       nbImages += 1;
       signaler(`public${d}${relative(join(PUBLIC, d), f)}`, termesInterdits(relative(PUBLIC, f).replace(/[/._-]+/g, ' ')));

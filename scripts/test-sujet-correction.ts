@@ -1,17 +1,20 @@
 /**
  * Tests unitaires du moteur de correction des sujets numériques (sans runner) :
  *   npx tsx scripts/test-sujet-correction.ts
- * Couvre `src/lib/sujet/normalize.ts`, `correction.ts` et `bilan.ts`.
+ * Couvre `src/lib/sujet/normalize.ts`, `correction.ts`, `bilan.ts`, `format.ts` (repères, placement),
+ * `dtr.ts` (DTR numéroté par document) et `declinaisons.ts`.
  */
 import assert from 'node:assert/strict';
 import { normTexte, parseNombre, nombreJuste, texteAccepte, contientMotCle, estVide } from '@/lib/sujet/normalize';
-import { corriger, corrigerCopie, estRepondue, etatTraits, scorePlatine, cleLiaison, correctionProf } from '@/lib/sujet/correction';
+import { corriger, corrigerCopie, estRepondue, etatTraits, scorePlatine, cleLiaison, correctionProf, etatPlacement } from '@/lib/sujet/correction';
+import { intervalleReperes, repere, sousSection, texteAttendu, texteReponse, LIBELLE_OUTIL } from '@/lib/sujet/format';
+import { documentsDtr, dtrParDocument, nomPageDtr, nomsPagesDtr, positionPage, resumeDtr } from '@/lib/sujet/dtr';
 import { calculerBilan, evaluationSujet, scoreStocke } from '@/lib/sujet/bilan';
 import { evaluer, afficherResultat } from '@/lib/sujet/calculatrice';
-import { sujetDerive, sujetsDerives } from '@/lib/sujet/declinaisons';
+import { resumeSujet, sujetDerive, sujetsDerives } from '@/lib/sujet/declinaisons';
 import { SUJETS, TOUS_SUJETS, sujetById, sujetsParDossier } from '@/lib/data/sujets';
 import type {
-  QBulles, QCalcul, QCavaliers, QCocher, QOrdonner, QRedige, QRelier, QSchema, QTableau, QValeur,
+  DtrPage, QBulles, QCalcul, QCavaliers, QCocher, QOrdonner, QPlacement, QRedige, QRelier, QSchema, QTableau, QValeur,
   ReponseSujet, SujetAttemptState, SujetNumerique, SujetQuestion,
 } from '@/lib/sujet/types';
 
@@ -237,6 +240,161 @@ test('schéma : correction par réseau', () => {
 });
 
 /* ───────────── copie et bilan ───────────── */
+/* ───────────── placement ───────────── */
+
+/** Grille 5 × 3 (B.1.16) : 3 colonnes (largeur), 5 rangées (longueur), tolérance ± 1 m. */
+const GRILLE: QPlacement = {
+  ...base, num: 29, points: 4, type: 'placement', label: 'B.1.16',
+  plan: { src: '/tp/x/plan.jpg', alt: 'plan', w: 630, h: 845 },
+  symbole: 'luminaire',
+  zone: { x0: 0.08, y0: 0.06, x1: 0.96, y1: 0.98 },
+  attendus: Array.from({ length: 15 }, (_, i) => ({ x: 0.08 + 0.88 * ((i % 3) + 0.5) / 3, y: 0.06 + 0.92 * (Math.floor(i / 3) + 0.5) / 5 })),
+  // ± 1 m : largeur 15,2 m sur 0,88 de l'image, longueur 35 m sur 0,92
+  tolerance: { x: 0.88 / 15.2, y: 0.92 / 35 },
+  max: 16,
+};
+const parfaite = () => GRILLE.attendus.map(a => ({ x: a.x, y: a.y }));
+
+test('placement : grille parfaite, en trop, hors tolérance', () => {
+  assert.equal(LIBELLE_OUTIL.placement, 'Placer sur un plan');
+  const ok = corriger(GRILLE, { type: 'placement', points: parfaite() });
+  assert.equal(ok.score, 1);
+  assert.equal(ok.statut, 'auto');
+  assert.equal(ok.detail, '15/15 luminaires bien placés');
+  // ordre de pose indifférent, petits écarts dans la tolérance
+  const decales = parfaite().reverse().map(p => ({ x: p.x + 0.02, y: p.y - 0.01 }));
+  assert.equal(corriger(GRILLE, { type: 'placement', points: decales }).score, 1);
+  // un seizième luminaire : (15 − 1) / 15
+  const trop = corriger(GRILLE, { type: 'placement', points: [...parfaite(), { x: 0.5, y: 0.5 }] });
+  proche(trop.score, 14 / 15, 1e-4);
+  assert.match(trop.detail!, /15\/15 luminaires bien placés, 1 en trop/);
+  // un luminaire hors tolérance (> 1 m) : 14 / 15, mal placé (pas pénalisé deux fois)
+  const hors = parfaite();
+  hors[4] = { x: hors[4].x + 0.07, y: hors[4].y };
+  const h = corriger(GRILLE, { type: 'placement', points: hors });
+  proche(h.score, 14 / 15, 1e-4);
+  assert.match(h.detail!, /14\/15 luminaires bien placés, 1 mal placé/);
+  const e = etatPlacement(GRILLE, hors);
+  assert.deepEqual(e.manquants, [4]);
+  assert.equal(e.apparies[4], null);
+  assert.equal(e.apparies[0], 0);
+  // au bord exact de l'ellipse : accepté ; juste au-delà : refusé
+  const bord = parfaite(); bord[0] = { x: bord[0].x + GRILLE.tolerance.x, y: bord[0].y };
+  assert.equal(corriger(GRILLE, { type: 'placement', points: bord }).score, 1);
+  const diag = parfaite(); diag[0] = { x: diag[0].x + 0.8 * GRILLE.tolerance.x, y: diag[0].y + 0.8 * GRILLE.tolerance.y };
+  proche(corriger(GRILLE, { type: 'placement', points: diag }).score, 14 / 15, 1e-4);
+  // appariement glouton au plus proche : deux repères près du même attendu → un seul compte
+  const g = etatPlacement(GRILLE, [{ x: GRILLE.attendus[0].x + 0.01, y: GRILLE.attendus[0].y }, { x: GRILLE.attendus[0].x, y: GRILLE.attendus[0].y }]);
+  assert.equal(g.bien, 1);
+  assert.deepEqual(g.apparies, [null, 0]);
+  // vide : sans réponse ; plus de repères en trop que de bien placés : 0
+  assert.equal(corriger(GRILLE, { type: 'placement', points: [] }).statut, 'sansReponse');
+  assert.ok(!estRepondue(GRILLE, { type: 'placement', points: [] }));
+  assert.ok(estRepondue(GRILLE, { type: 'placement', points: [{ x: 0.5, y: 0.5 }] }));
+  const spam = Array.from({ length: 30 }, (_, i) => ({ x: (i % 6) / 6, y: Math.floor(i / 6) / 5 }));
+  assert.equal(corriger({ ...GRILLE, max: 30 }, { type: 'placement', points: spam }).score, 0);
+  // texte de la copie
+  assert.deepEqual(texteReponse(GRILLE, { type: 'placement', points: hors }), ['15 luminaires posés — 14/15 luminaires bien placés, 1 mal placé']);
+  assert.equal(texteAttendu(GRILLE)[0], '15 luminaires placés (voir le plan)');
+});
+
+test('placement : croix + champs complémentaires (½ + ½)', () => {
+  const q: QPlacement = {
+    ...base, num: 59, points: 4, type: 'placement', label: 'E.1.3',
+    plan: { src: '/tp/x/disque.jpg', alt: 'disque', w: 345, h: 270 }, symbole: 'croix',
+    attendus: [{ x: 0.383, y: 0.574, label: 'Sud, 15°' }], tolerance: { x: 0.04, y: 0.05 },
+    champs: [
+      { id: 'r', label: 'Rendement', unite: '%', attendu: 97.5, tolerance: 2.5 },
+      { id: 'v', label: 'Viabilité', acceptes: ['oui'] },
+    ],
+  };
+  const croix = [{ x: 0.39, y: 0.58 }];
+  const tout = corriger(q, { type: 'placement', points: croix, valeurs: { r: '96 %', v: 'Oui' } });
+  assert.equal(tout.score, 1);
+  assert.equal(tout.detail, '1/1 croix bien placée · 2/2 valeurs justes');
+  proche(corriger(q, { type: 'placement', points: croix, valeurs: { r: '90', v: 'oui' } }).score, 0.75);
+  proche(corriger(q, { type: 'placement', points: [{ x: 0.9, y: 0.1 }], valeurs: { r: '100', v: 'oui' } }).score, 0.5);
+  proche(corriger(q, { type: 'placement', points: croix }).score, 0.5);
+  // champs seuls (aucune croix) : répondu, ½ au mieux
+  const seuls = { type: 'placement' as const, points: [], valeurs: { r: '97', v: 'oui' } };
+  assert.ok(estRepondue(q, seuls));
+  proche(corriger(q, seuls).score, 0.5);
+  assert.deepEqual(texteReponse(q, { type: 'placement', points: croix, valeurs: { r: '96', v: 'oui' } }),
+    ['1 croix posée — 1/1 croix bien placée', 'Rendement : 96 %', 'Viabilité : oui']);
+  assert.deepEqual(texteAttendu(q), ['1 croix placée (voir le plan) : Sud, 15°', 'Rendement : 97,5 %', 'Viabilité : oui']);
+});
+
+test('bulles en saisie libre : références normalisées', () => {
+  const q: QBulles = {
+    ...base, num: 70, type: 'bulles', plan: { src: '/x.jpg', alt: '' },
+    bulles: [{ id: 'a', x: 10, y: 10, attendu: 'SYM 12.5-3-M (2)' }, { id: 'b', x: 50, y: 50, attendu: 'DC+1', acceptes: ['DC +1'] }],
+  };
+  assert.equal(corriger(q, { type: 'bulles', valeurs: { a: 'sym 12,5–3-m(2)', b: 'dc+ 1' } }).score, 1);
+  assert.equal(corriger(q, { type: 'bulles', valeurs: { a: 'SYM 12.5-3-M', b: 'DC+1' } }).score, 0.5);
+});
+
+/* ───────────── repères hiérarchiques ───────────── */
+test('repères : label ?? Q{num}, intervalles, sous-sections', () => {
+  assert.equal(repere({ num: 12 }), 'Q12');
+  assert.equal(repere({ num: 2, label: 'A.2.1.1' }), 'A.2.1.1');
+  assert.equal(intervalleReperes([{ num: 38 }, { num: 14 }, { num: 20 }]), 'Q14 à Q38');
+  assert.equal(intervalleReperes([{ num: 14, label: 'B.1.1' }, { num: 39, label: 'B.2.9' }], ' → '), 'B.1.1 → B.2.9');
+  assert.equal(intervalleReperes([{ num: 76, label: 'F.1' }]), 'F.1');
+  assert.equal(intervalleReperes([]), '');
+  assert.equal(sousSection({ label: 'A.2.1.1' }), 'A.2');
+  assert.equal(sousSection({ label: 'E.4.2.1.1' }), 'E.4');
+  assert.equal(sousSection({ label: 'A.1' }), 'A');
+  assert.equal(sousSection({ label: 'C.3' }), 'C');
+  assert.equal(sousSection({}), null);
+});
+
+/* ───────────── DTR numéroté par document ───────────── */
+const pageDtr = (num: number, doc?: number, section?: string): DtrPage => ({ num, src: `/tp/x/dtr-${num}.jpg`, titre: `Titre ${num}`, section, ...(doc != null ? { doc } : {}) });
+test('DTR par document : regroupement, « DTR 28 · p. 2/4 », dérivés en documents entiers', () => {
+  const sans = [pageDtr(2), pageDtr(3)];
+  assert.ok(!dtrParDocument(sans));
+  assert.equal(nomPageDtr({ dtr: sans }, 3), 'DTR 3');
+  assert.equal(resumeDtr(sans), '2 pages');
+  const pages = [pageDtr(1, 1, 'A'), pageDtr(2, 2, 'A'), pageDtr(3, 2, 'A'), pageDtr(4, 3, 'D'), pageDtr(5, 3, 'D'), pageDtr(6, 3, 'D'), pageDtr(7, 3, 'D'), pageDtr(8, 4, 'D')];
+  assert.ok(dtrParDocument(pages));
+  const docs = documentsDtr(pages);
+  assert.deepEqual(docs.map(d => [d.num, d.pages.length]), [[1, 1], [2, 2], [3, 4], [4, 1]]);
+  assert.equal(docs[2].titre, 'Titre 4');
+  assert.deepEqual(positionPage(pages, 6) && { doc: positionPage(pages, 6)!.doc.num, rang: positionPage(pages, 6)!.rang, total: positionPage(pages, 6)!.total }, { doc: 3, rang: 3, total: 4 });
+  assert.equal(nomPageDtr({ dtr: pages }, 5), 'DTR 3 · p. 2/4');
+  assert.equal(nomPageDtr({ dtr: pages }, 1), 'DTR 1');
+  assert.equal(nomsPagesDtr({ dtr: pages }, [8, 3]), 'DTR 4, DTR 2 · p. 2/2');
+  assert.equal(resumeDtr(pages), '4 documents · 8 pages');
+  // Sujet dérivé : une page citée d'un document → tout le document ; repères dans les consignes
+  const q = (num: number, partie: number, dtr: number[], label: string): QRedige => ({
+    ...base, num, partie, dtr, label, type: 'redige', motsCles: ['x'], minMotsCles: 1, corrige: 'x',
+  });
+  const s: SujetNumerique = {
+    id: 't', titre: 'T', sousTitre: '', diploma: SUJETS[0].diploma, dureeMin: 60, consignes: [], problematique: 'P',
+    dtr: pages, pagesSujet: [{ num: 3, src: '/tp/x/s3.jpg', titre: 's' }],
+    parties: [
+      { num: 1, titre: 'A', objectifs: [], competences: ['C1'], situation: '', dtrPages: [1] },
+      { num: 2, titre: 'D', objectifs: [], competences: ['C1'], situation: '', dtrPages: [] },
+    ],
+    questions: [q(1, 1, [2], 'A.1'), q(2, 2, [6], 'D.1.1'), q(3, 2, [8], 'D.1.2')],
+  };
+  const d = sujetDerive(s, { id: 't-d', theme: 'moteur', titre: 'D', parties: [2], dureeMin: 30 });
+  assert.deepEqual(d.dtr.map(p => p.num), [4, 5, 6, 7, 8]);
+  assert.ok(d.consignes[1].includes('(D.1.1 à D.1.2)'), d.consignes[1]);
+  const r = resumeSujet(s);
+  assert.equal(r.intervalle, 'A.1 → D.1.2');
+  assert.equal(r.dtrDe, 1);
+  const a = sujetDerive(s, { id: 't-a', theme: 'distribution', titre: 'A', parties: [1], dureeMin: 30 });
+  assert.deepEqual(a.dtr.map(p => p.num), [1, 2, 3]);
+  // Page hors numérotation (sommaire, sans `doc`) : document à part, nommé par son titre, jamais fondu dans « DTR 2 ».
+  const avecSommaire = [{ ...pageDtr(2), titre: 'Sommaire' }, pageDtr(3, 1), pageDtr(4, 2), pageDtr(5, 2)];
+  const ds = documentsDtr(avecSommaire);
+  assert.deepEqual(ds.map(d => [d.cle, d.num, d.pages.length]), [['p2', null, 1], ['1', 1, 1], ['2', 2, 2]]);
+  assert.equal(nomPageDtr({ dtr: avecSommaire }, 2), 'Sommaire');
+  assert.equal(nomPageDtr({ dtr: avecSommaire }, 5), 'DTR 2 · p. 2/2');
+  assert.equal(resumeDtr(avecSommaire), '2 documents · 4 pages');
+});
+
 test('corrigerCopie + bilan + évaluation', () => {
   const q1: QCocher = { ...base, num: 1, type: 'cocher', options: ['a', 'b'], bonnes: [0] };
   const q2: QRedige = { ...base, num: 2, partie: 2, competence: 'C11', type: 'redige', motsCles: ['bc'], minMotsCles: 1, corrige: 'BC' };
@@ -302,6 +460,11 @@ function reponseParfaite(q: SujetQuestion): ReponseSujet {
     }
     case 'redige': return { type: 'redige', texte: q.motsCles.join(' ') };
     case 'bulles': return { type: 'bulles', valeurs: Object.fromEntries(q.bulles.map(x => [x.id, x.attendu])) };
+    case 'placement': return {
+      type: 'placement',
+      points: q.attendus.map(a => ({ x: a.x, y: a.y })),
+      ...(q.champs ? { valeurs: Object.fromEntries(q.champs.map(c => [c.id, c.acceptes?.[0] ?? String(c.attendu ?? '')])) } : {}),
+    };
     case 'cavaliers': return {
       type: 'cavaliers',
       valeurs: Object.fromEntries(q.composants.flatMap(c => c.positions.map(p => [`${c.id}.${p.id}`, p.attendu]))),
@@ -328,7 +491,7 @@ test('sujets thématiques : dérivation sans copie ni renumérotation', () => {
   assert.ok(base && !base.parent && SUJETS.includes(base));
   const derives = sujetsDerives(base);
   assert.deepEqual(derives.map(d => d.id), ['eip-habilitations', 'eip-eclairage', 'eip-myhome', 'eip-vigik']);
-  assert.equal(TOUS_SUJETS.length, 5);
+  assert.equal(TOUS_SUJETS.filter(s => (s.parent ?? s.id) === 'eip').length, 5);
   for (const d of derives) {
     assert.equal(sujetById(d.id)?.id, d.id);
     assert.equal(d.parent, 'eip');
@@ -353,7 +516,9 @@ test('sujets thématiques : dérivation sans copie ni renumérotation', () => {
   assert.deepEqual(ecl.dtr.map(p => p.num), [7, 8, 9, 10, 11]);
   assert.equal(ecl.dureeMin, 95);
   assert.deepEqual(ecl.themes, ['eclairage']);
-  assert.deepEqual(sujetsParDossier().map(g => [g.base.id, g.derives.length]), [['eip', 4]]);
+  assert.deepEqual(sujetsParDossier().filter(g => g.base.id === 'eip').map(g => [g.base.id, g.derives.length]), [['eip', 4]]);
+  // chaque dossier : sujet complet + ses déclinaisons, toutes enregistrées
+  for (const g of sujetsParDossier()) assert.equal(g.derives.length, g.base.declinaisons?.length ?? 0, g.base.id);
   // dérivation directe (déclinaison sur deux parties) : DTR = union, numéros conservés
   const deux = sujetDerive(base, { id: 'x', theme: 'domotique', titre: 'X', parties: [3, 4], dureeMin: 145 });
   assert.equal(deux.questions[0].num, 39);
@@ -364,12 +529,15 @@ test('sujets thématiques : barème, copie parfaite = 20/20, bilan limité au th
   const attendus: Record<string, number> = { eip: 98, 'eip-habilitations': 20, 'eip-eclairage': 31, 'eip-myhome': 28, 'eip-vigik': 19 };
   for (const s of TOUS_SUJETS) {
     const total = s.questions.reduce((a, q) => a + q.points, 0);
-    assert.equal(total, attendus[s.id], `${s.id} : ${total} points`);
+    if (attendus[s.id] != null) assert.equal(total, attendus[s.id], `${s.id} : ${total} points`);
     const st = copieParfaite(s);
     const c = corrigerCopie(s, st);
-    for (const q of s.questions) assert.equal(c[q.num].score, 1, `${s.id} Q${q.num} : ${c[q.num].detail}`);
+    for (const q of s.questions) {
+      // Rédigé : pré-note à valider ; la copie « parfaite » doit tout de même avoir 1.
+      assert.equal(c[q.num].score, 1, `${s.id} ${repere(q)} : ${c[q.num].detail}`);
+    }
     const b = calculerBilan(s, c);
-    assert.equal(b.total, attendus[s.id]);
+    assert.equal(b.total, Math.round(total * 100) / 100);
     assert.equal(b.note20, 20, `${s.id} : ${b.note20}/20`);
     assert.equal(scoreStocke(b), 100);
     assert.deepEqual(b.parties.map(p => p.num), s.parties.map(p => p.num));
