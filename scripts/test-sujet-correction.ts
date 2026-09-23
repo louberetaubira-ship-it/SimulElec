@@ -8,9 +8,11 @@ import { normTexte, parseNombre, nombreJuste, texteAccepte, contientMotCle, estV
 import { corriger, corrigerCopie, estRepondue, etatTraits, scorePlatine, cleLiaison, correctionProf } from '@/lib/sujet/correction';
 import { calculerBilan, evaluationSujet, scoreStocke } from '@/lib/sujet/bilan';
 import { evaluer, afficherResultat } from '@/lib/sujet/calculatrice';
+import { sujetDerive, sujetsDerives } from '@/lib/sujet/declinaisons';
+import { SUJETS, TOUS_SUJETS, sujetById, sujetsParDossier } from '@/lib/data/sujets';
 import type {
   QBulles, QCalcul, QCavaliers, QCocher, QOrdonner, QRedige, QRelier, QSchema, QTableau, QValeur,
-  SujetAttemptState, SujetNumerique,
+  ReponseSujet, SujetAttemptState, SujetNumerique, SujetQuestion,
 } from '@/lib/sujet/types';
 
 let n = 0;
@@ -274,6 +276,121 @@ test('corrigerCopie + bilan + évaluation', () => {
   const c2 = corrigerCopie(sujet, { ...st, corrections: { 2: correctionProf(2, 0.5) } });
   assert.equal(c2[2].statut, 'prof');
   assert.equal(calculerBilan(sujet, c2).points, 1.5);
+});
+
+/* ───────────── sujets thématiques (déclinaisons) ───────────── */
+
+/** Réponse parfaite à une question, tirée de ses données de correction. */
+function reponseParfaite(q: SujetQuestion): ReponseSujet {
+  switch (q.type) {
+    case 'cocher': return { type: 'cocher', choix: [...q.bonnes] };
+    case 'relier': return { type: 'relier', liens: [...q.liens] };
+    case 'ordonner': return { type: 'ordonner', rangs: [...q.rangs] };
+    case 'valeur': return {
+      type: 'valeur',
+      valeurs: Object.fromEntries(q.champs.map(c => [c.id, c.acceptes?.[0] ?? String(c.attendu ?? '')])),
+    };
+    case 'calcul': return { type: 'calcul', formule: q.formule, application: '', resultat: String(q.attendu) };
+    case 'tableau': {
+      const cellules: Record<string, string> = {};
+      for (const l of q.lignes) for (const c of l.cellules) {
+        if (typeof c === 'string') continue;
+        const v = c.acceptes?.[0] ?? (c.attendu != null ? String(c.attendu) : 'justification');
+        cellules[c.id] = v;
+      }
+      return { type: 'tableau', cellules };
+    }
+    case 'redige': return { type: 'redige', texte: q.motsCles.join(' ') };
+    case 'bulles': return { type: 'bulles', valeurs: Object.fromEntries(q.bulles.map(x => [x.id, x.attendu])) };
+    case 'cavaliers': return {
+      type: 'cavaliers',
+      valeurs: Object.fromEntries(q.composants.flatMap(c => c.positions.map(p => [`${c.id}.${p.id}`, p.attendu]))),
+    };
+    case 'schema': {
+      const reseauDe = (b: string) => q.traits.reseaux?.find(r => r.bornes.includes(b));
+      const traits = q.traits.attendues.map(l => ({
+        a: l.a, b: l.b, couleur: l.couleur ?? reseauDe(l.a)?.couleur ?? q.traits.couleurs[0].id,
+      }));
+      const n = q.traits.attendues.length;
+      return { type: 'schema', traits, platine: { conformes: n, total: n, sousTension: true, essai: true } };
+    }
+  }
+}
+
+const copieParfaite = (s: SujetNumerique): SujetAttemptState => ({
+  kind: 'sujet', sujetId: s.id, mode: 'examen', courante: s.questions[0].num, marquees: [], debut: null,
+  secondesEcoulees: 0, remise: false, remiseAt: null, annotations: {}, corrections: {},
+  reponses: Object.fromEntries(s.questions.map(q => [q.num, reponseParfaite(q)])),
+});
+
+test('sujets thématiques : dérivation sans copie ni renumérotation', () => {
+  const base = sujetById('eip')!;
+  assert.ok(base && !base.parent && SUJETS.includes(base));
+  const derives = sujetsDerives(base);
+  assert.deepEqual(derives.map(d => d.id), ['eip-habilitations', 'eip-eclairage', 'eip-myhome', 'eip-vigik']);
+  assert.equal(TOUS_SUJETS.length, 5);
+  for (const d of derives) {
+    assert.equal(sujetById(d.id)?.id, d.id);
+    assert.equal(d.parent, 'eip');
+    assert.equal(d.declinaisons, undefined);
+    // mêmes objets question que le sujet complet (aucune copie), numéros du papier conservés
+    for (const q of d.questions) assert.equal(base.questions.find(x => x.num === q.num), q);
+    // chaque page DTR citée par une question est dans le DTR du thème ; chaque page du sujet aussi
+    for (const q of d.questions) {
+      for (const p of q.dtr) assert.ok(d.dtr.some(x => x.num === p), `${d.id} Q${q.num} DTR ${p}`);
+      assert.ok(d.pagesSujet.some(x => x.num === q.pageSujet), `${d.id} Q${q.num} page ${q.pageSujet}`);
+    }
+    assert.ok(d.consignes[0].startsWith('Durée'));
+    assert.ok(d.titre.startsWith('EIP · '));
+  }
+  // les questions des thèmes couvrent exactement le sujet complet, sans doublon
+  const nums = derives.flatMap(d => d.questions.map(q => q.num)).sort((a, b) => a - b);
+  assert.deepEqual(nums, base.questions.map(q => q.num));
+  const ecl = sujetById('eip-eclairage')!;
+  assert.equal(ecl.questions[0].num, 14);
+  assert.equal(ecl.questions[ecl.questions.length - 1].num, 38);
+  assert.equal(ecl.questions.length, 25);
+  assert.deepEqual(ecl.dtr.map(p => p.num), [7, 8, 9, 10, 11]);
+  assert.equal(ecl.dureeMin, 95);
+  assert.deepEqual(ecl.themes, ['eclairage']);
+  assert.deepEqual(sujetsParDossier().map(g => [g.base.id, g.derives.length]), [['eip', 4]]);
+  // dérivation directe (déclinaison sur deux parties) : DTR = union, numéros conservés
+  const deux = sujetDerive(base, { id: 'x', theme: 'domotique', titre: 'X', parties: [3, 4], dureeMin: 145 });
+  assert.equal(deux.questions[0].num, 39);
+  assert.equal(deux.questions.length, 34);
+});
+
+test('sujets thématiques : barème, copie parfaite = 20/20, bilan limité au thème', () => {
+  const attendus: Record<string, number> = { eip: 98, 'eip-habilitations': 20, 'eip-eclairage': 31, 'eip-myhome': 28, 'eip-vigik': 19 };
+  for (const s of TOUS_SUJETS) {
+    const total = s.questions.reduce((a, q) => a + q.points, 0);
+    assert.equal(total, attendus[s.id], `${s.id} : ${total} points`);
+    const st = copieParfaite(s);
+    const c = corrigerCopie(s, st);
+    for (const q of s.questions) assert.equal(c[q.num].score, 1, `${s.id} Q${q.num} : ${c[q.num].detail}`);
+    const b = calculerBilan(s, c);
+    assert.equal(b.total, attendus[s.id]);
+    assert.equal(b.note20, 20, `${s.id} : ${b.note20}/20`);
+    assert.equal(scoreStocke(b), 100);
+    assert.deepEqual(b.parties.map(p => p.num), s.parties.map(p => p.num));
+    // compétences du bilan = compétences des seules questions du thème
+    const comps = new Set(s.questions.map(q => q.competence));
+    assert.deepEqual(new Set(b.competences.map(k => k.code)), comps);
+    assert.deepEqual(new Set(evaluationSujet(s, b).map(e => e.code)), comps);
+  }
+  // T1 et T2 n'évaluent pas C6 (domotique, accès) ; le sujet complet, si
+  for (const id of ['eip-habilitations', 'eip-eclairage']) {
+    const s = sujetById(id)!;
+    assert.ok(!calculerBilan(s, corrigerCopie(s, copieParfaite(s))).competences.some(k => k.code === 'C6'), id);
+  }
+  // copie à moitié : note /20 recalculée sur le barème du thème (31 pts)
+  const ecl = sujetById('eip-eclairage')!;
+  const moitie = copieParfaite(ecl);
+  for (const q of ecl.questions.filter(q => q.num >= 27)) delete moitie.reponses[q.num];
+  const bm = calculerBilan(ecl, corrigerCopie(ecl, moitie));
+  const pts = ecl.questions.filter(q => q.num < 27).reduce((a, q) => a + q.points, 0);
+  proche(bm.note20, Math.round((pts / 31) * 20 * 100) / 100);
+  assert.equal(bm.sansReponse.length, ecl.questions.filter(q => q.num >= 27).length);
 });
 
 /* ───────────── calculatrice ───────────── */
