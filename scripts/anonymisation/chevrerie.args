@@ -1,0 +1,67 @@
+# Sujet « chevrerie » : pages anonymisées servies dans public/tp/chevrerie/.
+# Usage (depuis la racine) : python3 scripts/anonymisation/anonymiser-pages.py <sujet.pdf> @scripts/anonymisation/chevrerie.args
+# PDF : 123 pages = sujet (p.1-46) + dossier technique et ressources (p.47-123 = pages DTR 1-77 ;
+# les documents DTR 1 à 48 s'étalent sur plusieurs pages : voir `doc` dans src/lib/data/sujets/chevrerie/).
+# Noms = numéro de PAGE du dossier ; pages de garde et sommaires (sujet-01, dtr-01..03) non produites.
+--sortie
+public/tp/chevrerie
+--qualite
+78
+--plage
+sujet:1-46:110
+--exclure
+sujet-01,dtr-01,dtr-02,dtr-03
+# DTR : 150 dpi (notices, tableaux et schémas denses)
+--plage
+dtr:47-123:150:1
+# Entreprise d'électricité citée en F.5 (p.39-40) → nom neutre
+--remplacer
+569a0ccecd72cd52:DURAND
+# p.4 : paragraphe de localisation réécrit
+--masque
+sujet-04:0.06,0.125,0.94,0.183
+--texte
+sujet-04:0.0716,0.1302,0.93,0.1434@11.5:L’exploitation est une chèvrerie installée dans une commune de moyenne montagne. Elle
+--texte
+sujet-04:0.0716,0.1452,0.93,0.1611@11.5:transforme son lait sur place et accueille le public.
+# p.5 : vue aérienne remplacée par le plan de masse redessiné
+--image
+sujet-05:0.03,0.185,0.97,0.605:public/tp/chevrerie/plan-site.jpg
+# p.36 : mise en situation — nom de l'exploitation retiré
+--masque
+sujet-36:0.06,0.1578,0.94,0.1742
+--texte
+sujet-36:0.0716,0.1580,0.93,0.1739@11.5:la chèvrerie envisage l’installation d’un chauffe-eau thermodynamique. Pour être
+# DTR 38-39 (pages 66-67 du dossier) : en-têtes des devis (images) — entreprise, client et adresse neutres
+--masque
+dtr-66:0.195,0.152,0.46,0.200
+--texte
+dtr-66:0.203,0.155,0.46,0.168@g,8:DURAND
+--texte
+dtr-66:0.203,0.170,0.46,0.183@8:Zone artisanale
+--texte
+dtr-66:0.203,0.185,0.46,0.198@8:contact@durand-elec.example
+--masque
+dtr-66:0.62,0.152,0.90,0.200
+--texte
+dtr-66:0.632,0.155,0.90,0.168@g,8:LA CHÈVRERIE
+--texte
+dtr-66:0.632,0.170,0.90,0.183@8:Chemin de la ferme
+--texte
+dtr-66:0.632,0.185,0.90,0.198@8:Commune de moyenne montagne
+--masque
+dtr-67:0.04,0.148,0.44,0.210
+--texte
+dtr-67:0.11,0.155,0.44,0.168@g,8:DURAND
+--texte
+dtr-67:0.11,0.170,0.44,0.183@8:Zone artisanale
+--texte
+dtr-67:0.11,0.185,0.44,0.198@8:contact@durand-elec.example
+--masque
+dtr-67:0.50,0.148,0.86,0.210
+--texte
+dtr-67:0.555,0.155,0.86,0.168@g,8:LA CHÈVRERIE
+--texte
+dtr-67:0.555,0.170,0.86,0.183@8:Chemin de la ferme
+--texte
+dtr-67:0.555,0.185,0.86,0.198@8:Commune de moyenne montagne

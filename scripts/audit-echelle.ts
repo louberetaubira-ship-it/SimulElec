@@ -32,6 +32,7 @@ const TOLERANCE = 0.04;
  */
 const EXCEPTIONS: Record<string, string> = {
   // (vide) — tout appareil hors échelle doit apparaître ici AVEC sa raison.
+  eolienne: 'organe de terrain (rotor Ø 3,5 m, mât 12 m) : à l’échelle il ferait 5 m de platine ; dessiné en pictogramme dans la colonne annexe', // chevrerie-e222
 };
 
 let ko = 0;

@@ -57,12 +57,15 @@ const PUBLIC = join(RACINE, 'public');
 const PLATINES: Record<string, string[]> = {
   eip: ['eip-q13-cumulus', 'eip-q58-myhome', 'eip-q67-vigik'],
   scierie: ['scierie-d31-atv340', 'scierie-e343-dc'],
+  chevrerie: ['chevrerie-a4-ssi', 'chevrerie-b4-intrusion', 'chevrerie-e222-eolien', 'chevrerie-g5-portail'],
 };
 /** Nombre de questions attendu par sujet complet. */
-const NB_QUESTIONS: Record<string, number> = { eip: 72, scierie: 76 };
+const NB_QUESTIONS: Record<string, number> = { eip: 72, scierie: 76, chevrerie: 125 };
 /** Barème attendu par sujet (complet et thématiques), quand il est arrêté. */
 const POINTS: Record<string, number> = {
   eip: 98, 'eip-habilitations': 20, 'eip-eclairage': 31, 'eip-myhome': 28, 'eip-vigik': 19,
+  chevrerie: 304, 'chevrerie-incendie': 24, 'chevrerie-intrusion': 51.5, 'chevrerie-alimentation': 51, 'chevrerie-parafoudre': 24,
+  'chevrerie-eolienne': 60, 'chevrerie-ecs': 41, 'chevrerie-portail': 52.5,
 };
 /** Sources servies au navigateur pour un sujet numérique (fichiers ou dossiers, depuis la racine) ; s'y ajoutent les TP platine. */
 const SOURCES = ['src/lib/data/sujets', 'src/components/sujet', 'src/lib/sujet', 'src/app/sujet', 'src/app/prof/sujet'];

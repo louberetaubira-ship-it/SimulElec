@@ -601,8 +601,8 @@ void (async () => {
   const ancienDemo = process.env.NEXT_PUBLIC_DEMO_MODE;
   process.env.NEXT_PUBLIC_DEMO_MODE = '1';
 
-  await cas('sujetPublic : aucune clé de corrigé (récursif, 11 sujets)', () => {
-    assert.equal(TOUS_SUJETS.length, 11);
+  await cas('sujetPublic : aucune clé de corrigé (récursif, 19 sujets)', () => {
+    assert.equal(TOUS_SUJETS.length, 19);
     for (const s of TOUS_SUJETS) {
       const p = sujetPublic(s);
       assert.deepEqual(clesCorrigePresentes(p), [], s.id);
