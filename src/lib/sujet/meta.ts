@@ -105,6 +105,70 @@ export const META_SUJETS: SujetMeta[] = [
     dureeMin: 70,
     questions: 18,
     points: 31
+  },
+  {
+    id: 'chevrerie',
+    titre: 'Chèvrerie — diversification d’une exploitation agricole',
+    parent: null,
+    dureeMin: 300,
+    questions: 125,
+    points: 304
+  },
+  {
+    id: 'chevrerie-incendie',
+    titre: 'Chèvrerie · Sécurité incendie (SSI type 4)',
+    parent: 'chevrerie',
+    dureeMin: 25,
+    questions: 17,
+    points: 24
+  },
+  {
+    id: 'chevrerie-intrusion',
+    titre: 'Chèvrerie · Alarme intrusion',
+    parent: 'chevrerie',
+    dureeMin: 50,
+    questions: 15,
+    points: 51.5
+  },
+  {
+    id: 'chevrerie-alimentation',
+    titre: 'Chèvrerie · Alimentation du hangar',
+    parent: 'chevrerie',
+    dureeMin: 50,
+    questions: 20,
+    points: 51
+  },
+  {
+    id: 'chevrerie-parafoudre',
+    titre: 'Chèvrerie · Choix du parafoudre',
+    parent: 'chevrerie',
+    dureeMin: 25,
+    questions: 7,
+    points: 24
+  },
+  {
+    id: 'chevrerie-eolienne',
+    titre: 'Chèvrerie · Installation d’une éolienne',
+    parent: 'chevrerie',
+    dureeMin: 60,
+    questions: 34,
+    points: 60
+  },
+  {
+    id: 'chevrerie-ecs',
+    titre: 'Chèvrerie · Eau chaude sanitaire & préparation des travaux',
+    parent: 'chevrerie',
+    dureeMin: 40,
+    questions: 14,
+    points: 41
+  },
+  {
+    id: 'chevrerie-portail',
+    titre: 'Chèvrerie · Le portail',
+    parent: 'chevrerie',
+    dureeMin: 50,
+    questions: 18,
+    points: 52.5
   }
 ];
 

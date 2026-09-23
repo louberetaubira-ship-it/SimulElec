@@ -1040,6 +1040,935 @@ export function svgForKey(key: string, running = false): React.ReactNode | null 
     case 'lc1d50': return <Lc1D50Svg />;
     case 'lrd3357': return <Lrd3357Svg />;
     case 'cad32': return <Cad32Svg />;
+    case 't4planete': return <TableauT4Svg />; // chevrerie-a4-ssi
+    case 'dmmds3000': return <DmS3000Svg />; // chevrerie-a4-ssi
+    case 'dmbges3000': return <DmS3000Svg etanche />; // chevrerie-a4-ssi
+    case 'diffsonore': return <DiffuseurSonoreSvg />; // chevrerie-a4-ssi
+    case 'rfl39k': return <ResistanceFdlSvg />; // chevrerie-a4-ssi
+    case 'ion20eu': return <CentraleIon20Svg />; // chevrerie-b4
+    case 'ikp01': return <ClavierIkp01Svg />; // chevrerie-b4
+    case 'simax': return <SireneSimaxSvg />; // chevrerie-b4
+    case 'sca00001': return <BatterieCentraleSvg raccordee={running} />; // chevrerie-b4
+    case 'xcelwpt': return <DetecteurIrSvg />; // chevrerie-b4
+    case 'fr400': return <ContactMagSvg />; // chevrerie-b4
+    case 'reol4k7': return <ResistanceEolSvg bandes={['#F2C200', '#7B3FA0', '#D12B2B']} />; // chevrerie-b4
+    case 'reol2k2': return <ResistanceEolSvg bandes={['#D12B2B', '#D12B2B', '#D12B2B']} />; // chevrerie-b4
+    case 'eolienne': return <EolienneSvg />; // chevrerie-e222
+    case 'wbpbox': return <WbpBoxSvg />; // chevrerie-e222
+    case 'windyboy': return <WindyBoySvg />; // chevrerie-e222
+    case 'bw155': return <Bw155Svg />; // chevrerie-e222
+    case 'isw4p': return <Isw4pSvg on={running} />; // chevrerie-e222
+    case 'dx3diff32f': return <Dx3Diff32FSvg on={running} />; // chevrerie-e222
+    case 'repart4p': return <Repart4pSvg />; // chevrerie-e222
+    case 'pfac3pn': return <PfAc3pnSvg />; // chevrerie-e222
+    case 'barrterre': return <BarrTerreSvg />; // chevrerie-e222
+    case 'akiapu2m': return <AkiaPu2mSvg />; // chevrerie-g5
+    case 'gsm800': return <Gsm800Svg />; // chevrerie-g5
+    case 'celrx': return <CelluleEmaSvg recepteur />; // chevrerie-g5
+    case 'celtx': return <CelluleEmaSvg recepteur={false} />; // chevrerie-g5
+    case 'febolight': return <FeboLightSvg />; // chevrerie-g5
+    case 'motstar24': return <MotStar24Svg />; // chevrerie-g5
     default: return null;
   }
 }
+
+/* ═══ chevrerie-g5 : début ═══ */
+
+/**
+ * Carte de gestion AKIA PU2M du boîtier STAR 24 (DTR 45, « schéma de la carte ») : circuit
+ * vert, potentiomètres, boutons BP1 / BP2, voyants L1 à L6, relais ; barrette verte 1 à 19 en
+ * bas, borniers moteur 1 (20 −, 21 +) et moteur 2 (22 −, 23 +) à droite ; arrivée secteur du
+ * boîtier (L, N) en haut à gauche. Positions des bornes : voir `akiapu2m` au catalogue.
+ */
+export function AkiaPu2mSvg() {
+  const pas = 12.6;
+  const bx = (i: number) => 14 + i * pas;
+  return (
+    <svg viewBox="0 0 340 176" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="338" height="174" rx="4" fill="#2F7D3B" stroke="#1D5227" />
+      {/* arrivée secteur du boîtier */}
+      <rect x="8" y="4" width="28" height="12" rx="1.5" fill="#D5D9DE" stroke="#6E7780" />
+      <circle cx="16" cy="14" r="2.6" fill="#8E969E" /><circle cx="30" cy="14" r="2.6" fill="#8E969E" />
+      <text x="16" y="24" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#E8F5EA">L</text>
+      <text x="30" y="24" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#E8F5EA">N</text>
+      <text x="42" y="12" fontFamily={MONO} fontSize="5.5" fill="#E8F5EA">230 V~ · transfo. et batteries</text>
+      {/* potentiomètres, boutons de programmation */}
+      {[46, 70].map((y, i) => (
+        <g key={y}>
+          <circle cx="24" cy={y} r="7" fill="#20262D" /><circle cx="24" cy={y} r="3" fill="#C9CED4" />
+          <text x="35" y={y + 2} fontFamily={MONO} fontSize="6" fill="#E8F5EA">Pot.{i + 1}</text>
+        </g>
+      ))}
+      {[['BP1', 78], ['BP2', 108]].map(([t, x]) => (
+        <g key={t as string}>
+          <rect x={(x as number) - 7} y="36" width="14" height="14" rx="1.5" fill="#B8BEC5" stroke="#5B6573" />
+          <circle cx={x as number} cy="43" r="3.6" fill="#20262D" />
+          <text x={x as number} y="32" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#E8F5EA">{t}</text>
+        </g>
+      ))}
+      {/* voyants L1 à L6 */}
+      {['L1', 'L2', 'L3', 'L4', 'L5', 'L6'].map((t, i) => (
+        <g key={t}>
+          <rect x={60 + i * 16} y="68" width="6" height="9" rx="1" fill={i === 0 ? '#FFD34D' : '#E8ECEF'} stroke="#5B6573" strokeWidth=".6" />
+          <text x={63 + i * 16} y="86" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#E8F5EA">{t}</text>
+        </g>
+      ))}
+      {/* relais de commande et relais des moteurs */}
+      <rect x="160" y="18" width="44" height="30" rx="2" fill="#20262D" />
+      <text x="182" y="36" textAnchor="middle" fontFamily={MONO} fontSize="7" fill="#C9CED4">12 V</text>
+      <rect x="160" y="54" width="20" height="34" rx="2" fill="#2F6FD1" /><rect x="184" y="54" width="20" height="34" rx="2" fill="#2F6FD1" />
+      <rect x="248" y="8" width="40" height="80" rx="3" fill="#C9CED4" opacity=".85" stroke="#5B6573" />
+      <rect x="292" y="8" width="40" height="80" rx="3" fill="#C9CED4" opacity=".85" stroke="#5B6573" />
+      <text x="170" y="112" textAnchor="middle" fontFamily={COND} fontSize="11" fontWeight="700" fill="#E8F5EA">AKIA PU2M</text>
+      {/* borniers moteurs */}
+      {[[262, 276, 'Moteur 1', '20', '21'], [304, 318, 'Moteur 2', '22', '23']].map(([a, b, t, na, nb]) => (
+        <g key={t as string}>
+          <rect x={(a as number) - 7} y="120" width="28" height="22" rx="1.5" fill="#3E9A4B" stroke="#1D5227" />
+          <circle cx={a as number} cy="134" r="3" fill="#8E969E" /><circle cx={b as number} cy="134" r="3" fill="#8E969E" />
+          <text x={a as number} y="116" textAnchor="middle" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#E8F5EA">{na}−</text>
+          <text x={b as number} y="116" textAnchor="middle" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#E8F5EA">{nb}+</text>
+          <text x={((a as number) + (b as number)) / 2} y="152" textAnchor="middle" fontFamily={MONO} fontSize="6" fill="#E8F5EA">{t}</text>
+        </g>
+      ))}
+      {/* barrette verte 1 à 19 */}
+      <rect x="6" y="148" width={pas * 19 + 2} height="20" rx="2" fill="#3E9A4B" stroke="#1D5227" />
+      {Array.from({ length: 19 }, (_, i) => (
+        <g key={i}>
+          <rect x={bx(i) - 4.5} y="152" width="9" height="12" rx="1" fill="#20262D" />
+          <circle cx={bx(i)} cy="158.4" r="2.6" fill="#8E969E" />
+          <text x={bx(i)} y="144" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#FFFFFF">{i + 1}</text>
+        </g>
+      ))}
+      <text x={bx(5)} y="174" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#E8F5EA">commun + 12 V (4, 8)</text>
+      <text x={bx(15)} y="174" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#E8F5EA">0 V (13, 17, 19)</text>
+    </svg>
+  );
+}
+
+/**
+ * Récepteur GSM 2 sorties sur rail DIN (DTR 48) : alimentation L N, Sortie 1 (NC C NA),
+ * Sortie 2 (NA C NC) en haut ; LED GSM, bouton P1, tiroir SIM ; entrées C IN1 IN2 en bas.
+ */
+export function Gsm800Svg() {
+  const haut: [string, number][] = [['L', 0.1], ['N', 0.19], ['NC', 0.42], ['C', 0.51], ['NA', 0.6], ['NA', 0.72], ['C', 0.81], ['NC', 0.9]];
+  const bas: [string, number][] = [['C', 0.12], ['IN1', 0.21], ['IN2', 0.3]];
+  return (
+    <svg viewBox="0 0 104 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="102" height="121" rx="3" fill="#F2F3F4" stroke="#6E7780" />
+      <rect x="1" y="1" width="102" height="24" rx="3" fill="#E2E5E8" />
+      <rect x="1" y="98" width="102" height="24" rx="3" fill="#E2E5E8" />
+      {haut.map(([t, fx], i) => (
+        <g key={i}>
+          <rect x={fx * 104 - 4.5} y="3" width="9" height="11" rx="1" fill="#C9CED4" stroke="#6E7780" strokeWidth=".6" />
+          <circle cx={fx * 104} cy="8.6" r="2.6" fill="#8E969E" />
+          <text x={fx * 104} y="20" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fontWeight="700" fill="#3A4047">{t}</text>
+        </g>
+      ))}
+      <text x={0.51 * 104} y="30" textAnchor="middle" fontFamily={SANS} fontSize="5.5" fontWeight="700" fill="#3A4047">Sortie 1</text>
+      <text x={0.81 * 104} y="30" textAnchor="middle" fontFamily={SANS} fontSize="5.5" fontWeight="700" fill="#3A4047">Sortie 2</text>
+      <text x={0.145 * 104} y="30" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fill="#66717F">230 V~</text>
+      <rect x="10" y="36" width="84" height="56" rx="2" fill="#FFFFFF" stroke="#8E969E" />
+      <circle cx="20" cy="46" r="3" fill="#D93A3A" /><text x="26" y="48" fontFamily={MONO} fontSize="4.6" fill="#66717F">GSM</text>
+      <circle cx="58" cy="46" r="4" fill="#DDE1E5" stroke="#6E7780" /><text x="66" y="48" fontFamily={MONO} fontSize="4.6" fill="#66717F">P1</text>
+      <path d="M38 58 H70 V84 H44 L38 78 Z" fill="#F7F8F9" stroke="#6E7780" strokeWidth=".8" />
+      <text x="54" y="74" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#66717F">SIM</text>
+      <text x="52" y="96" textAnchor="middle" fontFamily={COND} fontSize="7" fontWeight="700" fill="#3A4047">GSM800</text>
+      {bas.map(([t, fx]) => (
+        <g key={t}>
+          <rect x={fx * 104 - 4.5} y="109" width="9" height="11" rx="1" fill="#C9CED4" stroke="#6E7780" strokeWidth=".6" />
+          <circle cx={fx * 104} cy="114.4" r="2.6" fill="#8E969E" />
+          <text x={fx * 104} y="106" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fontWeight="700" fill="#3A4047">{t}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Cellule infrarouge EMA-15L (DTR 46), capot retiré : boîtier ovale noir, carte rouge,
+ * lentille. Récepteur R : bornier − + COM OUT ; émetteur T : bornes 1 (−) et 2 (+).
+ */
+export function CelluleEmaSvg({ recepteur }: { recepteur: boolean }) {
+  const bornes: [string, number][] = recepteur
+    ? [['−', 0.25], ['+', 0.42], ['COM', 0.59], ['OUT', 0.76]]
+    : [['1 −', 0.42], ['2 +', 0.58]];
+  const x0 = bornes[0][1] * 71 - 6;
+  const x1 = bornes[bornes.length - 1][1] * 71 + 6;
+  return (
+    <svg viewBox="0 0 71 110" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <ellipse cx="35.5" cy="55" rx="34" ry="53" fill="#15181C" />
+      <ellipse cx="35.5" cy="55" rx="28" ry="46" fill="#2B2F36" />
+      <circle cx="35.5" cy="8" r="3" fill="#0B0D10" /><circle cx="35.5" cy="102" r="4" fill="#0B0D10" />
+      <rect x="11" y="18" width="49" height="72" rx="8" fill="#C8322B" stroke="#7E1A15" />
+      <circle cx="35.5" cy="44" r="12" fill="#101216" /><circle cx="31" cy="40" r="3" fill="#4A515A" />
+      {recepteur && <rect x="48" y="30" width="9" height="14" rx="1" fill="#20262D" />}
+      <text x="16" y="28" fontFamily={COND} fontSize="8" fontWeight="700" fill="#FFE3E0">{recepteur ? 'R' : 'T'}</text>
+      <rect x={x0} y="75" width={x1 - x0} height="13" rx="1.5" fill="#2F6FD1" stroke="#1B3F7A" />
+      {bornes.map(([t, fx]) => (
+        <g key={t}>
+          <circle cx={fx * 71} cy="81.4" r="3" fill="#C9CED4" stroke="#5B6573" strokeWidth=".6" />
+          <text x={fx * 71} y="95" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fontWeight="700" fill="#FFFFFF">{t}</text>
+        </g>
+      ))}
+      <text x="35.5" y="67" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fill="#FFE3E0">12-24 V AC/DC</text>
+    </svg>
+  );
+}
+
+/**
+ * Lampe flash FEBO-LIGHT (DTR 47) vue sur sa face étroite, capot ouvert : dôme, embase noire,
+ * carte d'alimentation avec les bornes 1-2 (230 V~) et 3-4-5 (12 / 24 V) et le cavalier JP1.
+ */
+export function FeboLightSvg() {
+  const bornes: [string, number][] = [['1', 0.17], ['2', 0.29], ['3', 0.5], ['4', 0.63], ['5', 0.76]];
+  return (
+    <svg viewBox="0 0 112 247" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <path d="M14 112 Q10 8 56 4 Q102 8 98 112 Z" fill="#FFD9A0" stroke="#B36B00" strokeWidth="1.2" opacity=".95" />
+      <path d="M26 100 Q24 26 50 16" fill="none" stroke="#FFF3DD" strokeWidth="3" strokeLinecap="round" />
+      <rect x="44" y="30" width="24" height="76" rx="3" fill="#E6E9EC" stroke="#8E969E" />
+      {Array.from({ length: 6 }, (_, i) => <circle key={i} cx="56" cy={38 + i * 12} r="3" fill="#FFFFFF" stroke="#B8BEC5" />)}
+      <rect x="4" y="110" width="104" height="133" rx="6" fill="#20262D" />
+      <rect x="10" y="150" width="92" height="84" rx="3" fill="#C9D6A3" stroke="#6E7A4C" />
+      <rect x="14" y="156" width="30" height="16" rx="2" fill="#F2D675" stroke="#9C8A3A" />
+      <text x="29" y="167" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#5A4F1E">230 V</text>
+      {/* cavalier JP1 : 3 broches, fixe / clignotant */}
+      <g>
+        {[62, 70, 78].map((x) => <circle key={x} cx={x} cy="164" r="1.6" fill="#20262D" />)}
+        <rect x="59" y="160" width="14" height="8" rx="1" fill="none" stroke="#20262D" strokeWidth="1.2" />
+        <text x="70" y="178" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#3A4047">JP1</text>
+      </g>
+      <circle cx="92" cy="170" r="6" fill="#20262D" />
+      {/* borniers : 1-2 (230 V~), 3-4-5 (12 / 24 V) */}
+      <rect x="12" y="206" width="27" height="17" rx="1.5" fill="#3E9A4B" stroke="#1D5227" />
+      <rect x="49" y="206" width="43" height="17" rx="1.5" fill="#3E9A4B" stroke="#1D5227" />
+      {bornes.map(([t, fx]) => (
+        <g key={t}>
+          <circle cx={fx * 112} cy="214.9" r="3.2" fill="#C9CED4" stroke="#5B6573" strokeWidth=".6" />
+          <text x={fx * 112} y="202" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#20262D">{t}</text>
+        </g>
+      ))}
+      <text x="56" y="232" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fill="#3A4047">3-4 : 12 V · 3-5 : 24 V</text>
+      <text x="56" y="128" textAnchor="middle" fontFamily={COND} fontSize="9" fontWeight="700" fill="#C9CED4">FEBO-LIGHT</text>
+      <text x="56" y="140" textAnchor="middle" fontFamily={MONO} fontSize="4.8" fill="#8E969E">12 / 24 V AC/DC · 230 V~</text>
+    </svg>
+  );
+}
+
+/**
+ * Motoréducteur 24 V⎓ à roue du kit STAR 24 : moteur, réducteur et roue d'entraînement ;
+ * les deux fils de puissance, rouge et bleu, sortent à gauche.
+ */
+export function MotStar24Svg() {
+  return (
+    <svg viewBox="0 0 110 100" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <path d="M7 20 H30" stroke="#D93A3A" strokeWidth="2.4" /><path d="M7 32 H30" stroke="#2C7BE5" strokeWidth="2.4" />
+      <circle cx="7" cy="20" r="2.4" fill="#D93A3A" /><circle cx="7" cy="32" r="2.4" fill="#2C7BE5" />
+      <text x="12" y="16" fontFamily={MONO} fontSize="5" fill="#3A4047">rouge</text>
+      <text x="12" y="41" fontFamily={MONO} fontSize="5" fill="#3A4047">bleu</text>
+      <rect x="28" y="10" width="10" height="56" rx="1" fill="#8E969E" stroke="#5B6573" />
+      <rect x="38" y="16" width="30" height="40" rx="3" fill="#B8BEC5" stroke="#5B6573" />
+      <rect x="66" y="8" width="38" height="24" rx="8" fill="#C9CED4" stroke="#5B6573" />
+      <rect x="100" y="14" width="6" height="12" rx="1" fill="#5B6573" />
+      <circle cx="56" cy="72" r="25" fill="#5B6168" stroke="#2B2F36" strokeWidth="2" />
+      <circle cx="56" cy="72" r="15" fill="#8E969E" /><circle cx="56" cy="72" r="4" fill="#2B2F36" />
+      <text x="84" y="50" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#3A4047">24 V⎓</text>
+    </svg>
+  );
+}
+
+/* ═══ chevrerie-g5 : fin ═══ */
+
+/* ═══ chevrerie-e222 : début ═══ */
+/*
+ * Installation éolienne raccordée au réseau (sujet « Chèvrerie », E.2.2.2) : dessins d'après
+ * les notices du DTR (28 à 32). Chaque viewBox a la taille du sprite en unités de platine, pour
+ * que les bornes dessinées tombent sur les fractions déclarées au catalogue.
+ */
+
+/** Vis de borne (tête fendue), centrée en (x, y). */
+function VisE222({ x, y, r = 4.5 }: { x: number; y: number; r?: number }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r={r} fill="#B8BEC5" stroke="#4E555C" strokeWidth="0.8" />
+      <path d={`M${x - r * 0.65} ${y + r * 0.65}L${x + r * 0.65} ${y - r * 0.65}`} stroke="#4E555C" strokeWidth="1" />
+    </g>
+  );
+}
+
+/**
+ * Petite éolienne ANTARIS 3,5 kW (DTR 28), 104 × 200 : mât, nacelle, rotor tripale, et au
+ * pied l'interrupteur de freinage (court-circuit) d'où sortent les trois conducteurs
+ * L1 L2 L3 (bornes au bord droit, 62 / 72 / 82 % de la hauteur). Hors échelle, assumé.
+ */
+export function EolienneSvg() {
+  const gid = React.useId();
+  const bornes = [124, 144, 164];
+  return (
+    <svg viewBox="0 0 104 200" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#9AA3AC" /><stop offset=".5" stopColor="#E3E7EB" /><stop offset="1" stopColor="#9AA3AC" />
+        </linearGradient>
+      </defs>
+      {/* mât (12 m) */}
+      <path d="M33 58 L37 58 L39 196 L31 196 Z" fill={`url(#${gid})`} stroke="#6E7780" strokeWidth=".6" />
+      <rect x="22" y="194" width="26" height="5" rx="1" fill="#8E969E" />
+      {/* nacelle + dérive */}
+      <path d="M26 50 h22 l4 5 l-4 5 h-22 z" fill="#E9ECEF" stroke="#5E656D" strokeWidth=".8" />
+      <path d="M48 55 L66 46 L68 50 L52 57 Z" fill="#D5DAE0" stroke="#5E656D" strokeWidth=".6" />
+      {/* rotor tripale (Ø 3,5 m) */}
+      <g fill="#F6F7F8" stroke="#5E656D" strokeWidth=".8">
+        <path d="M26 55 C 24 36, 22 18, 21 6 C 25 18, 29 38, 28 55 Z" />
+        <path d="M26 55 C 12 62, 4 70, 2 76 C 8 72, 18 66, 28 58 Z" />
+        <path d="M26 55 C 36 64, 46 74, 50 80 C 44 76, 32 66, 25 58 Z" />
+      </g>
+      <g fill="#D93A3A"><path d="M21 6 l1 7 l2 -1 z" /><path d="M2 76 l6 -3 l-1 2 z" /><path d="M50 80 l-5 -4 l2 -1 z" /></g>
+      <circle cx="26" cy="56" r="3.5" fill="#C9CED4" stroke="#4E555C" />
+      {/* conducteurs vers l'interrupteur de freinage */}
+      <g stroke="#2C7BE5" strokeWidth="2" fill="none">
+        {bornes.map((y, i) => <path key={y} d={`M${37 + i * 0.6} ${y - 6} C 44 ${y - 6}, 48 ${y}, 56 ${y}`} />)}
+      </g>
+      <rect x="56" y="112" width="46" height="64" rx="3" fill="#EEF0F2" stroke="#5E656D" />
+      <text x="79" y="109" textAnchor="middle" fontFamily={SANS} fontSize="5.2" fontWeight="700" fill="#3A4047">FREIN</text>
+      {bornes.map((y) => (
+        <g key={y}>
+          <circle cx="62" cy={y} r="2" fill="#3A4047" />
+          <path d={`M62 ${y} L74 ${y - 5}`} stroke="#3A4047" strokeWidth="1.4" />
+          <circle cx="78" cy={y} r="2" fill="#3A4047" />
+          <path d={`M78 ${y}H100`} stroke="#3A4047" strokeWidth="1.2" />
+        </g>
+      ))}
+      <g fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#141A21">
+        {['L1', 'L2', 'L3'].map((t, i) => <text key={t} x="86" y={bornes[i] - 2.5}>{t}</text>)}
+      </g>
+      <text x="4" y="104" fontFamily={COND} fontSize="8" fontWeight="700" fill="#3A4047">ANTARIS</text>
+      <text x="4" y="112" fontFamily={MONO} fontSize="5.5" fill="#66717F">3,5 kW · 350 V~</text>
+    </svg>
+  );
+}
+
+/**
+ * Windy Boy Protection Box 600-11 (DTR 29, vue intérieure), 350 × 150 : couvercle du
+ * redresseur et de la protection contre les surtensions en haut, rangée de bornes A à E en
+ * bas (bornes à 86 % de la hauteur) : L1 L2 L3 « Alternator », DC+, DC−, LR+ LR−, PE.
+ */
+export function WbpBoxSvg() {
+  const gid = React.useId();
+  const y = 129;
+  const blocs: { x0: number; x1: number; label: string; bornes: number[] }[] = [
+    { x0: 12, x1: 72, label: 'Alternator', bornes: [0.07, 0.12, 0.17] },
+    { x0: 82, x1: 142, label: 'DC+', bornes: [0.27, 0.32, 0.37] },
+    { x0: 152, x1: 212, label: 'DC−', bornes: [0.47, 0.52, 0.57] },
+    { x0: 236, x1: 272, label: 'LR+ LR−', bornes: [0.7, 0.75] },
+    { x0: 285, x1: 340, label: 'PE', bornes: [0.84, 0.89, 0.94] },
+  ];
+  return (
+    <svg viewBox="0 0 350 150" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#D9DDE1" /><stop offset="1" stopColor="#B7BDC4" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="348" height="148" rx="6" fill={`url(#${gid})`} stroke="#5E656D" strokeWidth="1.2" />
+      {/* platine interne et couvercle de l'électronique */}
+      <rect x="8" y="6" width="334" height="92" rx="3" fill="#8E969E" opacity=".35" />
+      <rect x="112" y="12" width="126" height="54" rx="5" fill="#2B2F36" />
+      <text x="175" y="30" textAnchor="middle" fontFamily={SANS} fontSize="8" fontWeight="700" fill="#E8ECEF">Windy Boy Protection Box</text>
+      <text x="175" y="42" textAnchor="middle" fontFamily={MONO} fontSize="6.5" fill="#B9C2CA">WBP-Box 600-11 · redresseur B6</text>
+      <text x="175" y="54" textAnchor="middle" fontFamily={MONO} fontSize="6.5" fill="#FFB84D">limitation à 560 V⎓</text>
+      <g fill="#F4F5F7" stroke="#6E7780" strokeWidth=".6">
+        <rect x="14" y="12" width="40" height="14" rx="1" /><rect x="14" y="30" width="40" height="14" rx="1" />
+        <rect x="296" y="12" width="40" height="14" rx="1" /><rect x="296" y="30" width="40" height="14" rx="1" />
+      </g>
+      <text x="316" y="58" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill="#3A4047">SMA</text>
+      {blocs.map((b) => (
+        <g key={b.label}>
+          <rect x={b.x0} y="100" width={b.x1 - b.x0} height="44" rx="2" fill="#E8EBEE" stroke="#4E555C" strokeWidth=".8" />
+          <text x={(b.x0 + b.x1) / 2} y="112" textAnchor="middle" fontFamily={MONO} fontSize="6" fontWeight="700" fill="#141A21">{b.label}</text>
+          {b.bornes.map((fx) => <VisE222 key={fx} x={fx * 350} y={y} />)}
+        </g>
+      ))}
+      <g fontFamily={COND} fontSize="8" fontWeight="700" fill="#3A4047">
+        <text x="6" y="96">A</text><text x="84" y="96">B</text><text x="154" y="96">C</text><text x="238" y="96">D</text><text x="287" y="96">E</text>
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Onduleur Windy Boy 5000A (DTR 30), zone de raccordement, 110 × 150 : écran texte en haut
+ * (l'afficheur du mode câblage réel s'y pose), connecteurs SUNCLIX + / − et bornes AC N L PE
+ * en bas (90 % de la hauteur).
+ */
+export function WindyBoySvg() {
+  const gid = React.useId();
+  return (
+    <svg viewBox="0 0 110 150" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#4A5058" /><stop offset="1" stopColor="#2B2F36" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="108" height="148" rx="7" fill={`url(#${gid})`} stroke="#15181C" />
+      <rect x="10" y="12" width="90" height="38" rx="3" fill="#C9CED4" />
+      <rect x="13" y="15" width="84" height="32" rx="2" fill="#1B2A22" />
+      <circle cx="100" cy="58" r="2.2" fill="#3DFF7A" /><circle cx="100" cy="65" r="2.2" fill="#555" /><circle cx="100" cy="72" r="2.2" fill="#555" />
+      <text x="8" y="62" fontFamily={SANS} fontSize="7.5" fontWeight="700" fill="#E8ECEF">Windy Boy</text>
+      <text x="8" y="71" fontFamily={MONO} fontSize="6" fill="#B9C2CA">WB 5000A · 5 kW</text>
+      <text x="8" y="80" fontFamily={MONO} fontSize="5" fill="#8E969E">DC 250-600 V · AC 230 V</text>
+      <rect x="4" y="96" width="102" height="50" rx="3" fill="#D9DDE1" stroke="#4E555C" strokeWidth=".6" />
+      <g fontFamily={MONO} fontSize="6" fontWeight="700">
+        <text x="15.4" y="110" textAnchor="middle" fill="#D93A3A">+</text>
+        <text x="33" y="110" textAnchor="middle" fill="#141A21">−</text>
+        <text x="66" y="110" textAnchor="middle" fill="#2C7BE5">N</text>
+        <text x="83.6" y="110" textAnchor="middle" fill="#141A21">L</text>
+        <text x="101.2" y="110" textAnchor="middle" fill="#1E9E63">PE</text>
+      </g>
+      <text x="24" y="146" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fill="#3A4047">SUNCLIX DC</text>
+      <text x="84" y="146" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fill="#3A4047">AC · câble 3G6</text>
+      <rect x="10" y="114" width="11" height="15" rx="2" fill="#D93A3A" stroke="#6B1111" />
+      <rect x="27.5" y="114" width="11" height="15" rx="2" fill="#20262D" stroke="#000" />
+      <rect x="58" y="116" width="50" height="15" rx="1.5" fill="#F4F5F7" stroke="#6E7780" strokeWidth=".6" />
+      <VisE222 x={66} y={135} r={4} /><VisE222 x={83.6} y={135} r={4} /><VisE222 x={101.2} y={135} r={4} />
+    </svg>
+  );
+}
+
+/**
+ * Résistance de charge BW 155 combination (DTR 31), 104 × 96 : trois blocs à ailettes et la
+ * boîte de raccordement ; câble de sortie + / − / PE au bord droit (50, 65, 80 %).
+ */
+export function Bw155Svg() {
+  return (
+    <svg viewBox="0 0 104 96" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      {[0, 1, 2].map((b) => (
+        <g key={b}>
+          <rect x={4 + b * 22} y="6" width="20" height="62" rx="2" fill="#2B2F36" stroke="#15181C" />
+          {Array.from({ length: 5 }, (_, i) => <path key={i} d={`M${7 + b * 22 + i * 3.6} 8v58`} stroke="#6E7780" strokeWidth=".9" />)}
+        </g>
+      ))}
+      <rect x="18" y="70" width="44" height="22" rx="3" fill="#3A4047" stroke="#15181C" />
+      <text x="40" y="80" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#E8ECEF">BW 155</text>
+      <text x="40" y="88" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fill="#B9C2CA">10000 · IP65</text>
+      <g fill="none" strokeWidth="1.6">
+        <path d="M62 76 C 80 76, 84 48, 104 48" stroke="#D93A3A" />
+        <path d="M62 80 C 82 80, 86 62.4, 104 62.4" stroke="#20262D" />
+        <path d="M62 84 C 84 84, 88 76.8, 104 76.8" stroke="#37B34A" strokeDasharray="3 2" />
+      </g>
+      <g fontFamily={MONO} fontSize="5.5" fontWeight="700">
+        <text x="92" y="45" fill="#D93A3A">+</text><text x="92" y="59.5" fill="#141A21">−</text><text x="88" y="74" fill="#1E9E63">PE</text>
+      </g>
+      <text x="70" y="12" fontFamily={SANS} fontSize="5.5" fontWeight="700" fill="#3A4047">≈ 30 Ω</text>
+    </svg>
+  );
+}
+
+/** Face d'un appareil modulaire : fond, bandeaux de bornes, vis aux fractions données. */
+function ModE222({ w, vis, children }: { w: number; vis: number[]; children: React.ReactNode }) {
+  return (
+    <svg viewBox={`0 0 ${w} 123`} style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width={w - 2} height="121" rx="4" fill="#F4F5F7" stroke="#6E7780" />
+      <rect x="1" y="1" width={w - 2} height="16" rx="4" fill="#DCE0E4" />
+      <rect x="1" y="106" width={w - 2} height="16" rx="4" fill="#DCE0E4" />
+      {vis.map((fx) => <VisE222 key={`h${fx}`} x={fx * w} y={7.4} r={4} />)}
+      {vis.map((fx) => <VisE222 key={`b${fx}`} x={fx * w} y={115.6} r={4} />)}
+      {children}
+    </svg>
+  );
+}
+
+/** Interrupteur-sectionneur 4P 40 A (Q3), 104 × 123 : N 1 3 5 / N 2 4 6, manette commune. */
+export function Isw4pSvg({ on = false }: { on?: boolean }) {
+  const vis = [0.14, 0.38, 0.62, 0.86];
+  return (
+    <ModE222 w={104} vis={vis}>
+      <g fontFamily={MONO} fontSize="5.5" fill="#3A4047" textAnchor="middle">
+        {['N', '1', '3', '5'].map((t, i) => <text key={t} x={vis[i] * 104} y="24">{t}</text>)}
+        {['N', '2', '4', '6'].map((t, i) => <text key={`b${t}`} x={vis[i] * 104} y="103">{t}</text>)}
+      </g>
+      <rect x="10" y="44" width="84" height="16" rx="2" fill="#20262D" transform={on ? 'translate(0 -6)' : 'translate(0 10)'} />
+      <text x="52" y="33" textAnchor="middle" fontFamily={SANS} fontSize="6" fontWeight="700" fill={on ? '#1E9E63' : '#D93A3A'}>{on ? 'I · ON' : 'O · OFF'}</text>
+      <text x="52" y="82" textAnchor="middle" fontFamily={SANS} fontSize="6.5" fontWeight="700" fill="#3A4047">iSW 4P 40 A</text>
+      <text x="52" y="91" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#66717F">interrupteur-sectionneur</text>
+    </ModE222>
+  );
+}
+
+/** Disjoncteur différentiel DX³ 1P+N 32 A 30 mA type F (Od), 52 × 123 : N 1 en haut, N 2 en bas. */
+export function Dx3Diff32FSvg({ on = false }: { on?: boolean }) {
+  return (
+    <ModE222 w={52} vis={[0.3, 0.7]}>
+      <g fontFamily={MONO} fontSize="5" fill="#3A4047" textAnchor="middle">
+        <text x="15.6" y="24">N</text><text x="36.4" y="24">1</text><text x="15.6" y="103">N</text><text x="36.4" y="103">2</text>
+      </g>
+      <rect x="18" y="30" width="16" height="30" rx="2" fill="#E8EBEE" stroke="#8E969E" />
+      <rect x="20" y={on ? 32 : 44} width="12" height="14" rx="1.5" fill="#20262D" />
+      <text x="26" y="68" textAnchor="middle" fontFamily={SANS} fontSize="5.5" fontWeight="700" fill="#3A4047">DX³ C32</text>
+      <text x="26" y="76" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#66717F">30 mA · F</text>
+      <rect x="6" y="80" width="40" height="5" fill="#D93A3A" />
+      <rect x="20" y="88" width="12" height="7" rx="1.5" fill="#E39A00" />
+      <text x="26" y="93.5" textAnchor="middle" fontFamily={SANS} fontSize="3.8" fill="#fff">T</text>
+    </ModE222>
+  );
+}
+
+/** Répartiteur tétrapolaire, 116 × 123 : barreaux L1 L2 L3 N (borne à gauche de chaque barreau). */
+export function Repart4pSvg() {
+  const couleurs = ['#8B4A2B', '#2B2F36', '#8E979F', '#2C7BE5'];
+  return (
+    <svg viewBox="0 0 116 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="114" height="121" rx="4" fill="#EEF0F2" stroke="#6E7780" />
+      <text x="58" y="12" textAnchor="middle" fontFamily={SANS} fontSize="6.5" fontWeight="700" fill="#3A4047">Répartiteur 4P</text>
+      {['L1', 'L2', 'L3', 'N'].map((t, i) => {
+        const y = 24.6 * (i + 1);
+        return (
+          <g key={t}>
+            <rect x="6" y={y - 7} width="104" height="14" rx="2" fill="#C9A45C" stroke="#7A5B20" strokeWidth=".7" />
+            {Array.from({ length: 7 }, (_, k) => <circle key={k} cx={30 + k * 11} cy={y} r="3" fill="#8E7336" />)}
+            <VisE222 x={11.6} y={y} r={4.2} />
+            <rect x="100" y={y - 5} width="8" height="10" rx="1" fill={couleurs[i]} />
+            <text x="104" y={y + 2.2} textAnchor="middle" fontFamily={MONO} fontSize="4.4" fontWeight="700" fill="#fff">{t}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Parafoudre AC type 2 3P+N, 174 × 123 : N L1 L2 L3 en haut à gauche, borne de terre en bas à droite. */
+export function PfAc3pnSvg() {
+  const vis = [0.1, 0.2, 0.3, 0.4];
+  return (
+    <svg viewBox="0 0 174 123" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="172" height="121" rx="4" fill="#F4F5F7" stroke="#6E7780" />
+      <rect x="1" y="1" width="86" height="16" rx="4" fill="#DCE0E4" />
+      {vis.map((fx) => <VisE222 key={fx} x={fx * 174} y={7.4} r={4} />)}
+      <g fontFamily={MONO} fontSize="5" fill="#3A4047" textAnchor="middle">
+        {['N', 'L1', 'L2', 'L3'].map((t, i) => <text key={t} x={vis[i] * 174} y="24">{t}</text>)}
+      </g>
+      {/* déconnecteur associé */}
+      <rect x="10" y="32" width="68" height="22" rx="2" fill="#20262D" />
+      <text x="44" y="64" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#66717F">déconnecteur</text>
+      {/* cartouches */}
+      {[0, 1, 2, 3].map((k) => (
+        <g key={k}>
+          <rect x={92 + k * 19} y="10" width="17" height="86" rx="2" fill="#E8EBEE" stroke="#8E969E" />
+          <rect x={96 + k * 19} y="22" width="9" height="6" rx="1" fill="#3DFF7A" />
+        </g>
+      ))}
+      <text x="44" y="80" textAnchor="middle" fontFamily={SANS} fontSize="7" fontWeight="700" fill="#3A4047">Parafoudre T2</text>
+      <text x="44" y="90" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fill="#66717F">3P+N · 40 kA</text>
+      <VisE222 x={160} y={110.7} r={4.2} />
+      <text x="146" y="113" textAnchor="middle" fontFamily={MONO} fontSize="5.5" fontWeight="700" fill="#1E9E63">⏚</text>
+    </svg>
+  );
+}
+
+/** Barrette de terre du tableau, 260 × 36 : borne de raccordement à gauche (8 %, 30 %). */
+export function BarrTerreSvg() {
+  return (
+    <svg viewBox="0 0 260 36" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="4" width="258" height="28" rx="3" fill="#3A4047" />
+      <rect x="6" y="8" width="248" height="20" rx="2" fill="#D9B36A" stroke="#7A5B20" />
+      <VisE222 x={20.8} y={10.8} r={5} />
+      {Array.from({ length: 12 }, (_, i) => <circle key={i} cx={42 + i * 17} cy="18" r="3.6" fill="#9C7A36" stroke="#6B5220" strokeWidth=".6" />)}
+      <text x="246" y="23" textAnchor="middle" fontFamily={MONO} fontSize="9" fontWeight="700" fill="#1E9E63">⏚</text>
+    </svg>
+  );
+}
+/* ═══ chevrerie-e222 : fin ═══ */
+
+/* ═══ chevrerie-b4 : début ═══ */
+/*
+ * Alarme intrusion du sujet Chèvrerie (B.4) : centrale I-ON20EU, clavier I-KP01, sirène
+ * SIMAX, batterie SCA00001, détecteur IR XCELWPT, contact 400-FR, résistances d'équilibrage.
+ * Chaque dessin est à l'échelle de la platine (viewBox = taille du sprite en px) et place ses
+ * vis sur les bornes déclarées au catalogue : il relit leurs positions, il ne les recopie pas.
+ */
+// Import en fin de fichier pour garder ce bloc d'un seul tenant (les imports sont remontés).
+import { CATALOGUE_BY_KEY as CATALOGUE_B4 } from '@/lib/data/catalogue';
+
+/** Bornes d'un appareil du catalogue, en px du dessin. */
+function bornesB4(key: string): { id: string; x: number; y: number }[] {
+  const it = CATALOGUE_B4[key];
+  if (!it) return [];
+  return it.terminals.map(t => ({ id: t.id, x: t.fx * it.w, y: t.fy * it.h }));
+}
+
+/** Vis de borne à cage (tête fendue). */
+function VisB4({ x, y, r = 4 }: { x: number; y: number; r?: number }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r={r} fill="#D5DADF" stroke="#4B535B" strokeWidth=".8" />
+      <path d={`M${x - r * 0.65} ${y + r * 0.65} L${x + r * 0.65} ${y - r * 0.65}`} stroke="#4B535B" strokeWidth=".9" />
+    </g>
+  );
+}
+
+/** Repère vertical d'une borne (texte tourné, lu de bas en haut). */
+function RepVB4({ x, y, t, fill = '#F2F5F7', size = 5.2 }: { x: number; y: number; t: string; fill?: string; size?: number }) {
+  return (
+    <text x={x} y={y} transform={`rotate(-90 ${x} ${y})`} fontSize={size} fontFamily={MONO} fill={fill} dominantBaseline="middle">{t}</text>
+  );
+}
+
+/** Libellé affiché sous une borne (au lieu de l'identifiant interne). */
+const LIB_B4: Record<string, string> = {
+  AUXT1: 'AUX TAMP', AUXT2: 'AUX TAMP', '12VBELL': '12V BELL', '0VB': '0V',
+  '0V1': '0V', '0V2': '0V', '12VAUX1': '12V AUX', '12VAUX2': '12V AUX',
+  COM01: '⊥', COM23: '⊥', COM45: '⊥', COM67: '⊥', COM89: '⊥', '12V': '+12V',
+};
+
+/** Centrale I-ON20EU, coffret ouvert sur son circuit imprimé (DTR 12, figure 16). */
+export function CentraleIon20Svg() {
+  const b = bornesB4('ion20eu');
+  const at = (id: string) => b.find(t => t.id === id) ?? { id, x: 0, y: 0 };
+  const haut = b.filter(t => t.y < 60 && t.x > 150);
+  const rangA = b.filter(t => t.y > 280 && t.y < 320);
+  const rangB = b.filter(t => t.y > 320 && !t.id.startsWith('BAT'));
+  const bloc = (ids: string[], y: number) => {
+    const xs = ids.map(id => at(id).x);
+    return <rect x={Math.min(...xs) - 8} y={y - 10} width={Math.max(...xs) - Math.min(...xs) + 16} height={20} rx="2" fill="#1F2429" />;
+  };
+  return (
+    <svg viewBox="0 0 347 363" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      {/* coffret métallique et circuit imprimé */}
+      <rect x=".5" y=".5" width="346" height="362" rx="4" fill="#DADDE1" stroke="#8A939C" />
+      <rect x="12" y="12" width="323" height="339" rx="2" fill="#2E6A4E" stroke="#1D4734" />
+      <text x="173" y="22" textAnchor="middle" fontSize="7" fontFamily={COND} fill="#CFE8DA" letterSpacing=".08em">i-on20EU · CENTRALE 10 ZONES</text>
+      {/* bornier secteur à fusible (L, N, terre du coffret) et transformateur */}
+      {bloc(['L', 'N', 'PE'], at('L').y)}
+      {['L', 'N', 'PE'].map((t, i) => (
+        <text key={t} x={at(['L', 'N', 'PE'][i]).x} y={at('L').y + 16} textAnchor="middle" fontSize="6" fontFamily={MONO} fill="#F2F5F7">{t}</text>
+      ))}
+      <text x={at('N').x} y={at('L').y - 13} textAnchor="middle" fontSize="5.5" fontFamily={SANS} fill="#F2F5F7">230 V~ · fusible</text>
+      <rect x="86" y="27" width="22" height="9" rx="2" fill="#EEE" stroke="#777" strokeWidth=".6" />
+      <path d="M89 31.5 H105" stroke="#B08A2E" strokeWidth="1.6" />
+      <rect x="22" y="66" width="72" height="58" rx="3" fill="#6E757D" stroke="#454B51" />
+      <rect x="40" y="72" width="36" height="46" rx="2" fill="#B87333" opacity=".85" />
+      <text x="58" y="62" textAnchor="middle" fontSize="5.5" fontFamily={SANS} fill="#F2F5F7">transfo 230 / 16,5 V~</text>
+      {/* entrée 16,5 V~ (liaison d'usine) */}
+      <path d="M44 124 C 44 200, 34 240, 34 290 M52 124 C 52 200, 44 240, 44 290" fill="none" stroke="#1B1B1B" strokeWidth="1.4" />
+      <rect x="26" y="288" width="26" height="18" rx="2" fill="#E9E9E9" stroke="#555" strokeWidth=".6" />
+      <text x="39" y="283" textAnchor="middle" fontSize="5" fontFamily={SANS} fill="#F2F5F7">16,5 V~</text>
+      {/* processeur, voyants HB / LNK, port réseau */}
+      <rect x="120" y="120" width="60" height="44" rx="2" fill="#1A1D21" />
+      <circle cx="198" cy="130" r="3" fill="#3BD16F" /><text x="205" y="132" fontSize="5.5" fontFamily={MONO} fill="#CFE8DA">HB</text>
+      <circle cx="198" cy="142" r="3" fill="#E3A21A" /><text x="205" y="144" fontSize="5.5" fontFamily={MONO} fill="#CFE8DA">LNK</text>
+      <rect x="120" y="196" width="40" height="36" rx="2" fill="#C9CDD2" stroke="#6A7178" />
+      <text x="140" y="240" textAnchor="middle" fontSize="5" fontFamily={SANS} fill="#CFE8DA">RJ45</text>
+      {/* transmetteur enfichable : aucune borne */}
+      <rect x="236" y="116" width="88" height="112" rx="3" fill="#1E5A86" stroke="#123A57" />
+      <rect x="244" y="206" width="72" height="14" rx="1.5" fill="#0F2E45" />
+      <rect x="298" y="124" width="18" height="14" rx="1.5" fill="#D4AF37" />
+      <text x="280" y="160" textAnchor="middle" fontSize="7" fontFamily={COND} fill="#FFF">COM-DATA-4G</text>
+      <text x="280" y="170" textAnchor="middle" fontSize="5" fontFamily={SANS} fill="#D6E6F2">transmetteur enfiché</text>
+      <text x="280" y="178" textAnchor="middle" fontSize="5" fontFamily={SANS} fill="#D6E6F2">IP · 4G (sans borne)</text>
+      {/* bornier sirène / haut-parleur (haut) */}
+      {bloc(haut.map(t => t.id), at('LS-').y)}
+      {haut.map(t => <RepVB4 key={t.id} x={t.x} y={t.y + 40} t={LIB_B4[t.id] ?? t.id} />)}
+      {/* bus, sorties, zones (bas) */}
+      {bloc(['0V', '12V', 'A', 'B'], at('0V').y)}
+      {bloc(['OP1', '0V1', '0V2', '12VAUX1', '12VAUX2'], at('OP1').y)}
+      {bloc(['Z0', 'COM01', 'Z1', 'Z2', 'COM23', 'Z3'], at('Z0').y)}
+      {bloc(['Z4', 'COM45', 'Z5', 'Z6', 'COM67', 'Z7', 'Z8', 'COM89', 'Z9'], at('Z4').y)}
+      {rangA.map(t => <RepVB4 key={t.id} x={t.x} y={t.y - 13} t={LIB_B4[t.id] ?? t.id} />)}
+      {rangB.map(t => (
+        <text key={t.id} x={t.x} y={t.y + 15} textAnchor="middle" fontSize="5.2" fontFamily={MONO} fill="#F2F5F7">{LIB_B4[t.id] ?? t.id}</text>
+      ))}
+      <text x={at('0V').x - 6} y={at('0V').y + 17} fontSize="5" fontFamily={SANS} fill="#CFE8DA">bus RS485</text>
+      <text x={at('Z0').x - 6} y={at('Z0').y + 17} fontSize="5" fontFamily={SANS} fill="#CFE8DA">zones 0 à 3</text>
+      {/* cordons de la batterie */}
+      <path d={`M${at('BAT+').x} ${at('BAT+').y} V360`} stroke="#D12B2B" strokeWidth="2" />
+      <path d={`M${at('BAT-').x} ${at('BAT-').y} V360`} stroke="#1B1B1B" strokeWidth="2" />
+      <text x={at('BAT+').x - 6} y={at('BAT+').y - 8} fontSize="5.2" fontFamily={MONO} fill="#F2F5F7">BAT+ BAT−</text>
+      {b.map(t => <VisB4 key={t.id} x={t.x} y={t.y} />)}
+    </svg>
+  );
+}
+
+/** Clavier I-KP01 : écran LCD, touches, lecteur de badges, bornier en bas à droite. */
+export function ClavierIkp01Svg() {
+  const b = bornesB4('ikp01');
+  const lib: Record<string, string> = { ET1: 'ET', ET2: 'ET' };
+  return (
+    <svg viewBox="0 0 232 174" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x=".5" y=".5" width="231" height="173" rx="12" fill="#F4F5F2" stroke="#A9AFB5" />
+      <rect x="10" y="10" width="146" height="54" rx="4" fill="#DCE0E3" />
+      <rect x="18" y="16" width="130" height="40" rx="2" fill="#9DB38A" stroke="#6F8560" />
+      {[0, 1, 2, 3].map(r => [0, 1, 2].map(c => (
+        <rect key={`${r}-${c}`} x={34 + c * 32} y={72 + r * 18} width="24" height="13" rx="3" fill="#FFF" stroke="#9AA1A8" />
+      )))}
+      {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', '0', 'B'].map((k, i) => (
+        <text key={k} x={46 + (i % 3) * 32} y={81 + Math.floor(i / 3) * 18} textAnchor="middle" fontSize="7" fontFamily={MONO} fill="#333">{k}</text>
+      ))}
+      <circle cx="192" cy="42" r="24" fill="none" stroke="#B8BEC4" strokeDasharray="3 2" />
+      <text x="192" y="44" textAnchor="middle" fontSize="6" fontFamily={SANS} fill="#7A838C">badge</text>
+      {['#3BD16F', '#E3A21A', '#D12B2B', '#2C7BE5'].map((c, i) => <circle key={c} cx={176 + i * 11} cy={84} r="3" fill={c} />)}
+      <text x="192" y="100" textAnchor="middle" fontSize="7" fontFamily={COND} fill="#555">I-KP01</text>
+      <rect x={b[0].x - 9} y={b[0].y - 9} width={b[b.length - 1].x - b[0].x + 18} height="18" rx="2" fill="#23282D" />
+      {b.map(t => (
+        <text key={t.id} x={t.x} y={t.y - 12} textAnchor="middle" fontSize="6" fontFamily={MONO} fill="#333">{lib[t.id] ?? t.id}</text>
+      ))}
+      <text x={(b[2].x + b[3].x) / 2} y={b[0].y - 20} textAnchor="middle" fontSize="5" fontFamily={SANS} fill="#666">RS485</text>
+      {b.map(t => <VisB4 key={t.id} x={t.x} y={t.y} />)}
+    </svg>
+  );
+}
+
+/** Sirène SIMAX, capot déposé : haut-parleur, batterie 2 Ah, bornier (DTR 13). */
+export function SireneSimaxSvg() {
+  const b = bornesB4('simax');
+  const at = (id: string) => b.find(t => t.id === id) ?? { id, x: 0, y: 0 };
+  const lib: Record<string, string> = { '12V': '+12V', I1: '1', I2: '2', AP1: '', AP2: '', 'BAT+': '+', 'BAT-': '−' };
+  const sous = (a: string, z: string, t: string) => (
+    <text x={(at(a).x + at(z).x) / 2} y={at(a).y + 22} textAnchor="middle" fontSize="5" fontFamily={SANS} fill="#20262D">{t}</text>
+  );
+  return (
+    <svg viewBox="0 0 278 264" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x=".5" y=".5" width="277" height="263" rx="6" fill="#E4E7EA" stroke="#8A939C" />
+      <text x="140" y="24" textAnchor="middle" fontSize="10" fontFamily={COND} fill="#20262D" letterSpacing=".1em">SIMAX · SIRÈNE</text>
+      {/* haut-parleur */}
+      <circle cx="196" cy="100" r="56" fill="#C9CED3" stroke="#7A838C" />
+      {[0, 1, 2, 3].map(i => <circle key={i} cx="196" cy="100" r={48 - i * 11} fill="none" stroke="#8E979F" strokeWidth=".8" />)}
+      <rect x="18" y="36" width="16" height="22" rx="2" fill="#1F2429" /><text x="38" y="50" fontSize="5.5" fontFamily={SANS} fill="#333">HP</text>
+      {/* interrupteurs de configuration */}
+      {[0, 1, 2, 3, 4].map(i => <rect key={i} x={70 + i * 9} y="36" width="6" height="12" rx="1" fill="#2B5FB5" />)}
+      {/* batterie interne 12 V 2 Ah, raccordée sur BAT + − */}
+      <rect x="18" y="118" width="112" height="56" rx="3" fill="#2B2F33" />
+      <text x="74" y="144" textAnchor="middle" fontSize="8" fontFamily={COND} fill="#F2F5F7">12 V · 2 Ah</text>
+      <text x="74" y="156" textAnchor="middle" fontSize="5.5" fontFamily={SANS} fill="#C9CED3">batterie interne SCA00002</text>
+      <path d={`M28 174 C 28 196, ${at('BAT+').x} 196, ${at('BAT+').x} ${at('BAT+').y}`} fill="none" stroke="#D12B2B" strokeWidth="2" />
+      <path d={`M118 174 C 118 200, ${at('BAT-').x} 196, ${at('BAT-').x} ${at('BAT-').y}`} fill="none" stroke="#1B1B1B" strokeWidth="2" />
+      {/* autoprotection (vis à l'arrachement, interrupteur à l'ouverture) */}
+      <rect x="236" y="190" width="22" height="30" rx="2" fill="#F7F7F7" stroke="#6A7178" />
+      <text x="247" y="230" textAnchor="middle" fontSize="5" fontFamily={SANS} fill="#333">TAMPER</text>
+      {/* borniers */}
+      <rect x={at('BAT+').x - 9} y={at('BAT+').y - 9} width={at('BAT-').x - at('BAT+').x + 18} height="18" rx="2" fill="#23282D" />
+      <rect x={at('0V').x - 9} y={at('0V').y - 9} width={at('AP2').x - at('0V').x + 18} height="18" rx="2" fill="#23282D" />
+      {b.map(t => (
+        <text key={t.id} x={t.x} y={t.y - 12} textAnchor="middle" fontSize="6" fontFamily={MONO} fill="#20262D">{lib[t.id] ?? t.id}</text>
+      ))}
+      {sous('BAT+', 'BAT-', 'BAT')}
+      {sous('0V', '12V', 'CHARGE')}
+      {sous('I1', 'I2', 'INPUTS')}
+      {sous('O1', 'O2', 'OUTPUTS')}
+      {sous('AP1', 'AP2', 'A.P. TAMPER')}
+      {b.map(t => <VisB4 key={t.id} x={t.x} y={t.y} />)}
+    </svg>
+  );
+}
+
+/** Batterie 12 V 7 Ah de la centrale ; cosses raccordées ou non (organe de la mise sous tension). */
+export function BatterieCentraleSvg({ raccordee = false }: { raccordee?: boolean }) {
+  const b = bornesB4('sca00001');
+  return (
+    <svg viewBox="0 0 219 138" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <rect x=".5" y="8" width="218" height="129.5" rx="4" fill="#2C3136" stroke="#111" />
+      <rect x="10" y="30" width="199" height="40" rx="2" fill="#3C434A" />
+      <text x="109.5" y="56" textAnchor="middle" fontSize="16" fontFamily={COND} fill="#F2F5F7">12 V · 7 Ah</text>
+      <text x="109.5" y="88" textAnchor="middle" fontSize="7" fontFamily={SANS} fill="#C9CED3">batterie plomb étanche · SCA00001</text>
+      <text x="109.5" y="118" textAnchor="middle" fontSize="7" fontFamily={SANS} fill={raccordee ? '#3BD16F' : '#E3A21A'}>
+        {raccordee ? 'cosses raccordées' : 'cosses débranchées'}
+      </text>
+      {b.map(t => (
+        <g key={t.id}>
+          <rect x={t.x - 7} y={t.y - 6} width="14" height="10" rx="1.5" fill={t.id === '+' ? '#D12B2B' : '#1B1B1B'} stroke="#999" strokeWidth=".6" />
+          <text x={t.x} y={t.y + 16} textAnchor="middle" fontSize="9" fontFamily={MONO} fill="#F2F5F7">{t.id === '+' ? '+' : '−'}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Détecteur IR XCELWPT, capot déposé : borniers 12 VDC et ALARM / LED / TAMPER. */
+export function DetecteurIrSvg() {
+  const b = bornesB4('xcelwpt');
+  const at = (id: string) => b.find(t => t.id === id) ?? { id, x: 0, y: 0 };
+  const lib: Record<string, string> = { '-': '−', A1: '', A2: '', T1: '', T2: '', LED: 'L' };
+  return (
+    <svg viewBox="0 0 93 138" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <path d="M4 2 H89 V104 Q89 136 46.5 136 Q4 136 4 104 Z" fill="#F7F8F8" stroke="#A9AFB5" />
+      <rect x={at('+').x - 7} y={at('+').y - 6} width={at('-').x - at('+').x + 14} height="12" rx="1.5" fill="#23282D" />
+      <rect x={at('A1').x - 6} y={at('A1').y - 6} width={at('T2').x - at('A1').x + 12} height="12" rx="1.5" fill="#23282D" />
+      <text x={(at('+').x + at('-').x) / 2} y={at('+').y - 14} textAnchor="middle" fontSize="4.6" fontFamily={MONO} fill="#333">12VDC</text>
+      <text x={(at('A1').x + at('A2').x) / 2} y={at('A1').y - 14} textAnchor="middle" fontSize="4.6" fontFamily={MONO} fill="#333">ALARM</text>
+      <text x={(at('T1').x + at('T2').x) / 2} y={at('T1').y - 14} textAnchor="middle" fontSize="4.6" fontFamily={MONO} fill="#333">TAMPER</text>
+      <text x={(at('A1').x + at('T2').x) / 2} y={at('A1').y - 20} textAnchor="middle" fontSize="4.2" fontFamily={MONO} fill="#666">NC · LED · NC</text>
+      {b.map(t => (lib[t.id] === '' ? null : (
+        <text key={t.id} x={t.x} y={t.y - 8} textAnchor="middle" fontSize="5" fontFamily={MONO} fill="#333">{lib[t.id] ?? t.id}</text>
+      )))}
+      {/* capteur pyroélectrique et lentille */}
+      <rect x="38" y="62" width="17" height="12" rx="2" fill="#6E757D" />
+      <circle cx="46.5" cy="112" r="14" fill="#DDE3E8" stroke="#A9AFB5" />
+      <rect x="70" y="56" width="10" height="14" rx="1.5" fill="#FFF" stroke="#6A7178" />
+      <text x="75" y="78" textAnchor="middle" fontSize="4" fontFamily={SANS} fill="#666">AP</text>
+      <circle cx="18" cy="70" r="2.4" fill="#D12B2B" />
+      {b.map(t => <VisB4 key={t.id} x={t.x} y={t.y} r={3.2} />)}
+    </svg>
+  );
+}
+
+/** Contact magnétique 400-FR posé à plat : AP TAMPER puis ALARME. */
+export function ContactMagSvg() {
+  const b = bornesB4('fr400');
+  const at = (id: string) => b.find(t => t.id === id) ?? { id, x: 0, y: 0 };
+  return (
+    <svg viewBox="0 0 90 34" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x=".5" y=".5" width="89" height="33" rx="3" fill="#F7F8F8" stroke="#A9AFB5" />
+      <circle cx="84" cy="8" r="2.6" fill="#FFF" stroke="#8A939C" />
+      <circle cx="40" cy="8" r="2.6" fill="#FFF" stroke="#8A939C" />
+      <path d="M48 8 H78" stroke="#B8BEC4" strokeWidth="2.4" strokeLinecap="round" />
+      <rect x={at('T1').x - 5.5} y={at('T1').y - 5} width={at('T2').x - at('T1').x + 11} height="10" rx="1.5" fill="#23282D" />
+      <rect x={at('A1').x - 5.5} y={at('A1').y - 5} width={at('A2').x - at('A1').x + 11} height="10" rx="1.5" fill="#23282D" />
+      <text x={(at('T1').x + at('T2').x) / 2} y="16" textAnchor="middle" fontSize="4.2" fontFamily={MONO} fill="#333">AP TAMPER</text>
+      <text x={(at('A1').x + at('A2').x) / 2} y="16" textAnchor="middle" fontSize="4.2" fontFamily={MONO} fill="#333">ALARME</text>
+      {b.map(t => <VisB4 key={t.id} x={t.x} y={t.y} r={3.2} />)}
+    </svg>
+  );
+}
+
+/** Résistance d'équilibrage, pattes dépliées, code couleur (hors échelle, cote à relever). */
+export function ResistanceEolSvg({ bandes }: { bandes: [string, string, string] }) {
+  return (
+    <svg viewBox="0 0 36 12" style={{ width: '100%', height: '100%' }}>
+      <path d="M1 6 H35" stroke="#8E979F" strokeWidth="1.2" />
+      <rect x="9" y="2" width="18" height="8" rx="3" fill="#D8C49A" stroke="#8C7A55" strokeWidth=".6" />
+      {bandes.map((c, i) => <rect key={i} x={12 + i * 3.4} y="2" width="1.9" height="8" fill={c} />)}
+      <rect x="23" y="2" width="1.9" height="8" fill="#C9A227" />
+    </svg>
+  );
+}
+/* ═══ chevrerie-b4 : fin ═══ */
+
+/* ═══ chevrerie-a4-ssi : début ═══ */
+
+/**
+ * Tableau d'alarme incendie Type 4 · 2 boucles (DTR 8), 240 × 160 mm, capot déposé sur le
+ * bornier : grille du signal d'évacuation intégré, voyants sous tension / dérangement / feu,
+ * bouton essai-réarmement. Bornier au pas 0,085 × largeur, rangée haute (Secteur, Entrée
+ * alim. ext.) à 66 %, rangée basse à 90 % — comme au schéma du sujet.
+ */
+export function TableauT4Svg() {
+  const gid = React.useId();
+  const col = (i: number) => 28.8 + i * 20.4;
+  const haut: [number, string][] = [[0, 'P'], [1, 'N'], [6, '+'], [7, '−']];
+  const bas = ['+', '−', 'C', 'O/F', '+', '−', '+', '−', 'C', 'O/F'];
+  const groupes: [number, string][] = [[0.5, 'Diffuseur'], [2.5, 'Aux.'], [4.5, 'Boucle 1'], [6.5, 'Boucle 2'], [8.5, 'Dérang.']];
+  return (
+    <svg viewBox="0 0 240 160" style={{ width: '100%', height: '100%', ...SHADOW3 }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F7F8F9" /><stop offset="1" stopColor="#DADFE4" />
+        </linearGradient>
+      </defs>
+      <rect x="1" y="1" width="238" height="158" rx="5" fill={`url(#${gid})`} stroke="#7E868F" />
+      {/* bandeau et grille du diffuseur intégré */}
+      <rect x="1" y="1" width="238" height="14" rx="5" fill="#C8102E" />
+      <text x="8" y="11" fontFamily={COND} fontSize="8.5" fontWeight="700" fill="#FFFFFF">ALARME INCENDIE · TYPE 4 · 2 BOUCLES</text>
+      {[0, 1, 2, 3].map((i) => <rect key={i} x="150" y={22 + i * 6} width="78" height="3" rx="1.5" fill="#9AA2AB" />)}
+      <text x="189" y="52" textAnchor="middle" fontFamily={MONO} fontSize="4.5" fill="#66717F">signal d’évacuation</text>
+      {/* voyants et bouton essai / réarmement */}
+      {([['#1E9E63', 'SOUS TENSION'], ['#E3B400', 'DÉRANGEMENT'], ['#D93A3A', 'FEU']] as const).map(([c, t], i) => (
+        <g key={t}>
+          <circle cx={14} cy={26 + i * 11} r="3.4" fill={c} stroke="#3A4047" strokeWidth=".6" />
+          <text x={21} y={28 + i * 11} fontFamily={MONO} fontSize="5.2" fill="#3A4047">{t}</text>
+        </g>
+      ))}
+      <rect x="86" y="22" width="48" height="28" rx="3" fill="#2B2F36" />
+      <circle cx="110" cy="33" r="6" fill="#5B6573" stroke="#15181C" />
+      <text x="110" y="47" textAnchor="middle" fontFamily={MONO} fontSize="4" fill="#DDE3EA">essai / réarm.</text>
+      {/* plaque du bornier */}
+      <rect x="14" y="94" width="212" height="62" rx="2" fill="#E9ECEF" stroke="#9AA2AB" />
+      {Array.from({ length: 10 }, (_, i) => (
+        <g key={i} fill="#C9CED3" stroke="#6E7780" strokeWidth=".6">
+          <rect x={col(i) - 8} y="99" width="16" height="13" rx="2" />
+          <rect x={col(i) - 8} y="137" width="16" height="13" rx="2" />
+          <circle cx={col(i)} cy="105.6" r="4.2" fill="#F2F4F6" />
+          <circle cx={col(i)} cy="144" r="4.2" fill="#F2F4F6" />
+          <path d={`M${col(i) - 3} ${105.6 + 3}L${col(i) + 3} ${105.6 - 3}M${col(i) - 3} ${144 + 3}L${col(i) + 3} ${144 - 3}`} stroke="#6E7780" strokeWidth="1" />
+        </g>
+      ))}
+      {haut.map(([i, t]) => (
+        <text key={`h${i}`} x={col(i)} y="118" textAnchor="middle" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#141A21">{t}</text>
+      ))}
+      <text x={(col(0) + col(1)) / 2} y="123.5" textAnchor="middle" fontFamily={SANS} fontSize="4" fill="#3A4047">Secteur</text>
+      <text x={(col(6) + col(7)) / 2} y="123.5" textAnchor="middle" fontFamily={SANS} fontSize="4" fill="#3A4047">Alim. ext.</text>
+      {bas.map((t, i) => (
+        <text key={`b${i}`} x={col(i)} y="134.5" textAnchor="middle" fontFamily={MONO} fontSize={t.length > 1 ? 4 : 5} fontWeight="700" fill="#141A21">{t}</text>
+      ))}
+      {groupes.map(([c, t]) => (
+        <text key={t} x={28.8 + c * 20.4} y="129" textAnchor="middle" fontFamily={SANS} fontSize="4" fill="#3A4047">{t}</text>
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * Déclencheur manuel conventionnel S3000 (DTR 7), 87 × 87 mm : boîtier rouge, membrane
+ * déformable, bornier 3A / 3 · 1A / 1 · 2A / 2 à gauche (doubles bornes reliées). La version
+ * étanche IP66 porte son joint et son capot transparent.
+ */
+export function DmS3000Svg({ etanche = false }: { etanche?: boolean }) {
+  const bornes = ['3A', '3', '1A', '1', '2A', '2'];
+  const y = (i: number) => 87 * (0.2 + i * 0.13);
+  return (
+    <svg viewBox="0 0 87 87" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="85" height="85" rx="5" fill="#C8102E" stroke={etanche ? '#5B6573' : '#7A0A1C'} strokeWidth={etanche ? 2.2 : 1} />
+      {/* bornier */}
+      <rect x="3" y="12" width="21" height="70" rx="2" fill="#2B2F36" />
+      {bornes.map((b, i) => (
+        <g key={b}>
+          <circle cx="8.7" cy={y(i)} r="3.2" fill="#C9CED3" stroke="#15181C" strokeWidth=".6" />
+          <path d={`M6.6 ${y(i) + 2}L10.8 ${y(i) - 2}`} stroke="#15181C" strokeWidth=".8" />
+          <text x="13.5" y={y(i) + 1.8} fontFamily={MONO} fontSize="4.6" fill="#DDE3EA">{b}</text>
+        </g>
+      ))}
+      {[0, 2, 4].map((i) => (
+        <path key={`p${i}`} d={`M20.5 ${y(i)}h1.8v${87 * 0.13}h-1.8`} fill="none" stroke="#DDE3EA" strokeWidth=".6" />
+      ))}
+      {/* face : membrane et fenêtre */}
+      <rect x="30" y="18" width="50" height="46" rx="2" fill="#F4F5F6" stroke="#7A0A1C" />
+      <text x="55" y="27" textAnchor="middle" fontFamily={COND} fontSize="6" fontWeight="700" fill="#141A21">ALARME</text>
+      <text x="55" y="34" textAnchor="middle" fontFamily={COND} fontSize="6" fontWeight="700" fill="#141A21">INCENDIE</text>
+      <path d="M36 43h9l-3 -3M36 43l6 3" fill="none" stroke="#141A21" strokeWidth="1.4" />
+      <path d="M74 43h-9l3 -3M74 43l-6 3" fill="none" stroke="#141A21" strokeWidth="1.4" />
+      <circle cx="55" cy="43" r="4.2" fill="#141A21" />
+      <text x="55" y="57" textAnchor="middle" fontFamily={SANS} fontSize="3.8" fill="#3A4047">APPUYEZ ICI</text>
+      <text x="55" y="76" textAnchor="middle" fontFamily={MONO} fontSize="5" fill="#FFFFFF">{etanche ? 'BGES3000 · IP66' : 'MDS3000 · IP24'}</text>
+      {etanche && <rect x="27" y="15" width="56" height="52" rx="3" fill="#BFD9FF" fillOpacity=".18" stroke="#DDE3EA" strokeWidth=".8" />}
+    </svg>
+  );
+}
+
+/** Diffuseur sonore de classe B, 24 V⎓ : pavillon, grille, bornes + / − en bas à gauche. */
+export function DiffuseurSonoreSvg() {
+  return (
+    <svg viewBox="0 0 64 84" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <rect x="1" y="1" width="62" height="82" rx="6" fill="#C8102E" stroke="#7A0A1C" />
+      <circle cx="36" cy="28" r="18" fill="#2B2F36" />
+      {[5, 10, 15].map((r) => <circle key={r} cx="36" cy="28" r={r} fill="none" stroke="#6E7780" strokeWidth="1.2" />)}
+      <text x="40" y="56" textAnchor="middle" fontFamily={COND} fontSize="6" fontWeight="700" fill="#FFFFFF">classe B</text>
+      <rect x="2" y="46" width="14" height="24" rx="2" fill="#2B2F36" />
+      <circle cx="6.4" cy="52.1" r="2.8" fill="#C9CED3" /><circle cx="6.4" cy="67.2" r="2.8" fill="#C9CED3" />
+      <text x="11.5" y="54" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#FF8A8A">+</text>
+      <text x="11.5" y="69" fontFamily={MONO} fontSize="5" fontWeight="700" fill="#8FC1FF">−</text>
+      <text x="40" y="76" textAnchor="middle" fontFamily={MONO} fontSize="4.6" fill="#FFFFFF">24 V⎓</text>
+    </svg>
+  );
+}
+
+/** Résistance de fin de ligne 3,9 kΩ : orange (3), blanc (9), rouge (× 100), or. */
+export function ResistanceFdlSvg() {
+  return (
+    <svg viewBox="0 0 48 18" style={{ width: '100%', height: '100%', ...SHADOW2 }}>
+      <path d="M2 9H46" stroke="#8E969E" strokeWidth="1.4" />
+      <rect x="12" y="3" width="24" height="12" rx="5" fill="#E8D3A8" stroke="#9C8458" strokeWidth=".6" />
+      <rect x="16" y="3" width="2.4" height="12" fill="#F28C28" />
+      <rect x="21" y="3" width="2.4" height="12" fill="#FFFFFF" stroke="#C9CED3" strokeWidth=".3" />
+      <rect x="26" y="3" width="2.4" height="12" fill="#D93A3A" />
+      <rect x="31.5" y="3" width="2" height="12" fill="#C9A227" />
+    </svg>
+  );
+}
+/* ═══ chevrerie-a4-ssi : fin ═══ */

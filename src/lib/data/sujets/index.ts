@@ -9,10 +9,11 @@
  */
 import type { SujetNumerique } from '@/lib/sujet/types';
 import { sujetsDerives } from '@/lib/sujet/declinaisons';
+import { SUJET_CHEVRERIE } from './chevrerie';
 import { SUJET_EIP } from './eip';
 import { SUJET_SCIERIE } from './scierie';
 
-export const SUJETS: SujetNumerique[] = [SUJET_EIP, SUJET_SCIERIE];
+export const SUJETS: SujetNumerique[] = [SUJET_EIP, SUJET_SCIERIE, SUJET_CHEVRERIE];
 
 export const TOUS_SUJETS: SujetNumerique[] = SUJETS.flatMap(s => [s, ...sujetsDerives(s)]);
 

@@ -29,6 +29,10 @@ import { TP_EIP_Q58_MYHOME } from './eip-q58-myhome';
 import { TP_EIP_Q67_VIGIK } from './eip-q67-vigik';
 import { TP_SCIERIE_D31_ATV340 } from './scierie-d31-atv340';
 import { TP_SCIERIE_E343_DC } from './scierie-e343-dc';
+import { TP_CHEVRERIE_A4_SSI } from './chevrerie-a4-ssi';
+import { TP_CHEVRERIE_B4_INTRUSION } from './chevrerie-b4-intrusion';
+import { TP_CHEVRERIE_E222_EOLIEN } from './chevrerie-e222-eolien';
+import { TP_CHEVRERIE_G5_PORTAIL } from './chevrerie-g5-portail';
 
 export const TPS: TpDefinition[] = [
   TP_PERCEUSE_RADIALE,
@@ -51,6 +55,12 @@ export const TPS: TpDefinition[] = [
   // E.3.4.3) : `hidden`, joués depuis `/sujet/scierie` et ses sujets thématiques.
   TP_SCIERIE_D31_ATV340,
   TP_SCIERIE_E343_DC,
+  // TP de service du sujet numérique Chèvrerie (mode « câblage réel » des questions A.4,
+  // B.4, E.2.2.2 et G.5) : `hidden`, joués depuis `/sujet/chevrerie` et ses sujets thématiques.
+  TP_CHEVRERIE_A4_SSI,
+  TP_CHEVRERIE_B4_INTRUSION,
+  TP_CHEVRERIE_E222_EOLIEN,
+  TP_CHEVRERIE_G5_PORTAIL,
 ];
 
 /**
@@ -73,4 +83,5 @@ export {
   TP_PERCEUSE_RADIALE, TP_VARIATEUR, TP_AUTOMATE_M221, TP_PORTAIL, TP_SOLAIRE_AUTONOME, TP_KNX_TERTIAIRE,
   TP_STATION_RELEVAGE, TP_ECOBIKE_PORTAIL, TP_ECOBIKE_KNX, TP_ECOBIKE_PV, TP_ECOBIKE_RESEAU,
   TP_EIP_Q13_CUMULUS, TP_EIP_Q58_MYHOME, TP_EIP_Q67_VIGIK, TP_SCIERIE_D31_ATV340, TP_SCIERIE_E343_DC,
+  TP_CHEVRERIE_A4_SSI, TP_CHEVRERIE_B4_INTRUSION, TP_CHEVRERIE_E222_EOLIEN, TP_CHEVRERIE_G5_PORTAIL,
 };

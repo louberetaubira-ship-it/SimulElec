@@ -53,7 +53,8 @@ export interface SujetNumerique {
 
 /** Thèmes normalisés des sujets (libellés, icônes et couleurs : `src/lib/sujet/themes.ts`). */
 export type ThemeSujet =
-  | 'securite' | 'eclairage' | 'domotique' | 'acces' | 'reseau' | 'pv' | 'automatisme' | 'moteur' | 'distribution';
+  | 'securite' | 'eclairage' | 'domotique' | 'acces' | 'reseau' | 'pv' | 'automatisme' | 'moteur' | 'distribution'
+  | 'incendie' | 'intrusion' | 'eolien' | 'ecs';
 
 /** Déclinaison thématique d'un sujet : un sous-ensemble de ses parties, jouable seul. */
 export interface DeclinaisonSujet {

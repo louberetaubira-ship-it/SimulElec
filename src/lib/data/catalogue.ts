@@ -738,6 +738,337 @@ export const CATALOGUE: CatalogueItem[] = [
   // il sépare l'électronique des entrées DC, pas les bornes DC du champ. Cotes à relever.
   item({ key: 'symodc', name: 'Sectionneur DC intégré de l\'onduleur · poignée DC ON / OFF', ref: 'Fronius SYMO · interrupteur principal DC', brand: 'Fronius', kind: 'dc', family: 'Photovoltaïque', modules: 0, poles: 2,
     terminals: [] }),
+  /* ═══ chevrerie-g5 : début ═══ */
+  // ---- Sujet « Chèvrerie » : motorisation de portail STAR 24 (G.5) ----
+  //
+  // Aucun de ces appareils n'est dans le pack photo (`public/lib/*.json`) ni au catalogue :
+  // la cellule `cellule` est un détecteur reflex 3 fils PNP, le `feuorange` un feu 24 V
+  // Legrand, l'`alim24dc` une WAGO — pas le matériel du corrigé. Dessinés d'après les notices
+  // (DTR 45 à 48), bornes nommées comme sur l'appareil.
+  //
+  // Carte de gestion AKIA PU2M du boîtier électronique STAR 24 (DTR 45, « schéma de la
+  // carte » et tableau de branchement) : barrette verte 1 à 19 en bas, moteur 1 (20 −,
+  // 21 +) et moteur 2 (22 −, 23 +) à droite. Les bornes 4, 8 et 14 sont le commun + 12 V
+  // (« 4 et 8 : commun + 12 V », 14 « + alimentation cellules et périphérique ») ; 13, 17 et
+  // 19 le 0 V CC : reliées sur la carte (`passes`). L'arrivée secteur du boîtier (L, N, en
+  // haut à gauche : transformateur et batteries de secours câblés en usine) n'est pas
+  // détaillée dans l'extrait du DTR : repères à confirmer sur la notice complète. Cotes à
+  // relever (l'extrait n'en donne aucune).
+  vector({
+    key: 'akiapu2m', name: 'Carte de gestion de motorisation 24 V · boîtier électronique STAR 24', ref: 'AKIA PU2M (kit Akia Star 24)',
+    brand: 'Akia', kind: 'misc', family: 'Portail', modules: 0, poles: 2, w: 340, h: 176,
+    terminals: [
+      { id: 'L', fx: 0.047, fy: 0.08 }, { id: 'N', fx: 0.088, fy: 0.08 },
+      ...Array.from({ length: 19 }, (_, i) => ({ id: String(i + 1), fx: +((14 + i * 12.6) / 340).toFixed(4), fy: 0.9 })),
+      ...([['20', 262], ['21', 276], ['22', 304], ['23', 318]] as const).map(([id, x]) => ({ id, fx: +(x / 340).toFixed(4), fy: 0.76 })),
+    ],
+    passes: [['4', '8'], ['8', '14'], ['13', '17'], ['17', '19']],
+  }),
+  // Récepteur GSM 2 sorties sur rail DIN, 4 modules (DTR 48) : alimentation 230 V~ L N, Sortie 1
+  // NC C NA et Sortie 2 NA C NC (contacts secs) en haut ; entrées C IN1 IN2 en bas. Les
+  // bornes des sorties portent le numéro de la sortie (`NC1`, `C1`, `NA1`…) pour rester uniques.
+  vector({
+    key: 'gsm800', name: 'Récepteur GSM 2 sorties relais · rail DIN 4 modules · 230 V~', ref: 'Teleco GSM800',
+    brand: 'Teleco', kind: 'misc', family: 'Portail', modules: 4, poles: 2, w: 104, h: 123,
+    dims: dimsModulaire(4),
+    terminals: [
+      ...([['L', 0.1], ['N', 0.19], ['NC1', 0.42], ['C1', 0.51], ['NA1', 0.6], ['NA2', 0.72], ['C2', 0.81], ['NC2', 0.9]] as const)
+        .map(([id, fx]) => ({ id, fx, fy: 0.07 })),
+      ...([['C', 0.12], ['IN1', 0.21], ['IN2', 0.3]] as const).map(([id, fx]) => ({ id, fx, fy: 0.93 })),
+    ],
+  }),
+  // Cellules infrarouges EMA-15L (DTR 46) : 49,2 × 76 × 21,6 mm, 12 à 24 V AC/DC. Récepteur
+  // R : bornier − + COM OUT (contact de relais NO ou NC par cavalier, 1 A 36 V) ; émetteur T :
+  // deux bornes 1 (−) et 2 (+). Organes de terrain, posés dans la colonne du portail.
+  vector({
+    key: 'celrx', name: 'Cellule photoélectrique infrarouge · récepteur (R) · 12-24 V AC/DC', ref: 'EMA-15L · récepteur',
+    brand: 'Ematronic', kind: 'button', family: 'Portail', modules: 0, poles: 4, w: 71, h: 110, door: true,
+    dims: { largeur: 49.2, hauteur: 76, profondeur: 21.6, source: 'fiche' },
+    terminals: ([['−', 0.25], ['+', 0.42], ['COM', 0.59], ['OUT', 0.76]] as const).map(([id, fx]) => ({ id, fx, fy: 0.74 })),
+  }),
+  vector({
+    key: 'celtx', name: 'Cellule photoélectrique infrarouge · émetteur (T) · 12-24 V AC/DC', ref: 'EMA-15L · émetteur',
+    brand: 'Ematronic', kind: 'button', family: 'Portail', modules: 0, poles: 2, w: 71, h: 110, door: true,
+    dims: { largeur: 49.2, hauteur: 76, profondeur: 21.6, source: 'fiche' },
+    terminals: [{ id: '1', fx: 0.42, fy: 0.74 }, { id: '2', fx: 0.58, fy: 0.74 }],
+  }),
+  // Lampe flash FEBO-LIGHT (DTR 47) : 77 × 102 × 170 mm, vue sur sa face étroite (77 mm),
+  // capot ouvert sur la carte d'alimentation. Bornes 1-2 : 230 V~ ; 3-4 : 12 V AC/DC ; 3-5 :
+  // 24 V AC/DC. Cavalier JP1 : fixe / clignotant (dessiné sur la carte).
+  vector({
+    key: 'febolight', name: 'Lampe flash à LED · 12 / 24 V AC/DC ou 230 V~ · fixe ou clignotante', ref: 'Prastel FEBO-LIGHT',
+    brand: 'Prastel', kind: 'lamp', family: 'Portail', modules: 0, poles: 2, w: 112, h: 247, door: true,
+    dims: { largeur: 77, hauteur: 170, profondeur: 102, source: 'fiche' },
+    terminals: ([['1', 0.17], ['2', 0.29], ['3', 0.5], ['4', 0.63], ['5', 0.76]] as const).map(([id, fx]) => ({ id, fx, fy: 0.87 })),
+  }),
+  // Motoréducteur 24 V⎓ à roue du kit STAR 24 (DTR 45 : « motoréducteur Elvi 24 volts, puissance
+  // max 300 W ») : seuls ses fils de puissance rouge et bleu sont raccordés au corrigé (bornes 21 et
+  // 20). Les fils d'encodeur et de serrure (marron, blanc, vert, jaune, gris) ne sont pas dessinés.
+  vector({
+    key: 'motstar24', name: 'Motoréducteur à roue 24 V⎓ · 300 W · kit STAR 24', ref: 'Akia Star 24 · motoréducteur Elvi 24 V',
+    brand: 'Akia', kind: 'misc', family: 'Portail', modules: 0, poles: 2, w: 110, h: 100, door: true,
+    terminals: [{ id: 'rouge', fx: 0.06, fy: 0.2 }, { id: 'bleu', fx: 0.06, fy: 0.32 }],
+  }),
+  /* ═══ chevrerie-g5 : fin ═══ */
+  /* ═══ chevrerie-e222 : début ═══ */
+  // ---- Sujet « Chèvrerie » : installation éolienne raccordée au réseau (E.2.2.2) ----
+  //
+  // Aucun de ces appareils n'est dans le pack de photos (`public/lib/*.json`) : ils sont
+  // dessinés en vectoriel (`svg.tsx`), bornes repérées comme sur les notices du DTR.
+  //
+  // Petite éolienne ANTARIS 3,5 kW (DTR 28) : alternateur triphasé à aimants permanents,
+  // 350 V~ nominal, 3,7 kW nominal / 6,8 kW max. Les trois conducteurs sortent par
+  // l'interrupteur de freinage (court-circuit) au pied du mât, dessiné sur le sprite. Organe de
+  // TERRAIN : posé dans la colonne annexe, bornes sur le bord droit. Rotor Ø 3,5 m, mât 12 m :
+  // volontairement hors échelle (exception déclarée dans `scripts/audit-echelle.ts`).
+  vector({
+    key: 'eolienne', name: 'Petite éolienne raccordée au réseau · alternateur triphasé à aimants permanents · 3,5 kW',
+    ref: 'ANTARIS 3.5 kW', brand: 'Braun Windturbinen', kind: 'misc', family: 'Éolien', poles: 3, w: 104, h: 200,
+    dims: { largeur: 3500, hauteur: 12000, source: 'fiche' },
+    terminals: [{ id: 'L1', fx: 1, fy: 0.62 }, { id: 'L2', fx: 1, fy: 0.72 }, { id: 'L3', fx: 1, fy: 0.82 }],
+    door: true,
+  }),
+  // Windy Boy Protection Box 600-11 (DTR 29) : redresseur (pont B6) + protection contre les
+  // surtensions, qui limite la tension DC à 560 V en commutant la résistance de charge.
+  // Coffret 280 × 220 × 130 mm : à l'échelle (406 px) il ne tient pas entre les goulottes ;
+  // seule sa ZONE DE RACCORDEMENT (rangée de bornes A à E de la « vue intérieure ») est posée,
+  // comme la zone de raccordement du Fronius SYMO. Cotes de cette zone à relever.
+  // A : L1 L2 L3 « Alternator » ; B : DC+ (3 bornes reliées) ; C : DC− (3 bornes reliées) ;
+  // D : LR+ LR− (résistance de charge) ; E : PE (3 bornes reliées).
+  vector({
+    key: 'wbpbox', name: 'Redresseur / régulateur de surtension Windy Boy Protection Box 600 · zone de raccordement',
+    ref: 'SMA WBP-Box 600-11', brand: 'SMA', kind: 'dc', family: 'Éolien', poles: 3, w: 350, h: 150,
+    terminals: ([
+      ['L1', 0.07], ['L2', 0.12], ['L3', 0.17],
+      ['DC+1', 0.27], ['DC+2', 0.32], ['DC+3', 0.37],
+      ['DC-1', 0.47], ['DC-2', 0.52], ['DC-3', 0.57],
+      ['LR+', 0.7], ['LR-', 0.75],
+      ['PE1', 0.84], ['PE2', 0.89], ['PE3', 0.94],
+    ] as const).map(([id, fx]) => ({ id, fx, fy: 0.86 })),
+    passes: [['DC+1', 'DC+2'], ['DC+2', 'DC+3'], ['DC-1', 'DC-2'], ['DC-2', 'DC-3'], ['PE1', 'PE2'], ['PE2', 'PE3']],
+  }),
+  // Onduleur SMA Windy Boy 5000A (DTR 30) : 468 × 613 × 242 mm, il déborderait la scène ;
+  // seule sa zone de raccordement est posée (cotes de la zone à relever). Entrée DC par
+  // connecteurs SUNCLIX (+, −), sortie AC monophasée par bornes à vis N, L, PE — l'extrémité du
+  // câble 3G6 qui part vers le tableau. Écran texte en façade (afficheur du mode câblage réel).
+  vector({
+    key: 'windyboy', name: 'Onduleur Windy Boy 5000A · zone de raccordement DC / AC', ref: 'SMA Windy Boy 5000A (WB 5000A)',
+    brand: 'SMA', kind: 'inverter', family: 'Éolien', poles: 3, w: 110, h: 150,
+    terminals: [
+      { id: 'DC+', fx: 0.14, fy: 0.9 }, { id: 'DC-', fx: 0.3, fy: 0.9 },
+      { id: 'N', fx: 0.6, fy: 0.9 }, { id: 'L', fx: 0.76, fy: 0.9 }, { id: 'PE', fx: 0.92, fy: 0.9 },
+    ],
+  }),
+  // Résistance de charge BW 155 / 10000 / IP 65, modèle « combination » (DTR 31) : 7 500 W
+  // permanents en IP 65, 900 V max. Organe de terrain (sous l'abri), sortie par câble + / − / PE
+  // (DTR 29 : environ 30 Ω à 25 °C). Cotes absentes du DTR : à relever.
+  vector({
+    key: 'bw155', name: 'Résistance de charge BW 155 combination · 7 500 W en IP 65', ref: 'BW 155 / 10000 / IP 65',
+    kind: 'misc', family: 'Éolien', poles: 3, w: 104, h: 96,
+    terminals: [{ id: '+', fx: 1, fy: 0.5 }, { id: '-', fx: 1, fy: 0.65 }, { id: 'PE', fx: 1, fy: 0.8 }],
+    door: true,
+  }),
+  // Interrupteur-sectionneur général AC 4P 40 A (Q3, tête du tableau AC, exemple de câblage du
+  // DTR 30) : 4 modules. Neutre à GAUCHE, comme au sujet : N 1 3 5 en haut, N 2 4 6 en bas.
+  vector({
+    key: 'isw4p', name: 'Interrupteur-sectionneur 4P 40 A · tête du tableau AC', ref: 'Acti9 iSW 4P 40 A · A9S60440',
+    brand: 'Schneider', kind: 'main', family: 'Sectionnement', modules: 4, poles: 4, In: 40, w: 104, h: 123,
+    dims: dimsModulaire(4),
+    terminals: [
+      ...(['N', '1', '3', '5'] as const).map((id, i) => ({ id, fx: 0.14 + i * 0.24, fy: 0.06 })),
+      ...(['N2', '2', '4', '6'] as const).map((id, i) => ({ id, fx: 0.14 + i * 0.24, fy: 0.94 })),
+    ],
+  }),
+  // Disjoncteur différentiel Legrand DX³ 4500 phase + neutre 32 A 30 mA TYPE F, courbe C,
+  // connexion vis/vis (arrivée haute, sortie basse) — 4 107 56 (DTR 32, corrigé E.2.2.1.4).
+  // 2 modules. N et 1 en haut, N et 2 en bas.
+  vector({
+    key: 'dx3diff32f', name: 'Disjoncteur différentiel DX³ phase + neutre 32 A 30 mA type F · courbe C · vis/vis',
+    ref: 'Legrand 4 107 56', brand: 'Legrand', kind: 'rcd', family: 'Différentiels', modules: 2, poles: 2, In: 32, w: 52, h: 123,
+    dims: dimsModulaire(2),
+    terminals: [{ id: 'N', fx: 0.3, fy: 0.06 }, { id: '1', fx: 0.7, fy: 0.06 }, { id: 'N2', fx: 0.3, fy: 0.94 }, { id: '2', fx: 0.7, fy: 0.94 }],
+  }),
+  // Répartiteur tétrapolaire modulaire (tableau AC du sujet) : quatre barreaux L1, L2, L3, N,
+  // de haut en bas. Une borne par barreau : plusieurs conducteurs s'y serrent (arrivée de Q3,
+  // départs vers le parafoudre et les disjoncteurs différentiels). Cotes à relever.
+  vector({
+    key: 'repart4p', name: 'Répartiteur modulaire tétrapolaire · barreaux L1 L2 L3 N', ref: 'répartiteur 4P 125 A',
+    kind: 'bus', family: 'Borniers', poles: 4, w: 116, h: 123,
+    terminals: (['L1', 'L2', 'L3', 'N'] as const).map((id, i) => ({ id, fx: 0.1, fy: 0.2 + i * 0.2 })),
+  }),
+  // Parafoudre AC de type 2, 3P+N, à déconnecteur associé (tableau AC du sujet) : arrivée
+  // N L1 L2 L3 en haut, borne de terre en bas à droite. Référence et cotes à relever : la
+  // largeur est estimée d'après la photo du tableau au sujet.
+  vector({
+    key: 'pfac3pn', name: 'Parafoudre AC type 2 · 3P+N · déconnecteur associé', ref: 'parafoudre type 2 3P+N 40 kA',
+    kind: 'misc', family: 'Parafoudres', poles: 4, w: 174, h: 123,
+    terminals: [
+      ...(['N', 'L1', 'L2', 'L3'] as const).map((id, i) => ({ id, fx: 0.1 + i * 0.1, fy: 0.06 })),
+      { id: 'PE', fx: 0.92, fy: 0.9 },
+    ],
+  }),
+  // Barrette de terre du tableau (répartiteur de terre) : une borne de raccordement où se
+  // serrent le PE du câble d'arrivée, des trois câbles d'onduleur et du parafoudre. Cotes à relever.
+  vector({
+    key: 'barrterre', name: 'Barrette de terre du tableau', ref: 'barrette de terre 13 trous',
+    kind: 'terminal', family: 'Terre', poles: 1, w: 260, h: 36,
+    terminals: [{ id: 'PE', fx: 0.08, fy: 0.3 }],
+  }),
+  /* ═══ chevrerie-e222 : fin ═══ */
+  /* ═══ chevrerie-b4 : début ═══ */
+  // ---- Sujet « Chèvrerie » : alarme intrusion (B.4) ----
+  //
+  // Tous DESSINÉS (`svg.tsx`, bloc chevrerie-b4) : le pack ne contient que des pictogrammes
+  // d'alarme sans bornier (centrale incendie type 4, clavier à 2 bornes…), aucun ne porte les
+  // bornes réelles de la notice. Les positions des bornes sont en pixels du dessin (échelle
+  // 1,45 px/mm), converties en fractions ; le dessin relit ces mêmes positions.
+  ...((): CatalogueItem[] => {
+    const bornes = (w: number, h: number, t: [string, number, number][]): TerminalDef[] =>
+      t.map(([id, x, y]) => ({ id, fx: +(x / w).toFixed(4), fy: +(y / h).toFixed(4) }));
+    const rangee = (ids: string[], x0: number, pas: number, y: number): [string, number, number][] =>
+      ids.map((id, i) => [id, x0 + i * pas, y]);
+    const ion = tailleSprite(239, 250);
+    const kp = tailleSprite(160, 120);
+    const sir = tailleSprite(192, 182);
+    const bat = tailleSprite(151, 95);
+    const ir = tailleSprite(64, 95);
+    const mag = tailleSprite(62, 23.5);
+    return [
+      // Centrale filaire 10 zones I-ON20EU (DTR 11 : 239 × 250 × 90 mm ; DTR 12, figure 16 :
+      // circuit imprimé). Coffret métallique ouvert : bornier secteur à fusible et
+      // transformateur (→ entrée 16,5 V~) en haut à gauche, bornier sirène / haut-parleur en
+      // haut à droite (LS- LS+ AUX TAMP ×2 STB BELL TR 12V BELL 0V — ce dernier `0VB`), bus
+      // RS485 (0V +12V A B), sorties (OP1 0V 0V 12VAUX 12VAUX) et zones Z0 à Z9 en bas, un
+      // commun entre deux zones (COM01, COM23…). Cordons de batterie BAT+ / BAT−.
+      // Transmetteur COM-DATA-4G enfiché sur ses connecteurs : aucune borne.
+      vector({
+        key: 'ion20eu', name: 'Centrale d’alarme intrusion filaire 10 zones · 230 V~ · 12 V⎓', ref: 'I-ON20EU + transmetteur COM-DATA-4G', brand: 'Eaton',
+        kind: 'misc', family: 'Alarme intrusion', modules: 0, poles: 2, ...ion,
+        dims: { largeur: 239, hauteur: 250, profondeur: 90, source: 'fiche' },
+        terminals: bornes(ion.w, ion.h, [
+          ...rangee(['L', 'N', 'PE'], 30, 18, 34),
+          ...rangee(['LS-', 'LS+', 'AUXT1', 'AUXT2', 'STB', 'BELL', 'TR', '12VBELL', '0VB'], 170, 18, 34),
+          ...rangee(['0V', '12V', 'A', 'B'], 66, 16, 300),
+          ...rangee(['OP1', '0V1', '0V2', '12VAUX1', '12VAUX2'], 140, 16, 300),
+          ...rangee(['Z0', 'COM01', 'Z1', 'Z2', 'COM23', 'Z3'], 226, 16, 300),
+          ...rangee(['BAT+', 'BAT-'], 30, 18, 336),
+          ...rangee(['Z4', 'COM45', 'Z5', 'Z6', 'COM67', 'Z7', 'Z8', 'COM89', 'Z9'], 176, 16, 336),
+        ]),
+      }),
+      // Clavier LCD filaire I-KP01 (DTR 11 : 160 × 120 × 30 mm ; DTR 14, figure 6) :
+      // bornier ET ET · B A (RS485) · 12V 0V en bas à droite.
+      vector({
+        key: 'ikp01', name: 'Clavier LCD filaire avec lecteur de badges · bus RS485', ref: 'I-KP01', brand: 'Eaton',
+        kind: 'button', family: 'Alarme intrusion', modules: 0, poles: 2, ...kp,
+        dims: { largeur: 160, hauteur: 120, profondeur: 30, source: 'fiche' },
+        terminals: bornes(kp.w, kp.h, rangee(['ET1', 'ET2', 'B', 'A', '12V', '0V'], 125, 18, 156)),
+      }),
+      // Sirène intérieure auto-alimentée SIMAX (DTR 11 : 192 × 182 × 62 mm ; DTR 13) : capot
+      // déposé, batterie 12 V 2 Ah raccordée sur BAT + −, bornier CHARGE 0V +12V · INPUTS 1 2 ·
+      // OUTPUTS O1 O2 · A.P. TAMPER.
+      vector({
+        key: 'simax', name: 'Sirène d’alarme intérieure auto-alimentée NF A2P 3 boucliers', ref: 'SIMAX + batterie SCA00002 12 V 2 Ah',
+        kind: 'misc', family: 'Alarme intrusion', modules: 0, poles: 2, ...sir,
+        dims: { largeur: 192, hauteur: 182, profondeur: 62, source: 'fiche' },
+        terminals: bornes(sir.w, sir.h, [
+          ...rangee(['BAT+', 'BAT-'], 34, 18, 228),
+          ...rangee(['0V', '12V', 'I1', 'I2', 'O1', 'O2', 'AP1', 'AP2'], 110, 16, 228),
+        ]),
+      }),
+      // Batterie plomb 12 V 7 Ah SCA00001 (DTR 11 : 151 × 95 × 65 mm), cosses + et − sur le dessus.
+      vector({
+        key: 'sca00001', name: 'Batterie plomb étanche 12 V 7 Ah', ref: 'SCA00001',
+        kind: 'dc', family: 'Alarme intrusion', modules: 0, poles: 2, ...bat,
+        dims: { largeur: 151, hauteur: 95, profondeur: 65, source: 'fiche' },
+        terminals: bornes(bat.w, bat.h, [['+', 22, 10], ['-', 197, 10]]),
+      }),
+      // Détecteur IR passif XCELWPT (DTR 11 : 64 × 95 × 49 mm), capot déposé : 12 VDC + −,
+      // ALARM NC (2), LED, TAMPER NC (2).
+      vector({
+        key: 'xcelwpt', name: 'Détecteur de mouvement infrarouge passif · 9 m 90°', ref: 'XCELWPT',
+        kind: 'misc', family: 'Alarme intrusion', modules: 0, poles: 2, ...ir, door: true,
+        dims: { largeur: 64, hauteur: 95, profondeur: 49, source: 'fiche' },
+        terminals: bornes(ir.w, ir.h, [
+          ['+', 12, 40], ['-', 23, 40],
+          ...rangee(['A1', 'A2', 'LED', 'T1', 'T2'], 43, 10, 40),
+        ]),
+      }),
+      // Contact magnétique 400-FR (DTR 11 : 62 × 23,5 × 14 mm), posé à plat comme sur le
+      // schéma : AP TAMPER (2) puis ALARME (2). L'aimant, sur l'ouvrant, n'a pas de borne.
+      vector({
+        key: 'fr400', name: 'Contact magnétique d’ouverture en saillie NF A2P · alarme + autoprotection', ref: '400-FR',
+        kind: 'misc', family: 'Alarme intrusion', modules: 0, poles: 2, ...mag, door: true,
+        dims: { largeur: 62, hauteur: 23.5, profondeur: 14, source: 'fiche' },
+        terminals: bornes(mag.w, mag.h, [['T1', 12, 26], ['T2', 25, 26], ['A1', 58, 26], ['A2', 71, 26]]),
+      }),
+      // Résistances d'équilibrage ZFS fournies avec la centrale (DTR 12, figure 2). Dessinées
+      // pattes dépliées, lisibles : cotes réelles à relever (corps de 6 mm, invisible à l'échelle).
+      ...([['reol4k7', '4K7 · 4,7 kΩ (jaune violet rouge)', 'shunt du contact d’alarme'], ['reol2k2', '2K2 · 2,2 kΩ (rouge rouge rouge)', 'fin de ligne (EOL)']] as const)
+        .map(([key, val, role]) => vector({
+          key, name: `Résistance d’équilibrage ${val} · ${role}`, ref: `Résistance ${val.slice(0, 3)} ¼ W`,
+          kind: 'misc', family: 'Alarme intrusion', modules: 0, poles: 2, w: 36, h: 12, door: true,
+          terminals: [{ id: '1', fx: 0.08, fy: 0.5 }, { id: '2', fx: 0.92, fy: 0.5 }],
+        })),
+    ];
+  })(),
+  /* ═══ chevrerie-b4 : fin ═══ */
+  /* ═══ chevrerie-a4-ssi : début ═══ */
+  // ---- Sujet « Chèvrerie » : système de sécurité incendie de type 4 (A.4) ----
+  //
+  // Tableau d'alarme Type 4 Planète 2 boucles (DTR 8) : 240 × 160 × 47 mm (§ 2.1, fiche).
+  // Dessiné (le pack ne contient qu'un « tableau type 4 · 1 boucle » générique, aux bornes
+  // fausses). Bornier repéré comme au sujet : rangée haute Secteur P / N et Entrée alim. ext.
+  // + / − ; rangée basse Diffuseur sonore + / −, Contact aux. C / O/F, Boucle 1 DM + / −,
+  // Boucle 2 DM + / −, Contact dérang. C / O/F. Les deux contacts portent le même marquage
+  // (C, O/F) sur l'appareil : ils sont préfixés AUX- et DER- pour rester uniques.
+  vector({
+    key: 't4planete', name: 'Tableau d’alarme incendie Type 4 · 2 boucles · signal d’évacuation intégré',
+    ref: 'Type 4 Planète 2 boucles · NUG31220', brand: 'Nugelec', kind: 'misc', family: 'Sécurité incendie',
+    dims: { largeur: 240, hauteur: 160, profondeur: 47, source: 'fiche' },
+    modules: 0, poles: 2, ...tailleSprite(240, 160),
+    terminals: [
+      ...([['P', 0], ['N', 1], ['EXT+', 6], ['EXT−', 7]] as const)
+        .map(([id, i]) => ({ id, fx: +(0.12 + i * 0.085).toFixed(3), fy: 0.66 })),
+      ...['DS+', 'DS−', 'AUX-C', 'AUX-O/F', 'B1+', 'B1−', 'B2+', 'B2−', 'DER-C', 'DER-O/F']
+        .map((id, i) => ({ id, fx: +(0.12 + i * 0.085).toFixed(3), fy: 0.9 })),
+    ],
+  }),
+  // Déclencheurs manuels conventionnels S3000 (DTR 7) : 87 × 87 × 53 mm (fiche). Bornier à
+  // gauche, repéré comme sur l'appareil : 3A / 3, 1A / 1, 2A / 2 — chaque paire est une
+  // double borne (entrée « A », sortie), reliée en interne. Le contact NF du DM est entre 3 et
+  // 2 : il s'ouvre au déclenchement (le modèle d'essai en tient compte, pas le catalogue).
+  vector({
+    key: 'dmmds3000', name: 'Déclencheur manuel saillie · membrane déformable · IP24', ref: 'MDS3000 · NUG30316',
+    brand: 'Nugelec', kind: 'button', family: 'Sécurité incendie', door: true,
+    dims: { largeur: 87, hauteur: 87, profondeur: 53, source: 'fiche' },
+    modules: 0, poles: 1, ...tailleSprite(87, 87),
+    terminals: ['3A', '3', '1A', '1', '2A', '2'].map((id, i) => ({ id, fx: 0.1, fy: +(0.2 + i * 0.13).toFixed(2) })),
+    passes: [['3A', '3'], ['1A', '1'], ['2A', '2']],
+  }),
+  vector({
+    key: 'dmbges3000', name: 'Déclencheur manuel saillie étanche · membrane déformable · IP66', ref: 'BGES3000 · NUG30312',
+    brand: 'Nugelec', kind: 'button', family: 'Sécurité incendie', door: true,
+    dims: { largeur: 87, hauteur: 87, profondeur: 53, source: 'fiche' },
+    modules: 0, poles: 1, ...tailleSprite(87, 87),
+    terminals: ['3A', '3', '1A', '1', '2A', '2'].map((id, i) => ({ id, fx: 0.1, fy: +(0.2 + i * 0.13).toFixed(2) })),
+    passes: [['3A', '3'], ['1A', '1'], ['2A', '2']],
+  }),
+  // Diffuseur sonore de classe B sur la ligne 24 V⎓ du tableau (DTR 8 § 2.5). Aucune notice
+  // de diffuseur au dossier : cotes à relever. Bornes + / − à gauche.
+  vector({
+    key: 'diffsonore', name: 'Diffuseur sonore d’alarme incendie · classe B · 24 V⎓', ref: 'diffuseur sonore classe B',
+    kind: 'misc', family: 'Sécurité incendie', door: true, modules: 0, poles: 2, w: 64, h: 84,
+    terminals: [{ id: '+', fx: 0.1, fy: 0.62 }, { id: '−', fx: 0.1, fy: 0.8 }],
+  }),
+  // Résistance de fin de ligne 3,9 kΩ (orange, blanc, rouge), livrée avec le tableau : elle se
+  // serre sur le dernier DM de chaque boucle (DTR 8 § 1). Dessinée AGRANDIE — à l'échelle
+  // (6 mm), elle ferait 9 px, sous la taille d'une cible tactile : pas de cote déclarée.
+  vector({
+    key: 'rfl39k', name: 'Résistance de fin de ligne 3,9 kΩ · orange, blanc, rouge', ref: 'fin de ligne 3,9 kΩ',
+    kind: 'misc', family: 'Sécurité incendie', door: true, modules: 0, poles: 2, w: 48, h: 18,
+    terminals: [{ id: '1', fx: 0.06, fy: 0.5 }, { id: '2', fx: 0.94, fy: 0.5 }],
+  }),
+  /* ═══ chevrerie-a4-ssi : fin ═══ */
 ];
 
 export const CATALOGUE_BY_KEY: Record<string, CatalogueItem> = Object.fromEntries(CATALOGUE.map(c => [c.key, c]));

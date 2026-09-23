@@ -28,11 +28,15 @@ export const THEMES: Record<ThemeSujet, ThemeInfo> = {
   automatisme: { id: 'automatisme', label: 'Automatisme', court: 'Auto.', icone: '⚙', couleur: '#475569', fond: '#E2E8F0' },
   moteur: { id: 'moteur', label: 'Moteurs', court: 'Mot.', icone: '🌀', couleur: '#B91C1C', fond: '#FDE8E6' },
   distribution: { id: 'distribution', label: 'Distribution', court: 'Distr.', icone: '⚡', couleur: '#4338CA', fond: '#E0E7FF' },
+  incendie: { id: 'incendie', label: 'Sécurité incendie', court: 'SSI', icone: '🔥', couleur: '#C2410C', fond: '#FFE4D6' },
+  intrusion: { id: 'intrusion', label: 'Alarme intrusion', court: 'Intr.', icone: '🚨', couleur: '#9F1239', fond: '#FCE7F3' },
+  eolien: { id: 'eolien', label: 'Éolien', court: 'Éol.', icone: '🌬', couleur: '#0F766E', fond: '#D9F2EE' },
+  ecs: { id: 'ecs', label: 'Eau chaude sanitaire', court: 'ECS', icone: '🚿', couleur: '#B45309', fond: '#FEF3C7' },
 };
 
 /** Ordre d'affichage des thèmes (filtres du catalogue). */
 export const ORDRE_THEMES: ThemeSujet[] = [
-  'securite', 'eclairage', 'domotique', 'acces', 'reseau', 'pv', 'automatisme', 'moteur', 'distribution',
+  'securite', 'incendie', 'intrusion', 'eclairage', 'domotique', 'acces', 'reseau', 'pv', 'eolien', 'ecs', 'automatisme', 'moteur', 'distribution',
 ];
 
 /** Style « sujet complet » (carte large, colonne du suivi). */
